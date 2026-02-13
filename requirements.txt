@@ -1,7 +1,6 @@
-pyTelegramBotAPI==4.30.0
+pyTelegramBotAPI
 flask
-gspread
 requests
-gunicorn
+gspread
 google-auth
-urllib3==2.2.1
+gunicorn
