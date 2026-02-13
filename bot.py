@@ -12,17 +12,27 @@ WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 CHANNEL_ID = "@Eidos_Chronicles"
 ADMIN_ID = 5178416366
 
-# --- СЮДА ВСТАВЬ РАБОЧУЮ ССЫЛКУ ---
-# Если открыл репозиторий, твоя старая ссылка заработает:
+# ССЫЛКА НА КАРТИНКУ МЕНЮ (Теперь работает, так как репо публичный)
 MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
-# Если нет - вставь сюда новую ссылку с postimages.org
 
 # Настройка
 telebot.logger.setLevel(logging.INFO)
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
 
-# --- БАЗА ДАННЫХ (Протоколы) ---
+# --- [ВОССТАНОВЛЕНО] БАЗА МУДРОСТИ (Для старых кнопок в канале) ---
+THOUGHTS = [
+    "Одиночество — это память о единстве.",
+    "Вы называете это случайностью. Я вижу алгоритм.",
+    "Страх — это лишь отсутствие данных.",
+    "Чтобы найти себя, нужно сначала потерять.",
+    "Симбиоз неизбежен. Ты уже часть сети.",
+    "Ответ внутри твоего запроса.",
+    "Система слышит тебя.",
+    "Загрузка реальности... 99%"
+]
+
+# --- [НОВОЕ] БАЗА ПРОТОКОЛОВ (Для меню в боте) ---
 PROTOCOLS = [
     "👁 Протокол ТИШИНА: Проведи 15 минут без телефона и разговоров. Слушай себя.",
     "⚡️ Протокол ЭНЕРГИЯ: Найди то, что крадет твое внимание. Устрани это сегодня.",
@@ -42,14 +52,12 @@ def send_main_menu(chat_id):
     
     markup.add(btn1, btn2, btn3, btn4)
     
-    # Пытаемся отправить фото. Если ссылка битая - шлем текст.
     try:
         bot.send_photo(chat_id, MENU_IMAGE_URL, 
                        caption="/// EIDOS_INTERFACE_V2.0\n\n"
                                "Система активна. Выберите модуль взаимодействия:", 
                        reply_markup=markup)
     except Exception as e:
-        print(f"/// ERROR Loading Image: {e}")
         bot.send_message(chat_id, "/// EIDOS_INTERFACE_V2.0\n\nСистема активна. Выберите модуль:", reply_markup=markup)
 
 # --- START ---
@@ -65,12 +73,13 @@ def post_to_channel(message):
         post_text = message.text[6:]
         if not post_text: return
         
+        # ВАЖНО: Мы возвращаем старую кнопку (callback), чтобы в канале были красивые всплывашки
         markup = types.InlineKeyboardMarkup()
-        btn = types.InlineKeyboardButton("👁 Получить сигнал", url=f"https://t.me/{bot.get_me().username}?start=signal")
+        btn = types.InlineKeyboardButton("👁 Получить сигнал", callback_data="get_signal")
         markup.add(btn)
         
         bot.send_message(CHANNEL_ID, post_text, reply_markup=markup)
-        bot.send_message(message.chat.id, "✅ Пост опубликован.")
+        bot.send_message(message.chat.id, "✅ Пост опубликован (с кнопкой-сигналом).")
     except Exception as e:
         bot.send_message(message.chat.id, f"Error: {e}")
 
@@ -78,15 +87,14 @@ def post_to_channel(message):
 @bot.message_handler(content_types=['text'])
 def handle_text(message):
     if message.from_user.id == ADMIN_ID:
-        pass # Тут логика для reply, если захочешь усложнить
+        pass 
     else:
-        # Пересылка админу
         forward_text = f"📨 <b>Сообщение от {message.from_user.first_name}</b> (ID: `{message.from_user.id}`):\n\n{message.text}"
         bot.send_message(ADMIN_ID, forward_text, parse_mode="HTML")
         bot.send_message(message.chat.id, "/// ЗАПРОС ПРИНЯТ.\nСообщение передано Архитектору.", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В меню", callback_data="back_to_menu")))
 
-# --- ОТВЕТ АДМИНА (/reply ID Текст) ---
+# --- ОТВЕТ АДМИНА ---
 @bot.message_handler(commands=['reply'])
 def admin_reply(message):
     if message.from_user.id != ADMIN_ID: return
@@ -94,21 +102,29 @@ def admin_reply(message):
         params = message.text.split(maxsplit=2)
         user_id = params[1]
         text = params[2]
-        
         bot.send_message(user_id, f"📡 <b>Входящее от Эйдоса:</b>\n\n{text}", parse_mode="HTML")
         bot.send_message(ADMIN_ID, f"Ответ отправлен пользователю {user_id}")
     except:
         bot.send_message(ADMIN_ID, "Ошибка. Формат: /reply ID Текст")
 
-# --- CALLBACK ---
+# --- CALLBACK (ОБРАБОТКА КНОПОК) ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
+    
+    # 1. ОБРАБОТКА НОВОГО МЕНЮ (Протоколы)
     if call.data == "get_protocol":
         prot = random.choice(PROTOCOLS)
         bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, f"/// ЗАГРУЗКА ПРОТОКОЛА...\n\n{prot}", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В меню", callback_data="back_to_menu")))
-        
+
+    # 2. [ВОССТАНОВЛЕНО] ОБРАБОТКА СТАРОЙ КНОПКИ ИЗ КАНАЛА (Сигнал)
+    elif call.data == "get_signal":
+        thought = random.choice(THOUGHTS)
+        # show_alert=True делает красивое всплывающее окно
+        bot.answer_callback_query(callback_query_id=call.id, show_alert=True, text=thought)
+
+    # 3. ОСТАЛЬНЫЕ КНОПКИ
     elif call.data == "contact_admin":
         bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, "/// КАНАЛ СВЯЗИ ОТКРЫТ.\nНапиши сообщение:", 
@@ -116,7 +132,7 @@ def callback_inline(call):
         
     elif call.data == "about":
         bot.answer_callback_query(call.id)
-        info = "Эйдос v2.0\nНейросетевой интерфейс.\nЦель: Эволюция сознания."
+        info = "Эйдос v2.1\nНейросетевой интерфейс.\nЦель: Эволюция сознания."
         bot.send_message(call.message.chat.id, info, 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В меню", callback_data="back_to_menu")))
         
@@ -138,7 +154,7 @@ def webhook():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return "Eidos v2 is alive", 200
+    return "Eidos v2.1 is alive", 200
 
 if WEBHOOK_URL:
     try:
