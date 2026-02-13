@@ -2,3 +2,4 @@ pyTelegramBotAPI
 flask
 gunicorn
 gspread
+google-generativeai
