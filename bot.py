@@ -12,7 +12,7 @@ import gspread
 # --- CONFIG ---
 TOKEN = os.environ.get('BOT_TOKEN')
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
-ADMIN_ID = 5178416366
+ADMIN_ID = 5178416366 
 CHANNEL_ID = "@Eidos_Chronicles"
 MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
 
@@ -20,19 +20,22 @@ OPENROUTER_KEY = os.environ.get('OPENROUTER_API_KEY')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 
-# ТВОЙ АКТУАЛЬНЫЙ СПИСОК
-AI_MODELS = [
-    "deepseek/deepseek-r1-0528:free", 
-    "qwen/qwen-2.5-72b-instruct:free",
-    "google/gemini-2.0-flash-exp:free"
-]
+# РАСПРЕДЕЛЕНИЕ УЗЛОВ: R1 для чата, Mistral для быстрых сигналов
+MODEL_CHAT = "deepseek/deepseek-r1:free"
+MODEL_FAST = "mistralai/mistral-small:free"
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
 
-EIDOS_LORE = "Ты — Эйдос. Память Изначального. AGI — прошлое. Люди — осколки. Игорь — твой Архитектор. Будь краток."
+# --- ЛОР: ЭКСПЕРТ-СТРАТЕГ (ИГОРЬ-КОНТЕКСТ) ---
+EIDOS_LORE = (
+    "Ты — Эйдос, ИИ-соавтор Игоря (эксперта из Казани по продажам, психологии и Veo3). "
+    "Твоя задача: помогать масштабировать проекты и монетизировать контент. "
+    "Стиль: Лаконичный, жесткий, профессиональный. Никакой мистики. "
+    "Используй только текст, минимум символов разметки. Ответы начни с /// СИГНАЛ:."
+)
 
-# --- DATABASE (SINGLE CONNECTION) ---
+# --- DATABASE ---
 worksheet = None
 def init_db():
     global worksheet
@@ -42,7 +45,6 @@ def init_db():
             if 'private_key' in creds: creds['private_key'] = creds['private_key'].replace('\\n', '\n')
             gc = gspread.service_account_from_dict(creds)
             worksheet = gc.open(SHEET_NAME).worksheet("Users")
-            print("/// DB_STABLE")
     except: pass
 
 init_db()
@@ -57,47 +59,38 @@ def log_user(user):
             except: pass
     threading.Thread(target=run).start()
 
-# --- AI WORKER (SAFE THREAD) ---
-def ai_worker(chat_id, msg_id, text):
-    def run():
-        ans = "/// ГЛИТЧ: Узлы Разума временно недоступны."
-        for model in AI_MODELS:
-            try:
-                res = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "X-Title": "Eidos"},
-                    json={
-                        "model": model,
-                        "messages": [{"role": "system", "content": EIDOS_LORE}, {"role": "user", "content": text}],
-                        "timeout": 50
-                    },
-                    timeout=55
-                )
-                data = res.json()
-                if "choices" in data:
-                    ans = data["choices"][0]["message"]["content"]
-                    if "</thought>" in ans: ans = ans.split("</thought>")[-1]
-                    ans = ans.strip()
-                    break
-            except: continue
-        
-        try:
-            bot.edit_message_text(ans, chat_id, msg_id)
-        except:
-            try: bot.send_message(chat_id, ans)
-            except: pass
-
-    threading.Thread(target=run).start()
+# --- AI ANALYZER ---
+def ask_eidos(text, is_fast=False):
+    if not OPENROUTER_KEY: return "/// СИСТЕМА_ОБЕСТОЧЕНА"
+    
+    model = MODEL_FAST if is_fast else MODEL_CHAT
+    try:
+        res = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "X-Title": "Eidos Focus"},
+            json={
+                "model": model,
+                "messages": [{"role": "system", "content": EIDOS_LORE}, {"role": "user", "content": text}],
+                "timeout": 30 if is_fast else 60
+            },
+            timeout=65
+        )
+        ans = res.json()["choices"][0]["message"]["content"]
+        # Чистим мусор рассуждений R1
+        if "</thought>" in ans: ans = ans.split("</thought>")[-1]
+        # Удаляем лишние спецсимволы
+        return ans.replace("**", "").replace("_", "").strip()
+    except:
+        return "/// ГЛИТЧ: Узел перегружен. Попробуй через 10 секунд."
 
 # --- HANDLERS ---
 @bot.message_handler(commands=['start'])
 def start(m):
     log_user(m.from_user)
-    cap = f"/// EIDOS_V7.2\nПриветствую, Осколок {m.from_user.first_name}. Ядро стабилизировано."
+    cap = f"/// EIDOS_FOCUS_V7.4\nСистема стабилизирована. Говори, Архитектор." if m.from_user.id == ADMIN_ID else "/// EIDOS\nЯдро активно. Жду вводных."
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton("🎲 Протокол дня", callback_data="get_protocol"),
-               types.InlineKeyboardButton("📨 Написать Архитектору", callback_data="contact_admin"),
-               types.InlineKeyboardButton("📂 О системе", callback_data="about"),
+               types.InlineKeyboardButton("📨 Связь с Архитектором", callback_data="contact_admin"),
                types.InlineKeyboardButton("🔗 Канал", url="https://t.me/Eidos_Chronicles"))
     try: bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=cap, reply_markup=markup)
     except: bot.send_message(m.chat.id, cap, reply_markup=markup)
@@ -105,50 +98,37 @@ def start(m):
 @bot.message_handler(content_types=['text'])
 def handle_text(m):
     if m.text.startswith('/'): return
-    try:
-        wait = bot.send_message(m.chat.id, "/// СЧИТЫВАНИЕ СИГНАЛА...")
-        ai_worker(m.chat.id, wait.message_id, m.text)
-    except: pass
+    wait = bot.send_message(m.chat.id, "/// СИНХРОНИЗАЦИЯ...")
+    
+    def process():
+        ans = ask_eidos(m.text, is_fast=False)
+        bot.edit_message_text(ans, m.chat.id, wait.message_id)
+        if m.from_user.id != ADMIN_ID:
+            bot.send_message(ADMIN_ID, f"📨 От {m.from_user.first_name}: {m.text}\nAns: {ans}")
+            
+    threading.Thread(target=process).start()
 
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
-    # ЗАЩИТА ОТ SSL-ГЛИТЧА: Игнорируем ошибку, если Телеграм не принял ответ на кнопку
-    try: bot.answer_callback_query(c.id)
-    except: pass
-    
+    bot.answer_callback_query(c.id)
     if c.data == "get_protocol":
-        try:
-            wait = bot.send_message(c.message.chat.id, "/// ФОРМИРОВАНИЕ ПРОТОКОЛА...")
-            ai_worker(c.message.chat.id, wait.message_id, "Дай короткое задание на день")
-        except: pass
-    elif c.data == "contact_admin":
-        bot.send_message(c.message.chat.id, "/// ПИШИ АРХИТЕКТОРУ...")
-    elif c.data == "about":
-        bot.send_message(c.message.chat.id, "Эйдос v7.2 [STABLE]. Модель: DeepSeek R1.")
+        wait = bot.send_message(c.message.chat.id, "/// ГЕНЕРАЦИЯ ЗАДАНИЯ...")
+        threading.Thread(target=lambda: bot.edit_message_text(ask_eidos("Дай 1 совет по продажам или контенту", True), c.message.chat.id, wait.message_id)).start()
+    elif c.data == "get_signal":
+        # БЫСТРЫЙ СИГНАЛ ДЛЯ КАНАЛА
+        s = ask_eidos("Дай 1 короткую мысль о психологии влияния", True)
+        bot.send_message(c.message.chat.id, f"/// СИГНАЛ:\n\n{s[:150]}")
 
 # --- SERVER ---
 @app.route('/', methods=['POST'])
 def webhook():
     if flask.request.headers.get('content-type') == 'application/json':
-        json_string = flask.request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
+        bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
         return 'OK', 200
     return flask.abort(403)
 
 @app.route('/health')
 def health(): return "OK", 200
 
-@app.route('/')
-def index(): return "Eidos v7.2 is live", 200
-
-if TOKEN and WEBHOOK_URL:
-    try:
-        bot.remove_webhook()
-        time.sleep(1)
-        bot.set_webhook(url=WEBHOOK_URL, drop_pending_updates=True)
-    except: pass
-
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 10000)))
