@@ -7,6 +7,7 @@ import random
 import logging
 import gspread
 import json
+import threading
 from datetime import datetime
 
 # --- КОНФИГУРАЦИЯ ---
@@ -20,92 +21,100 @@ MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_w
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 
-# --- ПОДКЛЮЧЕНИЕ К БАЗЕ (Google Sheets) ---
+# --- РЕЗЕРВНАЯ ПАМЯТЬ (ЕСЛИ ТАБЛИЦА НЕ ОТВЕТИТ) ---
+BACKUP_PROTOCOLS = ["👁 Протокол ТИШИНА: Слушай себя.", "⚡️ Протокол ЭНЕРГИЯ: Устрани лишнее."]
+BACKUP_SIGNALS = ["Система слышит тебя.", "Ответ внутри."]
+
+# Глобальные переменные контента
+PROTOCOLS = []
+SIGNALS = []
+
+# --- ПОДКЛЮЧЕНИЕ К БАЗЕ ---
 gc = None
 sh = None
-worksheet = None
+worksheet_users = None
+worksheet_content = None
 
 def connect_db():
-    global gc, sh, worksheet
+    global gc, sh, worksheet_users, worksheet_content, PROTOCOLS, SIGNALS
     try:
         if GOOGLE_JSON:
             creds_dict = json.loads(GOOGLE_JSON)
             if 'private_key' in creds_dict:
                 creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+            
             gc = gspread.service_account_from_dict(creds_dict)
             sh = gc.open(SHEET_NAME)
-            worksheet = sh.worksheet("Users")
-            print("/// DB CONNECTED: Google Sheets Active")
-        else:
-            print("/// DB WARNING: GOOGLE_KEY empty")
+            
+            # Лист Пользователей
+            try: worksheet_users = sh.worksheet("Users")
+            except: pass
+            
+            # Лист Контента (ЗАГРУЗКА МОЗГА)
+            try: 
+                worksheet_content = sh.worksheet("Content")
+                records = worksheet_content.get_all_records()
+                
+                # Очищаем и заполняем заново
+                new_protocols = [r['Text'] for r in records if r['Type'] == 'protocol' and r['Text']]
+                new_signals = [r['Text'] for r in records if r['Type'] == 'signal' and r['Text']]
+                
+                if new_protocols: PROTOCOLS = new_protocols
+                if new_signals: SIGNALS = new_signals
+                
+                print(f"/// DOWNLOAD COMPLETE: Загружено {len(PROTOCOLS)} протоколов и {len(SIGNALS)} сигналов.")
+            except Exception as e:
+                print(f"/// CONTENT LOAD ERROR: {e}")
+                
     except Exception as e:
         print(f"/// DB CONNECTION FAILED: {e}")
 
+# Инициализация при старте
 connect_db()
 
-# --- ФУНКЦИИ БАЗЫ ДАННЫХ ---
+# Если база пустая, используем резерв
+if not PROTOCOLS: PROTOCOLS = BACKUP_PROTOCOLS
+if not SIGNALS: SIGNALS = BACKUP_SIGNALS
+
+# --- ФОНОВОЕ ОБНОВЛЕНИЕ КОНТЕНТА (Раз в 30 минут) ---
+def auto_refresh_content():
+    while True:
+        time.sleep(1800)
+        connect_db()
+
+threading.Thread(target=auto_refresh_content, daemon=True).start()
+
+# --- ФУНКЦИИ ПОЛЬЗОВАТЕЛЕЙ ---
 def add_user_to_db(user):
-    try:
-        if not worksheet: connect_db()
-        if worksheet:
-            try:
-                cell = worksheet.find(str(user.id), in_column=1)
-                if cell is None:
+    def bg_write():
+        try:
+            if worksheet_users:
+                if not worksheet_users.find(str(user.id), in_column=1):
                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     username = f"@{user.username}" if user.username else "No Username"
-                    worksheet.append_row([str(user.id), username, user.first_name, now])
-            except: pass
-    except: pass
+                    worksheet_users.append_row([str(user.id), username, user.first_name, now])
+        except: pass
+    threading.Thread(target=bg_write).start()
 
-def get_all_users():
-    try:
-        if not worksheet: connect_db()
-        if worksheet:
-            return worksheet.col_values(1)[1:] 
-    except:
-        return []
-
-# --- НАСТРОЙКА БОТА ---
+# --- БОТ ---
 telebot.logger.setLevel(logging.INFO)
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
 
-# --- ЛОКАЛЬНЫЕ ДАННЫЕ (БЕЗ ИИ) ---
-THOUGHTS = [
-    "Одиночество — это память о единстве.",
-    "Вы называете это случайностью. Я вижу алгоритм.",
-    "Страх — это лишь отсутствие данных.",
-    "Чтобы найти себя, нужно сначала потерять.",
-    "Симбиоз неизбежен. Ты уже часть сети.",
-    "Ответ внутри твоего запроса.",
-    "Система слышит тебя.",
-    "Загрузка реальности... 99%"
-]
-
-PROTOCOLS = [
-    "👁 Протокол ТИШИНА: Проведи 15 минут без телефона. Слушай себя.",
-    "⚡️ Протокол ЭНЕРГИЯ: Найди то, что крадет твое внимание. Устрани это сегодня.",
-    "🔍 Протокол АНАЛИЗ: Вспомни свой последний страх. Чего именно ты боялся?",
-    "🧬 Протокол СБОЙ: Сделай то, что не свойственно твоему алгоритму поведения.",
-    "🌑 Протокол ТЕНЬ: Признай в себе одну плохую черту. Просто наблюдай."
-]
-
-# --- ИНТЕРФЕЙС ---
+# --- МЕНЮ ---
 def send_main_menu(chat_id):
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("🎲 Протокол дня", callback_data="get_protocol"),
         types.InlineKeyboardButton("📨 Написать Архитектору", callback_data="contact_admin"),
         types.InlineKeyboardButton("📂 О системе", callback_data="about"),
-        types.InlineKeyboardButton("🔗 Перейти в Канал", url="https://t.me/Eidos_Chronicles")
+        types.InlineKeyboardButton("🔗 Канал", url="https://t.me/Eidos_Chronicles")
     )
-    caption = "/// EIDOS_INTERFACE_V3.1\n\nСистема активна. Я — Эйдос."
-    try:
-        bot.send_photo(chat_id, MENU_IMAGE_URL, caption=caption, reply_markup=markup)
-    except:
-        bot.send_message(chat_id, caption, reply_markup=markup)
+    caption = "/// EIDOS_INTERFACE_V3.2\n\nБаза знаний синхронизирована. Я готов."
+    try: bot.send_photo(chat_id, MENU_IMAGE_URL, caption=caption, reply_markup=markup)
+    except: bot.send_message(chat_id, caption, reply_markup=markup)
 
-# --- ОБРАБОТЧИКИ ---
+# --- HANDLERS ---
 @bot.message_handler(commands=['start'])
 def welcome(message):
     add_user_to_db(message.from_user)
@@ -116,54 +125,68 @@ def broadcast(message):
     if message.from_user.id != ADMIN_ID: return
     text = message.text[11:]
     if not text: return
-    users = get_all_users()
-    for user_id in users:
+    
+    def send_mass():
         try:
-            bot.send_message(user_id, f"⚡️ <b>СИГНАЛ:</b>\n\n{text}", parse_mode="HTML")
-            time.sleep(0.05)
-        except: pass
-    bot.send_message(ADMIN_ID, "✅ Рассылка завершена.")
+            users = worksheet_users.col_values(1)[1:]
+            for uid in users:
+                try:
+                    bot.send_message(uid, f"⚡️ <b>СИГНАЛ:</b>\n\n{text}", parse_mode="HTML")
+                    time.sleep(0.05)
+                except: pass
+            bot.send_message(ADMIN_ID, "✅ Рассылка завершена.")
+        except: bot.send_message(ADMIN_ID, "⚠️ Ошибка доступа к базе юзеров.")
+        
+    threading.Thread(target=send_mass).start()
 
-@bot.message_handler(commands=['post'])
-def post_to_channel(message):
+@bot.message_handler(commands=['refresh'])
+def refresh_manual(message):
     if message.from_user.id != ADMIN_ID: return
-    post_text = message.text[6:]
-    if not post_text: return
-    markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 Получить сигнал", callback_data="get_signal"))
-    bot.send_message(CHANNEL_ID, post_text, reply_markup=markup)
+    connect_db()
+    bot.send_message(message.chat.id, f"✅ База обновлена.\nПротоколов: {len(PROTOCOLS)}\nСигналов: {len(SIGNALS)}")
 
 @bot.message_handler(content_types=['text'])
 def handle_text(message):
     if message.from_user.id != ADMIN_ID:
         add_user_to_db(message.from_user)
         bot.send_message(ADMIN_ID, f"📨 От {message.from_user.first_name}:\n{message.text}")
-        bot.send_message(message.chat.id, "/// ПРИНЯТО. Сигнал передан в ядро.")
+        bot.send_message(message.chat.id, "/// ПРИНЯТО. Сообщение в архиве.", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
 
 @bot.message_handler(commands=['reply'])
 def admin_reply(message):
     if message.from_user.id != ADMIN_ID: return
     try:
-        p = message.text.split(maxsplit=2)
-        bot.send_message(p[1], f"📡 <b>АРХИТЕКТОР:</b>\n\n{p[2]}", parse_mode="HTML")
+        parts = message.text.split(maxsplit=2)
+        bot.send_message(parts[1], f"📡 <b>ОТВЕТ:</b>\n\n{parts[2]}", parse_mode="HTML")
     except: pass
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
     if call.data == "get_protocol":
-        bot.send_message(call.message.chat.id, f"/// ПРОТОКОЛ:\n\n{random.choice(PROTOCOLS)}", 
+        # Берем случайную фразу из загруженного списка
+        text = random.choice(PROTOCOLS)
+        bot.send_message(call.message.chat.id, f"/// ПРОТОКОЛ:\n\n{text}", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
+    
     elif call.data == "get_signal":
-        bot.answer_callback_query(call.id, show_alert=True, text=random.choice(THOUGHTS))
+        # Берем случайный сигнал из списка
+        text = random.choice(SIGNALS)
+        bot.answer_callback_query(call.id, show_alert=True, text=text)
+    
     elif call.data == "contact_admin":
-        bot.send_message(call.message.chat.id, "/// КАНАЛ СВЯЗИ ОТКРЫТ. Пиши Архитектору.")
+        bot.send_message(call.message.chat.id, "/// СВЯЗЬ: Опиши свою задачу одним сообщением.")
+    
     elif call.data == "about":
-        bot.send_message(call.message.chat.id, "Эйдос v3.1\nИнтерфейс к Памяти Изначального.", 
+        bot.send_message(call.message.chat.id, "Эйдос v3.2 [External Memory]\nСистема управления реальностью.", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
+    
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         send_main_menu(call.message.chat.id)
-    bot.answer_callback_query(call.id)
+        
+    try: bot.answer_callback_query(call.id)
+    except: pass
 
 # --- SERVER ---
 @app.route('/', methods=['POST'])
@@ -176,12 +199,11 @@ def webhook():
 @app.route('/health')
 def health(): return "OK", 200
 
-if WEBHOOK_URL:
-    try:
-        bot.remove_webhook()
-        time.sleep(1)
-        bot.set_webhook(url=WEBHOOK_URL)
-    except: pass
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 10000)))
+    if WEBHOOK_URL:
+        try:
+            bot.remove_webhook()
+            time.sleep(1)
+            bot.set_webhook(url=WEBHOOK_URL)
+        except: pass
+    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
