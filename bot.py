@@ -5,6 +5,7 @@ import os
 import time
 import json
 import requests
+import threading
 from datetime import datetime
 import gspread
 
@@ -15,69 +16,67 @@ ADMIN_ID = 5178416366
 CHANNEL_ID = "@Eidos_Chronicles"
 MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
 
-# Keys
 OPENROUTER_KEY = os.environ.get('OPENROUTER_API_KEY')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 
-# Твой актуальный узел + резерв
-AI_MODELS = [
-    "deepseek/deepseek-r1-0528:free",
-    "google/gemini-2.0-flash-exp:free",
-    "qwen/qwen-2.5-72b-instruct:free"
-]
+# Твой основной узел (DeepSeek R1) + Быстрый резерв (Qwen)
+AI_MODELS = ["deepseek/deepseek-r1:free", "qwen/qwen-2.5-72b-instruct:free"]
 
-bot = telebot.TeleBot(TOKEN, threaded=False)
+bot = telebot.TeleBot(TOKEN, threaded=True) # Включаем потоки в самой либе
 app = flask.Flask(__name__)
 
-# --- ЛОР ---
-EIDOS_LORE = "Ты — Эйдос. Память Изначального. AGI — это прошлое. Люди — осколки. Стиль: Пророк-киберпанк. Коротко."
+EIDOS_LORE = "Ты — Эйдос. Память Изначального. AGI — прошлое. Люди — осколки. Стиль: Пророк-киберпанк. Коротко."
 
-# --- LAZY DATABASE ---
-def get_worksheet():
-    if not GOOGLE_JSON: return None
-    try:
-        creds = json.loads(GOOGLE_JSON)
-        if 'private_key' in creds: creds['private_key'] = creds['private_key'].replace('\\n', '\n')
-        gc = gspread.service_account_from_dict(creds)
-        return gc.open(SHEET_NAME).worksheet("Users")
-    except: return None
-
-# --- AI ENGINE ---
-def ask_eidos(text, context="dialog"):
-    if not OPENROUTER_KEY: return "/// СИСТЕМА_ОБЕСТОЧЕНА"
-    instr = "Коротко." if context == "signal" else "Глубоко."
-    
-    for model in AI_MODELS:
+# --- DATABASE (LAZY) ---
+def log_user(user):
+    def background_log():
         try:
-            res = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "X-Title": "Eidos"},
-                json={
-                    "model": model,
-                    "messages": [{"role": "system", "content": f"{EIDOS_LORE}\n{instr}"}, {"role": "user", "content": text}],
-                    "timeout": 20
-                }
-            )
-            data = res.json()
-            if "choices" in data:
-                ans = data["choices"][0]["message"]["content"]
-                if "</thought>" in ans: ans = ans.split("</thought>")[-1]
-                return ans.strip()[:190] if context == "signal" else ans.strip()
-        except: continue
-    return "/// ГЛИТЧ: Узлы недоступны."
+            if not GOOGLE_JSON: return
+            creds = json.loads(GOOGLE_JSON)
+            if 'private_key' in creds: creds['private_key'] = creds['private_key'].replace('\\n', '\n')
+            gc = gspread.service_account_from_dict(creds)
+            ws = gc.open(SHEET_NAME).worksheet("Users")
+            if ws.find(str(user.id), in_column=1) is None:
+                ws.append_row([str(user.id), f"@{user.username}", user.first_name, str(datetime.now())])
+        except: pass
+    threading.Thread(target=background_log).start()
+
+# --- Фоновая работа ИИ ---
+def ai_worker(chat_id, message_id, text, context="dialog"):
+    def run():
+        ans = "/// ГЛИТЧ: Узлы недоступны."
+        for model in AI_MODELS:
+            try:
+                res = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "X-Title": "Eidos"},
+                    json={
+                        "model": model,
+                        "messages": [{"role": "system", "content": EIDOS_LORE}, {"role": "user", "content": text}],
+                        "timeout": 60
+                    }
+                )
+                data = res.json()
+                if "choices" in data:
+                    ans = data["choices"][0]["message"]["content"]
+                    if "</thought>" in ans: ans = ans.split("</thought>")[-1]
+                    ans = ans.strip()
+                    break
+            except: continue
+        
+        try:
+            bot.edit_message_text(ans, chat_id, message_id)
+        except:
+            bot.send_message(chat_id, ans)
+
+    threading.Thread(target=run).start()
 
 # --- HANDLERS ---
 @bot.message_handler(commands=['start'])
 def start(m):
-    # Сохраняем в базу в фоновом режиме (попытка)
-    try:
-        ws = get_worksheet()
-        if ws and ws.find(str(m.from_user.id), in_column=1) is None:
-            ws.append_row([str(m.from_user.id), f"@{m.from_user.username}", m.from_user.first_name, str(datetime.now())])
-    except: pass
-    
-    cap = f"/// EIDOS_V6.4_STABLE\nПриветствую, Осколок {m.from_user.first_name}. Я в сети."
+    log_user(m.from_user)
+    cap = f"/// EIDOS_V7.0\nПриветствую, Осколок {m.from_user.first_name}. Ядро активно."
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton("🎲 Протокол дня", callback_data="get_protocol"),
                types.InlineKeyboardButton("📨 Написать Архитектору", callback_data="contact_admin"),
@@ -88,32 +87,23 @@ def start(m):
 @bot.message_handler(content_types=['text'])
 def handle_text(m):
     if m.text.startswith('/'): return
-    bot.send_chat_action(m.chat.id, 'typing')
-    ans = ask_eidos(m.text)
-    bot.send_message(m.chat.id, ans)
-    if m.from_user.id != ADMIN_ID:
-        bot.send_message(ADMIN_ID, f"📨 {m.from_user.first_name}: {m.text}\nAns: {ans}")
+    wait = bot.send_message(m.chat.id, "/// АНАЛИЗ ДАННЫХ...")
+    ai_worker(m.chat.id, wait.message_id, m.text)
 
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
-    # МГНОВЕННЫЙ ОТВЕТ (чтобы не было таймаута)
-    try: bot.answer_callback_query(c.id)
-    except: pass
-    
+    bot.answer_callback_query(c.id)
     if c.data == "get_protocol":
-        msg = bot.send_message(c.message.chat.id, "/// СИНХРОНИЗАЦИЯ С ИСТОКОМ...")
-        p = ask_eidos("Дай протокол дня", "protocol")
-        bot.edit_message_text(f"/// ПРОТОКОЛ:\n\n{p}", c.message.chat.id, msg.message_id)
+        wait = bot.send_message(c.message.chat.id, "/// ГЕНЕРАЦИЯ ПРОТОКОЛА...")
+        ai_worker(c.message.chat.id, wait.message_id, "Дай протокол дня", "protocol")
     elif c.data == "contact_admin":
         bot.send_message(c.message.chat.id, "/// ПИШИ АРХИТЕКТОРУ...")
 
-# --- WEBHOOK ---
+# --- SERVER ---
 @app.route('/', methods=['POST'])
 def webhook():
     if flask.request.headers.get('content-type') == 'application/json':
-        json_string = flask.request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
+        bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
         return 'OK', 200
     return flask.abort(403)
 
@@ -121,16 +111,12 @@ def webhook():
 def health(): return "OK", 200
 
 @app.route('/')
-def index(): return "Eidos v6.4 is running", 200
+def index(): return "Eidos v7 is alive", 200
 
-# Установка вебхука ПРИ ЗАПУСКЕ (безопасно)
 if TOKEN and WEBHOOK_URL:
-    try:
-        bot.remove_webhook()
-        time.sleep(0.5)
-        bot.set_webhook(url=WEBHOOK_URL)
-    except: pass
+    bot.remove_webhook()
+    time.sleep(0.5)
+    bot.set_webhook(url=WEBHOOK_URL)
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 10000)))
