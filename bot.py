@@ -58,7 +58,11 @@ def webhook():
         return ''
     else:
         flask.abort(403)
-
+# --- ТОЧКА ПУЛЬСА ДЛЯ МОНИТОРИНГА ---
+@app.route('/health', methods=['GET'])
+def health_check():
+    # Эйдос сообщает, что системы в норме
+    return "Eidos is active. Systems normal.", 200
 # Эта команда сработает один раз при запуске сервера
 # Она сообщает Телеграму: "Шли данные вот сюда"
 if __name__ == "__main__":
