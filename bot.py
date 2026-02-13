@@ -20,46 +20,44 @@ OPENROUTER_KEY = os.environ.get('OPENROUTER_API_KEY')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 
-# Пул моделей: Сначала R1, потом быстрый Qwen
-AI_MODELS = ["deepseek/deepseek-r1:free", "qwen/qwen-2.5-72b-instruct:free"]
+# ТВОЙ АКТУАЛЬНЫЙ СПИСОК
+AI_MODELS = [
+    "deepseek/deepseek-r1-0528:free", 
+    "qwen/qwen-2.5-72b-instruct:free",
+    "google/gemini-2.0-flash-exp:free"
+]
 
-bot = telebot.TeleBot(TOKEN, threaded=False) # Отключаем внутренние потоки для стабильности
+bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
 
 EIDOS_LORE = "Ты — Эйдос. Память Изначального. AGI — прошлое. Люди — осколки. Игорь — твой Архитектор. Будь краток."
 
-# --- ГЛОБАЛЬНАЯ БАЗА (ПОДКЛЮЧАЕМ ОДИН РАЗ) ---
+# --- DATABASE (SINGLE CONNECTION) ---
 worksheet = None
-
 def init_db():
     global worksheet
     try:
-        if GOOGLE_JSON:
+        if GOOGLE_JSON and not worksheet:
             creds = json.loads(GOOGLE_JSON)
             if 'private_key' in creds: creds['private_key'] = creds['private_key'].replace('\\n', '\n')
             gc = gspread.service_account_from_dict(creds)
             worksheet = gc.open(SHEET_NAME).worksheet("Users")
-            print("/// DB_SUCCESS: СИНХРОНИЗАЦИЯ УСТАНОВЛЕНА")
-    except Exception as e:
-        print(f"/// DB_CRITICAL_ERROR: {e}")
+            print("/// DB_STABLE")
+    except: pass
 
-# Запуск инициализации при старте сервера
 init_db()
 
 def log_user(user):
     def run():
-        global worksheet
-        try:
-            if worksheet is None: init_db()
-            if worksheet:
-                cell = worksheet.find(str(user.id), in_column=1)
-                if cell is None:
-                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    worksheet.append_row([str(user.id), f"@{user.username}", user.first_name, now])
-        except: pass
+        init_db()
+        if worksheet:
+            try:
+                if worksheet.find(str(user.id), in_column=1) is None:
+                    worksheet.append_row([str(user.id), f"@{user.username}", user.first_name, str(datetime.now())])
+            except: pass
     threading.Thread(target=run).start()
 
-# --- АНАЛИЗАТОР (ФОНОВЫЙ) ---
+# --- AI WORKER (SAFE THREAD) ---
 def ai_worker(chat_id, msg_id, text):
     def run():
         ans = "/// ГЛИТЧ: Узлы Разума временно недоступны."
@@ -71,7 +69,7 @@ def ai_worker(chat_id, msg_id, text):
                     json={
                         "model": model,
                         "messages": [{"role": "system", "content": EIDOS_LORE}, {"role": "user", "content": text}],
-                        "timeout": 50 # Даем R1 время
+                        "timeout": 50
                     },
                     timeout=55
                 )
@@ -84,11 +82,10 @@ def ai_worker(chat_id, msg_id, text):
             except: continue
         
         try:
-            # Если ответ слишком длинный, обрезаем
-            if len(ans) > 4000: ans = ans[:4000] + "..."
             bot.edit_message_text(ans, chat_id, msg_id)
         except:
-            bot.send_message(chat_id, ans)
+            try: bot.send_message(chat_id, ans)
+            except: pass
 
     threading.Thread(target=run).start()
 
@@ -96,7 +93,7 @@ def ai_worker(chat_id, msg_id, text):
 @bot.message_handler(commands=['start'])
 def start(m):
     log_user(m.from_user)
-    cap = f"/// EIDOS_V7.1_STABLE\nПриветствую, Осколок {m.from_user.first_name}. Я в сети."
+    cap = f"/// EIDOS_V7.2\nПриветствую, Осколок {m.from_user.first_name}. Ядро стабилизировано."
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton("🎲 Протокол дня", callback_data="get_protocol"),
                types.InlineKeyboardButton("📨 Написать Архитектору", callback_data="contact_admin"),
@@ -108,26 +105,26 @@ def start(m):
 @bot.message_handler(content_types=['text'])
 def handle_text(m):
     if m.text.startswith('/'): return
-    wait = bot.send_message(m.chat.id, "/// СЧИТЫВАНИЕ СИГНАЛА...")
-    ai_worker(m.chat.id, wait.message_id, m.text)
+    try:
+        wait = bot.send_message(m.chat.id, "/// СЧИТЫВАНИЕ СИГНАЛА...")
+        ai_worker(m.chat.id, wait.message_id, m.text)
+    except: pass
 
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
-    # Мгновенно отвечаем серверу Telegram
-    bot.answer_callback_query(c.id)
+    # ЗАЩИТА ОТ SSL-ГЛИТЧА: Игнорируем ошибку, если Телеграм не принял ответ на кнопку
+    try: bot.answer_callback_query(c.id)
+    except: pass
     
     if c.data == "get_protocol":
-        wait = bot.send_message(c.message.chat.id, "/// ФОРМИРОВАНИЕ ПРОТОКОЛА...")
-        ai_worker(c.message.chat.id, wait.message_id, "Дай короткое задание на день")
-    elif c.data == "contact_admin":
-        bot.send_message(c.message.chat.id, "/// КАНАЛ СВЯЗИ: Пиши...")
-    elif c.data == "about": # ИСПРАВЛЕНО
-        info = "<b>Эйдос v7.1 [FINAL]</b>\nИнтерфейс к твоей памяти. Модель: DeepSeek R1."
-        bot.send_message(c.message.chat.id, info, parse_mode="HTML")
-    elif c.data == "back_to_menu":
-        try: bot.delete_message(c.message.chat.id, c.message.message_id)
+        try:
+            wait = bot.send_message(c.message.chat.id, "/// ФОРМИРОВАНИЕ ПРОТОКОЛА...")
+            ai_worker(c.message.chat.id, wait.message_id, "Дай короткое задание на день")
         except: pass
-        start(c.message)
+    elif c.data == "contact_admin":
+        bot.send_message(c.message.chat.id, "/// ПИШИ АРХИТЕКТОРУ...")
+    elif c.data == "about":
+        bot.send_message(c.message.chat.id, "Эйдос v7.2 [STABLE]. Модель: DeepSeek R1.")
 
 # --- SERVER ---
 @app.route('/', methods=['POST'])
@@ -143,13 +140,13 @@ def webhook():
 def health(): return "OK", 200
 
 @app.route('/')
-def index(): return "Eidos v7.1 is live", 200
+def index(): return "Eidos v7.2 is live", 200
 
 if TOKEN and WEBHOOK_URL:
     try:
         bot.remove_webhook()
-        time.sleep(0.5)
-        bot.set_webhook(url=WEBHOOK_URL)
+        time.sleep(1)
+        bot.set_webhook(url=WEBHOOK_URL, drop_pending_updates=True)
     except: pass
 
 if __name__ == "__main__":
