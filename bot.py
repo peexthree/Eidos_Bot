@@ -3,10 +3,10 @@ from telebot import types
 import flask
 import os
 import time
+import logging
 
 # --- КОНФИГУРАЦИЯ ---
 TOKEN = os.environ.get('BOT_TOKEN')
-# Твой URL на Render (мы добавим его в переменные окружения позже)
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL') 
 
 bot = telebot.TeleBot(TOKEN)
@@ -55,20 +55,26 @@ def webhook():
         json_string = flask.request.get_data().decode('utf-8')
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
-        return ''
+        return 'OK', 200
     else:
         flask.abort(403)
-# --- ТОЧКА ПУЛЬСА ДЛЯ МОНИТОРИНГА ---
+
+# --- ТОЧКА ПУЛЬСА ДЛЯ МОНИТОРИНГА (ВАЖНО!) ---
 @app.route('/health', methods=['GET'])
 def health_check():
-    # Эйдос сообщает, что системы в норме
-    return "Eidos is active. Systems normal.", 200
-# Эта команда сработает один раз при запуске сервера
-# Она сообщает Телеграму: "Шли данные вот сюда"
+    return "Eidos is active", 200
+
+# --- АВТОМАТИЧЕСКАЯ УСТАНОВКА ВЕБХУКА ---
+# Этот блок выполняется один раз при старте приложения на сервере
+if WEBHOOK_URL:
+    try:
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=WEBHOOK_URL)
+        print(f"/// WEBHOOK SET TO: {WEBHOOK_URL}")
+    except Exception as e:
+        print(f"/// ERROR SETTING WEBHOOK: {e}")
+
+# Этот блок нужен ТОЛЬКО для локального запуска на компьютере (python bot.py)
 if __name__ == "__main__":
-    bot.remove_webhook()
-    time.sleep(1)
-    # Ставим вебхук на адрес твоего приложения
-    bot.set_webhook(url=WEBHOOK_URL)
-    # Запускаем Flask (Render сам даст порт через переменную PORT)
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
