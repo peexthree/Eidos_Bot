@@ -56,7 +56,7 @@ def talk(message):
             thought = random.choice(THOUGHTS)
             bot.send_message(message.chat.id, f">>> Входящие данные:\n\n{thought}")
         elif message.text == '📡 Связь с Архитектором':
-            bot.send_message(message.chat.id, "Контакт: @Igor_Creator") # ЗАМЕНИ НА СВОЙ
+            bot.send_message(message.chat.id, "Контакт: @peexthree") # ЗАМЕНИ НА СВОЙ
         elif message.text == '📂 О проекте':
             bot.send_message(message.chat.id, "Канал: @Eidos_Chronicles")
 
