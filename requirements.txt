@@ -1,6 +1,4 @@
 pyTelegramBotAPI
 flask
-requests
-gspread
-google-auth
 gunicorn
+gspread
