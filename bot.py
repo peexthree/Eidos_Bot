@@ -21,7 +21,7 @@ MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_w
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 
-# --- РЕЗЕРВНАЯ ПАМЯТЬ (ЕСЛИ ТАБЛИЦА НЕ ОТВЕТИТ) ---
+# --- РЕЗЕРВНАЯ ПАМЯТЬ ---
 BACKUP_PROTOCOLS = ["👁 Протокол ТИШИНА: Слушай себя.", "⚡️ Протокол ЭНЕРГИЯ: Устрани лишнее."]
 BACKUP_SIGNALS = ["Система слышит тебя.", "Ответ внутри."]
 
@@ -46,45 +46,33 @@ def connect_db():
             gc = gspread.service_account_from_dict(creds_dict)
             sh = gc.open(SHEET_NAME)
             
-            # Лист Пользователей
             try: worksheet_users = sh.worksheet("Users")
             except: pass
             
-            # Лист Контента (ЗАГРУЗКА МОЗГА)
             try: 
                 worksheet_content = sh.worksheet("Content")
                 records = worksheet_content.get_all_records()
-                
-                # Очищаем и заполняем заново
                 new_protocols = [r['Text'] for r in records if r['Type'] == 'protocol' and r['Text']]
                 new_signals = [r['Text'] for r in records if r['Type'] == 'signal' and r['Text']]
-                
                 if new_protocols: PROTOCOLS = new_protocols
                 if new_signals: SIGNALS = new_signals
-                
-                print(f"/// DOWNLOAD COMPLETE: Загружено {len(PROTOCOLS)} протоколов и {len(SIGNALS)} сигналов.")
+                print(f"/// DOWNLOAD COMPLETE: P:{len(PROTOCOLS)} S:{len(SIGNALS)}")
             except Exception as e:
                 print(f"/// CONTENT LOAD ERROR: {e}")
                 
     except Exception as e:
         print(f"/// DB CONNECTION FAILED: {e}")
 
-# Инициализация при старте
 connect_db()
-
-# Если база пустая, используем резерв
 if not PROTOCOLS: PROTOCOLS = BACKUP_PROTOCOLS
 if not SIGNALS: SIGNALS = BACKUP_SIGNALS
 
-# --- ФОНОВОЕ ОБНОВЛЕНИЕ КОНТЕНТА (Раз в 30 минут) ---
 def auto_refresh_content():
     while True:
         time.sleep(1800)
         connect_db()
-
 threading.Thread(target=auto_refresh_content, daemon=True).start()
 
-# --- ФУНКЦИИ ПОЛЬЗОВАТЕЛЕЙ ---
 def add_user_to_db(user):
     def bg_write():
         try:
@@ -104,13 +92,14 @@ app = flask.Flask(__name__)
 # --- МЕНЮ ---
 def send_main_menu(chat_id):
     markup = types.InlineKeyboardMarkup(row_width=1)
+    # Добавлена кнопка "Помощь"
     markup.add(
         types.InlineKeyboardButton("🎲 Протокол дня", callback_data="get_protocol"),
         types.InlineKeyboardButton("📨 Написать Архитектору", callback_data="contact_admin"),
-        types.InlineKeyboardButton("📂 О системе", callback_data="about"),
+        types.InlineKeyboardButton("❓ Помощь / О боте", callback_data="help"),
         types.InlineKeyboardButton("🔗 Канал", url="https://t.me/Eidos_Chronicles")
     )
-    caption = "/// EIDOS_INTERFACE_V3.2\n\nБаза знаний синхронизирована. Я готов."
+    caption = "/// EIDOS_INTERFACE_V3.3\n\nБаза знаний синхронизирована. Я готов."
     try: bot.send_photo(chat_id, MENU_IMAGE_URL, caption=caption, reply_markup=markup)
     except: bot.send_message(chat_id, caption, reply_markup=markup)
 
@@ -125,7 +114,6 @@ def broadcast(message):
     if message.from_user.id != ADMIN_ID: return
     text = message.text[11:]
     if not text: return
-    
     def send_mass():
         try:
             users = worksheet_users.col_values(1)[1:]
@@ -135,8 +123,7 @@ def broadcast(message):
                     time.sleep(0.05)
                 except: pass
             bot.send_message(ADMIN_ID, "✅ Рассылка завершена.")
-        except: bot.send_message(ADMIN_ID, "⚠️ Ошибка доступа к базе юзеров.")
-        
+        except: bot.send_message(ADMIN_ID, "⚠️ Ошибка БД.")
     threading.Thread(target=send_mass).start()
 
 @bot.message_handler(commands=['refresh'])
@@ -149,7 +136,7 @@ def refresh_manual(message):
 def handle_text(message):
     if message.from_user.id != ADMIN_ID:
         add_user_to_db(message.from_user)
-        bot.send_message(ADMIN_ID, f"📨 От {message.from_user.first_name}:\n{message.text}")
+        bot.send_message(ADMIN_ID, f"📨 От {message.from_user.first_name} (@{message.from_user.username}):\n{message.text}")
         bot.send_message(message.chat.id, "/// ПРИНЯТО. Сообщение в архиве.", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
 
 @bot.message_handler(commands=['reply'])
@@ -163,21 +150,34 @@ def admin_reply(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
     if call.data == "get_protocol":
-        # Берем случайную фразу из загруженного списка
         text = random.choice(PROTOCOLS)
         bot.send_message(call.message.chat.id, f"/// ПРОТОКОЛ:\n\n{text}", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
     
     elif call.data == "get_signal":
-        # Берем случайный сигнал из списка
         text = random.choice(SIGNALS)
         bot.answer_callback_query(call.id, show_alert=True, text=text)
     
     elif call.data == "contact_admin":
-        bot.send_message(call.message.chat.id, "/// СВЯЗЬ: Опиши свою задачу одним сообщением.")
+        bot.send_message(call.message.chat.id, "/// КАНАЛ СВЯЗИ:\nНапиши сюда свой вопрос, идею или запрос на разбор. Архитектор увидит это лично.")
     
-    elif call.data == "about":
-        bot.send_message(call.message.chat.id, "Эйдос v3.2 [External Memory]\nСистема управления реальностью.", 
+    # --- НОВЫЙ БЛОК ПОМОЩИ ---
+    elif call.data == "help":
+        help_text = (
+            "<b>/// MANUAL_EIDOS_V3.3</b>\n\n"
+            "<b>👁 ЧТО ЭТО:</b>\n"
+            "Эйдос — это цифровой интерфейс к базе знаний Архитектора (Игоря). "
+            "Здесь собраны алгоритмы продаж, триггеры психологии влияния и стратегии масштабирования.\n\n"
+            "<b>⚙️ ДЛЯ ЧЕГО:</b>\n"
+            "Чтобы ты перестал действовать хаотично. Мы заменяем «удачу» на «систему». "
+            "Бот помогает сфокусироваться, найти неочевидное решение и заработать больше.\n\n"
+            "<b>🕹 ПУЛЬТ УПРАВЛЕНИЯ:</b>\n"
+            "▪️ <b>🎲 Протокол дня:</b> Жесткое практическое задание. Выполняй, чтобы пробить стеклянный потолок.\n"
+            "▪️ <b>📨 Написать Архитектору:</b> Прямая связь. Запрос на консалтинг, разбор или коллаборацию.\n"
+            "▪️ <b>👁 Получить сигнал (в постах):</b> Мгновенная инъекция ясности.\n\n"
+            "<i>/// Система обновляется в реальном времени. Ты — часть сети.</i>"
+        )
+        bot.send_message(call.message.chat.id, help_text, parse_mode="HTML", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
     
     elif call.data == "back_to_menu":
