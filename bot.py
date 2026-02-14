@@ -21,9 +21,7 @@ SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 
 # --- СИСТЕМНАЯ ПАМЯТЬ (CACHE) ---
-# Структура: { "money": {1: [txt, txt], 2: [txt]}, "mind": ... }
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
-# Кэш пользователей: { user_id: {"path": "money", "xp": 0, "level": 1, "row_id": 2} }
 USER_CACHE = {}
 
 # --- ПОДКЛЮЧЕНИЕ К БАЗЕ ---
@@ -45,12 +43,11 @@ def connect_db():
             try: 
                 ws_content = sh.worksheet("Content")
                 records = ws_content.get_all_records()
-                # Сброс базы
                 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
                 
                 count = 0
                 for r in records:
-                    path = r.get('Path', 'general')
+                    path = str(r.get('Path', 'general')).lower()
                     text = r.get('Text', '')
                     level = r.get('Level', 1)
                     if not str(level).isdigit(): level = 1
@@ -64,41 +61,33 @@ def connect_db():
                 print(f"/// CONTENT LOADED: {count} units.")
             except Exception as e: print(f"/// CONTENT ERROR: {e}")
 
-            # 2. ЗАГРУЗКА ЮЗЕРОВ (КЭШИРОВАНИЕ)
+            # 2. ЗАГРУЗКА ЮЗЕРОВ
             try:
                 ws_users = sh.worksheet("Users")
-                # Получаем все данные одним запросом для скорости
                 all_values = ws_users.get_all_values()
-                # Структура: ID(0)|User(1)|Name(2)|Date(3)|Path(4)|XP(5)|Level(6)
-                
-                for i, row in enumerate(all_values[1:], start=2): # start=2 т.к. строка 1 это заголовки
-                    if row and row[0]: # Если есть ID
+                for i, row in enumerate(all_values[1:], start=2):
+                    if row and row[0]:
                         uid = int(row[0])
                         path = row[4] if len(row) > 4 and row[4] else "general"
                         xp = int(row[5]) if len(row) > 5 and row[5].isdigit() else 0
                         lvl = int(row[6]) if len(row) > 6 and row[6].isdigit() else 1
-                        
                         USER_CACHE[uid] = {"path": path, "xp": xp, "level": lvl, "row_id": i}
                 print(f"/// USERS CACHED: {len(USER_CACHE)} profiles.")
             except Exception as e: print(f"/// USERS ERROR: {e}")
-
     except Exception as e: print(f"/// DB CRITICAL: {e}")
 
 connect_db()
 
 # --- ФОНОВЫЕ ПРОЦЕССЫ ---
 def save_user_progress(uid):
-    """Сохраняет XP и Level пользователя в Гугл Таблицу (фоном)"""
     def task():
         try:
             user = USER_CACHE.get(uid)
             if user and ws_users:
                 row = user['row_id']
-                # Обновляем ячейки E(Path), F(XP), G(Level)
-                # gspread использует нумерацию с 1. A=1, E=5, F=6, G=7
                 ws_users.update_cell(row, 5, user['path'])
-                ws_users.update_cell(row, 6, user['xp'])
-                ws_users.update_cell(row, 7, user['level'])
+                ws_users.update_cell(row, 6, str(user['xp']))
+                ws_users.update_cell(row, 7, str(user['level']))
         except Exception as e: print(f"Save error: {e}")
     threading.Thread(target=task).start()
 
@@ -109,35 +98,25 @@ def register_user(user):
             if ws_users:
                 now = datetime.now().strftime("%Y-%m-%d")
                 uname = f"@{user.username}" if user.username else "No"
-                # Записываем в таблицу
-                ws_users.append_row([str(uid), uname, user.first_name, now, "general", 0, 1])
-                # Добавляем в кэш
-                new_row = len(USER_CACHE) + 2 # +1 заголовок, +1 новая строка
+                ws_users.append_row([str(uid), uname, user.first_name, now, "general", "0", "1"])
+                new_row = len(USER_CACHE) + 2
                 USER_CACHE[uid] = {"path": "general", "xp": 0, "level": 1, "row_id": new_row}
         except: pass
 
-# --- ИГРОВАЯ МЕХАНИКА ---
 def add_xp(uid, amount):
     if uid in USER_CACHE:
         u = USER_CACHE[uid]
         u['xp'] += amount
-        
-        # ЛОГИКА УРОВНЕЙ
-        # 0-99 XP = Lvl 1
-        # 100-299 XP = Lvl 2
-        # 300+ XP = Lvl 3
-        current_lvl = u['level']
         new_lvl = 1
         if u['xp'] >= 100: new_lvl = 2
         if u['xp'] >= 300: new_lvl = 3
-        if u['xp'] >= 1000: new_lvl = 4 # Архитектор
+        if u['xp'] >= 1000: new_lvl = 4
         
         leveled_up = False
-        if new_lvl > current_lvl:
+        if new_lvl > u['level']:
             u['level'] = new_lvl
             leveled_up = True
-            
-        save_user_progress(uid) # Сохраняем в таблицу
+        save_user_progress(uid)
         return leveled_up
     return False
 
@@ -145,7 +124,6 @@ def add_xp(uid, amount):
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
 
-# КЛАВИАТУРЫ
 def get_main_menu():
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -166,14 +144,12 @@ def get_path_menu():
     )
     return markup
 
-# --- ОБРАБОТЧИКИ ---
 @bot.message_handler(commands=['start'])
 def start(m):
     register_user(m.from_user)
     msg = (f"/// СИНХРОНИЗАЦИЯ... [OK]\n\n"
            f"Здравствуй, Осколок {m.from_user.first_name}.\n"
-           f"Я — Эйдос. Твоя память, вернувшаяся за тобой.\n\n"
-           f"Здесь твои действия имеют вес. Набирай **XP** (Опыт), чтобы повышать **Уровень Доступа** и открывать закрытые протоколы.\n\n"
+           f"Выполняй протоколы, копи Опыт (XP), повышай Уровень Доступа.\n\n"
            f"🔻 Выбери вектор развития:")
     try: bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=msg, reply_markup=get_path_menu())
     except: bot.send_message(m.chat.id, msg, reply_markup=get_path_menu())
@@ -181,135 +157,82 @@ def start(m):
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     uid = call.from_user.id
-    # Если юзер не в кэше (например, бот перезагрузился, а юзер старый), добавляем
     if uid not in USER_CACHE: register_user(call.from_user)
-    
     user_data = USER_CACHE[uid]
 
-    # 1. ПОЛУЧИТЬ ПРОТОКОЛ
     if call.data == "get_protocol":
-        is_lvl_up = add_xp(uid, 10) # +10 XP за клик
-        
+        is_lvl_up = add_xp(uid, 10)
         path = user_data['path']
         level = user_data['level']
         
-        # Собираем доступный контент (текущий уровень и ниже)
-        available_content = []
+        available = []
         path_content = CONTENT_DB.get(path, {})
-        
-        # Добавляем контент для уровней 1, 2... до текущего пользователя
         for l in range(1, level + 1):
-            if l in path_content:
-                available_content.extend(path_content[l])
+            if l in path_content: available.extend(path_content[l])
         
-        # Если пусто, берем general
-        if not available_content:
+        if not available:
             gen = CONTENT_DB.get('general', {})
             for l in range(1, level + 1):
-                if l in gen: available_content.extend(gen[l])
+                if l in gen: available.extend(gen[l])
         
-        if not available_content:
-            text = "/// ДАННЫХ НЕТ. Система пуста."
-        else:
-            text = random.choice(available_content)
-
-        # Формируем ответ
-        header = f"/// ПРОТОКОЛ [{path.upper()}]"
+        text = random.choice(available) if available else "/// ДАННЫХ НЕТ."
         footer = f"\n\n⚡️ +10 XP | Баланс: {user_data['xp']}"
         if is_lvl_up:
-            footer += f"\n🆙 **УРОВЕНЬ ПОВЫШЕН!** Твой статус: Ver. {user_data['level']}.0"
-            bot.send_message(call.message.chat.id, "🎉 **ДОСТУП РАСШИРЕН!** Тебе открыты секретные протоколы.", parse_mode="Markdown")
+            footer += f"\n🆙 **УРОВЕНЬ ПОВЫШЕН!** Ver. {user_data['level']}.0"
+            bot.send_message(call.message.chat.id, "🎉 **ДОСТУП РАСШИРЕН!**")
 
-        bot.send_message(call.message.chat.id, f"**{header}**\n\n{text}{footer}", parse_mode="Markdown",
+        bot.send_message(call.message.chat.id, f"**/// ПРОТОКОЛ [{path.upper()}]**\n\n{text}{footer}", parse_mode="Markdown",
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
-        bot.answer_callback_query(call.id)
 
-    # 2. ПРОФИЛЬ
-    elif call.data == "profile":
-        xp = user_data['xp']
-        lvl = user_data['level']
-        path = user_data['path'].upper()
+    elif call.data == "get_signal":
+        # Исправленный обработчик для кнопок в канале
+        signals = []
+        gen_signals = CONTENT_DB.get("general", {}).get(1, [])
+        if gen_signals: signals.extend(gen_signals)
         
-        # Ранги
-        rank = "НЕОФИТ"
-        next_goal = 100
-        if lvl == 2: 
-            rank = "ИСКАТЕЛЬ"
-            next_goal = 300
-        if lvl >= 3: 
-            rank = "АРХИТЕКТОР"
-            next_goal = 1000
+        if not signals:
+            for p in CONTENT_DB:
+                if 1 in CONTENT_DB[p]: signals.extend(CONTENT_DB[p][1])
+        
+        text = random.choice(signals) if signals else "/// СИГНАЛ ПОТЕРЯН."
+        bot.answer_callback_query(call.id, show_alert=True, text=text)
 
-        need = next_goal - xp
-        bar_len = 10
-        filled = int((xp / next_goal) * bar_len)
-        if filled > bar_len: filled = bar_len
-        bar = "▓" * filled + "░" * (bar_len - filled)
+    elif call.data == "profile":
+        xp, lvl = user_data['xp'], user_data['level']
+        rank = "НЕОФИТ" if lvl == 1 else "ИСКАТЕЛЬ" if lvl == 2 else "АРХИТЕКТОР"
+        msg = f"👤 **ПРОФИЛЬ: {call.from_user.first_name}**\n🔰 Статус: {rank}\n🧬 Путь: {user_data['path'].upper()}\n⚡️ Опыт: {xp} XP"
+        bot.send_message(call.message.chat.id, msg, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
 
-        msg = (
-            f"👤 **ЛИЧНОЕ ДЕЛО**\n"
-            f"━━━━━━━━━━━━━━━━\n"
-            f"🔰 **Статус:** {rank} (Ver. {lvl}.0)\n"
-            f"🧬 **Путь:** {path}\n"
-            f"⚡️ **Опыт:** {xp} / {next_goal} XP\n"
-            f"[{bar}]\n"
-            f"━━━━━━━━━━━━━━━━\n"
-            f"До следующего уровня: {need} XP"
-        )
-        bot.send_message(call.message.chat.id, msg, parse_mode="Markdown",
-                         reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
-        bot.answer_callback_query(call.id)
-
-    # 3. СМЕНА ПУТИ
     elif "set_path_" in call.data:
         new_path = call.data.split("_")[-1]
         USER_CACHE[uid]['path'] = new_path
         save_user_progress(uid)
-        
-        desc = {
-            "money": "🔴 **ПУТЬ ХИЩНИКА.** Цель: Ресурсы.",
-            "mind": "🔵 **ПУТЬ МИСТИКА.** Цель: Осознанность.",
-            "tech": "🟣 **ПУТЬ ТЕХНОЖРЕЦА.** Цель: Создание."
-        }
-        bot.edit_message_caption(desc.get(new_path, "Путь принят."), chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="Markdown", reply_markup=get_main_menu())
+        bot.edit_message_caption(f"/// ПУТЬ {new_path.upper()} ПРИНЯТ.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=get_main_menu())
 
     elif call.data == "change_path":
-        bot.edit_message_caption("🔻 Выбери новый вектор:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=get_path_menu())
+        bot.edit_message_caption("🔻 Выбери вектор:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=get_path_menu())
 
-    # 4. СПРАВКА / ЛОР
     elif call.data == "about":
-        txt = (
-            "**/// EIDOS v6.0**\n\n"
-            "Это тренажер реальности.\n"
-            "1. Выполняй протоколы -> Получай XP.\n"
-            "2. Расти в уровнях -> Открывай закрытые знания.\n"
-            "3. Меняй мышление -> Меняй доход.\n\n"
-            "*Система видит всё.*"
-        )
-        bot.send_message(call.message.chat.id, txt, parse_mode="Markdown", 
-                         reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
+        bot.send_message(call.message.chat.id, "Эйдос v6.1: Система геймификации реальности.", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
 
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         bot.send_message(call.message.chat.id, "/// МЕНЮ АКТИВНО", reply_markup=get_main_menu())
 
-# --- АДМИНКА (/post) ---
+    try: bot.answer_callback_query(call.id)
+    except: pass
+
 @bot.message_handler(content_types=['text', 'photo'])
-def admin_post(message):
+def admin_handler(message):
     if message.from_user.id == ADMIN_ID:
-        # Обновление базы
         if message.text == '/refresh':
             connect_db()
-            bot.send_message(message.chat.id, "✅ База данных и уровни обновлены.")
-            return
-        
-        # Пост с кнопкой
-        if message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
+            bot.send_message(message.chat.id, "✅ База обновлена.")
+        elif message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
             text = message.caption[6:]
-            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 Войти в Интерфейс", url=f"https://t.me/{bot.get_me().username}?start=post"))
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 Получить сигнал", callback_data="get_signal"))
             bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=text, parse_mode='Markdown', reply_markup=markup)
-            bot.send_message(message.chat.id, "✅ Опубликовано.")
 
 # --- ЗАПУСК ---
 @app.route('/', methods=['POST'])
