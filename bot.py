@@ -37,51 +37,46 @@ app = flask.Flask(__name__)
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
 USER_CACHE = {} 
 
-# --- 3. ТЕКСТОВЫЕ МОДУЛИ (LORE) ---
+# --- 3. ТЕКСТОВЫЕ МОДУЛИ ---
 GUIDE_FULL = (
     "**📚 ТЕХНИЧЕСКАЯ ДОКУМЕНТАЦИЯ EIDOS v19.0**\n\n"
     "**1. СУТЬ ПРОЕКТА:**\n"
-    "Этот бот — агрегатор закрытых знаний. Мы выкупаем платные курсы, инсайды и приватные мануалы, дефрагментируем их и выдаем тебе в виде сжатых «Протоколов». Ты не тратишь годы — ты получаешь суть за секунды.\n\n"
+    "Этот бот — агрегатор закрытых знаний. Мы выкупаем платные курсы, инсайды и приватные мануалы, дефрагментируем их и выдаем тебе в виде сжатых «Протоколов».\n\n"
     "**2. ЭКОНОМИКА ЭНЕРГИИ (XP/SYNC):**\n"
     "• **SYNC** — твоя валюта. Ты получаешь **25 XP** за каждую дешифровку.\n"
-    "• **Дешифровка** доступна каждые **30 минут**. Это ритм, который держит твой мозг в тонусе.\n"
-    "• **STREAK (Серия):** Заходи каждый день, чтобы растить множитель награды. Пропуск дня обнуляет серию.\n\n"
+    "• **Дешифровка** доступна каждые **30 минут**.\n"
+    "• **STREAK (Серия):** Заходи каждый день, чтобы растить множитель награды.\n\n"
     "**3. УРОВНИ ДОСТУПА:**\n"
-    "• **LVL 1 (Неофит):** Доступ к базовым истинам.\n"
-    "• **LVL 2 (Искатель):** 100 XP. Открывает выбор Фракций.\n"
-    "• **LVL 3 (Оператор):** 350 XP. Доступ к инсайдам с закрытых форумов.\n"
-    "• **LVL 4 (Архитектор):** 850 XP. Элитный контент и управление реальностью.\n\n"
-    "**4. ФРАКЦИИ (ПУТИ РАЗВИТИЯ):**\n"
-    "• 🔴 **ХИЩНИК:** Психология продаж, переговоры, захват ресурсов.\n"
-    "• 🔵 **МИСТИК:** НЛП, чтение людей, социальная инженерия.\n"
-    "• 🟣 **ТЕХНОЖРЕЦ:** Нейросети, автоматизация, заработок на ИИ.\n\n"
-    "/// *Используй меню, чтобы управлять своей эволюцией.*"
+    "• **LVL 1 (Неофит):** База.\n"
+    "• **LVL 2 (Искатель):** 100 XP. Выбор Фракций.\n"
+    "• **LVL 3 (Оператор):** 350 XP. Инсайды.\n"
+    "• **LVL 4 (Архитектор):** 850 XP. Элита.\n\n"
+    "**4. ФРАКЦИИ:**\n"
+    "• 🔴 **ХИЩНИК:** Продажи, переговоры.\n"
+    "• 🔵 **МИСТИК:** Психология, НЛП.\n"
+    "• 🟣 **ТЕХНОЖРЕЦ:** ИИ, автоматизация."
 )
 
 SHOP_FULL = (
-    "**🎰 ЧЕРНЫЙ РЫНОК: АРТЕФАКТЫ**\n\n"
-    "Здесь ты меняешь накопленный SYNC на преимущество перед системой.\n\n"
-    f"❄️ **КРИО-КАПСУЛА ({PRICES['cryo']} XP)**\n"
-    "**Зачем:** Жизнь непредсказуема. Если ты не сможешь зайти в бот (уехал, заболел), капсула сгорит вместо твоего Стрика. Твои бонусы сохранятся.\n"
-    "_Лимит: Можно иметь до 5 штук в запасе._\n\n"
-    f"⚡️ **НЕЙРО-УСКОРИТЕЛЬ ({PRICES['accel']} XP)**\n"
-    "**Зачем:** Включает режим «Форсаж» на 24 часа. Время ожидания сокращается с 30 до **15 минут**. Идеально для быстрого фарма уровней в выходные.\n\n"
-    f"🔑 **ДЕШИФРАТОР ({PRICES['decoder']} XP)**\n"
-    "**Зачем:** Хакерский взлом. Позволяет получить информацию, которая доступна только на уровень выше твоего. Узнай секреты Архитекторов, будучи Неофитом.\n\n"
-    f"⚙️ **СМЕНА ФРАКЦИИ ({PATH_CHANGE_COST} XP)**\n"
-    "**Зачем:** Если ты понял, что путь Хищника не для тебя, ты можешь перепрошить нейроны и стать Техножрецом. Прогресс сохраняется."
+    "**🎰 ЧЕРНЫЙ РЫНОК**\n\n"
+    f"❄️ **КРИО-КАПСУЛА ({PRICES['cryo']} XP)**\nСтраховка. Спасает твой Стрик при пропуске дня.\n\n"
+    f"⚡️ **НЕЙРО-УСКОРИТЕЛЬ ({PRICES['accel']} XP)**\nФорсаж. Сокращает ожидание до 15 минут на 24 часа.\n\n"
+    f"🔑 **ДЕШИФРАТОР ({PRICES['decoder']} XP)**\nВзлом. Разовый доступ к контенту уровня Lvl+1.\n\n"
+    f"⚙️ **СМЕНА ФРАКЦИИ ({PATH_CHANGE_COST} XP)**\nПерепрошивка. Смена специализации."
 )
 
 SYNDICATE_FULL = (
-    "**🔗 СИНДИКАТ: ТВОЯ ПАССИВНАЯ ИМПЕРИЯ**\n\n"
-    "В одиночку ты — просто юнит. Вместе — сеть.\n"
-    "Мы платим тебе за расширение нашей Системы.\n\n"
+    "**🔗 СИНДИКАТ**\n\n"
     "**ТВОИ ВЫГОДЫ:**\n"
-    f"1. 🎁 **МГНОВЕННЫЙ БОНУС:** Получи **+{REFERRAL_BONUS} XP** сразу, как только твой реферал нажмет /start.\n"
-    "2. 📈 **ВЕЧНЫЙ ПРОЦЕНТ:** Ты будешь получать **10%** от всего опыта, который зарабатывают твои люди. Если они качаются — ты растешь автоматически.\n\n"
-    "**КАК ЭТО РАБОТАЕТ:**\n"
-    "Отправь ссылку другу. Как только он активирует нейро-интерфейс, он навсегда закрепляется в твоем Синдикате."
+    f"1. 🎁 **БОНУС:** +{REFERRAL_BONUS} XP за каждого друга.\n"
+    "2. 📈 **РОЯЛТИ:** Ты получаешь **10%** от всего опыта твоих рефералов пожизненно."
 )
+
+LEVEL_UP_MSG = {
+    2: "🔓 **LVL 2**: Доступ к инструментам Влияния открыт.",
+    3: "🔓 **LVL 3**: Статус Оператора. Вижу структуру матрицы.",
+    4: "👑 **LVL 4**: Ты — Архитектор. Твоя воля — закон."
+}
 
 # --- 4. БАЗА ДАННЫХ ---
 def connect_db():
@@ -130,7 +125,9 @@ def safe_edit(call, text, markup):
             bot.edit_message_caption(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
         else:
             bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-    except: bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+    except: 
+        try: bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+        except: pass
 
 def save_progress(uid):
     def task():
@@ -142,6 +139,16 @@ def save_progress(uid):
                 ws_users.update(f"E{u['row_id']}:O{u['row_id']}", [data])
         except: pass
     threading.Thread(target=task).start()
+
+def async_register_user(uid, username, first_name, ref_arg):
+    # Фоновая регистрация в Google Sheet
+    try:
+        if ws_users:
+            start_xp = "50" if ref_arg == 'inst' else "0"
+            ws_users.append_row([str(uid), f"@{username}", first_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                                 "general", start_xp, "1", "1", datetime.now().strftime("%Y-%m-%d"), 
+                                 "0", "0", "0", "0", "0", str(ref_arg or '')])
+    except: pass
 
 def add_xp(uid, amount):
     if uid in USER_CACHE:
@@ -263,41 +270,33 @@ def start_cmd(m):
     if len(m.text.split()) > 1:
         ref_arg = m.text.split()[1] 
 
+    # --- ИСПРАВЛЕНИЕ: МГНОВЕННОЕ ДОБАВЛЕНИЕ В КЭШ ---
     if uid not in USER_CACHE:
-        if ws_users:
-            ws_users.append_row([str(uid), f"@{m.from_user.username}", m.from_user.first_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "general", "0", "1", "1", datetime.now().strftime("%Y-%m-%d"), "0", "0", "0", "0", "0", str(ref_arg or '')])
-            connect_db()
-            if ref_arg and ref_arg.isdigit() and int(ref_arg) in USER_CACHE:
-                USER_CACHE[int(ref_arg)]['xp'] += REFERRAL_BONUS; save_progress(int(ref_arg))
-                try: bot.send_message(int(ref_arg), f"🎁 **НОВЫЙ УЗЕЛ.** +{REFERRAL_BONUS} XP.")
-                except: pass
-    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS-OS: СИНХРОНИЗИРОВАН.", reply_markup=get_main_menu(uid))
+        start_xp = 50 if ref_arg == 'inst' else 0
+        # Сразу пишем в память, чтобы кнопки работали
+        USER_CACHE[uid] = {
+            "path": "general", "xp": start_xp, "level": 1, "streak": 1, "last_active": datetime.now().strftime("%Y-%m-%d"),
+            "prestige": 0, "cryo": 0, "accel": 0, "decoder": 0, "accel_exp": 0, "referrer": ref_arg,
+            "last_protocol_time": 0, "notified": True, "row_id": len(USER_CACHE) + 2
+        }
+        # Запускаем запись в БД в отдельном потоке (НЕ БЛОКИРУЕМ БОТА)
+        threading.Thread(target=async_register_user, args=(uid, m.from_user.username, m.from_user.first_name, ref_arg)).start()
+        
+        # Начисляем бонус рефереру
+        if ref_arg and ref_arg.isdigit() and int(ref_arg) in USER_CACHE:
+            USER_CACHE[int(ref_arg)]['xp'] += REFERRAL_BONUS; save_progress(int(ref_arg))
+            try: bot.send_message(int(ref_arg), f"🎁 **НОВЫЙ УЗЕЛ.** +{REFERRAL_BONUS} XP.")
+            except: pass
+
+    welcome_msg = "/// EIDOS-OS: СИНХРОНИЗИРОВАН."
+    if ref_arg == 'inst': welcome_msg = "🧬 **СИГНАЛ ИЗ INSTAGRAM.**\nБонус +50 XP начислен."
+    
+    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=welcome_msg, reply_markup=get_main_menu(uid))
 
 @bot.message_handler(content_types=['text', 'photo'])
 def admin_handler(message):
     if message.from_user.id == ADMIN_ID:
         if message.text == '/refresh': connect_db(); bot.send_message(message.chat.id, "✅ БД ОБНОВЛЕНА.")
-        
-        # --- НОВЫЙ ФУНКЦИОНАЛ АДМИНКИ ---
-        elif message.text and message.text.startswith('/ban '): # БАН ХАММЕР
-            try:
-                target_id = int(message.text.split()[1])
-                if target_id in USER_CACHE:
-                    del USER_CACHE[target_id]
-                    # В реальной БД нужно удалять строку, но для защиты просто уберем из кэша пока
-                    bot.send_message(message.chat.id, f"🚫 УЗЕЛ {target_id} ОТКЛЮЧЕН.")
-            except: bot.send_message(message.chat.id, "❌ Ошибка ID.")
-
-        elif message.text and message.text.startswith('/give_xp '): # РАЗДАЧА
-            try:
-                _, t_id, amount = message.text.split()
-                t_id, amount = int(t_id), int(amount)
-                if t_id in USER_CACHE:
-                    USER_CACHE[t_id]['xp'] += amount; save_progress(t_id)
-                    bot.send_message(t_id, f"⚡️ **ВМЕШАТЕЛЬСТВО АРХИТЕКТОРА:** Начислено {amount} XP.")
-                    bot.send_message(message.chat.id, "✅ Начислено.")
-            except: bot.send_message(message.chat.id, "❌ Формат: /give_xp ID СУММА")
-
         elif message.text and message.text.startswith('/telegraph '):
             parts = message.text.split(maxsplit=2)
             if len(parts) >= 2:
@@ -312,6 +311,24 @@ def admin_handler(message):
         elif message.text and message.text.startswith('/post '):
             markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ВОЙТИ В ТЕРМИНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=channel"))
             bot.send_message(CHANNEL_ID, message.text[6:], reply_markup=markup, parse_mode="Markdown")
+            
+        elif message.text and message.text.startswith('/ban '): # БАН ХАММЕР
+            try:
+                target_id = int(message.text.split()[1])
+                if target_id in USER_CACHE:
+                    del USER_CACHE[target_id]
+                    bot.send_message(message.chat.id, f"🚫 УЗЕЛ {target_id} ОТКЛЮЧЕН.")
+            except: bot.send_message(message.chat.id, "❌ Ошибка ID.")
+
+        elif message.text and message.text.startswith('/give_xp '): # РАЗДАЧА
+            try:
+                _, t_id, amount = message.text.split()
+                t_id, amount = int(t_id), int(amount)
+                if t_id in USER_CACHE:
+                    USER_CACHE[t_id]['xp'] += amount; save_progress(t_id)
+                    bot.send_message(t_id, f"⚡️ **ВМЕШАТЕЛЬСТВО АРХИТЕКТОРА:** Начислено {amount} XP.")
+                    bot.send_message(message.chat.id, "✅ Начислено.")
+            except: bot.send_message(message.chat.id, "❌ Формат: /give_xp ID СУММА")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
@@ -325,7 +342,6 @@ def callback(call):
         safe_edit(call, "⚙️ **ЦЕНТР УПРАВЛЕНИЯ АРХИТЕКТОРА**\n\nКоманды чата:\n`/ban ID` — Удалить юзера\n`/give_xp ID СУММА` — Начислить опыт\n`/telegraph ССЫЛКА ТЕКСТ` — Пост статьи", get_admin_menu())
     
     elif call.data == "admin_bonus" and uid == ADMIN_ID:
-        # Раздача всем по 100 XP (пример)
         count = 0
         for u_id in USER_CACHE:
             USER_CACHE[u_id]['xp'] += 100; save_progress(u_id); count += 1
@@ -353,7 +369,6 @@ def callback(call):
         progress = get_progress_bar(u['xp'], u['level'])
         ref_count = sum(1 for user in USER_CACHE.values() if str(user.get('referrer')) == str(uid))
         
-        # Расширенное описание для профиля
         desc_map = {
             "money": "Искусство Влияния и Продаж",
             "mind": "Психология и Ментальные Ловушки",
@@ -424,7 +439,7 @@ def callback(call):
     try: bot.answer_callback_query(call.id)
     except: pass
 
-# --- 9. ЗАПУСК (ОПТИМИЗИРОВАНО ДЛЯ RENDER) ---
+# --- 9. ЗАПУСК ---
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if flask.request.method == 'POST':
@@ -441,8 +456,9 @@ def health_check(): return 'OK', 200
 
 if __name__ == "__main__":
     if WEBHOOK_URL: 
-        bot.remove_webhook(); time.sleep(1); bot.set_webhook(url=WEBHOOK_URL)
-        print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=WEBHOOK_URL)
     threading.Thread(target=notification_worker, daemon=True).start()
     port = int(os.environ.get('PORT', 5000))
     app.run(host="0.0.0.0", port=port)
