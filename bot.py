@@ -15,7 +15,7 @@ WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 DATABASE_URL = os.environ.get('DATABASE_URL')
 CHANNEL_ID = "@Eidos_Chronicles"
 ADMIN_ID = 5178416366
-BOT_USERNAME = "Eidos_Interface_bot" 
+BOT_USERNAME = "Eidos_Interface_bot"
 MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
 
 # --- ЭКОНОМИКА ---
@@ -36,7 +36,7 @@ TITLES = {1: "НЕОФИТ", 2: "ИСКАТЕЛЬ", 3: "ОПЕРАТОР", 4: "�
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
 
-# --- 3. ТЕКСТОВЫЕ МОДУЛИ (СОХРАНЕНО 100%) ---
+# --- 3. ТЕКСТОВЫЕ МОДУЛИ ---
 SCHOOLS = {"money": "🏦 ШКОЛА МАТЕРИИ", "mind": "🧠 ШКОЛА РАЗУМА", "tech": "🤖 ШКОЛА СИНГУЛЯРНОСТИ"}
 
 GUIDE_FULL = (
@@ -74,7 +74,7 @@ LEVEL_UP_MSG = {
     4: "👑 **LVL 4**: Ты — Архитектор.Уровень знаний будет высоким"
 }
 
-# --- 4. БАЗА ДАННЫХ (POSTGRESQL CORE) ---
+# --- 4. БАЗА ДАННЫХ ---
 def get_db_connection():
     try:
         return psycopg2.connect(DATABASE_URL, sslmode='require')
@@ -83,12 +83,10 @@ def get_db_connection():
         return None
 
 def init_db():
-    """Создает таблицы, если их нет (Миграция структуры)"""
     conn = get_db_connection()
     if not conn: return
     try:
         cur = conn.cursor()
-        # Таблица пользователей (Полное соответствие Excel колонкам)
         cur.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id BIGINT PRIMARY KEY,
@@ -111,12 +109,11 @@ def init_db():
                 notified BOOLEAN DEFAULT TRUE
             );
         ''')
-        # Таблица контента
         cur.execute('''
             CREATE TABLE IF NOT EXISTS content (
                 id SERIAL PRIMARY KEY,
-                type TEXT,  -- signal / protocol
-                path TEXT,  -- general / money / mind / tech
+                type TEXT,
+                path TEXT,
                 text TEXT,
                 level INTEGER DEFAULT 1
             );
@@ -128,6 +125,7 @@ def init_db():
     finally:
         if conn: conn.close()
 
+# Запускаем проверку БД сразу при старте модуля (важно для Gunicorn)
 init_db()
 
 # --- HELPER FUNCTIONS FOR DB ---
@@ -181,26 +179,21 @@ def safe_edit(call, text, markup):
         except: pass
 
 def process_xp_logic(uid, amount, is_sync=False):
-    """Единая логика начисления XP, стриков и повышения уровня"""
     u = get_user_from_db(uid)
     if not u: return False, None, 0
     
     today = datetime.now().date()
-    # last_active в БД может быть str или date
     last_active_date = u['last_active'] if isinstance(u['last_active'], (datetime, float, int)) else datetime.strptime(str(u['last_active']), "%Y-%m-%d").date()
     
     streak_bonus = 0
     s_msg = None
     
-    # Логика стрика срабатывает только если дата изменилась
     if last_active_date < today:
         if (today - last_active_date).days == 1:
-            # Последовательный день
             new_streak = u['streak'] + 1
             streak_bonus = new_streak * 5
             s_msg = f"🔥 СЕРИЯ: {new_streak} ДН."
         else:
-            # Разрыв серии
             if u['cryo'] > 0:
                 new_streak = u['streak']
                 update_user_db(uid, cryo=u['cryo'] - 1)
@@ -209,7 +202,6 @@ def process_xp_logic(uid, amount, is_sync=False):
                 new_streak = 1
                 streak_bonus = 5
                 s_msg = "❄️ СЕРИЯ СБРОШЕНА."
-        
         update_user_db(uid, streak=new_streak, last_active=today)
     else:
         new_streak = u['streak']
@@ -217,7 +209,6 @@ def process_xp_logic(uid, amount, is_sync=False):
     total_xp = amount + streak_bonus
     new_total_xp = u['xp'] + total_xp
     
-    # Реферальные отчисления
     if u['referrer'] and u['referrer'].isdigit():
         ref_id = int(u['referrer'])
         ref_user = get_user_from_db(ref_id)
@@ -225,7 +216,6 @@ def process_xp_logic(uid, amount, is_sync=False):
             bonus = max(1, int(total_xp * 0.1))
             update_user_db(ref_id, xp=ref_user['xp'] + bonus)
 
-    # Проверка уровня
     old_lvl = u['level']
     new_lvl = old_lvl
     for lvl, threshold in sorted(LEVELS.items(), reverse=True):
@@ -234,7 +224,6 @@ def process_xp_logic(uid, amount, is_sync=False):
             break
             
     update_user_db(uid, xp=new_total_xp, level=new_lvl)
-    
     return (new_lvl > old_lvl), s_msg, total_xp
 
 def get_content(c_type, path, level):
@@ -242,18 +231,14 @@ def get_content(c_type, path, level):
     if not conn: return "/// ОШИБКА ПОДКЛЮЧЕНИЯ К БАЗЕ ЗНАНИЙ"
     try:
         cur = conn.cursor()
-        # Ищем контент нужного типа и уровня
         if c_type == 'signal':
              cur.execute("SELECT text FROM content WHERE type = 'signal' ORDER BY RANDOM() LIMIT 1")
         else:
-            # Для протокола ищем подходящий путь и уровень
-            # Если нет конкретного уровня, ищем любой ниже или равный
             cur.execute("""
                 SELECT text FROM content 
                 WHERE type = 'protocol' AND (path = %s OR path = 'general') AND level <= %s 
                 ORDER BY RANDOM() LIMIT 1
             """, (path, level))
-        
         row = cur.fetchone()
         return row[0] if row else None
     finally:
@@ -266,13 +251,10 @@ def notification_worker():
             time.sleep(60)
             conn = get_db_connection()
             if not conn: continue
-            
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute("SELECT * FROM users WHERE notified = FALSE")
             users = cur.fetchall()
-            
             now = time.time()
-            
             for u in users:
                 cd = COOLDOWN_ACCEL if u['accel_exp'] > now else COOLDOWN_BASE
                 if u['last_protocol_time'] > 0 and (now - u['last_protocol_time'] >= cd):
@@ -345,7 +327,6 @@ def start_cmd(m):
     u = get_user_from_db(uid)
     if not u:
         register_user_db(uid, m.from_user.username, m.from_user.first_name, ref_arg)
-        # Бонус рефереру
         if ref_arg and ref_arg.isdigit():
             ref_id = int(ref_arg)
             ref_u = get_user_from_db(ref_id)
@@ -360,7 +341,7 @@ def start_cmd(m):
     bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=welcome_msg, reply_markup=get_main_menu(uid))
 
 # --- АДМИН ФУНКЦИОНАЛ ---
-user_action_state = {} # Временное хранилище для шагов админа
+user_action_state = {} 
 
 @bot.message_handler(func=lambda m: m.chat.id == ADMIN_ID and user_action_state.get(ADMIN_ID))
 def admin_steps(m):
@@ -376,7 +357,6 @@ def admin_steps(m):
         user_action_state.pop(ADMIN_ID)
         
     elif state['step'] == 'wait_proto_text':
-        # Формат: path|level|text (например: money|1|Текст протокола)
         try:
             path, level, text = m.text.split('|', 2)
             conn = get_db_connection()
@@ -460,7 +440,6 @@ def callback(call):
         if call.data == "admin_panel" and uid == ADMIN_ID: 
             safe_edit(call, "⚙️ **ЦЕНТР УПРАВЛЕНИЯ АРХИТЕКТОРА**\nВыберите действие или используйте команды:\n`/ban ID`\n`/give_xp ID СУММА`", get_admin_menu())
         
-        # --- НОВЫЙ ФУНКЦИОНАЛ АДМИНКИ ---
         elif call.data == "adm_add_signal" and uid == ADMIN_ID:
             user_action_state[uid] = {'step': 'wait_signal_text'}
             bot.send_message(uid, "✍️ **Введи текст нового СИГНАЛА:**")
@@ -500,17 +479,16 @@ def callback(call):
                 rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
                 bot.answer_callback_query(call.id, f"⏳ ПЕРЕГРЕВ: {rem} мин.", show_alert=True); return
             
-            update_user_db(uid, last_protocol_time=int(now_ts), notified=False) # Сброс уведомления
+            update_user_db(uid, last_protocol_time=int(now_ts), notified=False)
             
             up, s_msg, total = process_xp_logic(uid, XP_GAIN, is_sync=True)
-            u = get_user_from_db(uid) # Обновляем данные после начисления
+            u = get_user_from_db(uid) 
             
             target_lvl = u['level'] + 1 if u['decoder'] > 0 else u['level']
             if u['decoder'] > 0: update_user_db(uid, decoder=u['decoder'] - 1)
             
             if up: bot.send_message(uid, LEVEL_UP_MSG.get(u['level'], "🎉 ВЫШЕ УРОВЕНЬ!"))
             
-            # Асинхронная дешифровка
             def dec_task():
                 status_msg = bot.send_message(uid, "📡 **ИНИЦИАЛИЗАЦИЯ...**")
                 time.sleep(1)
@@ -538,7 +516,7 @@ def callback(call):
             bot.send_message(uid, f"📶 **ПОЛУЧЕН СИГНАЛ**\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_SIGNAL} XP", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
 
         elif call.data == "profile":
-            u = get_user_from_db(uid) # Refresh
+            u = get_user_from_db(uid) 
             title = TITLES.get(u['level'], "НЕОФИТ")
             progress = get_progress_bar(u['xp'], u['level'])
             accel_status = "✅ АКТИВЕН" if u['accel_exp'] > now_ts else "❌ НЕ АКТИВЕН"
@@ -575,7 +553,6 @@ def callback(call):
             item = call.data.split("_")[1]
             if u['xp'] >= PRICES[item]:
                 update_user_db(uid, xp=u['xp'] - PRICES[item])
-                # Динамическое обновление поля
                 conn = get_db_connection()
                 cur = conn.cursor()
                 cur.execute(f"UPDATE users SET {item} = {item} + 1 WHERE id = %s", (uid,))
@@ -610,7 +587,13 @@ def callback(call):
             safe_edit(call, GUIDE_FULL, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
     except Exception as e: print(f"/// CALLBACK ERROR: {e}")
 
-# --- 9. ЗАПУСК ---
+# --- 9. ЗАПУСК И МАРШРУТЫ ---
+
+# ГЛАВНОЕ ИСПРАВЛЕНИЕ: ХЕЛСЧЕК ДЛЯ RENDER
+@app.route('/health', methods=['GET'])
+def health_check():
+    return 'OK', 200
+
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if flask.request.method == 'POST':
@@ -622,15 +605,21 @@ def webhook():
             return 'Error', 500
     return 'Eidos SQL Interface is Operational', 200
 
-# ДОБАВЬ ЭТОТ БЛОК ОБЯЗАТЕЛЬНО:
-@app.route('/health', methods=['GET'])
-def health_check():
-    return 'OK', 200
+# ВТОРОЕ ИСПРАВЛЕНИЕ: ЗАПУСК ПОТОКОВ ВНЕ MAIN, ЧТОБЫ РАБОТАЛО В GUNICORN
+# Запускаем проверку уведомлений
+threading.Thread(target=notification_worker, daemon=True).start()
+
+# Авто-установка вебхука при старте (в глобальной области, с защитой от ошибок)
+if WEBHOOK_URL:
+    try:
+        bot.remove_webhook()
+        bot.set_webhook(url=WEBHOOK_URL)
+        print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+    except Exception as e:
+        print(f"/// WEBHOOK INIT WARNING: {e}")
 
 if __name__ == "__main__":
-    if WEBHOOK_URL: 
-        bot.remove_webhook(); time.sleep(1); bot.set_webhook(url=WEBHOOK_URL)
-        print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
-    threading.Thread(target=notification_worker, daemon=True).start()
+    # Этот блок выполняется только при локальном запуске (python bot.py)
+    # На Render он ИГНОРИРУЕТСЯ
     port = int(os.environ.get('PORT', 5000))
     app.run(host="0.0.0.0", port=port)
