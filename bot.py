@@ -14,6 +14,8 @@ TOKEN = os.environ.get('BOT_TOKEN')
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 CHANNEL_ID = "@Eidos_Chronicles"
 ADMIN_ID = 5178416366
+# !!! ВАЖНО: ВПИШИ ИМЯ СВОЕГО БОТА (БЕЗ @) ДЛЯ РАБОТЫ ССЫЛОК !!!
+BOT_USERNAME = "Eidos_Interface_bot" 
 MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
@@ -76,8 +78,6 @@ def connect_db():
                 if row and row[0] and str(row[0]).isdigit():
                     uid = int(row[0])
                     def s_int(val, d=0): return int(str(val).strip()) if str(val).strip().isdigit() else d
-                    # Подсчет рефералов (простой перебор кэша потом, или хранение счетчика)
-                    # Для скорости добавим поле ref_count в кэш при инициализации
                     USER_CACHE[uid] = {
                         "path": row[4] if len(row) > 4 and row[4] else "general",
                         "xp": s_int(row[5]), "level": s_int(row[6], 1), "streak": s_int(row[7]),
@@ -130,7 +130,6 @@ def add_xp(uid, amount):
             r = USER_CACHE[u['referrer']]; r['xp'] += max(1, int(total*0.1)); save_progress(u['referrer'])
         
         old_lvl = u['level']
-        # Проверка уровней
         for lvl, threshold in sorted(LEVELS.items(), reverse=True):
             if u['xp'] >= threshold:
                 u['level'] = lvl
@@ -174,13 +173,10 @@ def notification_worker():
                     except: pass
         except: pass
 
-# --- 7. ГЕНЕРАТОР ПРОГРЕСС-БАРА ---
 def get_progress_bar(current_xp, level):
-    next_level_xp = LEVELS.get(level + 1, 10000) # Если макс уровень, ставим заглушку
+    next_level_xp = LEVELS.get(level + 1, 10000)
     prev_level_xp = LEVELS.get(level, 0)
-    
-    if level >= 4: return "`[||||||||||] MAX`" # Максимальный уровень
-    
+    if level >= 4: return "`[||||||||||] MAX`"
     needed = next_level_xp - prev_level_xp
     current = current_xp - prev_level_xp
     percent = min(100, max(0, int((current / needed) * 100)))
@@ -188,7 +184,7 @@ def get_progress_bar(current_xp, level):
     bar = "||" * blocks + ".." * (10 - blocks)
     return f"`[{bar}] {percent}%`"
 
-# --- 8. ИНТЕРФЕЙС ---
+# --- 7. ИНТЕРФЕЙС ---
 def get_main_menu(uid):
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -221,11 +217,15 @@ def get_path_menu(cost_info=False):
     )
     return markup
 
-# --- 9. HANDLERS ---
+# --- 8. HANDLERS ---
 @bot.message_handler(commands=['start'])
 def start_cmd(m):
     uid = m.from_user.id
-    ref_id = int(m.text.split()[1]) if len(m.text.split()) > 1 and m.text.split()[1].isdigit() else None
+    ref_id = None
+    if len(m.text.split()) > 1:
+        arg = m.text.split()[1]
+        if arg.isdigit(): ref_id = int(arg)
+
     if uid not in USER_CACHE:
         if ws_users:
             ws_users.append_row([str(uid), f"@{m.from_user.username}", m.from_user.first_name, datetime.now().strftime("%Y-%m-%d"), "general", "0", "1", "1", datetime.now().strftime("%Y-%m-%d"), "0", "0", "0", "0", "0", str(ref_id or '')])
@@ -239,20 +239,23 @@ def start_cmd(m):
 @bot.message_handler(content_types=['text', 'photo'])
 def admin_handler(message):
     if message.from_user.id == ADMIN_ID:
-        if message.text == '/refresh': connect_db(); bot.send_message(message.chat.id, "✅ БД ОБНОВЛЕНА.")
+        if message.text == '/refresh': 
+            connect_db(); bot.send_message(message.chat.id, "✅ БД ОБНОВЛЕНА.")
         elif message.text and message.text.startswith('/post '):
-            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"))
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", url=f"https://t.me/{BOT_USERNAME}?start=channel_post"))
             bot.send_message(CHANNEL_ID, message.text[6:], reply_markup=markup, parse_mode="Markdown")
             bot.send_message(message.chat.id, "✅ ТЕКСТ ОТПРАВЛЕН.")
         elif message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
-            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"))
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", url=f"https://t.me/{BOT_USERNAME}?start=channel_post"))
             bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=message.caption[6:], reply_markup=markup, parse_mode="Markdown")
             bot.send_message(message.chat.id, "✅ ФОТО ОТПРАВЛЕНО.")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     uid = call.from_user.id
-    if uid not in USER_CACHE: return
+    if uid not in USER_CACHE:
+        bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА. Нажми /start", show_alert=True)
+        return
     u = USER_CACHE[uid]
     now_ts = time.time()
 
@@ -277,15 +280,11 @@ def callback(call):
         threading.Thread(target=decrypt_and_send, args=(uid, uid, target_lvl, use_dec)).start()
 
     elif call.data == "profile":
-        # --- ДИНАМИЧЕСКИЙ ПРОФИЛЬ ---
         stars = "★" * u['prestige']
         title = TITLES.get(u['level'], "НЕОФИТ")
         path_name = u['path'].upper() if u['path'] != 'general' else "БАЗОВЫЙ"
         progress = get_progress_bar(u['xp'], u['level'])
-        
-        # Подсчет рефералов (проходим по кэшу, это быстро для <1000 юзеров)
         ref_count = sum(1 for user in USER_CACHE.values() if user.get('referrer') == uid)
-        
         cd = COOLDOWN_ACCEL if u['accel_exp'] > now_ts else COOLDOWN_BASE
         status = "🟢 АКТИВЕН" if now_ts - u.get('last_protocol_time', 0) >= cd else "🔴 ПЕРЕГРЕВ"
 
@@ -297,7 +296,7 @@ def callback(call):
             f"{progress}\n\n"
             f"📡 **СЕТЬ:** {status}\n"
             f"🔗 **ВЕРБОВАНО УЗЛОВ:** {ref_count}\n"
-            f"🔥 **ЧИСТОТА СИГНАЛА (STREAK):** {u['streak']} дн.\n"
+            f"🔥 **ЧИСТОТА СИГНАЛА:** {u['streak']} дн.\n"
             f"━━━━━━━━━━━━━━\n"
             f"🎒 **ИНВЕНТАРЬ:** ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}"
         )
@@ -330,7 +329,7 @@ def callback(call):
         else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
 
     elif call.data == "referral":
-        link = f"https://t.me/{bot.get_me().username}?start={uid}"
+        link = f"https://t.me/{BOT_USERNAME}?start={uid}"
         safe_edit(call, f"🔗 **СИНДИКАТ**\n\nТвоя ссылка:\n`{link}`\n\n🎁 +{REFERRAL_BONUS} XP за друга.\n⚙️ +10% пассивно.", get_main_menu(uid))
 
     elif call.data == "change_path_confirm":
