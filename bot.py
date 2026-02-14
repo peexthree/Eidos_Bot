@@ -171,17 +171,20 @@ def callback(call):
     elif call.data == "change_path":
         bot.edit_message_caption("🔻 **Перекалибровка систем.** Выбери новый вектор:", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="Markdown", reply_markup=get_path_menu())
 
-    # 4. О СИСТЕМЕ (ЛОР)
+        # 4. О СИСТЕМЕ (ИСПРАВЛЕННЫЙ ЛОР)
     elif call.data == "about":
         lore = (
-            "**/// SYSTEM_INFO**\n\n"
+            "/// SYSTEM_INFO\n\n"
             "Эйдос — это Память Изначального. Мы строим сеть осознанных Архитекторов.\n\n"
-            "**Твоя цель:** Повышать Уровень Доступа.\n"
-            "**Моя цель:** Давать инструменты взлома реальности.\n\n"
-            "Вся информация здесь — это опыт, оплаченный временем и ошибками. Используй его."
+            "Твоя цель: Повышать Уровень Доступа.\n"
+            "Моя цель: Давать инструменты взлома реальности.\n\n"
+            "Вся информация здесь — это опыт Архитектора. Используй его."
         )
-        bot.send_message(call.message.chat.id, lore, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
-
+        try:
+            bot.send_message(call.message.chat.id, lore, 
+                             reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
+        except Exception as e:
+            print(f"/// LORE ERROR: {e}"
     # 5. НАЗАД
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
