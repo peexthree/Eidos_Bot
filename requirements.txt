@@ -1,4 +1,4 @@
 pyTelegramBotAPI
 flask
 gunicorn
-gspread
+psycopg2-binary
