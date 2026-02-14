@@ -62,6 +62,13 @@ def connect_db():
 
 connect_db()
 
+# Автообновление раз в час
+def auto_refresh():
+    while True:
+        time.sleep(3600)
+        connect_db()
+threading.Thread(target=auto_refresh, daemon=True).start()
+
 # --- ЛОГИКА ПОЛЬЗОВАТЕЛЕЙ ---
 def add_user_to_db(user):
     def bg():
@@ -71,6 +78,7 @@ def add_user_to_db(user):
                 if not cell:
                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     username = f"@{user.username}" if user.username else "No"
+                    # По умолчанию путь 'general'
                     worksheet_users.append_row([str(user.id), username, user.first_name, now, "general"])
         except: pass
     threading.Thread(target=bg).start()
@@ -99,58 +107,118 @@ def get_path_menu():
     )
     return markup
 
-# --- HANDLERS ---
+# --- АДМИН-ПАНЕЛЬ (ПУБЛИКАЦИЯ В КАНАЛ) ---
+@bot.message_handler(content_types=['text', 'photo'])
+def admin_post_handler(message):
+    # 1. ОБНОВЛЕНИЕ БАЗЫ
+    if message.text == '/refresh' and message.from_user.id == ADMIN_ID:
+        connect_db()
+        bot.send_message(message.chat.id, f"✅ База обновлена.\nMoney: {len(CONTENT_DB['money'])}\nMind: {len(CONTENT_DB['mind'])}")
+        return
+
+    # 2. ПУБЛИКАЦИЯ ПОСТА (ТЕКСТ ИЛИ ФОТО)
+    if message.from_user.id == ADMIN_ID:
+        # Если фото с подписью /post
+        if message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
+            text = message.caption[6:]
+            photo_id = message.photo[-1].file_id
+            markup = types.InlineKeyboardMarkup()
+            # Кнопка ведет на старт бота
+            btn = types.InlineKeyboardButton("👁 Войти в Интерфейс", url=f"https://t.me/{bot.get_me().username}?start=post")
+            markup.add(btn)
+            bot.send_photo(CHANNEL_ID, photo_id, caption=text, parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(message.chat.id, "✅ Фото-пост опубликован в канале.")
+            return
+
+        # Если просто текст /post
+        if message.content_type == 'text' and message.text.startswith('/post '):
+            text = message.text[6:]
+            markup = types.InlineKeyboardMarkup()
+            btn = types.InlineKeyboardButton("👁 Войти в Интерфейс", url=f"https://t.me/{bot.get_me().username}?start=post")
+            markup.add(btn)
+            bot.send_message(CHANNEL_ID, text, parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(message.chat.id, "✅ Текстовый пост опубликован в канале.")
+            return
+
+# --- ОБЫЧНЫЕ HANDLERS ---
 @bot.message_handler(commands=['start'])
 def start(m):
     add_user_to_db(m.from_user)
     msg = (
         f"/// СИНХРОНИЗАЦИЯ... [OK]\n\n"
         f"Приветствую, Осколок {m.from_user.first_name}.\n"
-        "Выбери вектор развития:"
+        "Ты находишься в интерфейсе **ЭЙДОС**.\n\n"
+        "Здесь нет случайных прохожих. Если ты здесь — значит, старые алгоритмы жизни перестали работать.\n"
+        "Я помогу тебе переписать код твоей реальности.\n\n"
+        "🔻 **Выбери вектор развития:**"
     )
-    try: bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=msg, reply_markup=get_path_menu())
+    try: bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=msg, parse_mode="Markdown", reply_markup=get_path_menu())
     except: bot.send_message(m.chat.id, msg, reply_markup=get_path_menu())
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     uid = call.from_user.id
     
+    # 1. ВЫБОР ПУТИ
     if "set_path_" in call.data:
-        path = call.data.split("_")[-1]
+        path = call.data.split("_")[-1] # money, mind, tech
         USER_PATHS[uid] = path
-        bot.edit_message_caption(caption=f"/// ПУТЬ {path.upper()} АКТИВИРОВАН.", 
-                                 chat_id=call.message.chat.id, message_id=call.message.message_id, 
-                                 reply_markup=get_main_menu())
+        
+        desc = {
+            "money": "🔴 **ПУТЬ ХИЩНИКА АКТИВИРОВАН.**\nФокус: Ресурсы, Доминирование, Продажи.\nЖди жестких протоколов.",
+            "mind": "🔵 **ПУТЬ МИСТИКА АКТИВИРОВАН.**\nФокус: Сознание, Люди, Манипуляция.\nУчимся видеть невидимое.",
+            "tech": "🟣 **ПУТЬ ТЕХНОЖРЕЦА АКТИВИРОВАН.**\nФокус: Автоматизация, Создание, Скорость.\nПусть работают машины."
+        }
+        
+        try:
+            bot.edit_message_caption(caption=desc.get(path, "Путь выбран."), chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="Markdown", reply_markup=get_main_menu())
+        except:
+            bot.send_message(call.message.chat.id, desc.get(path, "Путь выбран."), parse_mode="Markdown", reply_markup=get_main_menu())
 
+    # 2. ГЕНЕРАЦИЯ КОНТЕНТА
     elif call.data == "get_protocol":
         user_path = USER_PATHS.get(uid, "general")
         content_list = CONTENT_DB.get(user_path, [])
-        if not content_list: content_list = CONTENT_DB.get("general", ["/// ДАННЫЕ НЕ НАЙДЕНЫ."])
+        if not content_list: content_list = CONTENT_DB.get("general", ["/// ДАННЫЕ НЕ НАЙДЕНЫ. Попробуй сменить путь."])
+        
         text = random.choice(content_list)
-        bot.send_message(call.message.chat.id, f"/// ПРОТОКОЛ [{user_path.upper()}]:\n\n{text}", 
+        bot.send_message(call.message.chat.id, f"/// ПРОТОКОЛ [{user_path.upper()}]:\n\n{text}", parse_mode="Markdown", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
+        bot.answer_callback_query(call.id)
 
+    # 3. СМЕНА ПУТИ
     elif call.data == "change_path":
-        bot.edit_message_caption("Выбери новый вектор:", chat_id=call.message.chat.id, message_id=call.message.message_id, 
-                                 reply_markup=get_path_menu())
-
-    elif call.data == "about":
-        lore = "Эйдос — это Память Изначального. Мы строим сеть Архитекторов."
-        # ТУТ СКОБКА ТЕПЕРЬ ЗАКРЫТА:
+        msg_text = "🔻 **Перекалибровка систем.** Выбери новый вектор:"
         try:
-            bot.send_message(call.message.chat.id, lore, 
+            bot.edit_message_caption(msg_text, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="Markdown", reply_markup=get_path_menu())
+        except:
+            bot.send_message(call.message.chat.id, msg_text, parse_mode="Markdown", reply_markup=get_path_menu())
+
+    # 4. О СИСТЕМЕ
+    elif call.data == "about":
+        lore = (
+            "**/// SYSTEM_INFO**\n\n"
+            "Эйдос — это Память Изначального. Мы строим сеть осознанных Архитекторов.\n\n"
+            "**Твоя цель:** Повышать Уровень Доступа.\n"
+            "**Моя цель:** Давать инструменты взлома реальности.\n\n"
+            "Вся информация здесь — это опыт, оплаченный временем. Используй его."
+        )
+        try:
+            bot.send_message(call.message.chat.id, lore, parse_mode="Markdown", 
                              reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
         except Exception as e:
             print(f"/// LORE ERROR: {e}")
 
+    # 5. НАЗАД
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         bot.send_message(call.message.chat.id, "/// МЕНЮ АКТИВНО", reply_markup=get_main_menu())
     
-    bot.answer_callback_query(call.id)
+    try: bot.answer_callback_query(call.id)
+    except: pass
 
-# --- SERVER ---
+# --- WEBHOOK ---
 @app.route('/', methods=['POST'])
 def webhook():
     if flask.request.headers.get('content-type') == 'application/json':
