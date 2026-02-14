@@ -4,24 +4,31 @@ import flask
 import os
 import time
 import random
-import gspread
-import json
-import threading
 import psycopg2
-from psycopg2 import pool
+from psycopg2.extras import RealDictCursor
+import threading
 from datetime import datetime, timedelta
 
 # --- 1. КОНФИГУРАЦИЯ ---
 TOKEN = os.environ.get('BOT_TOKEN')
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
-ADMIN_ID = 5178416366
-BOT_USERNAME = "Eidos_Interface_bot"
-MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
-SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
-GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 DATABASE_URL = os.environ.get('DATABASE_URL')
+CHANNEL_ID = "@Eidos_Chronicles"
+ADMIN_ID = 5178416366
+BOT_USERNAME = "Eidos_Interface_bot" 
+MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
 
-# --- ЭКОНОМИКА (ТВОИ ПОРОГИ) ---
+# --- ЭКОНОМИКА ---
+COOLDOWN_BASE = 1800      # 30 мин (Синхрон)
+COOLDOWN_ACCEL = 900      # 15 мин (Ускоритель)
+COOLDOWN_SIGNAL = 300     # 5 мин (Сигнал)
+XP_GAIN = 25              # Синхрон
+XP_SIGNAL = 15            # Сигнал
+PATH_CHANGE_COST = 100
+REFERRAL_BONUS = 250
+PRICES = {"cryo": 200, "accel": 500, "decoder": 800}
+
+# --- ПОРОГИ УРОВНЕЙ ---
 LEVELS = {1: 100, 2: 500, 3: 1500, 4: 3000}
 TITLES = {1: "НЕОФИТ", 2: "ИСКАТЕЛЬ", 3: "ОПЕРАТОР", 4: "АРХИТЕКТОР"}
 
@@ -29,104 +36,596 @@ TITLES = {1: "НЕОФИТ", 2: "ИСКАТЕЛЬ", 3: "ОПЕРАТОР", 4: "�
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
 
-try:
-    db_pool = psycopg2.pool.SimpleConnectionPool(1, 20, dsn=DATABASE_URL)
-    print("/// SQL ENGINE: ONLINE")
-except Exception as e:
-    print(f"/// SQL ERROR: {e}")
+# --- 3. ТЕКСТОВЫЕ МОДУЛИ (СОХРАНЕНО 100%) ---
+SCHOOLS = {"money": "🏦 ШКОЛА МАТЕРИИ", "mind": "🧠 ШКОЛА РАЗУМА", "tech": "🤖 ШКОЛА СИНГУЛЯРНОСТИ"}
 
-# --- 3. МОДУЛЬ ПРОВЕРКИ БАЗЫ (ДЛЯ ТЕБЯ) ---
+GUIDE_FULL = (
+    "**📚 ТЕХНИЧЕСКАЯ ДОКУМЕНТАЦИЯ EIDOS v20.1**\n\n"
+    "**1. ИСТОЧНИКИ ДАННЫХ:**\n"
+    "• 👁 **СИНХРОН (30 мин):** Глубокие протоколы. Награда: **25 XP**.\n"
+    "• 📶 **СИГНАЛ (5 мин):** Короткие ментальные импульсы. Награда: **15 XP**.\n\n"
+    "**2. СИСТЕМА STREAK (СЕРИЯ):**\n"
+    "Каждый день непрерывного входа увеличивает награду за Синхрон на **+5 XP**.\n"
+    "Пропуск дня сжигает серию (если нет Крио-капсулы).\n\n"
+    "**3. УРОВНИ ДОСТУПА:**\n"
+    "• **LVL 1 (100 XP):** База.\n"
+    "• **LVL 2 (500 XP):** Фракции.\n"
+    "• **LVL 3 (1500 XP):** Инсайды.\n"
+    "• **LVL 4 (3000 XP):** Архитектор."
+)
 
-@bot.message_handler(commands=['db_check'])
-def db_check_cmd(m):
-    if m.from_user.id != ADMIN_ID: return
-    conn = db_pool.getconn()
+SHOP_FULL = (
+    "**🎰 ЧЕРНЫЙ РЫНОК**\n\n"
+    f"❄️ **КРИО ({PRICES['cryo']} XP)**\nСтраховка серии при пропуске дня.\n\n"
+    f"⚡️ **УСКОРИТЕЛЬ ({PRICES['accel']} XP)**\nСнижает ожидание Синхрона до 15 мин на 24 часа.\n*(Требует активации в Профиле после покупки)*\n\n"
+    f"🔑 **ДЕШИФРАТОР ({PRICES['decoder']} XP)**\nВзлом уровня доступа.Даёт знания уровнем выше\n\n"
+    f"⚙️ **СМЕНА ФРАКЦИИ ({PATH_CHANGE_COST} XP)**"
+)
+
+SYNDICATE_FULL = (
+    "**🔗 СИНДИКАТ**\n\n"
+    f"1. 🎁 **БОНУС:** +{REFERRAL_BONUS} XP за реферала.Приведи друга и раскачайся\n"
+    "2. 📈 **РОЯЛТИ:** 10% от опыта твоей сети пожизненно."
+)
+
+LEVEL_UP_MSG = {
+    2: "🔓 **LVL 2**: Доступ к секретам 2 уровня открыт.",
+    3: "🔓 **LVL 3**: Статус Оператора.Знания синхрона будут богаче",
+    4: "👑 **LVL 4**: Ты — Архитектор.Уровень знаний будет высоким"
+}
+
+# --- 4. БАЗА ДАННЫХ (POSTGRESQL CORE) ---
+def get_db_connection():
+    try:
+        return psycopg2.connect(DATABASE_URL, sslmode='require')
+    except Exception as e:
+        print(f"/// DB CONNECTION ERROR: {e}")
+        return None
+
+def init_db():
+    """Создает таблицы, если их нет (Миграция структуры)"""
+    conn = get_db_connection()
+    if not conn: return
     try:
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM users")
-        u_count = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM content")
-        c_count = cur.fetchone()[0]
-        bot.send_message(m.chat.id, f"📊 **СТАТУС SQL БАЗЫ:**\n\n👤 Пользователей: {u_count}\n📑 Строк контента: {c_count}")
-    except Exception as e: bot.send_message(m.chat.id, f"❌ Ошибка: {e}")
-    finally: db_pool.putconn(conn)
-
-# --- 4. ТОТАЛЬНАЯ МИГРАЦИЯ (ОБНОВЛЕННАЯ) ---
-
-@bot.message_handler(commands=['full_migrate'])
-def full_migrate_cmd(m):
-    if m.from_user.id != ADMIN_ID: return
-    bot.send_message(m.chat.id, "⏳ Начинаю тотальный перенос данных...")
-    try:
-        creds = json.loads(GOOGLE_JSON)
-        if 'private_key' in creds: creds['private_key'] = creds['private_key'].replace('\\n', '\n')
-        gc = gspread.service_account_from_dict(creds)
-        sh = gc.open(SHEET_NAME)
-        
-        conn = db_pool.getconn()
-        cur = conn.cursor()
-
-        # МИГРАЦИЯ КОНТЕНТА
-        cur.execute("DROP TABLE IF EXISTS content CASCADE;")
-        cur.execute("CREATE TABLE content (id SERIAL, type TEXT, path TEXT, text TEXT, level INT);")
-        ws_content = sh.worksheet("Content")
-        c_records = ws_content.get_all_records()
-        for r in c_records:
-            cur.execute("INSERT INTO content (type, path, text, level) VALUES (%s, %s, %s, %s)",
-                       (str(r.get('Type','')), str(r.get('Path','general')), str(r.get('Text','')), int(r.get('Level',1))))
-        
-        # МИГРАЦИЯ ЮЗЕРОВ
-        cur.execute("""
+        # Таблица пользователей (Полное соответствие Excel колонкам)
+        cur.execute('''
             CREATE TABLE IF NOT EXISTS users (
-                uid BIGINT PRIMARY KEY, username TEXT, first_name TEXT, signup_date TEXT,
-                path TEXT DEFAULT 'general', xp INT DEFAULT 0, level INT DEFAULT 1,
-                streak INT DEFAULT 1, last_active TEXT, prestige INT DEFAULT 0,
-                cryo INT DEFAULT 0, accel INT DEFAULT 0, decoder INT DEFAULT 0,
-                accel_exp FLOAT DEFAULT 0, referrer TEXT, last_protocol_time FLOAT DEFAULT 0,
-                last_signal_time FLOAT DEFAULT 0
+                id BIGINT PRIMARY KEY,
+                username TEXT,
+                first_name TEXT,
+                date_reg TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                path TEXT DEFAULT 'general',
+                xp INTEGER DEFAULT 0,
+                level INTEGER DEFAULT 1,
+                streak INTEGER DEFAULT 1,
+                last_active DATE DEFAULT CURRENT_DATE,
+                prestige INTEGER DEFAULT 0,
+                cryo INTEGER DEFAULT 0,
+                accel INTEGER DEFAULT 0,
+                decoder INTEGER DEFAULT 0,
+                accel_exp BIGINT DEFAULT 0,
+                referrer TEXT,
+                last_protocol_time BIGINT DEFAULT 0,
+                last_signal_time BIGINT DEFAULT 0,
+                notified BOOLEAN DEFAULT TRUE
             );
-        """)
-        ws_users = sh.worksheet("Users")
-        u_rows = ws_users.get_all_values()[1:]
-        for r in u_rows:
-            if not r[0].isdigit(): continue
-            cur.execute("""
-                INSERT INTO users (uid, username, first_name, signup_date, path, xp, level, streak, last_active, prestige, cryo, accel, decoder, accel_exp, referrer)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (uid) DO UPDATE SET xp=EXCLUDED.xp, level=EXCLUDED.level;
-            """, (int(r[0]), r[1], r[2], r[3], r[4], int(r[5]), int(r[6]), int(r[7]), r[8], int(r[9]), int(r[10]), int(r[11]), int(r[12]), float(r[13]), r[14]))
-
+        ''')
+        # Таблица контента
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS content (
+                id SERIAL PRIMARY KEY,
+                type TEXT,  -- signal / protocol
+                path TEXT,  -- general / money / mind / tech
+                text TEXT,
+                level INTEGER DEFAULT 1
+            );
+        ''')
         conn.commit()
-        db_pool.putconn(conn)
-        bot.send_message(m.chat.id, f"✅ МИГРАЦИЯ ЗАВЕРШЕНА.\nЮзеров: {len(u_rows)}\nКонтента: {len(c_records)}")
-    except Exception as e: bot.send_message(m.chat.id, f"❌ ОШИБКА: {e}")
+        print("/// DB STRUCTURE VERIFIED.")
+    except Exception as e:
+        print(f"/// DB INIT ERROR: {e}")
+    finally:
+        if conn: conn.close()
 
-# --- 5. ЛОГИКА ВЫБОРА КОНТЕНТА ---
-def get_content_sql(u_path, u_level, c_type='protocol'):
-    conn = db_pool.getconn()
+init_db()
+
+# --- HELPER FUNCTIONS FOR DB ---
+def get_user_from_db(uid):
+    conn = get_db_connection()
+    if not conn: return None
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM users WHERE id = %s", (uid,))
+        user = cur.fetchone()
+        return user
+    finally:
+        conn.close()
+
+def update_user_db(uid, **kwargs):
+    conn = get_db_connection()
+    if not conn: return
     try:
         cur = conn.cursor()
-        if c_type == 'signal':
-            cur.execute("SELECT text FROM content WHERE type='signal' ORDER BY RANDOM() LIMIT 1")
+        set_clause = ", ".join([f"{k} = %s" for k in kwargs.keys()])
+        values = list(kwargs.values()) + [uid]
+        cur.execute(f"UPDATE users SET {set_clause} WHERE id = %s", values)
+        conn.commit()
+    finally:
+        conn.close()
+
+def register_user_db(uid, username, first_name, referrer):
+    conn = get_db_connection()
+    if not conn: return
+    try:
+        start_xp = 50 if referrer == 'inst' else 0
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO users (id, username, first_name, referrer, xp, last_active)
+            VALUES (%s, %s, %s, %s, %s, CURRENT_DATE)
+            ON CONFLICT (id) DO NOTHING
+        ''', (uid, f"@{username}", first_name, referrer, start_xp))
+        conn.commit()
+    finally:
+        conn.close()
+
+# --- 5. ФУНКЦИИ ЯДРА ---
+def safe_edit(call, text, markup):
+    try:
+        if call.message.content_type == 'photo':
+            bot.edit_message_caption(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
         else:
-            cur.execute("SELECT text FROM content WHERE type!='signal' AND path=%s AND level<=%s ORDER BY RANDOM() LIMIT 1", (u_path, u_level))
-        res = cur.fetchone()
-        return res[0] if res else "/// НЕТ ДАННЫХ В SQL."
-    finally: db_pool.putconn(conn)
+            bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except: 
+        try: bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+        except: pass
 
-# --- 6. HEALTH CHECK И WEBHOOK ---
-@app.route('/health')
-def health_check(): return 'OK', 200
+def process_xp_logic(uid, amount, is_sync=False):
+    """Единая логика начисления XP, стриков и повышения уровня"""
+    u = get_user_from_db(uid)
+    if not u: return False, None, 0
+    
+    today = datetime.now().date()
+    # last_active в БД может быть str или date
+    last_active_date = u['last_active'] if isinstance(u['last_active'], (datetime, float, int)) else datetime.strptime(str(u['last_active']), "%Y-%m-%d").date()
+    
+    streak_bonus = 0
+    s_msg = None
+    
+    # Логика стрика срабатывает только если дата изменилась
+    if last_active_date < today:
+        if (today - last_active_date).days == 1:
+            # Последовательный день
+            new_streak = u['streak'] + 1
+            streak_bonus = new_streak * 5
+            s_msg = f"🔥 СЕРИЯ: {new_streak} ДН."
+        else:
+            # Разрыв серии
+            if u['cryo'] > 0:
+                new_streak = u['streak']
+                update_user_db(uid, cryo=u['cryo'] - 1)
+                s_msg = "❄️ КРИО-СПАСЕНИЕ!"
+            else:
+                new_streak = 1
+                streak_bonus = 5
+                s_msg = "❄️ СЕРИЯ СБРОШЕНА."
+        
+        update_user_db(uid, streak=new_streak, last_active=today)
+    else:
+        new_streak = u['streak']
 
+    total_xp = amount + streak_bonus
+    new_total_xp = u['xp'] + total_xp
+    
+    # Реферальные отчисления
+    if u['referrer'] and u['referrer'].isdigit():
+        ref_id = int(u['referrer'])
+        ref_user = get_user_from_db(ref_id)
+        if ref_user:
+            bonus = max(1, int(total_xp * 0.1))
+            update_user_db(ref_id, xp=ref_user['xp'] + bonus)
+
+    # Проверка уровня
+    old_lvl = u['level']
+    new_lvl = old_lvl
+    for lvl, threshold in sorted(LEVELS.items(), reverse=True):
+        if new_total_xp >= threshold:
+            new_lvl = lvl
+            break
+            
+    update_user_db(uid, xp=new_total_xp, level=new_lvl)
+    
+    return (new_lvl > old_lvl), s_msg, total_xp
+
+def get_content(c_type, path, level):
+    conn = get_db_connection()
+    if not conn: return "/// ОШИБКА ПОДКЛЮЧЕНИЯ К БАЗЕ ЗНАНИЙ"
+    try:
+        cur = conn.cursor()
+        # Ищем контент нужного типа и уровня
+        if c_type == 'signal':
+             cur.execute("SELECT text FROM content WHERE type = 'signal' ORDER BY RANDOM() LIMIT 1")
+        else:
+            # Для протокола ищем подходящий путь и уровень
+            # Если нет конкретного уровня, ищем любой ниже или равный
+            cur.execute("""
+                SELECT text FROM content 
+                WHERE type = 'protocol' AND (path = %s OR path = 'general') AND level <= %s 
+                ORDER BY RANDOM() LIMIT 1
+            """, (path, level))
+        
+        row = cur.fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+# --- 6. ПУШИ ---
+def notification_worker():
+    while True:
+        try:
+            time.sleep(60)
+            conn = get_db_connection()
+            if not conn: continue
+            
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM users WHERE notified = FALSE")
+            users = cur.fetchall()
+            
+            now = time.time()
+            
+            for u in users:
+                cd = COOLDOWN_ACCEL if u['accel_exp'] > now else COOLDOWN_BASE
+                if u['last_protocol_time'] > 0 and (now - u['last_protocol_time'] >= cd):
+                    try:
+                        bot.send_message(u['id'], "⚡️ **СИСТЕМА ГОТОВА.**\nПротокол восстановлен.", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ДЕШИФРОВАТЬ", callback_data="get_protocol")))
+                        update_user_db(u['id'], notified=True)
+                    except: pass
+            conn.close()
+        except Exception as e:
+            print(f"WORKER ERROR: {e}")
+
+def get_progress_bar(current_xp, level):
+    next_level_xp = LEVELS.get(level + 1, 10000)
+    prev_level_xp = LEVELS.get(level, 0)
+    if level >= 4: return "`[||||||||||] MAX`"
+    needed = next_level_xp - prev_level_xp
+    current = current_xp - prev_level_xp
+    percent = min(100, max(0, int((current / needed) * 100)))
+    blocks = int(percent / 10)
+    bar = "||" * blocks + ".." * (10 - blocks)
+    return f"`[{bar}] {percent}%`"
+
+# --- 7. ИНТЕРФЕЙС ---
+def get_main_menu(uid):
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("👁 ДЕШИФРОВАТЬ СИНХРОН", callback_data="get_protocol"),
+        types.InlineKeyboardButton("📶 ПОЛУЧИТЬ СИГНАЛ", callback_data="get_signal")
+    )
+    markup.add(
+        types.InlineKeyboardButton("👤 НЕЙРО-ПРОФИЛЬ", callback_data="profile"),
+        types.InlineKeyboardButton("🎰 ЧЕРНЫЙ РЫНОК", callback_data="shop")
+    )
+    markup.add(
+        types.InlineKeyboardButton("🔗 СИНДИКАТ", callback_data="referral"),
+        types.InlineKeyboardButton("📚 РУКОВОДСТВО", callback_data="guide")
+    )
+    if uid == ADMIN_ID: markup.add(types.InlineKeyboardButton("⚙️ АДМИН-ПАНЕЛЬ", callback_data="admin_panel"))
+    return markup
+
+def get_admin_menu():
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton("➕ ДОБАВИТЬ СИГНАЛ", callback_data="adm_add_signal"),
+        types.InlineKeyboardButton("➕ ДОБАВИТЬ ПРОТОКОЛ", callback_data="adm_add_proto"),
+        types.InlineKeyboardButton("👁 ПРОСМОТР ЮЗЕРА (ID)", callback_data="adm_view_user"),
+        types.InlineKeyboardButton("📊 СТАТИСТИКА", callback_data="admin_stats"),
+        types.InlineKeyboardButton("🎁 НАЧИСЛИТЬ ВСЕМ БОНУС", callback_data="admin_bonus"),
+        types.InlineKeyboardButton("🔙 В МЕНЮ", callback_data="back_to_menu")
+    )
+    return markup
+
+def get_path_menu(cost_info=False):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    btn_text = f" (-{PATH_CHANGE_COST} XP)" if cost_info else ""
+    markup.add(
+        types.InlineKeyboardButton(f"🔴 ХИЩНИК [Материя]{btn_text}", callback_data="set_path_money"),
+        types.InlineKeyboardButton(f"🔵 МИСТИК [Разум]{btn_text}", callback_data="set_path_mind"),
+        types.InlineKeyboardButton(f"🟣 ТЕХНОЖРЕЦ [AI]{btn_text}", callback_data="set_path_tech"),
+        types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")
+    )
+    return markup
+
+# --- 8. HANDLERS ---
+@bot.message_handler(commands=['start'])
+def start_cmd(m):
+    uid = m.from_user.id
+    ref_arg = m.text.split()[1] if len(m.text.split()) > 1 else None
+    
+    u = get_user_from_db(uid)
+    if not u:
+        register_user_db(uid, m.from_user.username, m.from_user.first_name, ref_arg)
+        # Бонус рефереру
+        if ref_arg and ref_arg.isdigit():
+            ref_id = int(ref_arg)
+            ref_u = get_user_from_db(ref_id)
+            if ref_u:
+                update_user_db(ref_id, xp=ref_u['xp'] + REFERRAL_BONUS)
+                try: bot.send_message(ref_id, f"🎁 **НОВЫЙ УЗЕЛ.** +{REFERRAL_BONUS} XP.")
+                except: pass
+
+    welcome_msg = "/// EIDOS-OS: СИНХРОНИЗИРОВАН."
+    if ref_arg == 'inst': welcome_msg = "🧬 **СИГНАЛ ИЗ INSTAGRAM.**\nБонус +50 XP начислен."
+    
+    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=welcome_msg, reply_markup=get_main_menu(uid))
+
+# --- АДМИН ФУНКЦИОНАЛ ---
+user_action_state = {} # Временное хранилище для шагов админа
+
+@bot.message_handler(func=lambda m: m.chat.id == ADMIN_ID and user_action_state.get(ADMIN_ID))
+def admin_steps(m):
+    state = user_action_state[ADMIN_ID]
+    
+    if state['step'] == 'wait_signal_text':
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO content (type, path, text, level) VALUES ('signal', 'general', %s, 1)", (m.text,))
+        conn.commit()
+        conn.close()
+        bot.send_message(ADMIN_ID, "✅ **СИГНАЛ ЗАГРУЖЕН В БАЗУ.**")
+        user_action_state.pop(ADMIN_ID)
+        
+    elif state['step'] == 'wait_proto_text':
+        # Формат: path|level|text (например: money|1|Текст протокола)
+        try:
+            path, level, text = m.text.split('|', 2)
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("INSERT INTO content (type, path, text, level) VALUES ('protocol', %s, %s, %s)", (path.strip(), text.strip(), int(level)))
+            conn.commit()
+            conn.close()
+            bot.send_message(ADMIN_ID, f"✅ **ПРОТОКОЛ ({path}) ЗАГРУЖЕН.**")
+        except:
+            bot.send_message(ADMIN_ID, "❌ Ошибка формата. Надо: `path|level|text`")
+        user_action_state.pop(ADMIN_ID)
+
+    elif state['step'] == 'wait_user_id':
+        uid_target = int(m.text) if m.text.isdigit() else 0
+        u = get_user_from_db(uid_target)
+        if u:
+            msg = (f"👤 **DOSSIER ID:** `{u['id']}`\n"
+                   f"Name: {u['username']}\n"
+                   f"XP: {u['xp']} | LVL: {u['level']}\n"
+                   f"Path: {u['path']} | Streak: {u['streak']}\n"
+                   f"Inv: Cryo={u['cryo']}, Accel={u['accel']}, Dec={u['decoder']}")
+            bot.send_message(ADMIN_ID, msg)
+        else:
+            bot.send_message(ADMIN_ID, "❌ Пользователь не найден в БД.")
+        user_action_state.pop(ADMIN_ID)
+
+@bot.message_handler(content_types=['text', 'photo'])
+def admin_handler(message):
+    if message.from_user.id == ADMIN_ID:
+        if message.text == '/refresh': 
+            init_db() 
+            bot.send_message(message.chat.id, "✅ Структура БД проверена.")
+        
+        elif message.text and message.text.startswith('/telegraph '):
+            parts = message.text.split(maxsplit=2)
+            if len(parts) >= 2:
+                url, text = parts[1], parts[2] if len(parts) > 2 else "/// АРХИВ ДЕШИФРОВАН"
+                clean_url = url.split("google.com/search?q=")[-1] if "google.com" in url else url
+                markup = types.InlineKeyboardMarkup().add(
+                    types.InlineKeyboardButton("📂 ОТКРЫТЬ ДОСЬЕ", url=clean_url),
+                    types.InlineKeyboardButton("📶 ПОЛУЧИТЬ СИГНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=signal")
+                )
+                bot.send_message(CHANNEL_ID, text, reply_markup=markup, parse_mode="Markdown")
+        
+        elif message.text and message.text.startswith('/post '):
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ВОЙТИ В ТЕРМИНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=channel"))
+            bot.send_message(CHANNEL_ID, message.text[6:], reply_markup=markup, parse_mode="Markdown")
+        
+        elif message.text and message.text.startswith('/ban '): 
+            try:
+                target_id = int(message.text.split()[1])
+                conn = get_db_connection()
+                cur = conn.cursor()
+                cur.execute("DELETE FROM users WHERE id = %s", (target_id,))
+                conn.commit()
+                conn.close()
+                bot.send_message(message.chat.id, f"🚫 УЗЕЛ {target_id} СТЕРТ ИЗ РЕАЛЬНОСТИ.")
+            except: bot.send_message(message.chat.id, "❌ Ошибка ID.")
+        
+        elif message.text and message.text.startswith('/give_xp '):
+            try:
+                _, t_id, amount = message.text.split()
+                t_id, amount = int(t_id), int(amount)
+                u = get_user_from_db(t_id)
+                if u:
+                    update_user_db(t_id, xp=u['xp'] + amount)
+                    bot.send_message(t_id, f"⚡️ **ВМЕШАТЕЛЬСТВО АРХИТЕКТОРА:** Начислено {amount} XP.")
+                    bot.send_message(message.chat.id, "✅ Начислено.")
+            except: bot.send_message(message.chat.id, "❌ Формат: /give_xp ID СУММА")
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback(call):
+    uid = call.from_user.id
+    u = get_user_from_db(uid)
+    if not u:
+        bot.answer_callback_query(call.id, "⚠️ Нажми /start для инициализации", show_alert=True); return
+    
+    now_ts = time.time()
+
+    try:
+        if call.data == "admin_panel" and uid == ADMIN_ID: 
+            safe_edit(call, "⚙️ **ЦЕНТР УПРАВЛЕНИЯ АРХИТЕКТОРА**\nВыберите действие или используйте команды:\n`/ban ID`\n`/give_xp ID СУММА`", get_admin_menu())
+        
+        # --- НОВЫЙ ФУНКЦИОНАЛ АДМИНКИ ---
+        elif call.data == "adm_add_signal" and uid == ADMIN_ID:
+            user_action_state[uid] = {'step': 'wait_signal_text'}
+            bot.send_message(uid, "✍️ **Введи текст нового СИГНАЛА:**")
+            
+        elif call.data == "adm_add_proto" and uid == ADMIN_ID:
+            user_action_state[uid] = {'step': 'wait_proto_text'}
+            bot.send_message(uid, "✍️ **Введи ПРОТОКОЛ в формате:**\n`money|1|Текст протокола`\n(path: money, mind, tech, general)")
+
+        elif call.data == "adm_view_user" and uid == ADMIN_ID:
+            user_action_state[uid] = {'step': 'wait_user_id'}
+            bot.send_message(uid, "🔎 **Введи Telegram ID пользователя:**")
+
+        elif call.data == "admin_bonus" and uid == ADMIN_ID:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("UPDATE users SET xp = xp + 100")
+            count = cur.rowcount
+            conn.commit()
+            conn.close()
+            bot.answer_callback_query(call.id, f"🎁 Выдано по 100 XP {count} узлам")
+
+        elif call.data == "admin_stats" and uid == ADMIN_ID:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM users")
+            total = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM users WHERE referrer = 'inst'")
+            inst = cur.fetchone()[0]
+            conn.close()
+            bot.answer_callback_query(call.id, f"📊 Всего узлов: {total}\n📸 Instagram: {inst}", show_alert=True)
+
+        elif call.data == "get_protocol":
+            is_accel_active = u['accel_exp'] > now_ts
+            cd = COOLDOWN_ACCEL if is_accel_active else COOLDOWN_BASE
+            
+            if now_ts - u['last_protocol_time'] < cd:
+                rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
+                bot.answer_callback_query(call.id, f"⏳ ПЕРЕГРЕВ: {rem} мин.", show_alert=True); return
+            
+            update_user_db(uid, last_protocol_time=int(now_ts), notified=False) # Сброс уведомления
+            
+            up, s_msg, total = process_xp_logic(uid, XP_GAIN, is_sync=True)
+            u = get_user_from_db(uid) # Обновляем данные после начисления
+            
+            target_lvl = u['level'] + 1 if u['decoder'] > 0 else u['level']
+            if u['decoder'] > 0: update_user_db(uid, decoder=u['decoder'] - 1)
+            
+            if up: bot.send_message(uid, LEVEL_UP_MSG.get(u['level'], "🎉 ВЫШЕ УРОВЕНЬ!"))
+            
+            # Асинхронная дешифровка
+            def dec_task():
+                status_msg = bot.send_message(uid, "📡 **ИНИЦИАЛИЗАЦИЯ...**")
+                time.sleep(1)
+                bot.edit_message_text(f"🔓 **ДЕШИФРОВКА...**\n`[||||||||..] 84%`", uid, status_msg.message_id, parse_mode="Markdown")
+                time.sleep(0.8)
+                
+                txt = get_content('protocol', u['path'], target_lvl) or "/// НЕТ ДАННЫХ В ЭТОМ СЕКТОРЕ. Жди обновлений базы."
+                school = SCHOOLS.get(u['path'], "🌐 ОБЩИЙ КАНАЛ")
+                res = f"🧬 **{school}**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_GAIN} SYNC"
+                
+                bot.edit_message_text(res, uid, status_msg.message_id, parse_mode="Markdown", 
+                                     reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
+            threading.Thread(target=dec_task).start()
+
+        elif call.data == "get_signal":
+            if now_ts - u['last_signal_time'] < COOLDOWN_SIGNAL:
+                rem = int((COOLDOWN_SIGNAL - (now_ts - u['last_signal_time'])) / 60)
+                bot.answer_callback_query(call.id, f"📡 СИГНАЛ НЕ ГОТОВ. Жди {rem} мин.", show_alert=True); return
+            
+            update_user_db(uid, last_signal_time=int(now_ts))
+            up, s_msg, total = process_xp_logic(uid, XP_SIGNAL)
+            
+            txt = get_content('signal', 'general', 1) or "/// ЭФИР ПУСТ. Архитектор еще не загрузил данные."
+            
+            bot.send_message(uid, f"📶 **ПОЛУЧЕН СИГНАЛ**\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_SIGNAL} XP", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
+
+        elif call.data == "profile":
+            u = get_user_from_db(uid) # Refresh
+            title = TITLES.get(u['level'], "НЕОФИТ")
+            progress = get_progress_bar(u['xp'], u['level'])
+            accel_status = "✅ АКТИВЕН" if u['accel_exp'] > now_ts else "❌ НЕ АКТИВЕН"
+            
+            msg = (f"👤 **НЕЙРО-ПРОФИЛЬ**\n━━━━━━━━━━━━━━\n"
+                   f"🔰 **СТАТУС:** {title}\n"
+                   f"⚔️ **ФРАКЦИЯ:** {SCHOOLS.get(u['path'], 'ОБЩИЙ ПОТОК')}\n"
+                   f"🔋 **SYNC:** {u['xp']} XP\n{progress}\n"
+                   f"🔥 **STREAK:** {u['streak']} дн. (Бонус: +{u['streak']*5} XP)\n"
+                   f"━━━━━━━━━━━━━━\n"
+                   f"🎒 **ИНВЕНТАРЬ:**\n❄️ Крио: {u['cryo']}\n⚡️ Ускоритель: {accel_status}\n🔑 Дешифратор: {u['decoder']}")
+            
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            if u['accel'] > 0 and u['accel_exp'] < now_ts:
+                markup.add(types.InlineKeyboardButton("🚀 АКТИВИРОВАТЬ УСКОРИТЕЛЬ", callback_data="use_accel"))
+            markup.add(types.InlineKeyboardButton("⚙️ СМЕНИТЬ ВЕКТОР", callback_data="change_path_confirm"))
+            markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
+            safe_edit(call, msg, markup)
+
+        elif call.data == "back_to_menu":
+            try: bot.delete_message(call.message.chat.id, call.message.message_id)
+            except: pass
+            bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// СИСТЕМА АКТИВНА.", reply_markup=get_main_menu(uid))
+
+        elif call.data == "shop":
+            safe_edit(call, SHOP_FULL, types.InlineKeyboardMarkup(row_width=1).add(
+                types.InlineKeyboardButton("❄️ КУПИТЬ КРИО (200 XP)", callback_data="buy_cryo"),
+                types.InlineKeyboardButton("⚡️ КУПИТЬ УСКОРИТЕЛЬ (500 XP)", callback_data="buy_accel"),
+                types.InlineKeyboardButton("🔑 КУПИТЬ ДЕШИФРАТОР (800 XP)", callback_data="buy_decoder"),
+                types.InlineKeyboardButton("⚙️ СМЕНИТЬ ФРАКЦИЮ (100 XP)", callback_data="change_path_confirm"),
+                types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")))
+
+        elif call.data.startswith("buy_"):
+            item = call.data.split("_")[1]
+            if u['xp'] >= PRICES[item]:
+                update_user_db(uid, xp=u['xp'] - PRICES[item])
+                # Динамическое обновление поля
+                conn = get_db_connection()
+                cur = conn.cursor()
+                cur.execute(f"UPDATE users SET {item} = {item} + 1 WHERE id = %s", (uid,))
+                conn.commit()
+                conn.close()
+                bot.answer_callback_query(call.id, f"✅ КУПЛЕНО: {item.upper()}"); safe_edit(call, SHOP_FULL, get_main_menu(uid))
+            else: bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО SYNC", show_alert=True)
+
+        elif call.data == "referral":
+            link = f"https://t.me/{BOT_USERNAME}?start={uid}"
+            safe_edit(call, f"{SYNDICATE_FULL}\n\n👇 **ТВОЯ ПЕРСОНАЛЬНАЯ ССЫЛКА:**\n`{link}`", get_main_menu(uid))
+
+        elif call.data == "change_path_confirm":
+            safe_edit(call, f"⚠️ **СМЕНА ФРАКЦИИ**\nЦена: **{PATH_CHANGE_COST} SYNC**.", get_path_menu(cost_info=True))
+
+        elif "set_path_" in call.data:
+            new_path = call.data.split("_")[-1]
+            if u['xp'] >= PATH_CHANGE_COST or u['path'] == 'general':
+                if u['path'] != 'general' and u['path'] != new_path: 
+                    update_user_db(uid, xp=u['xp'] - PATH_CHANGE_COST)
+                update_user_db(uid, path=new_path)
+                bot.send_photo(uid, MENU_IMAGE_URL, caption=f"/// ПУТЬ {new_path.upper()} ИНТЕГРИРОВАН.", reply_markup=get_main_menu(uid))
+            else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
+
+        elif call.data == "use_accel":
+            if u['accel'] > 0:
+                update_user_db(uid, accel=u['accel'] - 1, accel_exp=int(now_ts + 86400))
+                bot.send_photo(uid, MENU_IMAGE_URL, caption="/// РАЗГОН АКТИВИРОВАН. КУЛДАУН: 15 МИН.", reply_markup=get_main_menu(uid))
+            else: bot.answer_callback_query(call.id, "❌ НЕТ УСКОРИТЕЛЯ", show_alert=True)
+
+        elif call.data == "guide": 
+            safe_edit(call, GUIDE_FULL, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
+    except Exception as e: print(f"/// CALLBACK ERROR: {e}")
+
+# --- 9. ЗАПУСК ---
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if flask.request.method == 'POST':
-        bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
-        return 'OK', 200
-    return 'Eidos Operational', 200
+        try:
+            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+            return 'OK', 200
+        except Exception as e:
+            print(f"/// WEBHOOK ERROR: {e}")
+            return 'Error', 500
+    return 'Eidos SQL Interface is Operational', 200
 
-# --- 7. ЗАПУСК ---
 if __name__ == "__main__":
-    bot.remove_webhook(); time.sleep(1)
-    if WEBHOOK_URL: bot.set_webhook(url=WEBHOOK_URL)
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 10000)))
+    if WEBHOOK_URL: 
+        bot.remove_webhook(); time.sleep(1); bot.set_webhook(url=WEBHOOK_URL)
+        print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+    threading.Thread(target=notification_worker, daemon=True).start()
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host="0.0.0.0", port=port)
