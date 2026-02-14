@@ -87,7 +87,8 @@ def init_db():
     if not conn: return
     try:
         cur = conn.cursor()
-        # ТАБЛИЦА С UID (Как в твоей базе)
+        
+        # 1. Создание базовых таблиц (если их нет)
         cur.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 uid BIGINT PRIMARY KEY,
@@ -106,8 +107,7 @@ def init_db():
                 accel_exp BIGINT DEFAULT 0,
                 referrer TEXT,
                 last_protocol_time BIGINT DEFAULT 0,
-                last_signal_time BIGINT DEFAULT 0,
-                notified BOOLEAN DEFAULT TRUE
+                last_signal_time BIGINT DEFAULT 0
             );
         ''')
         cur.execute('''
@@ -119,6 +119,16 @@ def init_db():
                 level INTEGER DEFAULT 1
             );
         ''')
+        
+        # 2. ПАТЧ: Добавляем колонку notified, если ее нет
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT TRUE;")
+            conn.commit()
+            print("/// DB PATCH: COLUMN 'notified' VERIFIED.")
+        except Exception as e:
+            print(f"/// DB PATCH INFO: {e}")
+            conn.rollback()
+
         conn.commit()
         print("/// DB STRUCTURE VERIFIED.")
     except Exception as e:
