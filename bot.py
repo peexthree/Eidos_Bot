@@ -87,7 +87,7 @@ def init_db():
     if not conn: return
     try:
         cur = conn.cursor()
-        # ИСПРАВЛЕНИЕ: Используем uid вместо id, так как база уже создана с uid
+        # ТАБЛИЦА С UID (Как в твоей базе)
         cur.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 uid BIGINT PRIMARY KEY,
@@ -126,16 +126,12 @@ def init_db():
     finally:
         if conn: conn.close()
 
-# Запуск инициализации при старте
-init_db()
-
 # --- HELPER FUNCTIONS FOR DB ---
 def get_user_from_db(uid):
     conn = get_db_connection()
     if not conn: return None
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        # ИСПРАВЛЕНИЕ: WHERE uid = ...
         cur.execute("SELECT * FROM users WHERE uid = %s", (uid,))
         user = cur.fetchone()
         return user
@@ -149,7 +145,6 @@ def update_user_db(uid, **kwargs):
         cur = conn.cursor()
         set_clause = ", ".join([f"{k} = %s" for k in kwargs.keys()])
         values = list(kwargs.values()) + [uid]
-        # ИСПРАВЛЕНИЕ: WHERE uid = ...
         cur.execute(f"UPDATE users SET {set_clause} WHERE uid = %s", values)
         conn.commit()
     finally:
@@ -161,13 +156,26 @@ def register_user_db(uid, username, first_name, referrer):
     try:
         start_xp = 50 if referrer == 'inst' else 0
         cur = conn.cursor()
-        # ИСПРАВЛЕНИЕ: uid вместо id
         cur.execute('''
             INSERT INTO users (uid, username, first_name, referrer, xp, last_active)
             VALUES (%s, %s, %s, %s, %s, CURRENT_DATE)
             ON CONFLICT (uid) DO NOTHING
         ''', (uid, f"@{username}", first_name, referrer, start_xp))
         conn.commit()
+    finally:
+        conn.close()
+
+def get_referral_count(uid):
+    conn = get_db_connection()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        # Считаем, сколько людей указали этот uid как реферера
+        cur.execute("SELECT COUNT(*) FROM users WHERE referrer = %s", (str(uid),))
+        count = cur.fetchone()[0]
+        return count
+    except:
+        return 0
     finally:
         conn.close()
 
@@ -187,7 +195,11 @@ def process_xp_logic(uid, amount, is_sync=False):
     if not u: return False, None, 0
     
     today = datetime.now().date()
-    last_active_date = u['last_active'] if isinstance(u['last_active'], (datetime, float, int)) else datetime.strptime(str(u['last_active']), "%Y-%m-%d").date()
+    # Обработка формата даты (на случай если база вернет строку)
+    if isinstance(u['last_active'], str):
+        last_active_date = datetime.strptime(u['last_active'], "%Y-%m-%d").date()
+    else:
+        last_active_date = u['last_active']
     
     streak_bonus = 0
     s_msg = None
@@ -213,6 +225,7 @@ def process_xp_logic(uid, amount, is_sync=False):
     total_xp = amount + streak_bonus
     new_total_xp = u['xp'] + total_xp
     
+    # Реферальная система
     if u['referrer'] and u['referrer'].isdigit():
         ref_id = int(u['referrer'])
         ref_user = get_user_from_db(ref_id)
@@ -263,7 +276,6 @@ def notification_worker():
                 cd = COOLDOWN_ACCEL if u['accel_exp'] > now else COOLDOWN_BASE
                 if u['last_protocol_time'] > 0 and (now - u['last_protocol_time'] >= cd):
                     try:
-                        # ИСПРАВЛЕНИЕ: u['uid'] вместо u['id']
                         bot.send_message(u['uid'], "⚡️ **СИСТЕМА ГОТОВА.**\nПротокол восстановлен.", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ДЕШИФРОВАТЬ", callback_data="get_protocol")))
                         update_user_db(u['uid'], notified=True)
                     except: pass
@@ -378,7 +390,6 @@ def admin_steps(m):
         uid_target = int(m.text) if m.text.isdigit() else 0
         u = get_user_from_db(uid_target)
         if u:
-            # ИСПРАВЛЕНИЕ: u['uid']
             msg = (f"👤 **DOSSIER ID:** `{u['uid']}`\n"
                    f"Name: {u['username']}\n"
                    f"XP: {u['xp']} | LVL: {u['level']}\n"
@@ -416,7 +427,6 @@ def admin_handler(message):
                 target_id = int(message.text.split()[1])
                 conn = get_db_connection()
                 cur = conn.cursor()
-                # ИСПРАВЛЕНИЕ: uid
                 cur.execute("DELETE FROM users WHERE uid = %s", (target_id,))
                 conn.commit()
                 conn.close()
@@ -528,11 +538,15 @@ def callback(call):
             progress = get_progress_bar(u['xp'], u['level'])
             accel_status = "✅ АКТИВЕН" if u['accel_exp'] > now_ts else "❌ НЕ АКТИВЕН"
             
+            # --- НОВЫЙ ФУНКЦИОНАЛ: СЧЕТЧИК РЕФЕРАЛОВ ---
+            ref_count = get_referral_count(uid)
+            
             msg = (f"👤 **НЕЙРО-ПРОФИЛЬ**\n━━━━━━━━━━━━━━\n"
                    f"🔰 **СТАТУС:** {title}\n"
                    f"⚔️ **ФРАКЦИЯ:** {SCHOOLS.get(u['path'], 'ОБЩИЙ ПОТОК')}\n"
                    f"🔋 **SYNC:** {u['xp']} XP\n{progress}\n"
                    f"🔥 **STREAK:** {u['streak']} дн. (Бонус: +{u['streak']*5} XP)\n"
+                   f"👥 **СЕТЬ:** {ref_count} узлов\n"
                    f"━━━━━━━━━━━━━━\n"
                    f"🎒 **ИНВЕНТАРЬ:**\n❄️ Крио: {u['cryo']}\n⚡️ Ускоритель: {accel_status}\n🔑 Дешифратор: {u['decoder']}")
             
@@ -562,7 +576,6 @@ def callback(call):
                 update_user_db(uid, xp=u['xp'] - PRICES[item])
                 conn = get_db_connection()
                 cur = conn.cursor()
-                # ИСПРАВЛЕНИЕ: uid
                 cur.execute(f"UPDATE users SET {item} = {item} + 1 WHERE uid = %s", (uid,))
                 conn.commit()
                 conn.close()
@@ -595,7 +608,7 @@ def callback(call):
             safe_edit(call, GUIDE_FULL, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
     except Exception as e: print(f"/// CALLBACK ERROR: {e}")
 
-# --- 9. ЗАПУСК И МАРШРУТЫ ---
+# --- 9. ЗАПУСК И МАРШРУТЫ (SAFE BOOT PROTOCOL) ---
 @app.route('/health', methods=['GET'])
 def health_check():
     return 'OK', 200
@@ -611,15 +624,24 @@ def webhook():
             return 'Error', 500
     return 'Eidos SQL Interface is Operational', 200
 
-threading.Thread(target=notification_worker, daemon=True).start()
+# ФОНОВЫЙ ЗАПУСК СИСТЕМ (ЧТОБЫ НЕ БЛОКИРОВАТЬ СТАРТ)
+def system_startup():
+    with app.app_context():
+        # Даем серверу продышаться перед нагрузкой
+        time.sleep(2)
+        print("/// SYSTEM STARTUP INITIATED...")
+        init_db()
+        if WEBHOOK_URL:
+            try:
+                bot.remove_webhook()
+                bot.set_webhook(url=WEBHOOK_URL)
+                print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+            except Exception as e:
+                print(f"/// WEBHOOK ERROR: {e}")
+        # Запускаем воркер уведомлений
+        notification_worker()
 
-if WEBHOOK_URL:
-    try:
-        bot.remove_webhook()
-        bot.set_webhook(url=WEBHOOK_URL)
-        print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
-    except Exception as e:
-        print(f"/// WEBHOOK INIT WARNING: {e}")
+threading.Thread(target=system_startup, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
