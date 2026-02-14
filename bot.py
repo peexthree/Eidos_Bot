@@ -23,7 +23,6 @@ COOLDOWN_BASE = 3600
 COOLDOWN_ACCEL = 900
 PATH_CHANGE_COST = 50
 REFERRAL_BONUS = 100
-REFERRAL_PERCENT = 0.1
 PRICES = {"cryo": 100, "accel": 250, "decoder": 400}
 
 # --- 2. ИНИЦИАЛИЗАЦИЯ ---
@@ -32,7 +31,7 @@ app = flask.Flask(__name__)
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
 USER_CACHE = {} 
 
-# --- 3. ЛОР ---
+# --- 3. ЛОР И ШКОЛЫ ---
 SCHOOLS = {
     "money": "🏦 ШКОЛА МАТЕРИИ (Влияние & Капитал)",
     "mind": "🧠 ШКОЛА РАЗУМА (Психофизика & НЛП)",
@@ -40,8 +39,8 @@ SCHOOLS = {
 }
 
 REMINDERS = [
-    "⚡️ Канал связи восстановлен. Следующий протокол готов к дешифровке.",
-    "👁 Эйдос обнаружил новый паттерн реальности. Требуется твое внимание.",
+    "⚡️ Канал связи восстановлен. Протокол готов к дешифровке.",
+    "👁 Эйдос обнаружил новый паттерн реальности. Требуется внимание.",
     "📡 Входящий сигнал... Данные синхронизированы.",
     "🔓 Допуск к файлам высшего порядка подтвержден.",
     "🌑 Твой нейроинтерфейс остыл. Пора обновить прошивку."
@@ -49,16 +48,10 @@ REMINDERS = [
 
 GUIDE_TEXT = (
     "**/// ИНСТРУКЦИЯ EIDOS_OS**\n\n"
-    "**1. СУТЬ:** Обновление твоих ментальных карт.\n"
-    "**2. SYNC (XP):** Уровень твоей синхронизации с системой.\n"
+    "**1. СУТЬ:** Обновление ментальных карт.\n"
+    "**2. SYNC (XP):** Уровень синхронизации с системой.\n"
     "**3. ШКОЛЫ:** Материя (деньги), Разум (психология), Сингулярность (ИИ)."
 )
-
-LEVEL_UP_MSG = {
-    2: "🔓 **ДОСТУП LVL 2**: Инструменты Влияния открыты.",
-    3: "🔓 **ДОСТУП LVL 3**: Статус Оператора присвоен.",
-    4: "👑 **ДОСТУП LVL 4**: Статус Архитектора Реальности."
-}
 
 # --- 4. БАЗА ДАННЫХ ---
 def connect_db():
@@ -99,19 +92,11 @@ def connect_db():
                         "referrer": int(row[14]) if len(row) > 14 and str(row[14]).isdigit() else None,
                         "last_protocol_time": 0, "notified": True, "row_id": i
                     }
-    except: pass
+    except Exception as e: print(f"/// DB ERROR: {e}")
 
 connect_db()
 
-# --- 5. ЛОГИКА ЯДРА ---
-def safe_edit(call, text, markup):
-    try:
-        if call.message.content_type == 'photo':
-            bot.edit_message_caption(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-        else:
-            bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-    except: bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-
+# --- 5. ЛОГИКА ---
 def save_progress(uid):
     def task():
         try:
@@ -146,14 +131,14 @@ def add_xp(uid, amount):
         return (u['level'] > old_lvl), s_msg, total
     return False, None, 0
 
-# --- 6. ЭФФЕКТ ДЕШИФРОВКИ ---
+# --- 6. ЭФФЕКТ ДЕШИФРОВКИ (VISUAL VALUE) ---
 def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
     u = USER_CACHE[uid]
     status_msg = bot.send_message(chat_id, "📡 **УСТАНОВКА СОЕДИНЕНИЯ...**", parse_mode="Markdown")
     time.sleep(1)
-    bot.edit_message_text(f"📥 **ЗАГРУЗКА [{u['path'].upper()}]...**\n`[||||......] 38%`", chat_id, status_msg.message_id, parse_mode="Markdown")
+    bot.edit_message_text(f"📥 **ЗАГРУЗКА ДАННЫХ [{u['path'].upper()}]...**\n`[||||......] 38%`", chat_id, status_msg.message_id, parse_mode="Markdown")
     time.sleep(1.2)
-    bot.edit_message_text(f"🔓 **ДЕШИФРОВКА LVL {target_lvl}...**\n`[||||||||..] 84%`", chat_id, status_msg.message_id, parse_mode="Markdown")
+    bot.edit_message_text(f"🔓 **ДЕШИФРОВКА УРОВНЯ {target_lvl}...**\n`[||||||||..] 84%`", chat_id, status_msg.message_id, parse_mode="Markdown")
     time.sleep(0.8)
 
     pool = []
@@ -228,42 +213,40 @@ def callback(call):
         u['last_protocol_time'], u['notified'] = now_ts, False
         up, s_msg, total = add_xp(uid, 10)
         use_dec = "(+🔑 Дешифратор)" if u['decoder'] > 0 else ""
-        if u['decoder'] > 0: u['decoder'] -= 1; target_lvl = u['level'] + 1
-        else: target_lvl = u['level']
+        target_lvl = u['level'] + 1 if u['decoder'] > 0 else u['level']
+        if u['decoder'] > 0: u['decoder'] -= 1
         threading.Thread(target=decrypt_and_send, args=(call.message.chat.id, uid, target_lvl, use_dec)).start()
 
     elif call.data == "profile":
         stars = "★" * u['prestige']
         msg = f"👤 **НЕЙРО-ПРОФИЛЬ** {stars}\n💰 SYNC: {u['xp']} XP\n🔥 СЕРИЯ: {u['streak']} дн.\n🎒 ИНВ: ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}"
-        safe_edit(call, msg, get_main_menu())
+        markup = types.InlineKeyboardMarkup()
+        if u['accel'] > 0 and u['accel_exp'] < now_ts: markup.add(types.InlineKeyboardButton("🚀 УСКОРИТЬ СИНХРОН", callback_data="use_accel"))
+        markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
+        bot.send_message(call.message.chat.id, msg, parse_mode="Markdown", reply_markup=markup)
 
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ТЕРМИНАЛ АКТИВЕН", reply_markup=get_main_menu())
 
-    elif call.data == "guide": safe_edit(call, GUIDE_TEXT, get_main_menu())
+    elif call.data == "guide": bot.send_message(call.message.chat.id, GUIDE_TEXT, parse_mode="Markdown")
     
     try: bot.answer_callback_query(call.id)
     except: pass
 
-# --- 10. ЗАПУСК (ВЕБХУК + HEALTH CHECK) ---
+# --- 10. ЗАПУСК (HEALTH CHECK FIX) ---
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if flask.request.method == 'POST':
-        if flask.request.headers.get('content-type') == 'application/json':
-            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
-            return 'OK', 200
-        flask.abort(403)
-    else:
-        # Это то, что спасет твой деплой на Render
-        return 'Eidos System is Alive', 200
+        bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+        return 'OK', 200
+    return 'Eidos System is Alive', 200
 
 if __name__ == "__main__":
     if WEBHOOK_URL: 
         bot.remove_webhook()
         time.sleep(1)
         bot.set_webhook(url=WEBHOOK_URL)
-    # Запускаем фоновые пуши (теперь точно!)
     threading.Thread(target=notification_worker, daemon=True).start()
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
