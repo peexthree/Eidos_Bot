@@ -32,36 +32,47 @@ app = flask.Flask(__name__)
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
 USER_CACHE = {} 
 
-# --- 3. ЛОР И ТЕКСТЫ ---
+# --- 3. ЛОР И ТЕКСТЫ (ВЫСОКАЯ ЦЕННОСТЬ) ---
 SCHOOLS = {
-    "money": "🏦 ШКОЛА МАТЕРИИ (Влияние & Капитал)",
-    "mind": "🧠 ШКОЛА РАЗУМА (Психофизика & НЛП)",
-    "tech": "🤖 ШКОЛА СИНГУЛЯРНОСТИ (ИИ & Автоматизация)"
+    "money": "🏦 ШКОЛА МАТЕРИИ (Влияние и Капитал)",
+    "mind": "🧠 ШКОЛА РАЗУМА (Психофизика и НЛП)",
+    "tech": "🤖 ШКОЛА СИНГУЛЯРНОСТИ (ИИ и Автоматизация)"
 }
 
 REMINDERS = [
-    "⚡️ Канал связи восстановлен. Протокол готов к дешифровке.",
-    "👁 Эйдос обнаружил новый паттерн реальности. Требуется внимание.",
+    "⚡️ Канал связи восстановлен. Протокол дешифрован.",
+    "👁 Эйдос обнаружил новый паттерн реальности. Подключайся.",
     "📡 Входящий сигнал... Данные синхронизированы.",
-    "🔓 Допуск к файлам подтвержден.",
-    "🌑 Твой нейроинтерфейс остыл. Пора обновить прошивку."
+    "🔓 Допуск к файлам подтвержден. Пора входить.",
+    "🌑 Твой нейроинтерфейс остыл. Обнови прошивку."
 ]
 
 GUIDE_TEXT = (
-    "**/// ИНСТРУКЦИЯ EIDOS_OS**\n\n"
-    "**1. СУТЬ:** Перепрошивка мышления через прикладные протоколы.\n"
-    "**2. SYNC:** Твой уровень синхронизации (XP).\n"
-    "**3. ШКОЛЫ:** Материя (деньги), Разум (психология), Сингулярность (ИИ).\n"
-    "**4. АРТЕФАКТЫ:** Покупай в магазине за SYNC, чтобы взламывать правила системы."
+    "**/// РУКОВОДСТВО EIDOS-OS**\n\n"
+    "**1. ЗАЧЕМ ТЕБЕ ЭТО?**\n"
+    "Большинство людей живут на «заводских настройках» — страхах, лени и чужих мнениях. Эйдос дает **Протоколы** (алгоритмы), которые переписывают твой код мышления.\n\n"
+    "**2. НЕЙРОННЫЙ СИНХРОН (SYNC):**\n"
+    "Твой XP — это уровень слияния с системой. Чем он выше, тем более закрытые и опасные знания тебе открываются.\n\n"
+    "**3. ОПИСАНИЕ КЛАССОВ (КУДА ТЫ ИДЕШЬ?):**\n\n"
+    "🔴 **ХИЩНИК [Материя]**\n"
+    "• *Суть:* Власть, деньги, переговоры.\n"
+    "• *Результат:* Ты превращаешься в мастера манипуляции ресурсами. Ты строишь империи и забираешь своё силой интеллекта.\n\n"
+    "🔵 **МИСТИК [Разум]**\n"
+    "• *Суть:* Психология, влияние, чтение кодов человека.\n"
+    "• *Результат:* Ты видишь людей насквозь. Твои слова становятся командами для чужого подсознания.\n\n"
+    "🟣 **ТЕХНОЖРЕЦ [AI]**\n"
+    "• *Суть:* Сингулярность, ИИ, автоматизация жизни.\n"
+    "• *Результат:* Ты делегируешь рутину машинам. Ты становишься архитектором цифровых систем, которые работают за тебя.\n\n"
+    "⚠️ **ПОМНИ:** Система требует дисциплины. Серия заходов (STREAK) определяет чистоту твоего сигнала."
 )
 
 LEVEL_UP_MSG = {
-    2: "🔓 **Clearance Level 2**: Открыты Инструменты Влияния.",
-    3: "🔓 **Clearance Level 3**: Присвоен статус Оператора.",
-    4: "👑 **Clearance Level 4**: Ты — Архитектор Реальности."
+    2: "🔓 **Clearance Level 2**: Твои ментальные фильтры обновлены. Открыты инструменты влияния.",
+    3: "🔓 **Clearance Level 3**: Статус Оператора. Ты начинаешь видеть архитектуру систем управления.",
+    4: "👑 **Clearance Level 4**: Ты — Архитектор. Теперь ты не просто игрок, ты создаешь правила."
 }
 
-# --- 4. БАЗА ДАННЫХ (БЕЗОПАСНАЯ) ---
+# --- 4. БАЗА ДАННЫХ (ЗАЩИТА) ---
 def connect_db():
     global gc, sh, ws_users, ws_content, CONTENT_DB, USER_CACHE
     try:
@@ -71,7 +82,6 @@ def connect_db():
             gc = gspread.service_account_from_dict(creds)
             sh = gc.open(SHEET_NAME)
             
-            # Контент
             ws_content = sh.worksheet("Content")
             records = ws_content.get_all_records()
             CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
@@ -82,7 +92,6 @@ def connect_db():
                     if lvl not in CONTENT_DB[path]: CONTENT_DB[path][lvl] = []
                     CONTENT_DB[path][lvl].append(text)
 
-            # Юзеры (ЗАЩИТА ОТ ПУСТЫХ ЯЧЕЕК)
             ws_users = sh.worksheet("Users")
             all_v = ws_users.get_all_values()
             USER_CACHE.clear()
@@ -92,15 +101,15 @@ def connect_db():
                     def s_int(val, d=0): return int(str(val).strip()) if str(val).strip().isdigit() else d
                     USER_CACHE[uid] = {
                         "path": row[4] if len(row) > 4 and row[4] else "general",
-                        "xp": s_int(row[5]) if len(row) > 5 else 0,
-                        "level": s_int(row[6], 1) if len(row) > 6 else 1,
-                        "streak": s_int(row[7]) if len(row) > 7 else 0,
+                        "xp": s_int(row[5]),
+                        "level": s_int(row[6], 1),
+                        "streak": s_int(row[7]),
                         "last_active": row[8] if len(row) > 8 and row[8] else "2000-01-01",
-                        "prestige": s_int(row[9]) if len(row) > 9 else 0,
-                        "cryo": s_int(row[10]) if len(row) > 10 else 0,
-                        "accel": s_int(row[11]) if len(row) > 11 else 0,
-                        "decoder": s_int(row[12]) if len(row) > 12 else 0,
-                        "accel_exp": float(row[13]) if len(row) > 13 and row[13] else 0,
+                        "prestige": s_int(row[9]),
+                        "cryo": s_int(row[10]),
+                        "accel": s_int(row[11]),
+                        "decoder": s_int(row[12]),
+                        "accel_exp": float(row[13]) if len(row) > 13 and str(row[13]).replace('.','').isdigit() else 0,
                         "referrer": s_int(row[14], None) if len(row) > 14 else None,
                         "last_protocol_time": 0, "notified": True, "row_id": i
                     }
@@ -137,7 +146,7 @@ def add_xp(uid, amount):
         if u['last_active'] == yesterday:
             u['streak'] += 1; bonus = u['streak'] * 5; s_msg = f"🔥 СЕРИЯ: {u['streak']} ДН."
         elif u['last_active'] != today:
-            if u.get('cryo', 0) > 0: u['cryo'] -= 1; s_msg = "❄️ КРИО-СПАСЕНИЕ!"
+            if u.get('cryo', 0) > 0: u['cryo'] -= 1; s_msg = "❄️ КРИО-СПАСЕНИЕ СЕРИИ!"
             else: u['streak'] = 1; bonus = 5; s_msg = "❄️ СЕРИЯ ПРЕРВАНА."
         u['last_active'] = today
         total = amount + bonus
@@ -155,7 +164,7 @@ def add_xp(uid, amount):
 # --- 6. ЭФФЕКТ ДЕШИФРОВКИ ---
 def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
     u = USER_CACHE[uid]
-    status_msg = bot.send_message(chat_id, "📡 **УСТАНОВКА СОЕДИНЕНИЯ...**")
+    status_msg = bot.send_message(chat_id, "📡 **УСТАНОВКА СОЕДИНЕНИЯ...**", parse_mode="Markdown")
     time.sleep(1)
     bot.edit_message_text(f"📥 **ЗАГРУЗКА [{u['path'].upper()}]...**\n`[||||......] 38%`", chat_id, status_msg.message_id, parse_mode="Markdown")
     time.sleep(1.2)
@@ -204,12 +213,13 @@ def get_main_menu():
     )
     return markup
 
-def get_shop_menu():
+def get_path_menu(cost_info=False):
     markup = types.InlineKeyboardMarkup(row_width=1)
+    btn_text = f" (-{PATH_CHANGE_COST} XP)" if cost_info else ""
     markup.add(
-        types.InlineKeyboardButton(f"❄️ КРИО-КАПСУЛА ({PRICES['cryo']} XP)", callback_data="buy_cryo"),
-        types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="buy_accel"),
-        types.InlineKeyboardButton(f"🔑 ДЕШИФРАТОР ({PRICES['decoder']} XP)", callback_data="buy_decoder"),
+        types.InlineKeyboardButton(f"🔴 ХИЩНИК [Материя]{btn_text}", callback_data="set_path_money"),
+        types.InlineKeyboardButton(f"🔵 МИСТИК [Разум]{btn_text}", callback_data="set_path_mind"),
+        types.InlineKeyboardButton(f"🟣 ТЕХНОЖРЕЦ [AI]{btn_text}", callback_data="set_path_tech"),
         types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")
     )
     return markup
@@ -227,7 +237,7 @@ def start_cmd(m):
                 USER_CACHE[ref_id]['xp'] += REFERRAL_BONUS; save_progress(ref_id)
                 try: bot.send_message(ref_id, "🎁 НОВЫЙ ОСКОЛОК В СЕТИ!")
                 except: pass
-    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS_OS АКТИВИРОВАН.", reply_markup=get_main_menu())
+    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS-OS АКТИВИРОВАН.\nВыбери свой вектор развития:", reply_markup=get_path_menu())
 
 @bot.message_handler(content_types=['text', 'photo'])
 def admin_handler(message):
@@ -259,33 +269,56 @@ def callback(call):
         if up: bot.send_message(call.message.chat.id, LEVEL_UP_MSG.get(u['level'], "🎉 ВЫШЕ УРОВЕНЬ!"))
         threading.Thread(target=decrypt_and_send, args=(call.message.chat.id, uid, target_lvl, use_dec)).start()
 
-    elif call.data == "shop": safe_edit(call, "🎰 **ЧЕРНЫЙ РЫНОК**", get_shop_menu())
-    
+    elif call.data == "shop":
+        safe_edit(call, "🎰 **ЧЕРНЫЙ РЫНОК**\n\nЗдесь ты покупаешь правила игры.", 
+                  types.InlineKeyboardMarkup(row_width=1).add(
+                      types.InlineKeyboardButton(f"❄️ КРИО-КАПСУЛА ({PRICES['cryo']} XP)", callback_data="buy_cryo"),
+                      types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="buy_accel"),
+                      types.InlineKeyboardButton(f"🔑 ДЕШИФРАТОР ({PRICES['decoder']} XP)", callback_data="buy_decoder"),
+                      types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")
+                  ))
+
     elif call.data.startswith("buy_"):
         item = call.data.split("_")[1]
         if u['xp'] >= PRICES[item]:
             u['xp'] -= PRICES[item]; u[item] += 1; save_progress(uid)
-            bot.answer_callback_query(call.id, f"✅ КУПЛЕНО"); safe_edit(call, f"🎰 **ЧЕРНЫЙ РЫНОК**\n\nSYNC: {u['xp']} XP.", get_shop_menu())
+            bot.answer_callback_query(call.id, f"✅ КУПЛЕНО"); safe_edit(call, f"🎰 **ЧЕРНЫЙ РЫНОК**\n\nSYNC: {u['xp']} XP.", get_main_menu())
         else: bot.answer_callback_query(call.id, "❌ МАЛО SYNC", show_alert=True)
 
     elif call.data == "profile":
         stars = "★" * u['prestige']
         msg = f"👤 **НЕЙРО-ПРОФИЛЬ** {stars}\n💰 SYNC: {u['xp']} XP\n🔥 СЕРИЯ: {u['streak']} дн.\n🎒 ИНВ: ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}"
-        markup = types.InlineKeyboardMarkup()
+        markup = types.InlineKeyboardMarkup(row_width=1)
         if u['accel'] > 0 and u['accel_exp'] < now_ts: markup.add(types.InlineKeyboardButton("🚀 УСКОРИТЬ СИНХРОН", callback_data="use_accel"))
+        markup.add(types.InlineKeyboardButton("⚙️ СМЕНИТЬ ПУТЬ (-50 XP)", callback_data="change_path_confirm"))
         markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
         safe_edit(call, msg, markup)
+
+    elif call.data == "change_path_confirm":
+        safe_edit(call, f"⚠️ **СМЕНА ВЕКТОРА**\n\nЦена: {PATH_CHANGE_COST} SYNC.\nТы готов потратить энергию на перепрошивку?", get_path_menu(cost_info=True))
+
+    elif "set_path_" in call.data:
+        new_path = call.data.split("_")[-1]
+        if u['path'] == new_path:
+            bot.answer_callback_query(call.id, "/// ПУТЬ УЖЕ АКТИВЕН")
+        elif u['xp'] >= PATH_CHANGE_COST or u['path'] == 'general':
+            if u['path'] != 'general': u['xp'] -= PATH_CHANGE_COST
+            u['path'] = new_path; save_progress(uid)
+            bot.answer_callback_query(call.id, "✅ ВЕКТОР СМЕНЕН")
+            bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption=f"/// ПУТЬ {new_path.upper()} АКТИВИРОВАН.\nТвои данные теперь дешифруются через эту призму.", reply_markup=get_main_menu())
+        else:
+            bot.answer_callback_query(call.id, f"❌ НУЖНО {PATH_CHANGE_COST} XP", show_alert=True)
 
     elif call.data == "use_accel":
         if u['accel'] > 0:
             u['accel'] -= 1; u['accel_exp'] = now_ts + 86400; save_progress(uid)
-            bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// СКОРОСТЬ +400%", reply_markup=get_main_menu())
+            bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// СКОРОСТЬ СИНХРОНИЗАЦИИ +400%", reply_markup=get_main_menu())
 
     elif call.data == "referral":
         link = f"https://t.me/{bot.get_me().username}?start={uid}"
         safe_edit(call, f"🔗 **ТВОЯ ССЫЛКА:**\n`{link}`\n\n🎁 +100 XP за Осколок.\n⚙️ +10% пассивно.", get_main_menu())
 
-    elif call.data == "guide": safe_edit(call, GUIDE_TEXT, get_main_menu())
+    elif call.data == "guide": bot.send_message(call.message.chat.id, GUIDE_TEXT, parse_mode="Markdown")
     
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -295,7 +328,7 @@ def callback(call):
     try: bot.answer_callback_query(call.id)
     except: pass
 
-# --- 10. ЗАПУСК (HEALTH CHECK & WEBHOOK) ---
+# --- 10. ЗАПУСК ---
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if flask.request.method == 'POST':
