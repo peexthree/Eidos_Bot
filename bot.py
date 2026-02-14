@@ -18,7 +18,7 @@ MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_w
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 
-# --- ЭКОНОМИКА V15.0 (РЕАЛЬНЫЕ ЦИФРЫ) ---
+# --- ЭКОНОМИКА V15.5 (ЭКСПАНСИЯ) ---
 COOLDOWN_BASE = 1800     # 30 МИНУТ
 COOLDOWN_ACCEL = 900     # 15 МИНУТ
 XP_GAIN = 25             
@@ -32,7 +32,7 @@ app = flask.Flask(__name__)
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
 USER_CACHE = {} 
 
-# --- 3. ЛОР И СТРУКТУРИРОВАННЫЕ ТЕКСТЫ ---
+# --- 3. ЛОР И ТЕКСТЫ ---
 SCHOOLS = {
     "money": "🏦 ШКОЛА МАТЕРИИ (Влияние и Капитал)",
     "mind": "🧠 ШКОЛА РАЗУМА (Психофизика и НЛП)",
@@ -41,24 +41,24 @@ SCHOOLS = {
 
 GUIDE_TEXT = (
     "**/// МЕНТАЛЬНЫЙ РЕГЛАМЕНТ EIDOS-OS**\n\n"
-    "**СУТЬ:** Твой мозг — это биокомпьютер, работающий на заводских ограничениях. Эйдос — это операционная система, которая перехватывает управление и устанавливает протоколы эффективности.\n\n"
+    "**СУТЬ:** Твой мозг — это биокомпьютер с устаревшим софтом. Эйдос — это патч безопасности и драйвер эффективности.\n\n"
     "**1. СИНХРОНИЗАЦИЯ (SYNC):**\n"
-    "Твой XP — это объем обработанных данных. Каждые **30 минут** ядро открывает канал для дешифровки нового протокола. Дисциплина (STREAK) очищает сигнал и дает бонус к энергии.\n\n"
-    "**2. ВЕКТОРЫ РАЗВИТИЯ:**\n"
-    "🔴 **ХИЩНИК [Материя]:** Взлом финансовых систем и переговоров. Ты учишься забирать ресурсы силой интеллекта.\n"
-    "🔵 **МИСТИК [Разум]:** Чтение чужого кода через эмпатию по Gray и НЛП. Влияние без принуждения.\n"
-    "🟣 **ТЕХНОЖРЕЦ [AI]:** Симбиоз с ИИ. Твоя ценность растет за счет автоматизации рутины.\n\n"
-    "**3. ПРАВИЛА ИГРЫ:**\n"
-    "Используй SYNC для покупки модификаций на Черном Рынке и вербуй новых агентов в Синдикат. Твоя цель — Clearance Level 4 (Архитектор)."
+    "Твой XP — это энергия влияния. Каждые **30 минут** открывается канал для дешифровки протокола. Чем выше дисциплина (STREAK), тем чище сигнал.\n\n"
+    "**2. ВЕКТОРЫ:**\n"
+    "🔴 **ХИЩНИК:** Взлом ресурсов. Ты берешь свое по праву интеллекта.\n"
+    "🔵 **МИСТИК:** Взлом людей. Ты управляешь через эмпатию.\n"
+    "🟣 **ТЕХНОЖРЕЦ:** Взлом рутины. ИИ работает вместо тебя.\n\n"
+    "**3. ПРАВИЛА:**\n"
+    "Покупай модификации за SYNC. Строй Синдикат. Твоя цель — Clearance Level 4."
 )
 
 LEVEL_UP_MSG = {
-    2: "🔓 **CLEARANCE LVL 2**: Нейронные фильтры обновлены. Доступ к специализированным школам открыт.",
-    3: "🔓 **CLEARANCE LVL 3**: Статус Оператора. Твои когнитивные способности выше среднего по сети на 400%.",
-    4: "👑 **CLEARANCE LVL 4**: Архитектор Системы. Твоя воля — закон для данных."
+    2: "🔓 **CLEARANCE LVL 2**: Нейронные фильтры обновлены.",
+    3: "🔓 **CLEARANCE LVL 3**: Статус Оператора. Вижу структуру матрицы.",
+    4: "👑 **CLEARANCE LVL 4**: Архитектор. Твоя воля — закон."
 }
 
-# --- 4. БАЗА ДАННЫХ (ЗАЩИТА) ---
+# --- 4. БАЗА ДАННЫХ ---
 def connect_db():
     global gc, sh, ws_users, ws_content, CONTENT_DB, USER_CACHE
     try:
@@ -143,24 +143,26 @@ def add_xp(uid, amount):
         return (u['level'] > old_lvl), s_msg, total
     return False, None, 0
 
-def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
+def decrypt_and_send(target_chat_id, uid, target_lvl, use_dec_text):
     u = USER_CACHE[uid]
-    status_msg = bot.send_message(chat_id, "📡 **ИНИЦИАЛИЗАЦИЯ НЕЙРО-КАНАЛА...**")
-    time.sleep(1)
-    bot.edit_message_text(f"🔓 **ДЕШИФРОВКА ПРОТОКОЛА...**\n`[||||||||..] 84%`", chat_id, status_msg.message_id, parse_mode="Markdown")
-    time.sleep(0.8)
-    pool = []
-    p_cont = CONTENT_DB.get(u['path'], {})
-    for l in range(1, target_lvl + 1):
-        if l in p_cont: pool.extend(p_cont[l])
-    if not pool:
+    try:
+        status_msg = bot.send_message(target_chat_id, "📡 **ИНИЦИАЛИЗАЦИЯ НЕЙРО-КАНАЛА...**")
+        time.sleep(1)
+        bot.edit_message_text(f"🔓 **ДЕШИФРОВКА ПРОТОКОЛА...**\n`[||||||||..] 84%`", target_chat_id, status_msg.message_id, parse_mode="Markdown")
+        time.sleep(0.8)
+        pool = []
+        p_cont = CONTENT_DB.get(u['path'], {})
         for l in range(1, target_lvl + 1):
-            if l in CONTENT_DB.get('general', {}): pool.extend(CONTENT_DB['general'][l])
-    txt = random.choice(pool) if pool else "/// ОШИБКА: ДАННЫЕ НЕ НАЙДЕНЫ."
-    school = SCHOOLS.get(u['path'], "🌐 ОБЩИЙ КАНАЛ")
-    res = (f"🧬 **{school}**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_GAIN} SYNC {use_dec_text}")
-    bot.edit_message_text(res, chat_id, status_msg.message_id, parse_mode="Markdown", 
-                         reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
+            if l in p_cont: pool.extend(p_cont[l])
+        if not pool:
+            for l in range(1, target_lvl + 1):
+                if l in CONTENT_DB.get('general', {}): pool.extend(CONTENT_DB['general'][l])
+        txt = random.choice(pool) if pool else "/// ОШИБКА: ДАННЫЕ НЕ НАЙДЕНЫ."
+        school = SCHOOLS.get(u['path'], "🌐 ОБЩИЙ КАНАЛ")
+        res = f"🧬 **{school}**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_GAIN} SYNC {use_dec_text}"
+        bot.edit_message_text(res, target_chat_id, status_msg.message_id, parse_mode="Markdown", 
+                             reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
+    except: pass
 
 # --- 6. ПУШИ ---
 def notification_worker():
@@ -172,7 +174,7 @@ def notification_worker():
                 cd = COOLDOWN_ACCEL if u.get('accel_exp', 0) > now else COOLDOWN_BASE
                 if u.get('last_protocol_time', 0) > 0 and (now - u['last_protocol_time'] >= cd) and not u.get('notified', True):
                     try:
-                        bot.send_message(uid, "⚡️ **СИСТЕМА ОСТЫЛА.**\nБиологический фильтр готов к новой дешифровке.", 
+                        bot.send_message(uid, "⚡️ **СИСТЕМА ОСТЫЛА.**\nНовый протокол готов к загрузке.", 
                                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ДЕШИФРОВАТЬ", callback_data="get_protocol")))
                         u['notified'] = True
                     except: pass
@@ -188,8 +190,7 @@ def get_main_menu(uid):
         types.InlineKeyboardButton("🔗 СИНДИКАТ ОСКОЛКОВ", callback_data="referral"),
         types.InlineKeyboardButton("📚 РУКОВОДСТВО", callback_data="guide")
     )
-    if uid == ADMIN_ID:
-        markup.add(types.InlineKeyboardButton("⚙️ АДМИН-ПАНЕЛЬ", callback_data="admin_panel"))
+    if uid == ADMIN_ID: markup.add(types.InlineKeyboardButton("⚙️ АДМИН-ПАНЕЛЬ", callback_data="admin_panel"))
     return markup
 
 def get_admin_menu():
@@ -224,21 +225,20 @@ def start_cmd(m):
             connect_db()
             if ref_id and ref_id in USER_CACHE:
                 USER_CACHE[ref_id]['xp'] += REFERRAL_BONUS; save_progress(ref_id)
-                try: bot.send_message(ref_id, f"🎁 **УЗЕЛ ВЕРБОВАН.**\nТвой Синдикат вырос. +{REFERRAL_BONUS} XP начислено.")
+                try: bot.send_message(ref_id, f"🎁 **НОВЫЙ УЗЕЛ ПОДКЛЮЧЕН.**\nТвой Синдикат вырос. +{REFERRAL_BONUS} XP.")
                 except: pass
     bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS-OS: НЕЙРОИНТЕРФЕЙС СИНХРОНИЗИРОВАН.\nВыбери вектор развития своего биоробота:", reply_markup=get_path_menu())
 
 @bot.message_handler(content_types=['text', 'photo'])
 def admin_handler(message):
     if message.from_user.id == ADMIN_ID:
-        if message.text == '/refresh':
-            connect_db(); bot.send_message(message.chat.id, "✅ ЦЕНТРАЛЬНОЕ ЯДРО ОБНОВЛЕНО.")
+        if message.text == '/refresh': connect_db(); bot.send_message(message.chat.id, "✅ БД ОБНОВЛЕНА.")
         elif message.text and message.text.startswith('/post '):
-            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ДЕШИФРОВАТЬ СИНХРОН", callback_data="get_protocol"))
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"))
             bot.send_message(CHANNEL_ID, message.text[6:], reply_markup=markup, parse_mode="Markdown")
-            bot.send_message(message.chat.id, "✅ ТРАНСЛЯЦИЯ ЗАВЕРШЕНА.")
+            bot.send_message(message.chat.id, "✅ ТЕКСТ ОТПРАВЛЕН В КАНАЛ.")
         elif message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
-            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ДЕШИФРОВАТЬ СИНХРОН", callback_data="get_protocol"))
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"))
             bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=message.caption[6:], reply_markup=markup, parse_mode="Markdown")
             bot.send_message(message.chat.id, "✅ ПОСТ С ФОТО ЗАВЕРШЕН.")
 
@@ -246,12 +246,11 @@ def admin_handler(message):
 def callback(call):
     uid = call.from_user.id
     if uid not in USER_CACHE:
-        bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА. Нажми /start", show_alert=True)
+        bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА. Нажми /start в боте", show_alert=True)
         return
     u = USER_CACHE[uid]
     now_ts = time.time()
 
-    # --- ADMIN ACTIONS ---
     if call.data == "admin_panel" and uid == ADMIN_ID:
         safe_edit(call, "⚙️ **ЦЕНТР УПРАВЛЕНИЯ АРХИТЕКТОРА**", get_admin_menu())
     elif call.data == "admin_refresh" and uid == ADMIN_ID:
@@ -261,29 +260,35 @@ def callback(call):
     elif call.data == "admin_post_info" and uid == ADMIN_ID:
         safe_edit(call, "**📢 ИНСТРУКЦИЯ ПОСТОВ:**\n\n1. Текст: напиши `/post Текст`.\n2. Фото: прикрепи фото и подпиши `/post Текст`.\nБот добавит кнопку автоматически.", get_admin_menu())
 
-    # --- CORE ACTIONS ---
     elif call.data == "get_protocol":
         cd = COOLDOWN_ACCEL if u['accel_exp'] > now_ts else COOLDOWN_BASE
         if now_ts - u.get('last_protocol_time', 0) < cd:
             rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
-            bot.answer_callback_query(call.id, f"⏳ ПЕРЕГРЕВ. До остывания: {rem} мин.", show_alert=True); return
+            bot.answer_callback_query(call.id, f"⏳ ПЕРЕГРЕВ. Жди {rem} мин.", show_alert=True); return
+        
+        # --- ФИКС ЗАСОРЕНИЯ КАНАЛА ---
+        if call.message.chat.id < 0: # Если нажато в канале
+            bot.answer_callback_query(call.id, "🧬 ДАННЫЕ ОТПРАВЛЕНЫ В ЛИЧНЫЙ ТЕРМИНАЛ")
+        
         u['last_protocol_time'], u['notified'] = now_ts, False
         up, s_msg, total = add_xp(uid, XP_GAIN)
         use_dec = "(+🔑 Дешифратор)" if u['decoder'] > 0 else ""
         target_lvl = u['level'] + 1 if u['decoder'] > 0 else u['level']
         if u['decoder'] > 0: u['decoder'] -= 1
-        if up: bot.send_message(uid, LEVEL_UP_MSG.get(u['level'], "🎉 СИНХРОНИЗАЦИЯ УСИЛЕНА!"))
-        threading.Thread(target=decrypt_and_send, args=(call.message.chat.id, uid, target_lvl, use_dec)).start()
+        if up: bot.send_message(uid, LEVEL_UP_MSG.get(u['level'], "🎉 ВЫШЕ УРОВЕНЬ!"))
+        
+        # ОТПРАВЛЯЕМ СТРОГО В ЛС (uid), а не в call.message.chat.id
+        threading.Thread(target=decrypt_and_send, args=(uid, uid, target_lvl, use_dec)).start()
 
     elif call.data == "shop":
         shop_text = (
             "🎰 **ЧЕРНЫЙ РЫНОК: МОДИФИКАЦИИ**\n\n"
             f"❄️ **КРИО-КАПСУЛА** ({PRICES['cryo']} XP)\n"
-            "**Био-страховка.** Автоматически спасет твою Серию (Streak), если ты не выходил в сеть более 24 часов. Твоя дисциплина теперь защищена кодом.\n\n"
+            "**Био-страховка.** Автоматически спасет твою Серию (Streak), если ты не выходил в сеть более 24 часов.\n\n"
             f"⚡️ **НЕЙРО-УСКОРИТЕЛЬ** ({PRICES['accel']} XP)\n"
-            "**Разгон шины данных.** На 24 часа сокращает время ожидания между дешифровками с 30 до 15 минут. Твоя продуктивность вырастет в 2 раза.\n\n"
+            "**Оверклокинг.** На 24 часа сокращает ожидание с 30 до 15 минут.\n\n"
             f"🔑 **ДЕШИФРАТОР** ({PRICES['decoder']} XP)\n"
-            "**Взлом доступа.** Позволяет разово получить протокол, уровень которого выше твоего текущего Clearance Level на +1. Увидь будущее."
+            "**Взлом доступа.** Разово дает протокол уровня Lvl+1."
         )
         safe_edit(call, shop_text, types.InlineKeyboardMarkup(row_width=1).add(
             types.InlineKeyboardButton(f"❄️ КРИО ({PRICES['cryo']} XP)", callback_data="buy_cryo"),
@@ -296,25 +301,23 @@ def callback(call):
         item = call.data.split("_")[1]
         if u['xp'] >= PRICES[item]:
             u['xp'] -= PRICES[item]; u[item] += 1; save_progress(uid)
-            bot.answer_callback_query(call.id, f"✅ МОДИФИКАЦИЯ ИНТЕГРИРОВАНА")
-            safe_edit(call, "🎰 **СИСТЕМА ОБНОВЛЕНА**", get_main_menu(uid))
-        else: bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО ЭНЕРГИИ SYNC", show_alert=True)
+            bot.answer_callback_query(call.id, f"✅ МОДИФИКАЦИЯ УСТАНОВЛЕНА")
+            safe_edit(call, "🎰 **ЧЕРНЫЙ РЫНОК АКТИВЕН**", get_main_menu(uid))
+        else: bot.answer_callback_query(call.id, "❌ МАЛО SYNC", show_alert=True)
 
     elif call.data == "referral":
         link = f"https://t.me/{bot.get_me().username}?start={uid}"
         ref_text = (
-            "🔗 **СИНДИКАТ ОСКОЛКОВ: ТВОЕ ВЛИЯНИЕ**\n\n"
+            "🔗 **СИНДИКАТ ОСКОЛКОВ: ТВОЯ ИМПЕРИЯ**\n\n"
             f"Ссылка для вербовки новых узлов:\n`{link}`\n\n"
-            "**ПОЧЕМУ ЭТО ВЫГОДНО?**\n"
-            "Создание собственной сети — основа власти по методике Carnegie. В Эйдосе это твой пассивный доход:\n\n"
-            f"🎁 **МГНОВЕННО:** +{REFERRAL_BONUS} XP за каждого приглашенного агента.\n"
-            "⚙️ **ПОЖИЗНЕННО:** Ты получаешь **10%** от всей энергии (SYNC), которую добывают твои люди. Чем сильнее твой Синдикат, тем мощнее ты."
+            f"🎁 **БОНУС:** +{REFERRAL_BONUS} XP за узел.\n"
+            "⚙️ **ПРОЦЕНТ:** 10% от всей добычи твоих людей — пожизненно."
         )
         safe_edit(call, ref_text, get_main_menu(uid))
 
     elif call.data == "profile":
         stars = "★" * u['prestige']
-        msg = f"👤 **НЕЙРО-ПРОФИЛЬ** {stars}\n💰 SYNC (ЭНЕРГИЯ): {u['xp']}\n🔥 ЧИСТОТА СИГНАЛА: {u['streak']} дн.\n🎒 ИНВЕНТАРЬ: ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}"
+        msg = f"👤 **НЕЙРО-ПРОФИЛЬ** {stars}\n💰 SYNC: {u['xp']}\n🔥 СИГНАЛ: {u['streak']} дн.\n🎒 ИНВ: ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}"
         markup = types.InlineKeyboardMarkup(row_width=1)
         if u['accel'] > 0 and u['accel_exp'] < now_ts: markup.add(types.InlineKeyboardButton("🚀 АКТИВИРОВАТЬ РАЗГОН ⚡️", callback_data="use_accel"))
         markup.add(types.InlineKeyboardButton(f"⚙️ СМЕНИТЬ ВЕКТОР (-{PATH_CHANGE_COST} XP)", callback_data="change_path_confirm"))
