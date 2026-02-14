@@ -87,9 +87,10 @@ def init_db():
     if not conn: return
     try:
         cur = conn.cursor()
+        # ИСПРАВЛЕНИЕ: Используем uid вместо id, так как база уже создана с uid
         cur.execute('''
             CREATE TABLE IF NOT EXISTS users (
-                id BIGINT PRIMARY KEY,
+                uid BIGINT PRIMARY KEY,
                 username TEXT,
                 first_name TEXT,
                 date_reg TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -125,7 +126,7 @@ def init_db():
     finally:
         if conn: conn.close()
 
-# Запускаем проверку БД сразу при старте модуля (важно для Gunicorn)
+# Запуск инициализации при старте
 init_db()
 
 # --- HELPER FUNCTIONS FOR DB ---
@@ -134,7 +135,8 @@ def get_user_from_db(uid):
     if not conn: return None
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM users WHERE id = %s", (uid,))
+        # ИСПРАВЛЕНИЕ: WHERE uid = ...
+        cur.execute("SELECT * FROM users WHERE uid = %s", (uid,))
         user = cur.fetchone()
         return user
     finally:
@@ -147,7 +149,8 @@ def update_user_db(uid, **kwargs):
         cur = conn.cursor()
         set_clause = ", ".join([f"{k} = %s" for k in kwargs.keys()])
         values = list(kwargs.values()) + [uid]
-        cur.execute(f"UPDATE users SET {set_clause} WHERE id = %s", values)
+        # ИСПРАВЛЕНИЕ: WHERE uid = ...
+        cur.execute(f"UPDATE users SET {set_clause} WHERE uid = %s", values)
         conn.commit()
     finally:
         conn.close()
@@ -158,10 +161,11 @@ def register_user_db(uid, username, first_name, referrer):
     try:
         start_xp = 50 if referrer == 'inst' else 0
         cur = conn.cursor()
+        # ИСПРАВЛЕНИЕ: uid вместо id
         cur.execute('''
-            INSERT INTO users (id, username, first_name, referrer, xp, last_active)
+            INSERT INTO users (uid, username, first_name, referrer, xp, last_active)
             VALUES (%s, %s, %s, %s, %s, CURRENT_DATE)
-            ON CONFLICT (id) DO NOTHING
+            ON CONFLICT (uid) DO NOTHING
         ''', (uid, f"@{username}", first_name, referrer, start_xp))
         conn.commit()
     finally:
@@ -259,8 +263,9 @@ def notification_worker():
                 cd = COOLDOWN_ACCEL if u['accel_exp'] > now else COOLDOWN_BASE
                 if u['last_protocol_time'] > 0 and (now - u['last_protocol_time'] >= cd):
                     try:
-                        bot.send_message(u['id'], "⚡️ **СИСТЕМА ГОТОВА.**\nПротокол восстановлен.", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ДЕШИФРОВАТЬ", callback_data="get_protocol")))
-                        update_user_db(u['id'], notified=True)
+                        # ИСПРАВЛЕНИЕ: u['uid'] вместо u['id']
+                        bot.send_message(u['uid'], "⚡️ **СИСТЕМА ГОТОВА.**\nПротокол восстановлен.", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ДЕШИФРОВАТЬ", callback_data="get_protocol")))
+                        update_user_db(u['uid'], notified=True)
                     except: pass
             conn.close()
         except Exception as e:
@@ -373,7 +378,8 @@ def admin_steps(m):
         uid_target = int(m.text) if m.text.isdigit() else 0
         u = get_user_from_db(uid_target)
         if u:
-            msg = (f"👤 **DOSSIER ID:** `{u['id']}`\n"
+            # ИСПРАВЛЕНИЕ: u['uid']
+            msg = (f"👤 **DOSSIER ID:** `{u['uid']}`\n"
                    f"Name: {u['username']}\n"
                    f"XP: {u['xp']} | LVL: {u['level']}\n"
                    f"Path: {u['path']} | Streak: {u['streak']}\n"
@@ -410,7 +416,8 @@ def admin_handler(message):
                 target_id = int(message.text.split()[1])
                 conn = get_db_connection()
                 cur = conn.cursor()
-                cur.execute("DELETE FROM users WHERE id = %s", (target_id,))
+                # ИСПРАВЛЕНИЕ: uid
+                cur.execute("DELETE FROM users WHERE uid = %s", (target_id,))
                 conn.commit()
                 conn.close()
                 bot.send_message(message.chat.id, f"🚫 УЗЕЛ {target_id} СТЕРТ ИЗ РЕАЛЬНОСТИ.")
@@ -555,7 +562,8 @@ def callback(call):
                 update_user_db(uid, xp=u['xp'] - PRICES[item])
                 conn = get_db_connection()
                 cur = conn.cursor()
-                cur.execute(f"UPDATE users SET {item} = {item} + 1 WHERE id = %s", (uid,))
+                # ИСПРАВЛЕНИЕ: uid
+                cur.execute(f"UPDATE users SET {item} = {item} + 1 WHERE uid = %s", (uid,))
                 conn.commit()
                 conn.close()
                 bot.answer_callback_query(call.id, f"✅ КУПЛЕНО: {item.upper()}"); safe_edit(call, SHOP_FULL, get_main_menu(uid))
@@ -588,8 +596,6 @@ def callback(call):
     except Exception as e: print(f"/// CALLBACK ERROR: {e}")
 
 # --- 9. ЗАПУСК И МАРШРУТЫ ---
-
-# ГЛАВНОЕ ИСПРАВЛЕНИЕ: ХЕЛСЧЕК ДЛЯ RENDER
 @app.route('/health', methods=['GET'])
 def health_check():
     return 'OK', 200
@@ -605,11 +611,8 @@ def webhook():
             return 'Error', 500
     return 'Eidos SQL Interface is Operational', 200
 
-# ВТОРОЕ ИСПРАВЛЕНИЕ: ЗАПУСК ПОТОКОВ ВНЕ MAIN, ЧТОБЫ РАБОТАЛО В GUNICORN
-# Запускаем проверку уведомлений
 threading.Thread(target=notification_worker, daemon=True).start()
 
-# Авто-установка вебхука при старте (в глобальной области, с защитой от ошибок)
 if WEBHOOK_URL:
     try:
         bot.remove_webhook()
@@ -619,7 +622,5 @@ if WEBHOOK_URL:
         print(f"/// WEBHOOK INIT WARNING: {e}")
 
 if __name__ == "__main__":
-    # Этот блок выполняется только при локальном запуске (python bot.py)
-    # На Render он ИГНОРИРУЕТСЯ
     port = int(os.environ.get('PORT', 5000))
     app.run(host="0.0.0.0", port=port)
