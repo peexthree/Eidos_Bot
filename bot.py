@@ -301,15 +301,35 @@ def callback(call):
     try: bot.answer_callback_query(call.id)
     except: pass
 
-# --- 9. ЗАПУСК ---
+# --- 9. ЗАПУСК (ОПТИМИЗИРОВАНО ДЛЯ RENDER) ---
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if flask.request.method == 'POST':
-        bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
-        return 'OK', 200
-    return 'Alive', 200
+        try:
+            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+            return 'OK', 200
+        except Exception as e:
+            print(f"/// WEBHOOK ERROR: {e}")
+            return 'Error', 500
+    # Для Render: корень тоже должен отвечать 200
+    return 'Eidos Interface is Operational', 200
+
+@app.route('/health')
+def health_check(): 
+    # Явный ответ для всех систем мониторинга
+    return 'OK', 200
 
 if __name__ == "__main__":
-    if WEBHOOK_URL: bot.set_webhook(url=WEBHOOK_URL)
+    # Настройка Webhook при запуске
+    if WEBHOOK_URL: 
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=WEBHOOK_URL)
+        print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+
+    # Запуск воркера уведомлений
     threading.Thread(target=notification_worker, daemon=True).start()
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    
+    # Запуск сервера
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host="0.0.0.0", port=port)
