@@ -28,7 +28,7 @@ app = flask.Flask(__name__)
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
 USER_CACHE = {} 
 
-# --- 4. БАЗА ДАННЫХ (ЗАЩИЩЕННАЯ) ---
+# --- 4. БАЗА ДАННЫХ ---
 gc = None
 sh = None
 ws_users = None
@@ -43,7 +43,6 @@ def connect_db():
             gc = gspread.service_account_from_dict(creds)
             sh = gc.open(SHEET_NAME)
             
-            # ЗАГРУЗКА КОНТЕНТА
             try: 
                 ws_content = sh.worksheet("Content")
                 records = ws_content.get_all_records()
@@ -59,13 +58,10 @@ def connect_db():
                 print(f"/// CONTENT: {len(records)} loaded.")
             except: pass
 
-            # ЗАГРУЗКА ЮЗЕРОВ (С ЗАЩИТОЙ ОТ ДУРАКА)
             try:
                 ws_users = sh.worksheet("Users")
                 all_v = ws_users.get_all_values()
-                # Структура: A=ID, B=User, C=Name, D=Date, E=Path, F=XP, G=Lvl, H=Streak, I=LastAct, J=Prestige
                 for i, row in enumerate(all_v[1:], start=2):
-                    # ПРОВЕРКА 1: Есть ли ID и число ли это?
                     if row and row[0] and str(row[0]).isdigit():
                         uid = int(row[0])
                         USER_CACHE[uid] = {
@@ -77,13 +73,13 @@ def connect_db():
                             "prestige": int(row[9]) if len(row) > 9 and str(row[9]).isdigit() else 0,
                             "row_id": i
                         }
-                print(f"/// USERS: {len(USER_CACHE)} cached safely.")
-            except Exception as e: print(f"/// USERS ERROR: {e}")
+                print(f"/// USERS: {len(USER_CACHE)} cached.")
+            except: pass
     except: pass
 
 connect_db()
 
-# --- 5. ЯДРО СИСТЕМЫ ---
+# --- 5. ЛОГИКА ---
 def safe_edit(call, text, markup):
     try:
         if call.message.content_type == 'photo':
@@ -98,8 +94,6 @@ def save_progress(uid):
         try:
             u = USER_CACHE.get(uid)
             if u and ws_users:
-                # Обновляем E, F, G, H, I, J
-                # gspread: col 1=A ... 10=J
                 ws_users.update_cell(u['row_id'], 5, u['path'])
                 ws_users.update_cell(u['row_id'], 6, str(u['xp']))
                 ws_users.update_cell(u['row_id'], 7, str(u['level']))
@@ -110,23 +104,10 @@ def save_progress(uid):
     threading.Thread(target=task).start()
 
 def update_activity(uid):
-    """Обновляет дату активности при ЛЮБОМ действии (Fix #2)"""
     if uid in USER_CACHE:
         USER_CACHE[uid]['last_active'] = datetime.now().strftime("%Y-%m-%d")
-        # Сохраняем не сразу, а при важных действиях, чтобы не спамить API
 
 def check_streak_bonus(uid):
-    """Считает бонус, но не меняет дату (она меняется в update_activity)"""
-    u = USER_CACHE[uid]
-    today = datetime.now().strftime("%Y-%m-%d")
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    
-    # Логика: если LastActive был вчера -> серия +1. Если позавчера -> сброс.
-    # Но так как мы обновляем дату при каждом клике, нам нужно проверять дату ПЕРЕД обновлением.
-    # Упрощение: Считаем бонус если дата в кэше == вчера.
-    
-    # В этой версии мы просто проверяем корректность серии
-    # Реальный бонус начисляется только один раз в день в add_xp
     return 0, None 
 
 def add_xp(uid, amount):
@@ -135,27 +116,19 @@ def add_xp(uid, amount):
         today = datetime.now().strftime("%Y-%m-%d")
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         
-        bonus = 0
-        streak_msg = None
+        bonus = 0; streak_msg = None
         
-        # Если последняя активность была вчера - увеличиваем стрик
         if u['last_active'] == yesterday:
-            u['streak'] += 1
-            bonus = u['streak'] * 5
+            u['streak'] += 1; bonus = u['streak'] * 5
             streak_msg = f"🔥 **СЕРИЯ: {u['streak']} ДН.** (+{bonus} XP)"
-        # Если активность была не сегодня и не вчера (пропуск) - сброс
         elif u['last_active'] != today:
             if u['streak'] > 1: streak_msg = "❄️ **СЕРИЯ ПРЕРВАНА.**"
-            u['streak'] = 1
-            bonus = 5
+            u['streak'] = 1; bonus = 5
         
-        # Обновляем дату
         u['last_active'] = today
-        
         total_xp = amount + bonus
         u['xp'] += total_xp
         
-        # Уровни
         new_lvl = 1
         if u['xp'] >= 150: new_lvl = 2
         elif u['xp'] >= 500: new_lvl = 3
@@ -168,12 +141,10 @@ def add_xp(uid, amount):
     return False, None, 0
 
 def do_prestige(uid):
-    """Механика Вознесения (Fix #3)"""
     if uid in USER_CACHE:
         u = USER_CACHE[uid]
         if u['level'] >= 4:
-            u['xp'] = 0
-            u['level'] = 1
+            u['xp'] = 0; u['level'] = 1
             u['prestige'] = u.get('prestige', 0) + 1
             save_progress(uid)
             return True
@@ -207,15 +178,12 @@ def start(m):
         now = datetime.now().strftime("%Y-%m-%d")
         uname = f"@{m.from_user.username}" if m.from_user.username else "No"
         if ws_users:
-            # Добавили колонку Prestige (0) в конец
             ws_users.append_row([str(uid), uname, m.from_user.first_name, now, "general", "0", "1", "1", now, "0"])
             USER_CACHE[uid] = {"path": "general", "xp": 0, "level": 1, "streak": 1, "last_active": now, "prestige": 0, "row_id": len(USER_CACHE)+2}
     else:
-        # Обновляем активность даже при старте (Fix #2)
-        update_activity(uid)
-        save_progress(uid)
+        update_activity(uid); save_progress(uid)
 
-    header = "░▒▓█ 𝗘𝗜𝗗𝗢𝗦_𝗢𝗦 𝘃𝟴.𝟬 █▓▒░"
+    header = "░▒▓█ 𝗘𝗜𝗗𝗢𝗦_𝗢𝗦 𝘃𝟴.𝟭 █▓▒░"
     msg = f"{header}\n\nОсколок {m.from_user.first_name}, синхронизация завершена.\n\n🔻 Выбери вектор:"
     try: bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=msg, reply_markup=get_path_menu())
     except: bot.send_message(m.chat.id, msg, reply_markup=get_path_menu())
@@ -224,12 +192,8 @@ def start(m):
 def callback(call):
     uid = call.from_user.id
     if uid not in USER_CACHE: return
-    
-    # ГЛОБАЛЬНОЕ ОБНОВЛЕНИЕ АКТИВНОСТИ (Fix #2)
-    # Если это не получение протокола (где своя логика), просто обновляем дату
     if call.data != "get_protocol":
-        update_activity(uid)
-        save_progress(uid) # Сохраняем, чтобы стрик не сгорел завтра
+        update_activity(uid); save_progress(uid)
 
     u = USER_CACHE[uid]
 
@@ -237,7 +201,6 @@ def callback(call):
         up, streak_msg, earned = add_xp(uid, 10)
         pool = []
         p_cont = CONTENT_DB.get(u['path'], {})
-        # Контент доступен с учетом уровня
         for l in range(1, u['level'] + 1):
             if l in p_cont: pool.extend(p_cont[l])
         if not pool:
@@ -246,11 +209,9 @@ def callback(call):
                 if l in g_cont: pool.extend(g_cont[l])
         
         txt = random.choice(pool) if pool else "/// СИСТЕМА ПУСТА."
-        
         prestige_mark = "★" * u.get('prestige', 0)
         res = f"**// ПРОТОКОЛ [{u['path'].upper()}]** {prestige_mark}\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{earned} XP"
         if streak_msg: res += f" | {streak_msg}"
-        
         if up: bot.send_message(call.message.chat.id, "🎉 **УРОВЕНЬ ПОВЫШЕН!**")
         
         bot.send_message(call.message.chat.id, res, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
@@ -260,42 +221,44 @@ def callback(call):
         next_g = [150, 500, 1500, 5000][min(u['level']-1, 3)]
         perc = min(1.0, u['xp'] / next_g)
         bar = "▰" * int(perc * 10) + "▱" * (10 - int(perc * 10))
-        
-        prestige = u.get('prestige', 0)
-        stars = "★" * prestige if prestige > 0 else ""
+        stars = "★" * u.get('prestige', 0)
         
         msg = f"👤 **ПРОФИЛЬ** {stars}\n━━━━━━━━━━━━━━\n🔰 Ранг: {rank}\n🔥 Серия: {u['streak']} дн.\n⚡️ XP: {u['xp']} / {next_g}\n[{bar}] {int(perc*100)}%\n\n"
-        
         markup = types.InlineKeyboardMarkup()
-        # КНОПКА ПРЕСТИЖА (Fix #3)
         if u['level'] >= 4:
-            msg += "\n🌀 **ДОСТУПНО ВОЗНЕСЕНИЕ**\nСбрось уровень, чтобы получить Звезду Престижа.\n"
+            msg += "\n🌀 **ДОСТУПНО ВОЗНЕСЕНИЕ**\n"
             markup.add(types.InlineKeyboardButton("🌀 ВОЗНЕСТИСЬ (PRESTIGE)", callback_data="do_prestige"))
         
         sorted_top = sorted(USER_CACHE.items(), key=lambda x: x[1]['xp'] + (x[1].get('prestige',0)*10000), reverse=True)[:3]
         top_str = "\n".join([f"{['🥇','🥈','🥉'][i]} ID {str(k)[-4:]}: {v['xp']} XP" + ("★" * v.get('prestige',0)) for i, (k, v) in enumerate(sorted_top)])
         msg += f"🏆 **ТОП-3:**\n{top_str}"
-        
         markup.add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu"))
         bot.send_message(call.message.chat.id, msg, parse_mode="Markdown", reply_markup=markup)
 
     elif call.data == "do_prestige":
         if do_prestige(uid):
-            bot.send_message(call.message.chat.id, "🌀 **ВОЗНЕСЕНИЕ ЗАВЕРШЕНО.**\nТвой уровень сброшен. Твоя слава вечна.", reply_markup=get_main_menu())
+            bot.send_message(call.message.chat.id, "🌀 **ВОЗНЕСЕНИЕ ЗАВЕРШЕНО.**\nТвой уровень сброшен. Слава вечна.", reply_markup=get_main_menu())
         else:
-            bot.answer_callback_query(call.id, "❌ Недостаточный уровень.")
+            bot.answer_callback_query(call.id, "❌ Недостаточно уровня.")
 
     elif "set_path_" in call.data:
         u['path'] = call.data.split("_")[-1]; save_progress(uid)
         safe_edit(call, f"/// ПУТЬ {u['path'].upper()} ЗАГРУЖЕН.", get_main_menu())
 
     elif call.data == "change_path":
-        safe_edit(call, "🔻 Смена вектора развития:", get_path_menu())
+        safe_edit(call, "🔻 Смена вектора:", get_path_menu())
 
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
-        bot.send_message(call.message.chat.id, "/// ИНТЕРФЕЙС АКТИВЕН", reply_markup=get_main_menu())
+        # ТЕПЕРЬ ТУТ КАРТИНКА ВМЕСТО ТЕКСТА
+        try:
+            bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ИНТЕРФЕЙС АКТИВЕН", reply_markup=get_main_menu())
+        except:
+            bot.send_message(call.message.chat.id, "/// ИНТЕРФЕЙС АКТИВЕН", reply_markup=get_main_menu())
+
+    elif call.data == "about":
+        safe_edit(call, "**/// SYSTEM INFO**\nЭйдос — это игра с реальностью. Мы превращаем хаос жизни в структуру.", get_main_menu())
 
     elif call.data == "get_signal":
         pool = []
