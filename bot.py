@@ -37,7 +37,7 @@ app = flask.Flask(__name__)
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
 USER_CACHE = {} 
 
-# --- 3. ТЕКСТЫ ---
+# --- 3. ТЕКСТОВЫЕ МОДУЛИ (LORE) ---
 SCHOOLS = {"money": "🏦 ШКОЛА МАТЕРИИ", "mind": "🧠 ШКОЛА РАЗУМА", "tech": "🤖 ШКОЛА СИНГУЛЯРНОСТИ"}
 
 GUIDE_FULL = (
@@ -154,7 +154,7 @@ def save_progress(uid):
     threading.Thread(target=task).start()
 
 def async_register_user(uid, username, first_name, ref_arg):
-    # Фоновая регистрация, чтобы не тормозить бота
+    # Фоновая регистрация в Google Sheet (ЭТО ИСПРАВЛЯЕТ ЗАЛИПАНИЕ)
     try:
         if ws_users:
             start_xp = "50" if ref_arg == 'inst' else "0"
@@ -282,18 +282,19 @@ def start_cmd(m):
     if len(m.text.split()) > 1:
         ref_arg = m.text.split()[1] 
 
-    # --- ФИКС ДЛЯ КНОПОК: Сначала кэш, потом база ---
+    # --- ИСПРАВЛЕНИЕ: МГНОВЕННОЕ ДОБАВЛЕНИЕ В КЭШ (Zero Latency) ---
     if uid not in USER_CACHE:
         start_xp = 50 if ref_arg == 'inst' else 0
+        # 1. Моментально добавляем в память (чтобы кнопки работали сразу)
         USER_CACHE[uid] = {
             "path": "general", "xp": start_xp, "level": 1, "streak": 1, "last_active": datetime.now().strftime("%Y-%m-%d"),
             "prestige": 0, "cryo": 0, "accel": 0, "decoder": 0, "accel_exp": 0, "referrer": ref_arg,
             "last_protocol_time": 0, "notified": True, "row_id": len(USER_CACHE) + 2
         }
-        # Пишем в базу в фоне
+        # 2. Пишем в базу АСИНХРОННО (не тормозит бота)
         threading.Thread(target=async_register_user, args=(uid, m.from_user.username, m.from_user.first_name, ref_arg)).start()
         
-        # Начисляем бонус рефереру
+        # 3. Начисляем бонус рефереру
         if ref_arg and ref_arg.isdigit() and int(ref_arg) in USER_CACHE:
             USER_CACHE[int(ref_arg)]['xp'] += REFERRAL_BONUS; save_progress(int(ref_arg))
             try: bot.send_message(int(ref_arg), f"🎁 **НОВЫЙ УЗЕЛ.** +{REFERRAL_BONUS} XP.")
