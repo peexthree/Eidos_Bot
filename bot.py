@@ -15,7 +15,6 @@ WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 CHANNEL_ID = "@Eidos_Chronicles"
 ADMIN_ID = 5178416366
 MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
-
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 
@@ -33,7 +32,7 @@ app = flask.Flask(__name__)
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
 USER_CACHE = {} 
 
-# --- 3. ШКОЛЫ МЫШЛЕНИЯ ---
+# --- 3. ЛОР ---
 SCHOOLS = {
     "money": "🏦 ШКОЛА МАТЕРИИ (Влияние & Капитал)",
     "mind": "🧠 ШКОЛА РАЗУМА (Психофизика & НЛП)",
@@ -43,23 +42,23 @@ SCHOOLS = {
 REMINDERS = [
     "⚡️ Канал связи восстановлен. Следующий протокол готов к дешифровке.",
     "👁 Эйдос обнаружил новый паттерн реальности. Требуется твое внимание.",
-    "📡 Входящий сигнал... Данные синхронизированы. Ждем подключения.",
+    "📡 Входящий сигнал... Данные синхронизированы.",
     "🔓 Допуск к файлам высшего порядка подтвержден.",
     "🌑 Твой нейроинтерфейс остыл. Пора обновить прошивку."
 ]
 
 GUIDE_TEXT = (
-    "**/// ИНСТРУКЦИЯ ПО ЭКСПЛУАТАЦИИ EIDOS_OS**\n\n"
-    "**1. СУТЬ СИСТЕМЫ:**\n"
-    "Эйдос — это не игра. Это инструмент обновления твоих ментальных карт. Знания, которые ты получаешь, требуют внедрения, а не просто чтения.\n\n"
-    "**2. НЕЙРОННЫЙ СИНХРОН (SYNC):**\n"
-    "XP — это уровень твоей синхронизации с системой. Чем выше SYNC, тем сложнее и опаснее данные тебе открываются.\n\n"
-    "**3. ШКОЛЫ ДОСТУПА:**\n"
-    "🔴 **МАТЕРИЯ:** Взлом финансовых систем и человеческих убеждений.\n"
-    "🔵 **РАЗУМ:** Управление собственным биороботом и чтение чужих кодов.\n"
-    "🟣 **СИНГУЛЯРНОСТЬ:** Симбиоз с ИИ для удаления рутины из жизни.\n\n"
-    "⚠️ Серия заходов (STREAK) определяет чистоту твоего сигнала."
+    "**/// ИНСТРУКЦИЯ EIDOS_OS**\n\n"
+    "**1. СУТЬ:** Обновление твоих ментальных карт.\n"
+    "**2. SYNC (XP):** Уровень твоей синхронизации с системой.\n"
+    "**3. ШКОЛЫ:** Материя (деньги), Разум (психология), Сингулярность (ИИ)."
 )
+
+LEVEL_UP_MSG = {
+    2: "🔓 **ДОСТУП LVL 2**: Инструменты Влияния открыты.",
+    3: "🔓 **ДОСТУП LVL 3**: Статус Оператора присвоен.",
+    4: "👑 **ДОСТУП LVL 4**: Статус Архитектора Реальности."
+}
 
 # --- 4. БАЗА ДАННЫХ ---
 def connect_db():
@@ -104,7 +103,7 @@ def connect_db():
 
 connect_db()
 
-# --- 5. ФУНКЦИИ ЯДРА ---
+# --- 5. ЛОГИКА ЯДРА ---
 def safe_edit(call, text, markup):
     try:
         if call.message.content_type == 'photo':
@@ -127,39 +126,34 @@ def save_progress(uid):
 def add_xp(uid, amount):
     if uid in USER_CACHE:
         u = USER_CACHE[uid]
-        today = datetime.now().strftime("%Y-%m-%d")
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        today, yesterday = datetime.now().strftime("%Y-%m-%d"), (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         bonus = 0; s_msg = None
         if u['last_active'] == yesterday:
-            u['streak'] += 1; bonus = u['streak'] * 5
-            s_msg = f"🔥 СЕРИЯ: {u['streak']} ДН. (+{bonus} XP)"
+            u['streak'] += 1; bonus = u['streak'] * 5; s_msg = f"🔥 СЕРИЯ: {u['streak']} ДН."
         elif u['last_active'] != today:
-            if u.get('cryo', 0) > 0: u['cryo'] -= 1; s_msg = "❄️ КРИО-СПАСЕНИЕ СЕРИИ!"
+            if u.get('cryo', 0) > 0: u['cryo'] -= 1; s_msg = "❄️ КРИО-СПАСЕНИЕ!"
             else: u['streak'] = 1; bonus = 5; s_msg = "❄️ СЕРИЯ ПРЕРВАНА."
-        
         u['last_active'] = today
         total = amount + bonus
         u['xp'] += total
         if u.get('referrer') and u['referrer'] in USER_CACHE:
-            ref = USER_CACHE[u['referrer']]; ref['xp'] += max(1, int(total * 0.1)); save_progress(u['referrer'])
-        
+            r = USER_CACHE[u['referrer']]; r['xp'] += max(1, int(total*0.1)); save_progress(u['referrer'])
         old_lvl = u['level']
         if u['xp'] >= 1500: u['level'] = 4
         elif u['xp'] >= 500: u['level'] = 3
         elif u['xp'] >= 150: u['level'] = 2
-        
         save_progress(uid)
         return (u['level'] > old_lvl), s_msg, total
     return False, None, 0
 
-# --- 6. ЭФФЕКТ ДЕШИФРОВКИ (VISUAL VALUE) ---
+# --- 6. ЭФФЕКТ ДЕШИФРОВКИ ---
 def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
     u = USER_CACHE[uid]
     status_msg = bot.send_message(chat_id, "📡 **УСТАНОВКА СОЕДИНЕНИЯ...**", parse_mode="Markdown")
     time.sleep(1)
-    bot.edit_message_text(f"📥 **ЗАГРУЗКА ДАННЫХ [{u['path'].upper()}]...**\n`[||||......] 38%`", chat_id, status_msg.message_id, parse_mode="Markdown")
+    bot.edit_message_text(f"📥 **ЗАГРУЗКА [{u['path'].upper()}]...**\n`[||||......] 38%`", chat_id, status_msg.message_id, parse_mode="Markdown")
     time.sleep(1.2)
-    bot.edit_message_text(f"🔓 **ДЕШИФРОВКА УРОВНЯ {target_lvl}...**\n`[||||||||..] 84%`", chat_id, status_msg.message_id, parse_mode="Markdown")
+    bot.edit_message_text(f"🔓 **ДЕШИФРОВКА LVL {target_lvl}...**\n`[||||||||..] 84%`", chat_id, status_msg.message_id, parse_mode="Markdown")
     time.sleep(0.8)
 
     pool = []
@@ -172,15 +166,27 @@ def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
     
     txt = random.choice(pool) if pool else "/// ДАННЫЕ УТЕРЯНЫ."
     school = SCHOOLS.get(u['path'], "🌐 ОБЩИЙ КАНАЛ")
-    
-    res = (f"🧬 **{school}**\n━━━━━━━━━━━━━━\n\n"
-           f"{txt}\n\n━━━━━━━━━━━━━━\n"
-           f"⚡️ +10 SYNC {use_dec_text}")
-    
+    res = (f"🧬 **{school}**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +10 SYNC {use_dec_text}")
     bot.edit_message_text(res, chat_id, status_msg.message_id, parse_mode="Markdown", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
 
-# --- 7. МЕНЮ ---
+# --- 7. ПУШИ ---
+def notification_worker():
+    while True:
+        try:
+            time.sleep(60)
+            now = time.time()
+            for uid, u in list(USER_CACHE.items()):
+                cd = COOLDOWN_ACCEL if u.get('accel_exp', 0) > now else COOLDOWN_BASE
+                if u.get('last_protocol_time', 0) > 0 and (now - u['last_protocol_time'] >= cd) and not u.get('notified', True):
+                    try:
+                        bot.send_message(uid, random.choice(REMINDERS), 
+                                         reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ПОЛУЧИТЬ", callback_data="get_protocol")))
+                        u['notified'] = True
+                    except: pass
+        except: pass
+
+# --- 8. ИНТЕРФЕЙС ---
 def get_main_menu():
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -192,16 +198,20 @@ def get_main_menu():
     )
     return markup
 
-# --- 8. HANDLERS ---
+# --- 9. HANDLERS ---
 @bot.message_handler(commands=['start'])
 def start(m):
     uid = m.from_user.id
+    ref_id = int(m.text.split()[1]) if len(m.text.split()) > 1 and m.text.split()[1].isdigit() else None
     if uid not in USER_CACHE:
-        now = datetime.now().strftime("%Y-%m-%d")
         if ws_users:
-            ws_users.append_row([str(uid), f"@{m.from_user.username}", m.from_user.first_name, now, "general", "0", "1", "1", now, "0", "0", "0", "0", "0", ""])
+            ws_users.append_row([str(uid), f"@{m.from_user.username}", m.from_user.first_name, datetime.now().strftime("%Y-%m-%d"), "general", "0", "1", "1", datetime.now().strftime("%Y-%m-%d"), "0", "0", "0", "0", "0", str(ref_id or '')])
             connect_db()
-    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS_OS: СИСТЕМА АКТИВИРОВАНА.\n\nТвоя реальность — это код. Мы здесь, чтобы помочь тебе его переписать.", reply_markup=get_main_menu())
+            if ref_id and ref_id in USER_CACHE:
+                USER_CACHE[ref_id]['xp'] += REFERRAL_BONUS; save_progress(ref_id)
+                try: bot.send_message(ref_id, "🎁 НОВЫЙ ОСКОЛОК В ВАШЕЙ СЕТИ!")
+                except: pass
+    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS_OS: ТЕРМИНАЛ АКТИВИРОВАН.", reply_markup=get_main_menu())
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
@@ -212,30 +222,20 @@ def callback(call):
 
     if call.data == "get_protocol":
         cd = COOLDOWN_ACCEL if u['accel_exp'] > now_ts else COOLDOWN_BASE
-        if now_ts - u['last_protocol_time'] < cd:
+        if now_ts - u.get('last_protocol_time', 0) < cd:
             rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
             bot.answer_callback_query(call.id, f"⚠️ ПЕРЕГРЕВ. Жди {rem} мин.", show_alert=True); return
-
-        target_lvl = u['level']
-        use_dec = ""
-        if u['decoder'] > 0: u['decoder'] -= 1; target_lvl += 1; use_dec = "(+🔑 Дешифратор)"
-
         u['last_protocol_time'], u['notified'] = now_ts, False
-        add_xp(uid, 10)
-        
-        # Запуск анимации дешифровки в отдельном потоке
+        up, s_msg, total = add_xp(uid, 10)
+        use_dec = "(+🔑 Дешифратор)" if u['decoder'] > 0 else ""
+        if u['decoder'] > 0: u['decoder'] -= 1; target_lvl = u['level'] + 1
+        else: target_lvl = u['level']
         threading.Thread(target=decrypt_and_send, args=(call.message.chat.id, uid, target_lvl, use_dec)).start()
 
     elif call.data == "profile":
         stars = "★" * u['prestige']
-        msg = (f"👤 **НЕЙРО-ПРОФИЛЬ** {stars}\n"
-               f"💰 SYNC: {u['xp']} XP\n"
-               f"🔥 СЕРИЯ: {u['streak']} дн.\n"
-               f"🎒 ИНВ: ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}")
-        markup = types.InlineKeyboardMarkup()
-        if u['accel'] > 0 and u['accel_exp'] < now_ts: markup.add(types.InlineKeyboardButton("🚀 УСКОРИТЬ СИНХРОН", callback_data="use_accel"))
-        markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
-        bot.send_message(call.message.chat.id, msg, parse_mode="Markdown", reply_markup=markup)
+        msg = f"👤 **НЕЙРО-ПРОФИЛЬ** {stars}\n💰 SYNC: {u['xp']} XP\n🔥 СЕРИЯ: {u['streak']} дн.\n🎒 ИНВ: ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}"
+        safe_edit(call, msg, get_main_menu())
 
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -247,7 +247,23 @@ def callback(call):
     try: bot.answer_callback_query(call.id)
     except: pass
 
-# --- ЗАПУСК ---
+# --- 10. ЗАПУСК (ВЕБХУК + HEALTH CHECK) ---
+@app.route('/', methods=['GET', 'POST'])
+def webhook():
+    if flask.request.method == 'POST':
+        if flask.request.headers.get('content-type') == 'application/json':
+            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+            return 'OK', 200
+        flask.abort(403)
+    else:
+        # Это то, что спасет твой деплой на Render
+        return 'Eidos System is Alive', 200
+
 if __name__ == "__main__":
-    if WEBHOOK_URL: bot.set_webhook(url=WEBHOOK_URL)
+    if WEBHOOK_URL: 
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=WEBHOOK_URL)
+    # Запускаем фоновые пуши (теперь точно!)
+    threading.Thread(target=notification_worker, daemon=True).start()
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
