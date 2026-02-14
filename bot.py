@@ -20,69 +20,38 @@ MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_w
 SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 
-# --- БАЛАНС ---
-COOLDOWN_SECONDS = 3600  # 1 час
-PATH_CHANGE_COST = 50    # Цена смены пути
+# --- БАЛАНС И ЦЕНЫ ---
+COOLDOWN_BASE = 3600    # 1 час
+COOLDOWN_ACCEL = 900    # 15 минут (под ускорителем)
+PATH_CHANGE_COST = 50
+PRICES = {"cryo": 100, "accel": 250, "decoder": 400}
 
 # --- 2. ИНИЦИАЛИЗАЦИЯ ---
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
-
-# --- 3. СИСТЕМНАЯ ПАМЯТЬ ---
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
 USER_CACHE = {} 
 
-# --- 4. КРЕАТИВ: ПУШ-УВЕДОМЛЕНИЯ ---
+# --- 3. ТЕКСТЫ ---
 REMINDERS = [
     "⚡️ Энергия восстановлена. Следующий протокол готов к загрузке.",
     "👁 Эйдос потерял визуальный контакт. Вернись в систему.",
     "⏳ Таймер истек. Твоя порция реальности ждет.",
-    "🔓 Доступ к новому файлу открыт. Не заставляй данные ждать.",
-    "📡 Входящий сигнал... Соединение восстановлено. Жми кнопку.",
-    "🧠 Твой нейроинтерфейс простаивает. Загрузи новый протокол.",
-    "🌑 Система остыла. Мы готовы к новой итерации.",
-    "🐺 Хищник не спит так долго. Пора на охоту за смыслом.",
-    "🤖 Алгоритм подобрал для тебя кое-что важное. Зайди.",
-    "🔥 Твой стрик в безопасности, но знания стынут. Возвращайся.",
-    "🧩 Найден новый фрагмент кода твоей реальности.",
-    "🔋 Батарея полна. Пора тратить энергию на рост.",
-    "⚠️ Внимание: Обнаружен пробел в знаниях. Требуется заполнение.",
-    "💠 Матрица перестроилась. Получи актуальные данные.",
-    "📶 Сигнал стабилен. Ожидаю ввода команды.",
-    "💎 Кристаллизация смысла завершена. Забери результат.",
-    "🌌 Пустота зовет. Заполни её новым инсайтом.",
-    "⚔️ Меч нужно точить. Твой разум затупился за этот час.",
-    "🚀 Системы готовы к пуску. Ждем только тебя, Архитектор.",
-    "👀 Мы наблюдаем. Ты давно не проявлял активность."
+    "🔓 Доступ к новому файлу открыт.",
+    "🐺 Хищник не спит так долго. Пора на охоту."
 ]
 
 GUIDE_TEXT = (
-    "**/// РУКОВОДСТВО ПО ЭКСПЛУАТАЦИИ**\n\n"
-    "**1. ЗАЧЕМ ТЕБЕ ЭЙДОС?**\n"
-    "Твой мозг работает на устаревшем софте (страхи, лень, шаблоны). Эйдос — это обновление прошивки.\n\n"
-    "**2. МЕХАНИКА ВЫЖИВАНИЯ:**\n"
-    "⚡️ **Энергия (XP):** Валюта влияния. Дается за Протоколы (+10) и Стрик.\n"
-    "🔥 **Стрик (Серия):** Заходи раз в 24 часа. Пропустил день — серия сгорела.\n"
-    "⏳ **Таймер:** Между протоколами — пауза 1 час. Мы пришлем сигнал, когда система остынет.\n\n"
-    "**3. КЛАССЫ (ПУТИ):**\n"
-    "🔴 **ХИЩНИК:** Деньги, переговоры, власть.\n"
-    "🔵 **МИСТИК:** Психология, влияние, чтение людей.\n"
-    "🟣 **ТЕХНОЖРЕЦ:** ИИ, автоматизация, будущее.\n\n"
-    "⚠️ **Смена Пути стоит 50 XP.**"
+    "**/// РУКОВОДСТВО v10.0**\n\n"
+    "**АРТЕФАКТЫ:**\n"
+    "❄️ **Крио-капсула**: Авто-спасение Стрика при пропуске дня.\n"
+    "⚡️ **Ускоритель**: Снижает Кулдаун до 15 мин на 24 часа.\n"
+    "🔑 **Дешифратор**: Разовый доступ к протоколу на 1 LVL выше твоего.\n\n"
+    "⚠️ **ОГРАНИЧЕНИЯ:**\n"
+    "Между протоколами — 1 час. Используй Ускоритель, чтобы сократить до 15 мин."
 )
 
-LEVEL_UP_MSG = {
-    2: "🔓 **ДОСТУП РАСШИРЕН (LVL 2)**\nТебе открыты Инструменты Влияния. Теперь ты видишь не только *что* делать, но и *как*.",
-    3: "🔓 **СИСТЕМНЫЙ ДОСТУП (LVL 3)**\nТы стал Оператором. Доступны стратегии масштабирования.",
-    4: "👑 **ВЫСШИЙ ДОСТУП (LVL 4)**\nТы — Архитектор. Добро пожаловать в элиту."
-}
-
-# --- 5. БАЗА ДАННЫХ ---
-gc = None
-sh = None
-ws_users = None
-ws_content = None
-
+# --- 4. БАЗА ДАННЫХ ---
 def connect_db():
     global gc, sh, ws_users, ws_content, CONTENT_DB, USER_CACHE
     try:
@@ -92,21 +61,20 @@ def connect_db():
             gc = gspread.service_account_from_dict(creds)
             sh = gc.open(SHEET_NAME)
             
+            # Контент
             try: 
                 ws_content = sh.worksheet("Content")
                 records = ws_content.get_all_records()
                 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
                 for r in records:
-                    path = str(r.get('Path', 'general')).lower()
-                    text = r.get('Text', '')
-                    level = int(r.get('Level', 1)) if str(r.get('Level')).isdigit() else 1
+                    path, text, lvl = str(r.get('Path', 'general')).lower(), r.get('Text', ''), int(r.get('Level', 1))
                     if text:
                         if path not in CONTENT_DB: path = "general"
-                        if level not in CONTENT_DB[path]: CONTENT_DB[path][level] = []
-                        CONTENT_DB[path][level].append(text)
-                print(f"/// CONTENT: {len(records)} loaded.")
+                        if lvl not in CONTENT_DB[path]: CONTENT_DB[path][lvl] = []
+                        CONTENT_DB[path][lvl].append(text)
             except: pass
 
+            # Юзеры (Добавлены колонки K-N)
             try:
                 ws_users = sh.worksheet("Users")
                 all_v = ws_users.get_all_values()
@@ -114,262 +82,206 @@ def connect_db():
                     if row and row[0] and str(row[0]).isdigit():
                         uid = int(row[0])
                         USER_CACHE[uid] = {
-                            "path": row[4] if len(row) > 4 and row[4] else "general",
+                            "path": row[4] if len(row) > 4 else "general",
                             "xp": int(row[5]) if len(row) > 5 and str(row[5]).isdigit() else 0,
-                            "level": int(row[6]) if len(row) > 6 and str(row[6]).isdigit() else 1,
-                            "streak": int(row[7]) if len(row) > 7 and str(row[7]).isdigit() else 0,
+                            "level": int(row[6]) if len(row) > 6 else 1,
+                            "streak": int(row[7]) if len(row) > 7 else 0,
                             "last_active": row[8] if len(row) > 8 else "2000-01-01",
-                            "prestige": int(row[9]) if len(row) > 9 and str(row[9]).isdigit() else 0,
-                            "last_protocol_time": 0,
-                            "notified": True, # При старте считаем, что уведомлять не надо
-                            "row_id": i
+                            "prestige": int(row[9]) if len(row) > 9 else 0,
+                            "cryo": int(row[10]) if len(row) > 10 and str(row[10]).isdigit() else 0,
+                            "accel": int(row[11]) if len(row) > 11 and str(row[11]).isdigit() else 0,
+                            "decoder": int(row[12]) if len(row) > 12 and str(row[12]).isdigit() else 0,
+                            "accel_exp": float(row[13]) if len(row) > 13 and row[13] else 0,
+                            "last_protocol_time": 0, "notified": True, "row_id": i
                         }
-                print(f"/// USERS: {len(USER_CACHE)} cached.")
             except: pass
     except: pass
 
 connect_db()
 
-# --- 6. ФОНОВЫЕ ПРОЦЕССЫ (PUSH-ENGINE) ---
+# --- 5. ФОНОВЫЙ ВОРКЕР (С учетом ускорителя) ---
 def notification_worker():
-    """Фоновый поток, рассылающий напоминания"""
     while True:
         try:
-            time.sleep(60) # Проверка каждую минуту
+            time.sleep(60)
             now = time.time()
-            # Копия ключей, чтобы не было ошибки при изменении словаря во время итерации
-            for uid, user in list(USER_CACHE.items()):
-                last_time = user.get('last_protocol_time', 0)
-                is_notified = user.get('notified', True)
-                
-                # Если прошло время кулдауна И еще не уведомлен
-                if last_time > 0 and (now - last_time >= COOLDOWN_SECONDS) and not is_notified:
+            for uid, u in list(USER_CACHE.items()):
+                # Проверка кулдауна (базовый или ускоренный)
+                current_cd = COOLDOWN_ACCEL if u.get('accel_exp', 0) > now else COOLDOWN_BASE
+                if u['last_protocol_time'] > 0 and (now - u['last_protocol_time'] >= current_cd) and not u['notified']:
                     try:
-                        text = random.choice(REMINDERS)
-                        markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ПОЛУЧИТЬ ПРОТОКОЛ", callback_data="get_protocol"))
-                        bot.send_message(uid, text, reply_markup=markup)
-                        user['notified'] = True # Помечаем как уведомленного
-                        print(f"/// PUSH SENT TO {uid}")
-                    except Exception as e:
-                        print(f"/// PUSH FAILED {uid}: {e}")
-        except Exception as e:
-            print(f"/// WORKER ERROR: {e}")
+                        bot.send_message(uid, random.choice(REMINDERS), 
+                                         reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ПОЛУЧИТЬ", callback_data="get_protocol")))
+                        u['notified'] = True
+                    except: pass
+        except: pass
 
-# Запуск воркера в отдельном потоке
-threading.Thread(target=notification_worker, daemon=True).start()
-
-# --- 7. ЯДРО ---
-def safe_edit(call, text, markup):
-    try:
-        if call.message.content_type == 'photo':
-            bot.edit_message_caption(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-        else:
-            bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-    except:
-        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-
+# --- 6. ЛОГИКА ---
 def save_progress(uid):
     def task():
         try:
             u = USER_CACHE.get(uid)
             if u and ws_users:
-                ws_users.update_cell(u['row_id'], 5, u['path'])
-                ws_users.update_cell(u['row_id'], 6, str(u['xp']))
-                ws_users.update_cell(u['row_id'], 7, str(u['level']))
-                ws_users.update_cell(u['row_id'], 8, str(u['streak']))
-                ws_users.update_cell(u['row_id'], 9, u['last_active'])
-                ws_users.update_cell(u['row_id'], 10, str(u.get('prestige', 0)))
+                # E(5) по N(14)
+                data = [u['path'], str(u['xp']), str(u['level']), str(u['streak']), u['last_active'], str(u['prestige']),
+                        str(u['cryo']), str(u['accel']), str(u['decoder']), str(u['accel_exp'])]
+                ws_users.update(f"E{u['row_id']}:N{u['row_id']}", [data])
         except: pass
     threading.Thread(target=task).start()
-
-def update_activity(uid):
-    if uid in USER_CACHE:
-        USER_CACHE[uid]['last_active'] = datetime.now().strftime("%Y-%m-%d")
 
 def add_xp(uid, amount):
     if uid in USER_CACHE:
         u = USER_CACHE[uid]
         today = datetime.now().strftime("%Y-%m-%d")
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-        
         bonus = 0; streak_msg = None
+
         if u['last_active'] == yesterday:
             u['streak'] += 1; bonus = u['streak'] * 5
-            streak_msg = f"🔥 **СЕРИЯ: {u['streak']} ДН.** (+{bonus} XP)"
+            streak_msg = f"🔥 СЕРИЯ: {u['streak']} ДН. (+{bonus} XP)"
         elif u['last_active'] != today:
-            if u['streak'] > 1: streak_msg = "❄️ **СЕРИЯ ПРЕРВАНА.**"
-            u['streak'] = 1; bonus = 5
+            # ПРОВЕРКА КРИО-КАПСУЛЫ (Novelty)
+            if u.get('cryo', 0) > 0:
+                u['cryo'] -= 1
+                streak_msg = "❄️ КРИО-КАПСУЛА СПАСЛА СЕРИЮ!"
+            else:
+                if u['streak'] > 1: streak_msg = "❄️ СЕРИЯ ПРЕРВАНА."
+                u['streak'] = 1; bonus = 5
         
         u['last_active'] = today
-        total_xp = amount + bonus
-        u['xp'] += total_xp
-        
+        u['xp'] += (amount + bonus)
+        # Level-Up Logic
         old_lvl = u['level']
         if u['xp'] >= 1500: u['level'] = 4
         elif u['xp'] >= 500: u['level'] = 3
         elif u['xp'] >= 150: u['level'] = 2
         
-        lvl_msg = None
-        if u['level'] > old_lvl:
-            lvl_msg = LEVEL_UP_MSG.get(u['level'], "🎉 **УРОВЕНЬ ПОВЫШЕН!**")
-            
+        lvl_msg = LEVEL_UP_MSG.get(u['level']) if u['level'] > old_lvl else None
         save_progress(uid)
-        return lvl_msg, streak_msg, total_xp
+        return lvl_msg, streak_msg, (amount + bonus)
     return None, None, 0
 
-def do_prestige(uid):
-    if uid in USER_CACHE:
-        u = USER_CACHE[uid]
-        if u['level'] >= 4:
-            u['xp'] = 0; u['level'] = 1
-            u['prestige'] = u.get('prestige', 0) + 1
-            save_progress(uid)
-            return True
-    return False
-
-# --- 8. МЕНЮ ---
+# --- 7. МЕНЮ ---
 def get_main_menu():
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("🧬 ПОЛУЧИТЬ ПРОТОКОЛ", callback_data="get_protocol"),
-        types.InlineKeyboardButton("👤 ПРОФИЛЬ / РЕЙТИНГ", callback_data="profile"),
+        types.InlineKeyboardButton("👤 ПРОФИЛЬ / ИНВЕНТАРЬ", callback_data="profile"),
+        types.InlineKeyboardButton("🎰 МАГАЗИН АРТЕФАКТОВ", callback_data="shop"),
         types.InlineKeyboardButton("⚙️ СМЕНИТЬ ПУТЬ (-50 XP)", callback_data="change_path"),
-        types.InlineKeyboardButton("📚 ГАЙД / КЛАССЫ", callback_data="guide")
+        types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide")
     )
     return markup
 
-def get_path_menu():
+def get_shop_menu():
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        types.InlineKeyboardButton("🔴 ХИЩНИК [Материя]", callback_data="set_path_money"),
-        types.InlineKeyboardButton("🔵 МИСТИК [Разум]", callback_data="set_path_mind"),
-        types.InlineKeyboardButton("🟣 ТЕХНОЖРЕЦ [AI]", callback_data="set_path_tech")
+        types.InlineKeyboardButton(f"❄️ КРИО-КАПСУЛА ({PRICES['cryo']} XP)", callback_data="buy_cryo"),
+        types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="buy_accel"),
+        types.InlineKeyboardButton(f"🔑 ДЕШИФРАТОР ({PRICES['decoder']} XP)", callback_data="buy_decoder"),
+        types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")
     )
     return markup
 
-# --- 9. HANDLERS ---
+# --- 8. HANDLERS ---
 @bot.message_handler(commands=['start'])
 def start(m):
     uid = m.from_user.id
     if uid not in USER_CACHE:
         now = datetime.now().strftime("%Y-%m-%d")
-        uname = f"@{m.from_user.username}" if m.from_user.username else "No"
         if ws_users:
-            ws_users.append_row([str(uid), uname, m.from_user.first_name, now, "general", "0", "1", "1", now, "0"])
-            USER_CACHE[uid] = {"path": "general", "xp": 0, "level": 1, "streak": 1, "last_active": now, "prestige": 0, "last_protocol_time": 0, "notified": True, "row_id": len(USER_CACHE)+2}
-    else:
-        update_activity(uid); save_progress(uid)
-
-    header = "░▒▓█ 𝗘𝗜𝗗𝗢𝗦_𝗢𝗦 𝘃𝟵.𝟬 █▓▒░"
-    msg = f"{header}\n\nОсколок {m.from_user.first_name}, синхронизация завершена.\n\n⚠️ **РЕЖИМ ОЖИДАНИЯ:** Система будет сама звать тебя, когда протокол готов. Не пропусти сигнал.\n\n🔻 Выбери вектор:"
-    try: bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=msg, reply_markup=get_path_menu())
-    except: bot.send_message(m.chat.id, msg, reply_markup=get_path_menu())
+            ws_users.append_row([str(uid), f"@{m.from_user.username}", m.from_user.first_name, now, "general", "0", "1", "1", now, "0", "0", "0", "0", "0"])
+            connect_db()
+    
+    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS OS v10.0 ACTIVE\nИнвентарь и Магазин разблокированы.", reply_markup=get_main_menu())
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     uid = call.from_user.id
     if uid not in USER_CACHE: return
     u = USER_CACHE[uid]
-    
-    if call.data != "get_protocol": 
-        update_activity(uid)
-        save_progress(uid)
+    now_ts = time.time()
 
-    if call.data == "get_protocol":
-        now_ts = time.time()
-        last_ts = u.get('last_protocol_time', 0)
-        
-        # Кулдаун
-        if now_ts - last_ts < COOLDOWN_SECONDS:
-            remain = int((COOLDOWN_SECONDS - (now_ts - last_ts)) / 60)
-            bot.answer_callback_query(call.id, f"⚠️ СИСТЕМА ОСТЫВАЕТ. Жди {remain} мин.", show_alert=True)
+    if call.data == "shop":
+        safe_edit(call, "🎰 **ЧЕРНЫЙ РЫНОК**\nУправляй вероятностью через XP.", get_shop_menu())
+
+    elif call.data.startswith("buy_"):
+        item = call.data.split("_")[1]
+        if u['xp'] >= PRICES[item]:
+            u['xp'] -= PRICES[item]
+            u[item] += 1
+            save_progress(uid)
+            bot.answer_callback_query(call.id, f"✅ КУПЛЕНО: {item.upper()}")
+            safe_edit(call, f"🎰 **ЧЕРНЫЙ РЫНОК**\n\nПредмет получен. Баланс: {u['xp']} XP.", get_shop_menu())
+        else:
+            bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО XP", show_alert=True)
+
+    elif call.data == "get_protocol":
+        # Проверка кулдауна
+        cd = COOLDOWN_ACCEL if u['accel_exp'] > now_ts else COOLDOWN_BASE
+        if now_ts - u['last_protocol_time'] < cd:
+            rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
+            bot.answer_callback_query(call.id, f"⏳ ПЕРЕГРЕВ. Жди {rem} мин.", show_alert=True)
             return
 
-        lvl_msg, streak_msg, earned = add_xp(uid, 10)
-        u['last_protocol_time'] = now_ts
-        u['notified'] = False  # Сбрасываем флаг, чтобы через час пришло уведомление
+        # Проверка Дешифратора
+        target_lvl = u['level']
+        use_dec = ""
+        if u['decoder'] > 0:
+            u['decoder'] -= 1; target_lvl += 1
+            use_dec = "\n🔑 **ДЕШИФРАТОР АКТИВИРОВАН: ДОСТУП LVL+1**"
+
+        lvl_msg, s_msg, earned = add_xp(uid, 10)
+        u['last_protocol_time'], u['notified'] = now_ts, False
         
+        # Поиск контента
         pool = []
         p_cont = CONTENT_DB.get(u['path'], {})
-        for l in range(1, u['level'] + 1):
+        for l in range(1, target_lvl + 1):
             if l in p_cont: pool.extend(p_cont[l])
-        if not pool:
-            g_cont = CONTENT_DB.get('general', {})
-            for l in range(1, u['level'] + 1):
-                if l in g_cont: pool.extend(g_cont[l])
         
         txt = random.choice(pool) if pool else "/// ПУСТОТА."
-        res = f"**// ПРОТОКОЛ [{u['path'].upper()}]**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{earned} XP"
-        if streak_msg: res += f" | {streak_msg}"
+        res = f"**// ПРОТОКОЛ [{u['path'].upper()}]**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{earned} XP{use_dec}"
+        if s_msg: res += f" | {s_msg}"
         
         if lvl_msg: bot.send_message(call.message.chat.id, lvl_msg, parse_mode="Markdown")
-        bot.send_message(call.message.chat.id, res, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu")))
+        bot.send_message(call.message.chat.id, res, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 МЕНЮ", callback_data="back_to_menu")))
 
     elif call.data == "profile":
-        rank = ["НЕОФИТ", "ИСКАТЕЛЬ", "ОПЕРАТОР", "АРХИТЕКТОР"][min(u['level']-1, 3)]
-        next_g = [150, 500, 1500, 5000][min(u['level']-1, 3)]
-        perc = min(1.0, u['xp'] / next_g)
-        bar = "▰" * int(perc * 10) + "▱" * (10 - int(perc * 10))
-        stars = "★" * u.get('prestige', 0)
+        stars = "★" * u['prestige']
+        accel_info = "✅ АКТИВЕН" if u['accel_exp'] > now_ts else "❌ НЕАКТИВЕН"
+        msg = (f"👤 **ПРОФИЛЬ** {stars}\n"
+               f"💰 Баланс: {u['xp']} XP\n"
+               f"🔥 Серия: {u['streak']} дн.\n\n"
+               f"🎒 **ИНВЕНТАРЬ:**\n"
+               f"❄️ Крио: {u['cryo']} шт.\n"
+               f"⚡️ Ускоритель: {u['accel']} шт. ({accel_info})\n"
+               f"🔑 Дешифратор: {u['decoder']} шт.")
         
-        msg = f"👤 **ПРОФИЛЬ** {stars}\n━━━━━━━━━━━━━━\n🔰 Ранг: {rank}\n🔥 Серия: {u['streak']} дн.\n⚡️ XP: {u['xp']} / {next_g}\n[{bar}] {int(perc*100)}%\n\n"
         markup = types.InlineKeyboardMarkup()
-        if u['level'] >= 4:
-            msg += "\n🌀 **ДОСТУПНО ВОЗНЕСЕНИЕ**\n"
-            markup.add(types.InlineKeyboardButton("🌀 ВОЗНЕСТИСЬ", callback_data="do_prestige"))
-        
-        sorted_top = sorted(USER_CACHE.items(), key=lambda x: x[1]['xp'] + (x[1].get('prestige',0)*10000), reverse=True)[:3]
-        top_str = "\n".join([f"{['🥇','🥈','🥉'][i]} ID {str(k)[-4:]}: {v['xp']} XP" + ("★" * v.get('prestige',0)) for i, (k, v) in enumerate(sorted_top)])
-        msg += f"🏆 **ТОП-3:**\n{top_str}"
-        markup.add(types.InlineKeyboardButton("🔙 Меню", callback_data="back_to_menu"))
+        if u['accel'] > 0 and u['accel_exp'] < now_ts:
+            markup.add(types.InlineKeyboardButton("🚀 АКТИВИРОВАТЬ УСКОРИТЕЛЬ", callback_data="use_accel"))
+        markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
         bot.send_message(call.message.chat.id, msg, parse_mode="Markdown", reply_markup=markup)
 
-    elif call.data == "do_prestige":
-        if do_prestige(uid):
-            bot.send_message(call.message.chat.id, "🌀 **ВОЗНЕСЕНИЕ ЗАВЕРШЕНО.**", reply_markup=get_main_menu())
-        else: bot.answer_callback_query(call.id, "❌ Рано.")
+    elif call.data == "use_accel":
+        if u['accel'] > 0:
+            u['accel'] -= 1; u['accel_exp'] = now_ts + 86400
+            save_progress(uid); bot.answer_callback_query(call.id, "🚀 УСКОРИТЕЛЬ НА 24Ч АКТИВИРОВАН!")
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// СИСТЕМА УСКОРЕНА", reply_markup=get_main_menu())
 
-    elif "set_path_" in call.data:
-        new_path = call.data.split("_")[-1]
-        if u['xp'] >= PATH_CHANGE_COST:
-            u['xp'] -= PATH_CHANGE_COST
-            u['path'] = new_path
-            save_progress(uid)
-            safe_edit(call, f"/// ВЕКТОР {new_path.upper()} АКТИВИРОВАН.\n💸 Списано: {PATH_CHANGE_COST} XP", get_main_menu())
-        else:
-            bot.answer_callback_query(call.id, f"❌ НУЖНО {PATH_CHANGE_COST} XP.", show_alert=True)
-
-    elif call.data == "change_path":
-        safe_edit(call, f"🔻 Смена вектора (Цена: {PATH_CHANGE_COST} XP):", get_path_menu())
-
-    elif call.data == "guide":
-        safe_edit(call, GUIDE_TEXT, get_main_menu())
-
+    elif call.data == "guide": safe_edit(call, GUIDE_TEXT, get_main_menu())
+    
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
-        try: bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ИНТЕРФЕЙС АКТИВЕН", reply_markup=get_main_menu())
-        except: bot.send_message(call.message.chat.id, "/// ИНТЕРФЕЙС АКТИВЕН", reply_markup=get_main_menu())
+        bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ИНТЕРФЕЙС АКТИВЕН", reply_markup=get_main_menu())
 
-    elif call.data == "get_signal":
-        pool = []
-        for p in CONTENT_DB:
-            if 1 in CONTENT_DB[p]: pool.extend(CONTENT_DB[p][1])
-        txt = random.choice(pool) if pool else "..."; bot.answer_callback_query(call.id, show_alert=True, text=txt)
-    
     try: bot.answer_callback_query(call.id)
     except: pass
 
-@bot.message_handler(content_types=['text', 'photo'])
-def admin_handler(message):
-    if message.from_user.id == ADMIN_ID:
-        if message.text == '/refresh':
-            connect_db(); bot.send_message(message.chat.id, "✅ OK")
-        elif message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
-            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 Сигнал", callback_data="get_signal"))
-            bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=message.caption[6:], reply_markup=markup)
-
-# --- 8. ЗАПУСК ---
+# --- ЗАПУСК ---
 @app.route('/', methods=['POST'])
 def webhook():
     if flask.request.headers.get('content-type') == 'application/json':
@@ -377,11 +289,8 @@ def webhook():
         return 'OK', 200
     flask.abort(403)
 
-@app.route('/health')
-def health(): return "OK", 200
-
 if __name__ == "__main__":
     if WEBHOOK_URL:
         bot.remove_webhook(); time.sleep(1); bot.set_webhook(url=WEBHOOK_URL)
-    threading.Thread(target=notification_worker, daemon=True).start() # ЗАПУСК ПУШЕЙ
+    threading.Thread(target=notification_worker, daemon=True).start()
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
