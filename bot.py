@@ -20,11 +20,11 @@ SHEET_NAME = os.environ.get('SHEET_NAME', 'Eidos_Users')
 GOOGLE_JSON = os.environ.get('GOOGLE_KEY')
 
 # --- ЭКОНОМИКА ---
-COOLDOWN_BASE = 1800     # 30 минут (Синхрон)
-COOLDOWN_ACCEL = 900     # 15 минут (Ускоритель)
-COOLDOWN_SIGNAL = 300    # 5 минут (Сигнал)
-XP_GAIN = 25             # Опыт за Синхрон
-XP_SIGNAL = 15           # Опыт за Сигнал
+COOLDOWN_BASE = 1800     # 30 мин (Синхрон)
+COOLDOWN_ACCEL = 900     # 15 мин (Ускоритель)
+COOLDOWN_SIGNAL = 300    # 5 мин (Сигнал)
+XP_GAIN = 25             # Синхрон
+XP_SIGNAL = 15           # Сигнал
 PATH_CHANGE_COST = 100
 REFERRAL_BONUS = 250
 PRICES = {"cryo": 200, "accel": 500, "decoder": 800}
@@ -36,51 +36,46 @@ TITLES = {1: "НЕОФИТ", 2: "ИСКАТЕЛЬ", 3: "ОПЕРАТОР", 4: "�
 # --- 2. ИНИЦИАЛИЗАЦИЯ ---
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
-# Добавили раздел signals
+# Добавили хранилище для сигналов
 CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}, "signals": []}
 USER_CACHE = {} 
 
-# --- 3. ТЕКСТОВЫЕ МОДУЛИ (ОБНОВЛЕНО) ---
+# --- 3. ТЕКСТОВЫЕ МОДУЛИ ---
 SCHOOLS = {"money": "🏦 ШКОЛА МАТЕРИИ", "mind": "🧠 ШКОЛА РАЗУМА", "tech": "🤖 ШКОЛА СИНГУЛЯРНОСТИ"}
 
 GUIDE_FULL = (
-    "**📚 ТЕХНИЧЕСКАЯ ДОКУМЕНТАЦИЯ EIDOS v20.0**\n\n"
+    "**📚 ТЕХНИЧЕСКАЯ ДОКУМЕНТАЦИЯ EIDOS v20.1**\n\n"
     "**1. ИСТОЧНИКИ ДАННЫХ:**\n"
-    "• 👁 **СИНХРОН (30 мин):** Глубокие знания и протоколы. Дает **25 XP** + бонус Стрика.\n"
-    "• 📶 **СИГНАЛ (5 мин):** Короткие инсайты и мотивация. Дает **15 XP**.\n\n"
-    "**2. МАТЕМАТИКА СТРИКА (STREAK):**\n"
-    "Дисциплина — это валюта. Каждый день непрерывного входа добавляет **+5 XP** к награде за Синхрон.\n"
-    "*Пример:* 5 дней подряд = 25 (база) + 25 (бонус) = 50 XP за раз.\n\n"
+    "• 👁 **СИНХРОН (30 мин):** Глубокие протоколы. Награда: **25 XP**.\n"
+    "• 📶 **СИГНАЛ (5 мин):** Короткие ментальные импульсы. Награда: **15 XP**.\n\n"
+    "**2. СИСТЕМА STREAK (СЕРИЯ):**\n"
+    "Каждый день непрерывного входа увеличивает награду за Синхрон на **+5 XP**.\n"
+    "Пропуск дня сжигает серию (если нет Крио-капсулы).\n\n"
     "**3. УРОВНИ ДОСТУПА:**\n"
-    "• **LVL 2 (100 XP):** Доступ к Фракциям.\n"
-    "• **LVL 3 (350 XP):** Закрытые форумы.\n"
-    "• **LVL 4 (850 XP):** Режим Архитектора.\n\n"
-    "/// *Используй меню для управления эволюцией.*"
+    "• **LVL 1:** База.\n"
+    "• **LVL 2 (100 XP):** Фракции.\n"
+    "• **LVL 3 (350 XP):** Инсайды.\n"
+    "• **LVL 4 (850 XP):** Архитектор."
 )
 
 SHOP_FULL = (
-    "**🎰 ЧЕРНЫЙ РЫНОК: МОДИФИКАЦИИ**\n\n"
-    f"❄️ **КРИО-КАПСУЛА ({PRICES['cryo']} XP)**\n"
-    "Страховка. Спасает твой Стрик и накопленный бонус при пропуске дня.\n\n"
-    f"⚡️ **НЕЙРО-УСКОРИТЕЛЬ ({PRICES['accel']} XP)**\n"
-    "Форсаж. Сокращает ожидание СИНХРОНА с 30 до **15 минут** на 24 часа. (Сигнал остается 5 мин).\n\n"
-    f"🔑 **ДЕШИФРАТОР ({PRICES['decoder']} XP)**\n"
-    "Взлом. Разовый доступ к контенту уровня Lvl+1.\n\n"
-    f"⚙️ **СМЕНА ФРАКЦИИ ({PATH_CHANGE_COST} XP)**\n"
-    "Смена специализации (Хищник / Мистик / Техножрец)."
+    "**🎰 ЧЕРНЫЙ РЫНОК**\n\n"
+    f"❄️ **КРИО ({PRICES['cryo']} XP)**\nСтраховка серии при пропуске дня.\n\n"
+    f"⚡️ **УСКОРИТЕЛЬ ({PRICES['accel']} XP)**\nСнижает ожидание Синхрона до 15 мин на 24 часа.\n*(Требует активации в Профиле после покупки)*\n\n"
+    f"🔑 **ДЕШИФРАТОР ({PRICES['decoder']} XP)**\nВзлом уровня доступа.\n\n"
+    f"⚙️ **СМЕНА ФРАКЦИИ ({PATH_CHANGE_COST} XP)**"
 )
 
 SYNDICATE_FULL = (
     "**🔗 СИНДИКАТ**\n\n"
-    "**ТВОИ ВЫГОДЫ:**\n"
-    f"1. 🎁 **БОНУС:** +{REFERRAL_BONUS} XP за каждого реферала.\n"
-    "2. 📈 **РОЯЛТИ:** 10% от опыта твоих людей пожизненно."
+    f"1. 🎁 **БОНУС:** +{REFERRAL_BONUS} XP за реферала.\n"
+    "2. 📈 **РОЯЛТИ:** 10% от опыта твоей сети пожизненно."
 )
 
 LEVEL_UP_MSG = {
-    2: "🔓 **LVL 2**: Доступ к инструментам Влияния открыт.",
-    3: "🔓 **LVL 3**: Статус Оператора. Вижу структуру матрицы.",
-    4: "👑 **LVL 4**: Ты — Архитектор. Твоя воля — закон."
+    2: "🔓 **LVL 2**: Доступ к Фракциям открыт.",
+    3: "🔓 **LVL 3**: Статус Оператора.",
+    4: "👑 **LVL 4**: Ты — Архитектор."
 }
 
 # --- 4. БАЗА ДАННЫХ ---
@@ -96,12 +91,17 @@ def connect_db():
             records = ws_content.get_all_records()
             CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}, "signals": []}
             for r in records:
-                path, text, lvl = str(r.get('Path', 'general')).lower(), r.get('Text', ''), int(r.get('Level', 1))
+                # Читаем по колонкам: Type, Path, Text, Level
+                r_type = str(r.get('Type', '')).lower().strip()
+                path = str(r.get('Path', 'general')).lower().strip()
+                text = r.get('Text', '')
+                try: lvl = int(r.get('Level', 1))
+                except: lvl = 1
+                
                 if text:
-                    # Если уровень 0 - это Сигнал
-                    if lvl == 0:
+                    if r_type == 'signal': # Логика Сигнала
                         CONTENT_DB["signals"].append(text)
-                    else:
+                    else: # Логика Синхрона
                         if path not in CONTENT_DB: path = "general"
                         if lvl not in CONTENT_DB[path]: CONTENT_DB[path][lvl] = []
                         CONTENT_DB[path][lvl].append(text)
@@ -113,7 +113,6 @@ def connect_db():
                 if row and row[0] and str(row[0]).isdigit():
                     uid = int(row[0])
                     def s_int(val, d=0): return int(str(val).strip()) if str(val).strip().isdigit() else d
-                    # Добавляем поле last_signal_time
                     USER_CACHE[uid] = {
                         "path": row[4] if len(row) > 4 and row[4] else "general",
                         "xp": s_int(row[5]), "level": s_int(row[6], 1), "streak": s_int(row[7]),
@@ -122,7 +121,9 @@ def connect_db():
                         "decoder": s_int(row[12]),
                         "accel_exp": float(row[13]) if len(row) > 13 and str(row[13]).replace('.','').isdigit() else 0,
                         "referrer": row[14] if len(row) > 14 else None,
-                        "last_protocol_time": 0, "last_signal_time": 0, "notified": True, "row_id": i
+                        "last_protocol_time": 0,
+                        "last_signal_time": 0, # Новое поле для КД сигнала
+                        "notified": True, "row_id": i
                     }
             print("/// DB CONNECTED")
     except Exception as e: print(f"/// DB ERROR: {e}")
@@ -166,23 +167,22 @@ def add_xp(uid, amount):
         today, yesterday = datetime.now().strftime("%Y-%m-%d"), (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         bonus, s_msg = 0, None
         
-        # Логика Стрика (только для Синхрона, для Сигналов можно не сбрасывать, но тут общее)
+        # СТРИК работает только раз в сутки (привяжем его к обновлению активности)
+        streak_bonus = 0
         if u['last_active'] == yesterday:
-            u['streak'] += 1; bonus = u['streak'] * 5; s_msg = f"🔥 СЕРИЯ: {u['streak']} ДН."
+            u['streak'] += 1; streak_bonus = u['streak'] * 5; s_msg = f"🔥 СЕРИЯ: {u['streak']} ДН."
         elif u['last_active'] != today:
             if u.get('cryo', 0) > 0: u['cryo'] -= 1; s_msg = "❄️ КРИО-СПАСЕНИЕ!"
-            else: u['streak'] = 1; bonus = 5; s_msg = "❄️ СЕРИЯ СБРОШЕНА."
+            else: u['streak'] = 1; streak_bonus = 5; s_msg = "❄️ СЕРИЯ СБРОШЕНА."
         
         u['last_active'] = today
-        # Бонус стрика применяется только к большим действиям, но для простоты даем всегда, если не оговорено
-        total = amount + bonus 
+        # Бонус за стрик даем только если это Синхрон (не сигнал), но для простоты добавим ко всему, если день сменился
+        total = amount + streak_bonus 
         u['xp'] += total
         
-        # Реферальная система
-        ref_id = u.get('referrer')
-        if ref_id and str(ref_id).isdigit() and int(ref_id) in USER_CACHE:
-            r = USER_CACHE[int(ref_id)]
-            r['xp'] += max(1, int(total * 0.1)); save_progress(int(ref_id))
+        if u.get('referrer') and str(u['referrer']).isdigit() and int(u['referrer']) in USER_CACHE:
+            r = USER_CACHE[int(u['referrer'])]
+            r['xp'] += max(1, int(total * 0.1)); save_progress(int(u['referrer']))
             
         old_lvl = u['level']
         for lvl, threshold in sorted(LEVELS.items(), reverse=True):
@@ -190,8 +190,8 @@ def add_xp(uid, amount):
                 u['level'] = lvl
                 break
         save_progress(uid)
-        return (u['level'] > old_lvl), total
-    return False, 0
+        return (u['level'] > old_lvl), s_msg, total
+    return False, None, 0
 
 def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
     u = USER_CACHE[uid]
@@ -243,20 +243,20 @@ def get_progress_bar(current_xp, level):
 # --- 7. ИНТЕРФЕЙС ---
 def get_main_menu(uid):
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # КНОПКИ СИНХРОН И СИГНАЛ РЯДОМ
+    # КНОПКИ СИНХРОН И СИГНАЛ В ОДИН РЯД
     markup.add(
-        types.InlineKeyboardButton("👁 СИНХРОН", callback_data="get_protocol"),
-        types.InlineKeyboardButton("📶 СИГНАЛ", callback_data="get_signal")
+        types.InlineKeyboardButton("👁 ДЕШИФРОВАТЬ СИНХРОН", callback_data="get_protocol"),
+        types.InlineKeyboardButton("📶 ПОЛУЧИТЬ СИГНАЛ", callback_data="get_signal")
     )
     markup.add(
-        types.InlineKeyboardButton("👤 ПРОФИЛЬ", callback_data="profile"),
-        types.InlineKeyboardButton("🎰 РЫНОК", callback_data="shop")
+        types.InlineKeyboardButton("👤 НЕЙРО-ПРОФИЛЬ", callback_data="profile"),
+        types.InlineKeyboardButton("🎰 ЧЕРНЫЙ РЫНОК", callback_data="shop")
     )
     markup.add(
         types.InlineKeyboardButton("🔗 СИНДИКАТ", callback_data="referral"),
-        types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide")
+        types.InlineKeyboardButton("📚 РУКОВОДСТВО", callback_data="guide")
     )
-    if uid == ADMIN_ID: markup.add(types.InlineKeyboardButton("⚙️ ADMIN", callback_data="admin_panel"))
+    if uid == ADMIN_ID: markup.add(types.InlineKeyboardButton("⚙️ АДМИН-ПАНЕЛЬ", callback_data="admin_panel"))
     return markup
 
 def get_admin_menu():
@@ -285,14 +285,11 @@ def get_path_menu(cost_info=False):
 @bot.message_handler(commands=['start'])
 def start_cmd(m):
     uid = m.from_user.id
-    ref_arg = None
-    if len(m.text.split()) > 1:
-        ref_arg = m.text.split()[1] 
+    ref_arg = m.text.split()[1] if len(m.text.split()) > 1 else None
 
-    # --- СТАРТ СИГНАЛА ИЗ КАНАЛА ---
-    if ref_arg == 'signal' and uid in USER_CACHE:
-        # Если юзер нажал кнопку СИГНАЛ в канале - сразу выдаем (через callback-логику)
-        pass # Обработается ниже, но это просто переход
+    # --- ЛОГИКА ДЛЯ СИГНАЛА ИЗ КАНАЛА ---
+    # Если юзер перешел по ?start=signal, мы просто регистрируем его (если новый)
+    # А само действие "получить сигнал" он нажмет в меню или мы можем принудительно вызвать, но лучше просто открыть меню.
 
     if uid not in USER_CACHE:
         start_xp = 50 if ref_arg == 'inst' else 0
@@ -317,6 +314,8 @@ def start_cmd(m):
 def admin_handler(message):
     if message.from_user.id == ADMIN_ID:
         if message.text == '/refresh': connect_db(); bot.send_message(message.chat.id, "✅ БД ОБНОВЛЕНА.")
+        
+        # ОБНОВЛЕННЫЙ TELEGRAPH С КНОПКОЙ СИГНАЛА
         elif message.text and message.text.startswith('/telegraph '):
             parts = message.text.split(maxsplit=2)
             if len(parts) >= 2:
@@ -324,23 +323,20 @@ def admin_handler(message):
                 clean_url = url.split("google.com/search?q=")[-1] if "google.com" in url else url
                 markup = types.InlineKeyboardMarkup().add(
                     types.InlineKeyboardButton("📂 ОТКРЫТЬ ДОСЬЕ", url=clean_url),
-                    types.InlineKeyboardButton("👁 СИНХРОН", url=f"https://t.me/{BOT_USERNAME}"),
-                    types.InlineKeyboardButton("📶 СИГНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=signal")
+                    types.InlineKeyboardButton("📶 ПОЛУЧИТЬ СИГНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=signal")
                 )
                 bot.send_message(CHANNEL_ID, text, reply_markup=markup, parse_mode="Markdown")
+        
         elif message.text and message.text.startswith('/post '):
-            markup = types.InlineKeyboardMarkup().add(
-                types.InlineKeyboardButton("👁 ТЕРМИНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=channel"),
-                types.InlineKeyboardButton("📶 СИГНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=signal")
-            )
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ВОЙТИ В ТЕРМИНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=channel"))
             bot.send_message(CHANNEL_ID, message.text[6:], reply_markup=markup, parse_mode="Markdown")
+        
         elif message.text and message.text.startswith('/ban '): 
             try:
                 target_id = int(message.text.split()[1])
-                if target_id in USER_CACHE:
-                    del USER_CACHE[target_id]
-                    bot.send_message(message.chat.id, f"🚫 УЗЕЛ {target_id} ОТКЛЮЧЕН.")
+                if target_id in USER_CACHE: del USER_CACHE[target_id]; bot.send_message(message.chat.id, f"🚫 УЗЕЛ {target_id} ОТКЛЮЧЕН.")
             except: bot.send_message(message.chat.id, "❌ Ошибка ID.")
+        
         elif message.text and message.text.startswith('/give_xp '):
             try:
                 _, t_id, amount = message.text.split()
@@ -361,77 +357,70 @@ def callback(call):
 
     try:
         if call.data == "admin_panel" and uid == ADMIN_ID: 
-            safe_edit(call, "⚙️ **ЦЕНТР УПРАВЛЕНИЯ АРХИТЕКТОРА**\n\nКоманды чата:\n`/ban ID` — Удалить юзера\n`/give_xp ID СУММА` — Начислить опыт\n`/telegraph ССЫЛКА ТЕКСТ` — Пост статьи", get_admin_menu())
+            safe_edit(call, "⚙️ **ЦЕНТР УПРАВЛЕНИЯ АРХИТЕКТОРА**\n\n`/ban ID`\n`/give_xp ID СУММА`\n`/telegraph ССЫЛКА ТЕКСТ`", get_admin_menu())
         
         elif call.data == "admin_bonus" and uid == ADMIN_ID:
             count = 0
-            for u_id in USER_CACHE:
-                USER_CACHE[u_id]['xp'] += 100; save_progress(u_id); count += 1
+            for u_id in USER_CACHE: USER_CACHE[u_id]['xp'] += 100; save_progress(u_id); count += 1
             bot.answer_callback_query(call.id, f"🎁 Выдано по 100 XP {count} узлам")
 
         elif call.data == "admin_refresh" and uid == ADMIN_ID: connect_db(); bot.answer_callback_query(call.id, "✅ OK")
         elif call.data == "admin_stats" and uid == ADMIN_ID:
             inst_users = sum(1 for user in USER_CACHE.values() if user.get('referrer') == 'inst')
-            bot.answer_callback_query(call.id, f"📊 Всего: {len(USER_CACHE)}\n📸 Instagram: {inst_users}", show_alert=True)
+            bot.answer_callback_query(call.id, f"📊 Узлы: {len(USER_CACHE)}\n📸 Instagram: {inst_users}", show_alert=True)
 
         elif call.data == "get_protocol":
-            # --- ФИКС УСКОРИТЕЛЯ ---
-            # Проверяем, активен ли ускоритель (время истечения > текущего времени)
+            # --- ЛОГИКА УСКОРИТЕЛЯ ---
             is_accel_active = u.get('accel_exp', 0) > now_ts
             cd = COOLDOWN_ACCEL if is_accel_active else COOLDOWN_BASE
             
             if now_ts - u.get('last_protocol_time', 0) < cd:
-                rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
+                rem = int((cd - (now_ts - u.get('last_protocol_time', 0))) / 60)
                 bot.answer_callback_query(call.id, f"⏳ ПЕРЕГРЕВ: {rem} мин.", show_alert=True); return
-            
             u['last_protocol_time'] = now_ts
-            up, total = add_xp(uid, XP_GAIN)
+            up, s_msg, total = add_xp(uid, XP_GAIN)
             target_lvl = u['level'] + 1 if u['decoder'] > 0 else u['level']
             if u['decoder'] > 0: u['decoder'] -= 1
             if up: bot.send_message(uid, LEVEL_UP_MSG.get(u['level'], "🎉 ВЫШЕ УРОВЕНЬ!"))
             threading.Thread(target=decrypt_and_send, args=(uid, uid, target_lvl, "")).start()
 
-        # --- НОВАЯ ФУНКЦИЯ: ПОЛУЧИТЬ СИГНАЛ ---
+        # --- ЛОГИКА СИГНАЛА ---
         elif call.data == "get_signal":
             if now_ts - u.get('last_signal_time', 0) < COOLDOWN_SIGNAL:
                 rem = int((COOLDOWN_SIGNAL - (now_ts - u.get('last_signal_time', 0))) / 60)
-                # Если осталось меньше минуты, пишем "меньше минуты"
-                time_msg = f"{rem} мин." if rem > 0 else "< 1 мин."
-                bot.answer_callback_query(call.id, f"📡 СИГНАЛ СЛАБЫЙ. Жди {time_msg}", show_alert=True); return
+                bot.answer_callback_query(call.id, f"📡 СИГНАЛ НЕ ГОТОВ. Жди {rem} мин.", show_alert=True); return
             
             u['last_signal_time'] = now_ts
-            up, total = add_xp(uid, XP_SIGNAL)
+            up, s_msg, total = add_xp(uid, XP_SIGNAL)
             
-            # Берем текст из базы (Content, Level=0)
-            txt = random.choice(CONTENT_DB["signals"]) if CONTENT_DB["signals"] else "/// ШУМ ЭФИРА. НЕТ ДАННЫХ."
+            # Выбор случайного сигнала
+            txt = random.choice(CONTENT_DB["signals"]) if CONTENT_DB["signals"] else "/// ЭФИР ПУСТ. ЖДИ ОБНОВЛЕНИЯ БАЗЫ."
             
-            bot.send_message(uid, f"📶 **ВХОДЯЩИЙ СИГНАЛ**\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_SIGNAL} XP")
+            bot.send_message(uid, f"📶 **ПОЛУЧЕН СИГНАЛ**\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_SIGNAL} XP", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
 
         elif call.data == "profile":
             title = TITLES.get(u['level'], "НЕОФИТ")
             progress = get_progress_bar(u['xp'], u['level'])
             ref_count = sum(1 for user in USER_CACHE.values() if str(user.get('referrer')) == str(uid))
-            desc_map = {
-                "money": "Искусство Влияния и Продаж",
-                "mind": "Психология и Ментальные Ловушки",
-                "tech": "ИИ-Инструменты и Автоматизация",
-                "general": "Базовая Калибровка Сознания"
-            }
-            path_desc = desc_map.get(u['path'], "Не определен")
             
-            # Статус ускорителя
-            accel_status = "АКТИВЕН" if u.get('accel_exp', 0) > now_ts else "НЕТ"
-
+            # Отображение статуса ускорителя в профиле
+            accel_status = "✅ АКТИВЕН" if u.get('accel_exp', 0) > now_ts else "❌ НЕ АКТИВЕН"
+            
             msg = (f"👤 **НЕЙРО-ПРОФИЛЬ**\n━━━━━━━━━━━━━━\n"
                    f"🔰 **СТАТУС:** {title}\n"
                    f"⚔️ **ФРАКЦИЯ:** {SCHOOLS.get(u['path'], 'ОБЩИЙ ПОТОК')}\n"
-                   f"📖 *{path_desc}*\n\n"
-                   f"🔋 **SYNC (ЭНЕРГИЯ):** {u['xp']} XP\n{progress}\n_(Накопи, чтобы открыть следующий уровень доступа)_\n\n"
-                   f"🔗 **ВЕРБОВАНО УЗЛОВ:** {ref_count}\n"
-                   f"🔥 **STREAK (СЕРИЯ):** {u['streak']} дн.\n_(Множитель: +{u['streak']*5} XP)_\n"
+                   f"🔋 **SYNC:** {u['xp']} XP\n{progress}\n"
+                   f"🔥 **STREAK:** {u['streak']} дн. (Бонус: +{u['streak']*5} XP)\n"
                    f"━━━━━━━━━━━━━━\n"
                    f"🎒 **ИНВЕНТАРЬ:**\n❄️ Крио: {u['cryo']}\n⚡️ Ускоритель: {accel_status}\n🔑 Дешифратор: {u['decoder']}")
-            safe_edit(call, msg, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")))
+            
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            # Кнопка активации ускорителя (если он есть, но не активен)
+            if u['accel'] > 0 and u.get('accel_exp', 0) < now_ts:
+                markup.add(types.InlineKeyboardButton("🚀 АКТИВИРОВАТЬ УСКОРИТЕЛЬ", callback_data="use_accel"))
+            markup.add(types.InlineKeyboardButton("⚙️ СМЕНИТЬ ВЕКТОР", callback_data="change_path_confirm"))
+            markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
+            safe_edit(call, msg, markup)
 
         elif call.data == "back_to_menu":
             try: bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -449,13 +438,7 @@ def callback(call):
         elif call.data.startswith("buy_"):
             item = call.data.split("_")[1]
             if u['xp'] >= PRICES[item]:
-                u['xp'] -= PRICES[item]; 
-                
-                # ЛОГИКА ПОКУПКИ (Сразу начисляем или активируем? По ТЗ: в инвентарь, кроме ускорителя, который можно сразу)
-                # Но лучше все в инвентарь, а оттуда активация.
-                # ТУТ: Просто добавляем +1 к предмету
-                u[item] += 1
-                save_progress(uid)
+                u['xp'] -= PRICES[item]; u[item] += 1; save_progress(uid)
                 bot.answer_callback_query(call.id, f"✅ КУПЛЕНО: {item.upper()}"); safe_edit(call, SHOP_FULL, get_main_menu(uid))
             else: bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО SYNC", show_alert=True)
 
@@ -464,7 +447,7 @@ def callback(call):
             safe_edit(call, f"{SYNDICATE_FULL}\n\n👇 **ТВОЯ ПЕРСОНАЛЬНАЯ ССЫЛКА:**\n`{link}`", get_main_menu(uid))
 
         elif call.data == "change_path_confirm":
-            safe_edit(call, f"⚠️ **СМЕНА ФРАКЦИИ**\n\nЭто действие перепишет твои нейронные связи под новую специализацию.\nЦена: **{PATH_CHANGE_COST} SYNC**.\n\nВыбери новый путь:", get_path_menu(cost_info=True))
+            safe_edit(call, f"⚠️ **СМЕНА ФРАКЦИИ**\nЦена: **{PATH_CHANGE_COST} SYNC**.", get_path_menu(cost_info=True))
 
         elif "set_path_" in call.data:
             new_path = call.data.split("_")[-1]
@@ -478,8 +461,7 @@ def callback(call):
             if u['accel'] > 0:
                 u['accel'] -= 1; u['accel_exp'] = now_ts + 86400; save_progress(uid)
                 bot.send_photo(uid, MENU_IMAGE_URL, caption="/// РАЗГОН АКТИВИРОВАН. КУЛДАУН: 15 МИН.", reply_markup=get_main_menu(uid))
-            else:
-                bot.answer_callback_query(call.id, "❌ НЕТ УСКОРИТЕЛЯ В ИНВЕНТАРЕ", show_alert=True)
+            else: bot.answer_callback_query(call.id, "❌ НЕТ УСКОРИТЕЛЯ", show_alert=True)
 
         elif call.data == "guide": 
             safe_edit(call, GUIDE_FULL, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
@@ -502,9 +484,7 @@ def health_check(): return 'OK', 200
 
 if __name__ == "__main__":
     if WEBHOOK_URL: 
-        bot.remove_webhook()
-        time.sleep(1)
-        bot.set_webhook(url=WEBHOOK_URL)
+        bot.remove_webhook(); time.sleep(1); bot.set_webhook(url=WEBHOOK_URL)
         print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
     threading.Thread(target=notification_worker, daemon=True).start()
     port = int(os.environ.get('PORT', 5000))
