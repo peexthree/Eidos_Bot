@@ -207,7 +207,7 @@ def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
         if not pool:
             for l in range(1, target_lvl + 1):
                 if l in CONTENT_DB.get('general', {}): pool.extend(CONTENT_DB['general'][l])
-        txt = random.choice(pool) if pool else "/// НЕТ ДАННЫХ."
+        txt = random.choice(pool) if pool else "/// НЕТ ДАННЫХ для тебя.Получай сигнал и после 1 уровня синхрон станет доступен"
         school = SCHOOLS.get(u['path'], "🌐 ОБЩИЙ КАНАЛ")
         res = f"🧬 **{school}**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_GAIN} SYNC {use_dec_text}"
         bot.edit_message_text(res, chat_id, status_msg.message_id, parse_mode="Markdown", 
