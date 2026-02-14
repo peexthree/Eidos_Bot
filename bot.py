@@ -23,6 +23,7 @@ COOLDOWN_BASE = 3600
 COOLDOWN_ACCEL = 900
 PATH_CHANGE_COST = 50
 REFERRAL_BONUS = 100
+REFERRAL_PERCENT = 0.1
 PRICES = {"cryo": 100, "accel": 250, "decoder": 400}
 
 # --- 2. ИНИЦИАЛИЗАЦИЯ ---
@@ -42,16 +43,23 @@ REMINDERS = [
     "⚡️ Канал связи восстановлен. Протокол готов к дешифровке.",
     "👁 Эйдос обнаружил новый паттерн реальности. Требуется внимание.",
     "📡 Входящий сигнал... Данные синхронизированы.",
-    "🔓 Допуск к файлам высшего порядка подтвержден.",
+    "🔓 Допуск к файлам подтвержден.",
     "🌑 Твой нейроинтерфейс остыл. Пора обновить прошивку."
 ]
 
 GUIDE_TEXT = (
     "**/// ИНСТРУКЦИЯ EIDOS_OS**\n\n"
-    "**1. СУТЬ:** Обновление ментальных карт.\n"
-    "**2. SYNC (XP):** Уровень синхронизации с системой.\n"
-    "**3. ШКОЛЫ:** Материя (деньги), Разум (психология), Сингулярность (ИИ)."
+    "**1. СУТЬ:** Перепрошивка мышления через прикладные протоколы.\n"
+    "**2. SYNC:** Твой уровень синхронизации (XP).\n"
+    "**3. ШКОЛЫ:** Материя (деньги), Разум (психология), Сингулярность (ИИ).\n"
+    "**4. АРТЕФАКТЫ:** Покупай в магазине за SYNC, чтобы взламывать правила системы."
 )
+
+LEVEL_UP_MSG = {
+    2: "🔓 **Clearance Level 2**: Открыты Инструменты Влияния.",
+    3: "🔓 **Clearance Level 3**: Присвоен статус Оператора.",
+    4: "👑 **Clearance Level 4**: Ты — Архитектор Реальности."
+}
 
 # --- 4. БАЗА ДАННЫХ ---
 def connect_db():
@@ -63,6 +71,7 @@ def connect_db():
             gc = gspread.service_account_from_dict(creds)
             sh = gc.open(SHEET_NAME)
             
+            # Контент
             ws_content = sh.worksheet("Content")
             records = ws_content.get_all_records()
             CONTENT_DB = {"money": {}, "mind": {}, "tech": {}, "general": {}}
@@ -73,6 +82,7 @@ def connect_db():
                     if lvl not in CONTENT_DB[path]: CONTENT_DB[path][lvl] = []
                     CONTENT_DB[path][lvl].append(text)
 
+            # Юзеры
             ws_users = sh.worksheet("Users")
             all_v = ws_users.get_all_values()
             USER_CACHE.clear()
@@ -93,7 +103,8 @@ def connect_db():
                         "referrer": int(row[14]) if len(row) > 14 and str(row[14]).isdigit() else None,
                         "last_protocol_time": 0, "notified": True, "row_id": i
                     }
-    except: pass
+            print("/// DB SYNCHRONIZED")
+    except Exception as e: print(f"/// DB ERROR: {e}")
 
 connect_db()
 
@@ -160,29 +171,52 @@ def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
     
     txt = random.choice(pool) if pool else "/// ДАННЫЕ УТЕРЯНЫ."
     school = SCHOOLS.get(u['path'], "🌐 ОБЩИЙ КАНАЛ")
-    res = (f"🧬 **{school}**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +10 SYNC {use_dec_text}")
+    res = (f"🧬 **{school}**\n━━━━━━━━━━━━━━\n\n"
+           f"{txt}\n\n━━━━━━━━━━━━━━\n"
+           f"⚡️ +10 SYNC {use_dec_text}")
     bot.edit_message_text(res, chat_id, status_msg.message_id, parse_mode="Markdown", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
 
-# --- 7. АДМИН-МЕНЕДЖЕР (ВОССТАНОВЛЕНО) ---
-@bot.message_handler(content_types=['text', 'photo'])
-def admin_handler(message):
-    uid = message.from_user.id
-    # Проверка на команду /start для обычных юзеров
-    if message.text and message.text.startswith('/start'):
-        return start(message)
+# --- 7. ПУШИ ---
+def notification_worker():
+    while True:
+        try:
+            time.sleep(60)
+            now = time.time()
+            for uid, u in list(USER_CACHE.items()):
+                cd = COOLDOWN_ACCEL if u.get('accel_exp', 0) > now else COOLDOWN_BASE
+                if u.get('last_protocol_time', 0) > 0 and (now - u['last_protocol_time'] >= cd) and not u.get('notified', True):
+                    try:
+                        bot.send_message(uid, random.choice(REMINDERS), 
+                                         reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ПОЛУЧИТЬ", callback_data="get_protocol")))
+                        u['notified'] = True
+                    except: pass
+        except: pass
 
-    # Функции админа
-    if uid == ADMIN_ID:
-        if message.text == '/refresh':
-            connect_db()
-            bot.send_message(message.chat.id, "✅ БАЗА ДАННЫХ СИНХРОНИЗИРОВАНА.")
-        elif message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
-            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"))
-            bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=message.caption[6:], reply_markup=markup)
-            bot.send_message(message.chat.id, "✅ ОТПРАВЛЕНО В КАНАЛ.")
+# --- 8. ИНТЕРФЕЙС ---
+def get_main_menu():
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"),
+        types.InlineKeyboardButton("👤 НЕЙРО-ПРОФИЛЬ", callback_data="profile"),
+        types.InlineKeyboardButton("🎰 ЧЕРНЫЙ РЫНОК", callback_data="shop"),
+        types.InlineKeyboardButton("🔗 СЕТЬ ОСКОЛКОВ", callback_data="referral"),
+        types.InlineKeyboardButton("📚 РУКОВОДСТВО", callback_data="guide")
+    )
+    return markup
 
-# --- 8. HANDLERS ---
+def get_shop_menu():
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton(f"❄️ КРИО-КАПСУЛА ({PRICES['cryo']} XP)", callback_data="buy_cryo"),
+        types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="buy_accel"),
+        types.InlineKeyboardButton(f"🔑 ДЕШИФРАТОР ({PRICES['decoder']} XP)", callback_data="buy_decoder"),
+        types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")
+    )
+    return markup
+
+# --- 9. HANDLERS ---
+@bot.message_handler(commands=['start'])
 def start(m):
     uid = m.from_user.id
     ref_id = int(m.text.split()[1]) if len(m.text.split()) > 1 and m.text.split()[1].isdigit() else None
@@ -196,16 +230,16 @@ def start(m):
                 except: pass
     bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS_OS: ТЕРМИНАЛ АКТИВИРОВАН.", reply_markup=get_main_menu())
 
-def get_main_menu():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"),
-        types.InlineKeyboardButton("👤 НЕЙРО-ПРОФИЛЬ", callback_data="profile"),
-        types.InlineKeyboardButton("🎰 ЧЕРНЫЙ РЫНОК", callback_data="shop"),
-        types.InlineKeyboardButton("🔗 СЕТЬ ОСКОЛКОВ", callback_data="referral"),
-        types.InlineKeyboardButton("📚 РУКОВОДСТВО", callback_data="guide")
-    )
-    return markup
+@bot.message_handler(content_types=['text', 'photo'])
+def admin_handler(message):
+    if message.from_user.id == ADMIN_ID:
+        if message.text == '/refresh':
+            connect_db()
+            bot.send_message(message.chat.id, "✅ БАЗА СИНХРОНИЗИРОВАНА.")
+        elif message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"))
+            bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=message.caption[6:], reply_markup=markup)
+            bot.send_message(message.chat.id, "✅ ОТПРАВЛЕНО В КАНАЛ.")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
@@ -219,23 +253,48 @@ def callback(call):
         if now_ts - u.get('last_protocol_time', 0) < cd:
             rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
             bot.answer_callback_query(call.id, f"⚠️ ПЕРЕГРЕВ. Жди {rem} мин.", show_alert=True); return
-        u['last_protocol_time'] = now_ts
+        u['last_protocol_time'], u['notified'] = now_ts, False
         up, s_msg, total = add_xp(uid, 10)
         use_dec = "(+🔑 Дешифратор)" if u['decoder'] > 0 else ""
         target_lvl = u['level'] + 1 if u['decoder'] > 0 else u['level']
         if u['decoder'] > 0: u['decoder'] -= 1
         threading.Thread(target=decrypt_and_send, args=(call.message.chat.id, uid, target_lvl, use_dec)).start()
 
+    elif call.data == "shop": safe_edit(call, "🎰 **ЧЕРНЫЙ РЫНОК**", get_shop_menu())
+
+    elif call.data.startswith("buy_"):
+        item = call.data.split("_")[1]
+        if u['xp'] >= PRICES[item]:
+            u['xp'] -= PRICES[item]; u[item] += 1
+            save_progress(uid); bot.answer_callback_query(call.id, f"✅ КУПЛЕНО")
+            safe_edit(call, f"🎰 **ЧЕРНЫЙ РЫНОК**\n\nSYNC: {u['xp']} XP.", get_shop_menu())
+        else: bot.answer_callback_query(call.id, "❌ МАЛО SYNC", show_alert=True)
+
     elif call.data == "profile":
         stars = "★" * u['prestige']
         msg = f"👤 **НЕЙРО-ПРОФИЛЬ** {stars}\n💰 SYNC: {u['xp']} XP\n🔥 СЕРИЯ: {u['streak']} дн.\n🎒 ИНВ: ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}"
-        safe_edit(call, msg, get_main_menu())
+        markup = types.InlineKeyboardMarkup()
+        if u['accel'] > 0 and u['accel_exp'] < now_ts: markup.add(types.InlineKeyboardButton("🚀 УСКОРИТЬ СИНХРОН", callback_data="use_accel"))
+        markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
+        safe_edit(call, msg, markup)
+
+    elif call.data == "use_accel":
+        if u['accel'] > 0:
+            u['accel'] -= 1; u['accel_exp'] = now_ts + 86400; save_progress(uid)
+            bot.answer_callback_query(call.id, "🚀 УСКОРЕНО НА 24Ч")
+            bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// СКОРОСТЬ СИНХРОНИЗАЦИИ +400%", reply_markup=get_main_menu())
+
+    elif call.data == "referral":
+        link = f"https://t.me/{bot.get_me().username}?start={uid}"
+        safe_edit(call, f"🔗 **ТВОЯ ССЫЛКА:**\n`{link}`\n\n🎁 +{REFERRAL_BONUS} XP за Осколок.\n⚙️ +10% пассивно.", get_main_menu())
 
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ТЕРМИНАЛ АКТИВЕН", reply_markup=get_main_menu())
 
+    elif call.data == "guide": safe_edit(call, GUIDE_TEXT, get_main_menu())
+    
     try: bot.answer_callback_query(call.id)
     except: pass
 
@@ -252,4 +311,5 @@ if __name__ == "__main__":
         bot.remove_webhook()
         time.sleep(1)
         bot.set_webhook(url=WEBHOOK_URL)
+    threading.Thread(target=notification_worker, daemon=True).start()
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
