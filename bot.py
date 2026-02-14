@@ -622,6 +622,11 @@ def webhook():
             return 'Error', 500
     return 'Eidos SQL Interface is Operational', 200
 
+# ДОБАВЬ ЭТОТ БЛОК ОБЯЗАТЕЛЬНО:
+@app.route('/health', methods=['GET'])
+def health_check():
+    return 'OK', 200
+
 if __name__ == "__main__":
     if WEBHOOK_URL: 
         bot.remove_webhook(); time.sleep(1); bot.set_webhook(url=WEBHOOK_URL)
