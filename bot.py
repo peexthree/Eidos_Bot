@@ -75,6 +75,7 @@ def connect_db():
 
             ws_users = sh.worksheet("Users")
             all_v = ws_users.get_all_values()
+            USER_CACHE.clear()
             for i, row in enumerate(all_v[1:], start=2):
                 if row and row[0] and str(row[0]).isdigit():
                     uid = int(row[0])
@@ -92,11 +93,19 @@ def connect_db():
                         "referrer": int(row[14]) if len(row) > 14 and str(row[14]).isdigit() else None,
                         "last_protocol_time": 0, "notified": True, "row_id": i
                     }
-    except Exception as e: print(f"/// DB ERROR: {e}")
+    except: pass
 
 connect_db()
 
-# --- 5. ЛОГИКА ---
+# --- 5. ФУНКЦИИ ЯДРА ---
+def safe_edit(call, text, markup):
+    try:
+        if call.message.content_type == 'photo':
+            bot.edit_message_caption(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+        else:
+            bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except: bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
 def save_progress(uid):
     def task():
         try:
@@ -131,14 +140,14 @@ def add_xp(uid, amount):
         return (u['level'] > old_lvl), s_msg, total
     return False, None, 0
 
-# --- 6. ЭФФЕКТ ДЕШИФРОВКИ (VISUAL VALUE) ---
+# --- 6. ЭФФЕКТ ДЕШИФРОВКИ ---
 def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
     u = USER_CACHE[uid]
     status_msg = bot.send_message(chat_id, "📡 **УСТАНОВКА СОЕДИНЕНИЯ...**", parse_mode="Markdown")
     time.sleep(1)
-    bot.edit_message_text(f"📥 **ЗАГРУЗКА ДАННЫХ [{u['path'].upper()}]...**\n`[||||......] 38%`", chat_id, status_msg.message_id, parse_mode="Markdown")
+    bot.edit_message_text(f"📥 **ЗАГРУЗКА [{u['path'].upper()}]...**\n`[||||......] 38%`", chat_id, status_msg.message_id, parse_mode="Markdown")
     time.sleep(1.2)
-    bot.edit_message_text(f"🔓 **ДЕШИФРОВКА УРОВНЯ {target_lvl}...**\n`[||||||||..] 84%`", chat_id, status_msg.message_id, parse_mode="Markdown")
+    bot.edit_message_text(f"🔓 **ДЕШИФРОВКА LVL {target_lvl}...**\n`[||||||||..] 84%`", chat_id, status_msg.message_id, parse_mode="Markdown")
     time.sleep(0.8)
 
     pool = []
@@ -155,36 +164,25 @@ def decrypt_and_send(chat_id, uid, target_lvl, use_dec_text):
     bot.edit_message_text(res, chat_id, status_msg.message_id, parse_mode="Markdown", 
                          reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
 
-# --- 7. ПУШИ ---
-def notification_worker():
-    while True:
-        try:
-            time.sleep(60)
-            now = time.time()
-            for uid, u in list(USER_CACHE.items()):
-                cd = COOLDOWN_ACCEL if u.get('accel_exp', 0) > now else COOLDOWN_BASE
-                if u.get('last_protocol_time', 0) > 0 and (now - u['last_protocol_time'] >= cd) and not u.get('notified', True):
-                    try:
-                        bot.send_message(uid, random.choice(REMINDERS), 
-                                         reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 ПОЛУЧИТЬ", callback_data="get_protocol")))
-                        u['notified'] = True
-                    except: pass
-        except: pass
+# --- 7. АДМИН-МЕНЕДЖЕР (ВОССТАНОВЛЕНО) ---
+@bot.message_handler(content_types=['text', 'photo'])
+def admin_handler(message):
+    uid = message.from_user.id
+    # Проверка на команду /start для обычных юзеров
+    if message.text and message.text.startswith('/start'):
+        return start(message)
 
-# --- 8. ИНТЕРФЕЙС ---
-def get_main_menu():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"),
-        types.InlineKeyboardButton("👤 НЕЙРО-ПРОФИЛЬ", callback_data="profile"),
-        types.InlineKeyboardButton("🎰 ЧЕРНЫЙ РЫНОК", callback_data="shop"),
-        types.InlineKeyboardButton("🔗 СЕТЬ ОСКОЛКОВ", callback_data="referral"),
-        types.InlineKeyboardButton("📚 РУКОВОДСТВО", callback_data="guide")
-    )
-    return markup
+    # Функции админа
+    if uid == ADMIN_ID:
+        if message.text == '/refresh':
+            connect_db()
+            bot.send_message(message.chat.id, "✅ БАЗА ДАННЫХ СИНХРОНИЗИРОВАНА.")
+        elif message.content_type == 'photo' and message.caption and message.caption.startswith('/post '):
+            markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"))
+            bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=message.caption[6:], reply_markup=markup)
+            bot.send_message(message.chat.id, "✅ ОТПРАВЛЕНО В КАНАЛ.")
 
-# --- 9. HANDLERS ---
-@bot.message_handler(commands=['start'])
+# --- 8. HANDLERS ---
 def start(m):
     uid = m.from_user.id
     ref_id = int(m.text.split()[1]) if len(m.text.split()) > 1 and m.text.split()[1].isdigit() else None
@@ -198,6 +196,17 @@ def start(m):
                 except: pass
     bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption="/// EIDOS_OS: ТЕРМИНАЛ АКТИВИРОВАН.", reply_markup=get_main_menu())
 
+def get_main_menu():
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton("👁 ПОЛУЧИТЬ СИНХРОН", callback_data="get_protocol"),
+        types.InlineKeyboardButton("👤 НЕЙРО-ПРОФИЛЬ", callback_data="profile"),
+        types.InlineKeyboardButton("🎰 ЧЕРНЫЙ РЫНОК", callback_data="shop"),
+        types.InlineKeyboardButton("🔗 СЕТЬ ОСКОЛКОВ", callback_data="referral"),
+        types.InlineKeyboardButton("📚 РУКОВОДСТВО", callback_data="guide")
+    )
+    return markup
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     uid = call.from_user.id
@@ -210,7 +219,7 @@ def callback(call):
         if now_ts - u.get('last_protocol_time', 0) < cd:
             rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
             bot.answer_callback_query(call.id, f"⚠️ ПЕРЕГРЕВ. Жди {rem} мин.", show_alert=True); return
-        u['last_protocol_time'], u['notified'] = now_ts, False
+        u['last_protocol_time'] = now_ts
         up, s_msg, total = add_xp(uid, 10)
         use_dec = "(+🔑 Дешифратор)" if u['decoder'] > 0 else ""
         target_lvl = u['level'] + 1 if u['decoder'] > 0 else u['level']
@@ -220,22 +229,17 @@ def callback(call):
     elif call.data == "profile":
         stars = "★" * u['prestige']
         msg = f"👤 **НЕЙРО-ПРОФИЛЬ** {stars}\n💰 SYNC: {u['xp']} XP\n🔥 СЕРИЯ: {u['streak']} дн.\n🎒 ИНВ: ❄️{u['cryo']} ⚡️{u['accel']} 🔑{u['decoder']}"
-        markup = types.InlineKeyboardMarkup()
-        if u['accel'] > 0 and u['accel_exp'] < now_ts: markup.add(types.InlineKeyboardButton("🚀 УСКОРИТЬ СИНХРОН", callback_data="use_accel"))
-        markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
-        bot.send_message(call.message.chat.id, msg, parse_mode="Markdown", reply_markup=markup)
+        safe_edit(call, msg, get_main_menu())
 
     elif call.data == "back_to_menu":
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ТЕРМИНАЛ АКТИВЕН", reply_markup=get_main_menu())
 
-    elif call.data == "guide": bot.send_message(call.message.chat.id, GUIDE_TEXT, parse_mode="Markdown")
-    
     try: bot.answer_callback_query(call.id)
     except: pass
 
-# --- 10. ЗАПУСК (HEALTH CHECK FIX) ---
+# --- 10. ЗАПУСК ---
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if flask.request.method == 'POST':
@@ -248,5 +252,4 @@ if __name__ == "__main__":
         bot.remove_webhook()
         time.sleep(1)
         bot.set_webhook(url=WEBHOOK_URL)
-    threading.Thread(target=notification_worker, daemon=True).start()
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
