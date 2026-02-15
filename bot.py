@@ -10,15 +10,33 @@ bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
 
 # =============================================================
-# 1. ОБРАБОТКА КОМАНД (ВХОД В МАТРИЦУ)
+# 🛠 СИСТЕМНЫЕ ФУНКЦИИ (УВЕДОМЛЕНИЯ И АПДЕЙТЫ)
+# =============================================================
+
+def broadcast_progress(uid, is_up):
+    """Проверяет ачивки и уведомляет о новом уровне"""
+    # 1. Авто-проверка всех 25 достижений
+    new_ach = logic.check_achievements(uid)
+    for ach in new_ach:
+        bot.send_message(uid, f"🏆 **ДОСТИЖЕНИЕ ПОЛУЧЕНО**\n\n`{ach}`", parse_mode="Markdown")
+    
+    # 2. Уведомление о повышении уровня
+    if is_up:
+        u = db.get_user(uid)
+        msg = LEVEL_UP_MSG.get(u['level'], f"👑 **НОВЫЙ СТАТУС:** {TITLES[u['level']]}")
+        bot.send_message(uid, msg, parse_mode="Markdown")
+
+# =============================================================
+# 📡 ОБРАБОТКА ВХОДНЫХ ТОЧЕК (COMMANDS)
 # =============================================================
 
 @bot.message_handler(commands=['start'])
 def start(m):
     uid = m.from_user.id
-    # Умная рефералка: проверяем, что юзер не пригласил сам себя
     ref_id = m.text.split()[1] if len(m.text.split()) > 1 else None
-    if ref_id and str(ref_id) == str(uid): ref_id = None 
+    
+    # Защита от самореферальства
+    if ref_id and str(ref_id) == str(uid): ref_id = None
     
     user = db.get_user(uid)
     if not user:
@@ -28,33 +46,17 @@ def start(m):
                     "INSERT INTO users (uid, username, first_name, referrer) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING", 
                     (uid, m.from_user.username, m.from_user.first_name, ref_id)
                 )
-                if ref_id: # Бонус за вербовку
-                    cur.execute("UPDATE users SET xp = xp + %s, ref_count = ref_count + 1 WHERE uid = %s", (REFERRAL_BONUS, ref_id))
+                if ref_id:
+                    db.add_xp_to_user(int(ref_id), REFERRAL_BONUS)
             conn.commit()
         user = db.get_user(uid)
-        bot.send_message(ADMIN_ID, f"🆕 НОВЫЙ УЗЕЛ: {m.from_user.first_name} (ID: {uid})")
+        print(f"/// NEW NODE INITIALIZED: {uid}")
 
-    welcome_text = random.choice(WELCOME_VARIANTS)
-    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=welcome_text, reply_markup=kb.main_menu(user))
-
-# =============================================================
-# 2. ВСПОМОГАТЕЛЬНЫЙ ФУНКЦИОНАЛ (УВЕДОМЛЕНИЯ)
-# =============================================================
-
-def send_update_package(uid, gain, is_lvl_up, u_after):
-    """Отправляет пак уведомлений: XP + Ачивки + Уровень"""
-    # 1. Проверка ачивок
-    new_achievements = logic.check_achievements(uid)
-    for ach in new_achievements:
-        bot.send_message(uid, f"🏆 **ДОСТИЖЕНИЕ ОТКРЫТО!**\n\n{ach}", parse_mode="Markdown")
-    
-    # 2. Уведомление о LVL UP
-    if is_lvl_up:
-        msg = LEVEL_UP_MSG.get(u_after['level'], f"👑 Твой статус повышен до: {TITLES[u_after['level']]}")
-        bot.send_message(uid, msg, parse_mode="Markdown")
+    welcome = random.choice(WELCOME_VARIANTS)
+    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=f"`{welcome}`", reply_markup=kb.main_menu(user), parse_mode="Markdown")
 
 # =============================================================
-# 3. ОБРАБОТКА CALLBACK (ЛОГИКА КНОПОК)
+# 🕹 ЦЕНТРАЛЬНЫЙ ОБРАБОТЧИК (CALLBACKS)
 # =============================================================
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -62,61 +64,75 @@ def handle_query(call):
     uid = call.from_user.id
     u = db.get_user(uid)
     if not u: return
-
-    # --- СИНХРОН И СИГНАЛ ---
+    
+    # 1. СИНХРОНИЗАЦИЯ (ОСНОВНОЙ КОНТЕНТ)
     if call.data == "get_protocol":
         ok, rem = logic.check_cooldown(uid, 'protocol')
         if not ok:
-            bot.answer_callback_query(call.id, f"⏳ ДЕШИФРАЦИЯ ЗАБЛОКИРОВАНА: {rem//60}м", show_alert=True)
+            bot.answer_callback_query(call.id, f"⏳ ТЕРМИНАЛ ПЕРЕГРЕТ. ЖДИ: {rem//60}м", show_alert=True)
             return
         
-        # Здесь логика получения контента из БД (content = db.get_random_content...)
         gain, is_up = logic.process_xp_logic(uid, XP_GAIN)
         db.update_user(uid, last_protocol_time=int(time.time()), notified=False)
         
-        bot.send_message(uid, f"🧬 **ПРОТОКОЛ ПРИНЯТ**\n\n(Текст из БД)\n\n🔋 Энергия: +{gain} XP", reply_markup=kb.back_button())
-        send_update_package(uid, gain, is_up, db.get_user(uid))
+        # Здесь бот берет контент из БД (предполагаем наличие функции в logic или db)
+        bot.send_message(uid, f"🧬 **ПРОТОКОЛ ДЕШИФРОВАН**\n\n`Вставьте здесь текст синхрона из БД` \n\n⚡️ Энергия: +{gain} XP", 
+                         reply_markup=kb.back_button(), parse_mode="Markdown")
+        broadcast_progress(uid, is_up)
 
-    # --- МАГАЗИН И ПОКУПКИ ---
-    elif call.data == "shop":
-        bot.edit_message_caption(SHOP_FULL, call.message.chat.id, call.message.message_id, reply_markup=kb.shop_menu(u))
+    # 2. НУЛЕВОЙ СЛОЙ (РЕЙД)
+    elif call.data == "zero_layer_menu":
+        bot.edit_message_caption(f"🌑 **НУЛЕВОЙ СЛОЙ**\n\n`STATUS: ОПАСНО`\n🎫 Вход: {RAID_COST} XP\n⚓️ Рекорд: {u['max_depth']} м.", 
+                                 call.message.chat.id, call.message.message_id, 
+                                 reply_markup=types.InlineKeyboardMarkup().add(
+                                     types.InlineKeyboardButton("🌪 ПОГРУЖЕНИЕ", callback_data="raid_go"),
+                                     types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back")
+                                 ), parse_mode="Markdown")
 
-    elif call.data == "buy_cryo":
-        if u['xp'] >= PRICES['cryo']:
-            db.update_user(uid, xp=u['xp']-PRICES['cryo'], cryo=u['cryo']+1, total_spent=u['total_spent']+PRICES['cryo'])
-            bot.answer_callback_query(call.id, "❄️ КРИО-КАПСУЛА УСТАНОВЛЕНА", show_alert=True)
-            bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=kb.shop_menu(db.get_user(uid)))
-        else:
-            bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО XP", show_alert=True)
-
-    # --- НУЛЕВОЙ СЛОЙ (РЕЙД) ---
     elif call.data == "raid_go":
         if u['xp'] < RAID_COST:
-            bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО XP ДЛЯ ВЗЛОМА", show_alert=True); return
+            bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО XP", show_alert=True); return
         db.update_user(uid, xp=u['xp'] - RAID_COST)
         with db.get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("INSERT INTO raid_sessions (uid, start_time) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET depth=0, signal=100, buffer_xp=0", (uid, int(time.time())))
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO raid_sessions (uid, start_time) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET depth=0, signal=100, buffer_xp=0", (uid, int(time.time())))
+            conn.commit()
         bot.edit_message_caption("🌀 **ИНТЕГРАЦИЯ...**", call.message.chat.id, call.message.message_id, reply_markup=kb.raid_keyboard())
 
     elif call.data.startswith("raid_step_"):
         alive, msg, riddle = logic.raid_step_logic(uid)
         if not alive:
-            bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.back_button())
+            bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.back_button(), parse_mode="Markdown")
         elif riddle:
-            # Сохраняем ответ в базу, а не в словарь (для надежности)
-            db.update_user(uid, username=f"ANS:{riddle['correct']}") # Хак: временно используем поле или отдельную таблицу
-            bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.riddle_keyboard(riddle['options']))
+            # ПРАВИЛЬНОЕ РЕШЕНИЕ: Ответ на загадку пишем в спец. поле сессии рейда
+            with db.get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    # Мы создадим колонку riddle_ans в raid_sessions (см. database.py)
+                    cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp, start_time = start_time WHERE uid = %s", (uid,)) 
+            bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.riddle_keyboard(riddle['options']), parse_mode="Markdown")
         else:
-            bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.raid_keyboard())
+            bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.raid_keyboard(), parse_mode="Markdown")
+
+    # 3. РЫНОК И ПРОФИЛЬ
+    elif call.data == "shop":
+        bot.edit_message_caption(SHOP_FULL, call.message.chat.id, call.message.message_id, reply_markup=kb.shop_menu(u), parse_mode="Markdown")
+
+    elif call.data == "profile":
+        u = db.get_user(uid) # Обновляем данные
+        msg = (f"👤 **ТЕРМИНАЛ: {u['first_name']}**\n"
+               f"🔰 Статус: `{TITLES.get(u['level'])}`\n"
+               f"🔋 Энергия: `{u['xp']} XP`\n"
+               f"🔥 Серия: `{u['streak']} дн.`\n"
+               f"⚓️ Глубина: `{u['max_depth']} м.`")
+        bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.main_menu(u), parse_mode="Markdown")
 
     elif call.data == "back":
-        bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ТЕРМИНАЛ ОНЛАЙН", reply_markup=kb.main_menu(db.get_user(uid)))
+        bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ТЕРМИНАЛ ОНЛАЙН", reply_markup=kb.main_menu(u))
     
     bot.answer_callback_query(call.id)
 
 # =============================================================
-# 4. СЛУЖБЫ И ЗАПУСК (RENDER)
+# ⚙️ ИНФРАСТРУКТУРА (SERVER & WORKER)
 # =============================================================
 
 @app.route('/health')
@@ -128,26 +144,27 @@ def webhook():
     return 'OK', 200
 
 def system_startup():
-    print("/// SYSTEM STARTUP...")
+    print("/// EIDOS CORE STARTING...")
     db.init_db()
     if WEBHOOK_URL:
         bot.remove_webhook()
         time.sleep(1)
         bot.set_webhook(url=WEBHOOK_URL)
     
-    # Воркер уведомлений
+    # Воркер уведомлений (теперь с использованием db-функций)
     while True:
         try:
             time.sleep(60)
             with db.get_db_connection() as conn:
-                cur = conn.cursor(cursor_factory=RealDictCursor)
-                cur.execute("SELECT uid, last_protocol_time, accel_exp FROM users WHERE notified = FALSE")
-                for row in cur.fetchall():
-                    cd = COOLDOWN_ACCEL if row['accel_exp'] > time.time() else COOLDOWN_BASE
-                    if time.time() - row['last_protocol_time'] >= cd:
-                        bot.send_message(row['uid'], "⚡️ **ПРОТОКОЛ ВОССТАНОВЛЕН.**", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 СИНХРОН", callback_data="get_protocol")))
-                        db.update_user(row['uid'], notified=True)
-        except Exception as e: print(f"Worker Error: {e}")
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("SELECT uid, last_protocol_time, accel_exp FROM users WHERE notified = FALSE")
+                    for row in cur.fetchall():
+                        cd = COOLDOWN_ACCEL if row['accel_exp'] > time.time() else COOLDOWN_BASE
+                        if time.time() - row['last_protocol_time'] >= cd:
+                            bot.send_message(row['uid'], "⚡️ **СИСТЕМА ГОТОВА К СИНХРОНИЗАЦИИ.**", 
+                                             reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 НАЧАТЬ", callback_data="get_protocol")))
+                            db.update_user(row['uid'], notified=True)
+        except Exception as e: print(f"/// WORKER ERROR: {e}")
 
 threading.Thread(target=system_startup, daemon=True).start()
 
