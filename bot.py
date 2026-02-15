@@ -570,88 +570,187 @@ def admin_cmd_handler(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
-    uid = call.from_user.id; u = get_user_from_db(uid)
-    if not u: bot.answer_callback_query(call.id, "⚠️ Нажми /start", show_alert=True); return
-    now_ts = time.time(); log_event(uid, "CLICK", call.data)
+    uid = call.from_user.id
+    u = get_user_from_db(uid)
+    if not u:
+        bot.answer_callback_query(call.id, "⚠️ Нажми /start", show_alert=True)
+        return
+    
+    now_ts = time.time()
+    log_event(uid, "CLICK", call.data)
+
     try:
-        if call.data == "admin_panel" and uid == ADMIN_ID: safe_edit(call, "⚙️ **ЦЕНТР УПРАВЛЕНИЯ**", get_admin_menu())
-        elif call.data == "adm_add_signal" and uid == ADMIN_ID: user_action_state[uid] = {'step': 'wait_signal_text'}; bot.send_message(uid, "✍️ **Введи СИГНАЛ:**")
-        elif call.data == "adm_add_proto" and uid == ADMIN_ID: user_action_state[uid] = {'step': 'wait_proto_text'}; bot.send_message(uid, "✍️ **Введи ПРОТОКОЛ:**\n`money|1|Текст`")
-        elif call.data == "adm_view_user" and uid == ADMIN_ID: user_action_state[uid] = {'step': 'wait_user_id'}; bot.send_message(uid, "🔎 **Введи ID:**")
-        elif call.data == "admin_bonus" and uid == ADMIN_ID: conn = get_db_connection(); cur = conn.cursor(); cur.execute("UPDATE users SET xp = xp + 100"); count = cur.rowcount; conn.commit(); conn.close(); bot.answer_callback_query(call.id, f"🎁 Выдано {count} узлам")
-        elif call.data == "admin_stats" and uid == ADMIN_ID: conn = get_db_connection(); cur = conn.cursor(); cur.execute("SELECT COUNT(*) FROM users"); total = cur.fetchone()[0]; cur.execute("SELECT COUNT(*) FROM logs"); logs_count = cur.fetchone()[0]; conn.close(); bot.answer_callback_query(call.id, f"📊 Узлы: {total} | Логи: {logs_count}", show_alert=True)
+        if call.data == "admin_panel" and uid == ADMIN_ID:
+            safe_edit(call, "⚙️ **ЦЕНТР УПРАВЛЕНИЯ**", get_admin_menu())
+        
+        elif call.data == "adm_add_signal" and uid == ADMIN_ID:
+            user_action_state[uid] = {'step': 'wait_signal_text'}
+            bot.send_message(uid, "✍️ **Введи СИГНАЛ:**")
+            
+        elif call.data == "adm_add_proto" and uid == ADMIN_ID:
+            user_action_state[uid] = {'step': 'wait_proto_text'}
+            bot.send_message(uid, "✍️ **Введи ПРОТОКОЛ:**\n`money|1|Текст`")
+            
+        elif call.data == "adm_view_user" and uid == ADMIN_ID:
+            user_action_state[uid] = {'step': 'wait_user_id'}
+            bot.send_message(uid, "🔎 **Введи ID:**")
+            
+        elif call.data == "admin_bonus" and uid == ADMIN_ID:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("UPDATE users SET xp = xp + 100")
+            count = cur.rowcount
+            conn.commit()
+            conn.close()
+            bot.answer_callback_query(call.id, f"🎁 Выдано {count} узлам")
+            
+        elif call.data == "admin_stats" and uid == ADMIN_ID:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM users")
+            total = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM logs")
+            logs_count = cur.fetchone()[0]
+            conn.close()
+            bot.answer_callback_query(call.id, f"📊 Узлы: {total} | Логи: {logs_count}", show_alert=True)
+
         elif call.data == "get_protocol":
             cd = COOLDOWN_ACCEL if u['accel_exp'] > now_ts else COOLDOWN_BASE
-            if now_ts - u['last_protocol_time'] < cd: rem = int((cd - (now_ts - u['last_protocol_time'])) / 60); bot.answer_callback_query(call.id, f"⏳ {rem} мин.", show_alert=True); return
-            update_user_db(uid, last_protocol_time=int(now_ts), notified=False); up, s_msg, total = process_xp_logic(uid, XP_GAIN, is_sync=True); u = get_user_from_db(uid)
+            if now_ts - u['last_protocol_time'] < cd:
+                rem = int((cd - (now_ts - u['last_protocol_time'])) / 60)
+                bot.answer_callback_query(call.id, f"⏳ {rem} мин.", show_alert=True)
+                return
+            
+            update_user_db(uid, last_protocol_time=int(now_ts), notified=False)
+            up, s_msg, total = process_xp_logic(uid, XP_GAIN, is_sync=True)
+            u = get_user_from_db(uid)
+            
             target_lvl = u['level'] + 1 if u['decoder'] > 0 else u['level']
             if u['decoder'] > 0: update_user_db(uid, decoder=u['decoder'] - 1)
+            
             if up: bot.send_message(uid, LEVEL_UP_MSG.get(u['level'], "🎉 ВЫШЕ УРОВЕНЬ!"))
+            
             def dec_task():
-                status_msg = bot.send_message(uid, "📡 **ИНИЦИАЛИЗАЦИЯ...**"); time.sleep(1); bot.edit_message_text(f"🔓 **ДЕШИФРОВКА...**\n`[||||||||..] 84%`", uid, status_msg.message_id, parse_mode="Markdown"); time.sleep(0.8)
+                status_msg = bot.send_message(uid, "📡 **ИНИЦИАЛИЗАЦИЯ...**")
+                time.sleep(1)
+                bot.edit_message_text(f"🔓 **ДЕШИФРОВКА...**\n`[||||||||..] 84%`", uid, status_msg.message_id, parse_mode="Markdown")
+                time.sleep(0.8)
                 cid, txt = get_content('protocol', u['path'], target_lvl)
                 if not txt: txt = "/// НЕТ ДАННЫХ."
                 else: save_knowledge(uid, cid)
                 res = f"🧬 **{SCHOOLS.get(u['path'], 'ОБЩИЙ')}**\n━━━━━━━━━━━━━━\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_GAIN} SYNC"
                 bot.edit_message_text(res, uid, status_msg.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
             threading.Thread(target=dec_task).start()
+
         elif call.data == "get_signal":
-            if now_ts - u['last_signal_time'] < COOLDOWN_SIGNAL: rem = int((COOLDOWN_SIGNAL - (now_ts - u['last_signal_time'])) / 60); bot.answer_callback_query(call.id, f"⏳ {rem} мин.", show_alert=True); return
-            update_user_db(uid, last_signal_time=int(now_ts)); process_xp_logic(uid, XP_SIGNAL); cid, txt = get_content('signal', 'general', 1)
+            if now_ts - u['last_signal_time'] < COOLDOWN_SIGNAL:
+                rem = int((COOLDOWN_SIGNAL - (now_ts - u['last_signal_time'])) / 60)
+                bot.answer_callback_query(call.id, f"⏳ {rem} мин.", show_alert=True)
+                return
+            update_user_db(uid, last_signal_time=int(now_ts))
+            process_xp_logic(uid, XP_SIGNAL)
+            cid, txt = get_content('signal', 'general', 1)
             if not txt: txt = "/// ЭФИР ПУСТ."
             bot.send_message(uid, f"📶 **ПОЛУЧЕН СИГНАЛ**\n\n{txt}\n\n━━━━━━━━━━━━━━\n⚡️ +{XP_SIGNAL} XP", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
+
         elif call.data == "zero_layer_menu":
             msg = (f"🌑 **НУЛЕВОЙ СЛОЙ**\nЗона высокого риска.\n\n🎫 **ВХОД:** {RAID_COST} XP\n⚓️ **РЕКОРД:** {u.get('max_depth', 0)} м.")
-            markup = types.InlineKeyboardMarkup(); markup.add(types.InlineKeyboardButton(f"🌪 НАЧАТЬ", callback_data="raid_start_confirm")); markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton(f"🌪 НАЧАТЬ", callback_data="raid_start_confirm"))
+            markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
             safe_edit(call, msg, markup)
+
         elif call.data == "raid_start_confirm":
             success, msg = raid_start_session(uid)
             if success: safe_edit(call, msg, get_raid_keyboard())
             else: bot.answer_callback_query(call.id, msg, show_alert=True)
+
         elif call.data.startswith("raid_step_"):
             direction = call.data.split("_")[2]
             is_alive, msg = raid_process_step(uid, direction)
             if is_alive: safe_edit(call, msg, get_raid_keyboard())
             else: safe_edit(call, msg, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔄 В МЕНЮ", callback_data="back_to_menu")))
+
         elif call.data == "raid_extract_confirm":
-            amount = raid_extract(uid); msg = f"📦 **УСПЕШНАЯ ЭВАКУАЦИЯ.**\n\nСохранено: {amount} XP."; safe_edit(call, msg, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔄 В МЕНЮ", callback_data="back_to_menu")))
+            amount = raid_extract(uid)
+            msg = f"📦 **УСПЕШНАЯ ЭВАКУАЦИЯ.**\n\nСохранено: {amount} XP."
+            safe_edit(call, msg, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔄 В МЕНЮ", callback_data="back_to_menu")))
+
         elif call.data == "profile":
-            u = get_user_from_db(uid); ref_count = get_referral_count(uid); conn = get_db_connection(); cur = conn.cursor(); cur.execute("SELECT COUNT(*) FROM achievements WHERE uid = %s", (uid,)); ach_count = cur.fetchone()[0]; cur.execute("SELECT COUNT(*) FROM user_knowledge WHERE uid=%s", (uid,)); k_count = cur.fetchone()[0]; conn.close()
+            ref_count = get_referral_count(uid)
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM achievements WHERE uid = %s", (uid,))
+            ach_count = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM user_knowledge WHERE uid=%s", (uid,))
+            k_count = cur.fetchone()[0]
+            conn.close()
             msg = (f"👤 **НЕЙРО-ПРОФИЛЬ**\n━━━━━━━━━━━━━━\n🔰 **СТАТУС:** {TITLES.get(u['level'], 'НЕОФИТ')}\n⚔️ **ФРАКЦИЯ:** {SCHOOLS.get(u['path'], 'ОБЩИЙ ПОТОК')}\n🔋 **SYNC:** {u['xp']} XP\n{get_progress_bar(u['xp'], u['level'])}\n📚 **АРХИВ:** {k_count} | ⚓️ **ГЛУБИНА:** {u.get('max_depth', 0)}м\n━━━━━━━━━━━━━━\n🎒 **ИНВЕНТАРЬ:**\n❄️ Крио: {u['cryo']}\n⚡️ Ускоритель: {'✅' if u['accel_exp']>now_ts else '❌'}")
-            markup = types.InlineKeyboardMarkup(row_width=1); markup.add(types.InlineKeyboardButton("📚 ЧИТАТЬ АРХИВ", callback_data="open_archive")); markup.add(types.InlineKeyboardButton("⚙️ СМЕНИТЬ ВЕКТОР", callback_data="change_path_confirm")); markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")); safe_edit(call, msg, markup)
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            markup.add(types.InlineKeyboardButton("📚 ЧИТАТЬ АРХИВ", callback_data="open_archive"))
+            markup.add(types.InlineKeyboardButton("⚙️ СМЕНИТЬ ВЕКТОР", callback_data="change_path_confirm"))
+            markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu"))
+            safe_edit(call, msg, markup)
+
         elif call.data == "open_archive":
-            conn = get_db_connection(); cur = conn.cursor(); cur.execute("SELECT c.text FROM user_knowledge k JOIN content c ON k.content_id = c.id WHERE k.uid = %s ORDER BY k.unlocked_at DESC LIMIT 5", (uid,)); rows = cur.fetchall(); conn.close()
+            conn = get_db_connection(); cur = conn.cursor()
+            cur.execute("SELECT c.text FROM user_knowledge k JOIN content c ON k.content_id = c.id WHERE k.uid = %s ORDER BY k.unlocked_at DESC LIMIT 5", (uid,))
+            rows = cur.fetchall(); conn.close()
             if not rows: bot.answer_callback_query(call.id, "Архив пуст.", show_alert=True); return
-            text = "**📚 ПОСЛЕДНИЕ ОТКРЫТИЯ:**\n\n"; 
+            text = "**📚 ПОСЛЕДНИЕ ОТКРЫТИЯ:**\n\n"
             for i, r in enumerate(rows, 1): text += f"{i}. {r[0].split('\n')[0][:50]}...\n"
             safe_edit(call, text, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙", callback_data="profile")))
-        elif call.data == "leaderboard": safe_edit(call, get_leaderboard_text(), types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")))
-        elif call.data == "diary_mode": user_action_state[uid] = {'type': 'diary_wait'}; safe_edit(call, "📓 **РЕЖИМ ДНЕВНИКА**\nПиши...", types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back_to_menu")))
-       elif call.data == "back_to_menu":
-            try:
-                bot.delete_message(call.message.chat.id, call.message.message_id)
-            except:
-                pass
+
+        elif call.data == "leaderboard":
+            safe_edit(call, get_leaderboard_text(), types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")))
+
+        elif call.data == "diary_mode":
+            user_action_state[uid] = {'type': 'diary_wait'}
+            safe_edit(call, "📓 **РЕЖИМ ДНЕВНИКА**\nПиши...", types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back_to_menu")))
+
+        elif call.data == "back_to_menu":
+            try: bot.delete_message(call.message.chat.id, call.message.message_id)
+            except: pass
             bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// СИСТЕМА АКТИВНА.", reply_markup=get_main_menu(uid))
-        elif call.data == "shop": safe_edit(call, SHOP_FULL, types.InlineKeyboardMarkup(row_width=1).add(types.InlineKeyboardButton("❄️ КУПИТЬ КРИО (200 XP)", callback_data="buy_cryo"), types.InlineKeyboardButton("⚡️ КУПИТЬ УСКОРИТЕЛЬ (500 XP)", callback_data="buy_accel"), types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")))
+
+        elif call.data == "shop":
+            safe_edit(call, SHOP_FULL, types.InlineKeyboardMarkup(row_width=1).add(types.InlineKeyboardButton("❄️ КУПИТЬ КРИО (200 XP)", callback_data="buy_cryo"), types.InlineKeyboardButton("⚡️ КУПИТЬ УСКОРИТЕЛЬ (500 XP)", callback_data="buy_accel"), types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")))
+
         elif call.data.startswith("buy_"):
             item = call.data.split("_")[1]
-            if u['xp'] >= PRICES[item]: update_user_db(uid, xp=u['xp'] - PRICES[item]); conn = get_db_connection(); cur = conn.cursor(); cur.execute(f"UPDATE users SET {item} = {item} + 1 WHERE uid = %s", (uid,)); conn.commit(); conn.close(); bot.answer_callback_query(call.id, f"✅ КУПЛЕНО"); safe_edit(call, SHOP_FULL, get_main_menu(uid))
+            if u['xp'] >= PRICES[item]:
+                update_user_db(uid, xp=u['xp'] - PRICES[item])
+                conn = get_db_connection(); cur = conn.cursor(); cur.execute(f"UPDATE users SET {item} = {item} + 1 WHERE uid = %s", (uid,)); conn.commit(); conn.close()
+                bot.answer_callback_query(call.id, f"✅ КУПЛЕНО")
+                safe_edit(call, SHOP_FULL, get_main_menu(uid))
             else: bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО SYNC", show_alert=True)
-        elif call.data == "referral": link = f"https://t.me/{BOT_USERNAME}?start={uid}"; safe_edit(call, f"{SYNDICATE_FULL}\n\n👇 **ТВОЯ ССЫЛКА:**\n`{link}`", get_main_menu(uid))
-        elif call.data == "change_path_confirm": safe_edit(call, f"⚠️ **СМЕНА ФРАКЦИИ**\nЦена: **{PATH_CHANGE_COST} SYNC**.", get_path_menu(cost_info=True))
+
+        elif call.data == "referral":
+            link = f"https://t.me/{BOT_USERNAME}?start={uid}"
+            safe_edit(call, f"{SYNDICATE_FULL}\n\n👇 **ТВОЯ ССЫЛКА:**\n`{link}`", get_main_menu(uid))
+
+        elif call.data == "change_path_confirm":
+            safe_edit(call, f"⚠️ **СМЕНА ФРАКЦИИ**\nЦена: **{PATH_CHANGE_COST} SYNC**.", get_path_menu(cost_info=True))
+
         elif "set_path_" in call.data:
             new_path = call.data.split("_")[-1]
-            if u['xp'] >= PATH_CHANGE_COST or u['path'] == 'general': 
+            if u['xp'] >= PATH_CHANGE_COST or u['path'] == 'general':
                 if u['path'] != 'general' and u['path'] != new_path: update_user_db(uid, xp=u['xp'] - PATH_CHANGE_COST)
-                update_user_db(uid, path=new_path); bot.send_photo(uid, MENU_IMAGE_URL, caption=f"/// ПУТЬ {new_path.upper()} ИНТЕГРИРОВАН.", reply_markup=get_main_menu(uid))
+                update_user_db(uid, path=new_path)
+                bot.send_photo(uid, MENU_IMAGE_URL, caption=f"/// ПУТЬ {new_path.upper()} ИНТЕГРИРОВАН.", reply_markup=get_main_menu(uid))
             else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
-        elif call.data == "use_accel":
-            if u['accel'] > 0: update_user_db(uid, accel=u['accel'] - 1, accel_exp=int(now_ts + 86400)); bot.send_photo(uid, MENU_IMAGE_URL, caption="/// РАЗГОН АКТИВИРОВАН.", reply_markup=get_main_menu(uid))
-            else: bot.answer_callback_query(call.id, "❌ НЕТ УСКОРИТЕЛЯ", show_alert=True)
-        elif call.data == "guide": safe_edit(call, GUIDE_FULL, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
-    except Exception as e: print(f"/// CALLBACK ERROR: {e}")
 
+        elif call.data == "use_accel":
+            if u['accel'] > 0:
+                update_user_db(uid, accel=u['accel'] - 1, accel_exp=int(now_ts + 86400))
+                bot.send_photo(uid, MENU_IMAGE_URL, caption="/// РАЗГОН АКТИВИРОВАН.", reply_markup=get_main_menu(uid))
+            else: bot.answer_callback_query(call.id, "❌ НЕТ УСКОРИТЕЛЯ", show_alert=True)
+
+        elif call.data == "guide":
+            safe_edit(call, GUIDE_FULL, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
+
+    except Exception as e:
+        print(f"/// CALLBACK ERROR: {e}")
 # --- 9. ЗАПУСК И МАРШРУТЫ (SAFE BOOT PROTOCOL) ---
 @app.route('/health', methods=['GET'])
 def health_check(): return 'OK', 200
