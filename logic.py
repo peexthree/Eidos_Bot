@@ -1,57 +1,73 @@
 import random, time
+from datetime import datetime, timedelta
 from config import *
 import database as db
 
-def process_xp(uid, amount):
+def process_xp_logic(uid, amount):
     u = db.get_user(uid)
-    if not u: return 0
-    new_xp = u['xp'] + amount
+    if not u: return False, 0
+    
+    today = datetime.now().date()
+    # Обработка даты из БД
+    last_active = u['last_active']
+    if isinstance(last_active, str): last_active = datetime.strptime(last_active, "%Y-%m-%d").date()
+    
+    new_streak = u['streak']
+    if last_active < today:
+        if (today - last_active).days == 1:
+            new_streak += 1
+        else:
+            if u['cryo'] > 0:
+                db.update_user(uid, cryo=u['cryo']-1)
+            else:
+                new_streak = 1
+        db.update_user(uid, streak=new_streak, last_active=today)
+
+    total_gain = amount + (new_streak * 5)
+    new_xp = u['xp'] + total_gain
+    
+    # Расчет уровня
     new_lvl = u['level']
-    for l, thr in sorted(LEVELS.items(), reverse=True):
-        if new_xp >= thr: new_lvl = l; break
+    for lvl, thr in sorted(LEVELS.items(), reverse=True):
+        if new_xp >= thr: new_lvl = lvl; break
+    
     db.update_user(uid, xp=new_xp, level=new_lvl)
-    return amount
+    return (new_lvl > u['level']), total_gain
 
 def raid_step_logic(uid):
-    conn = db.get_db_connection()
-    cur = conn.cursor(psycopg2.extras.RealDictCursor)
+    conn = db.get_db_connection(); cur = conn.cursor(cursor_factory=db.RealDictCursor)
     cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
     s = cur.fetchone()
     
-    # Берем случайное событие
     cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
     event = cur.fetchone()
-    
-    riddle_data = None
-    display_text = event['text']
-    
-    # --- SMART RIDDLE EXTRACTION ---
-    if "(Ответ:" in display_text:
-        parts = display_text.split("(Ответ:")
-        question = parts[0].strip()
-        correct = parts[1].split(")")[0].strip()
-        
-        # Решаем, какие обманки подсунуть
-        pool = SYNC_TERMS if any(t.lower() in correct.lower() for t in SYNC_TERMS) else GENERAL_TERMS
-        wrong = random.sample([t for t in pool if t.lower() != correct.lower()], 2)
-        options = wrong + [correct]
-        random.shuffle(options)
-        
-        riddle_data = {"correct": correct, "options": options}
-        display_text = question + "\n\n🧩 **ДЕШИФРОВКА ТЕРМИНА:**"
+    if not event: return True, "Тишина...", None
 
-    new_depth = s['depth'] + 1
-    dmg = 10 if event['type'] == 'trap' else random.randint(2, 5)
-    new_signal = max(0, s['signal'] - dmg)
-    new_buffer = s['buffer_xp'] + (event['val'] if event['type'] == 'loot' else 0)
-    
-    if new_signal <= 0:
+    # Вырезаем ответ для кнопок
+    riddle = None
+    text = event['text']
+    if "(Ответ:" in text:
+        parts = text.split("(Ответ:")
+        q = parts[0].strip()
+        ans = parts[1].split(")")[0].strip()
+        pool = SYNC_TERMS if any(t.lower() in ans.lower() for t in SYNC_TERMS) else GENERAL_TERMS
+        wrong = random.sample([t for t in pool if t.lower() != ans.lower()], 2)
+        opts = wrong + [ans]
+        random.shuffle(opts)
+        riddle = {"correct": ans, "options": opts}
+        text = q + "\n\n🧩 **ДЕШИФРОВКА ТЕРМИНА:**"
+
+    # Урон и Сигнал
+    dmg = event['val'] if event['type'] == 'trap' else random.randint(2, 5)
+    new_sig = max(0, s['signal'] - dmg)
+    if new_sig <= 0:
         cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
         conn.commit(); conn.close(); return False, "💀 **СИГНАЛ ПОТЕРЯН.**", None
-        
-    cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, buffer_xp=%s WHERE uid=%s", (new_depth, new_signal, new_buffer, uid))
+
+    db.update_user(uid, max_depth=max(u['max_depth'], s['depth']+1)) if (u := db.get_user(uid)) else None
+    cur.execute("UPDATE raid_sessions SET depth=depth+1, signal=%s, buffer_xp=buffer_xp+%s WHERE uid=%s", 
+                (new_sig, (event['val'] if event['type'] == 'loot' else 0), uid))
     conn.commit(); conn.close()
     
-    icon = "🟢" if new_signal > 60 else "🟡" if new_signal > 30 else "🔴"
-    msg = f"⚓️ **ГЛУБИНА: {new_depth} м**\n\n{display_text}\n\n🎒 **В МЕШКЕ:** {new_buffer} XP | 📡 **СИГНАЛ:** {icon} {new_signal}%"
-    return True, msg, riddle_data
+    msg = f"⚓️ ГЛУБИНА: {s['depth']+1}м\n\n{text}\n\n🎒 Буфер: {s['buffer_xp']} XP | 📡 Сигнал: {new_sig}%"
+    return True, msg, riddle
