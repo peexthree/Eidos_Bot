@@ -42,13 +42,18 @@ def check_cooldown(uid, action_type):
 
 def process_xp_logic(uid, amount, source='general'):
     u = db.get_user(uid)
-    if not u: return 0, False
+    if not u: return 0, False, []
     
     b = get_path_multiplier(u)
     today = datetime.now().date()
     last_active = u['last_active']
+    
+    # Обработка формата даты (защита от дурака)
     if isinstance(last_active, str):
-        last_active = datetime.strptime(last_active, "%Y-%m-%d").date()
+        try:
+            last_active = datetime.strptime(last_active, "%Y-%m-%d").date()
+        except ValueError:
+            last_active = today # Если формат кривой, считаем что сегодня
     
     # Логика Стрика и Крио-защиты
     new_streak = u['streak']
@@ -58,6 +63,7 @@ def process_xp_logic(uid, amount, source='general'):
         else:
             if u['cryo'] > 0:
                 db.update_user(uid, cryo=u['cryo'] - 1)
+                # Стрик сохраняется благодаря Крио
             else:
                 new_streak = 1
         db.update_user(uid, streak=new_streak, last_active=today)
@@ -67,6 +73,9 @@ def process_xp_logic(uid, amount, source='general'):
     
     new_xp = u['xp'] + total_gain
     new_lvl = u['level']
+    
+    # Проверка повышения уровня
+    # (Предполагается, что LEVELS импортирован из config)
     for lvl, thr in sorted(LEVELS.items(), reverse=True):
         if new_xp >= thr:
             new_lvl = lvl
@@ -75,7 +84,7 @@ def process_xp_logic(uid, amount, source='general'):
     is_lvl_up = new_lvl > u['level']
     db.update_user(uid, xp=new_xp, level=new_lvl)
     
-    # Нам нужно возвращать список новых ачивок, чтобы бот их показал
+    # Проверка ачивок
     new_achs = check_achievements(uid)
     
     return total_gain, is_lvl_up, new_achs
@@ -87,6 +96,7 @@ def process_xp_logic(uid, amount, source='general'):
 def check_achievements(uid):
     u = db.get_user(uid)
     newly_unlocked = []
+    # (Предполагается, что ACHIEVEMENTS_LIST импортирован из config)
     for ach_id, data in ACHIEVEMENTS_LIST.items():
         if not db.check_achievement_exists(uid, ach_id):
             if data['cond'](u):
@@ -101,27 +111,40 @@ def check_achievements(uid):
 def raid_step_logic(uid):
     u = db.get_user(uid)
     conn = db.get_db_connection()
+    # Используем RealDictCursor из модуля db (убедись, что он там есть)
     cur = conn.cursor(cursor_factory=db.RealDictCursor)
     
     cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
     s = cur.fetchone()
-    if not s: return False, "Сбой связи", None
+    if not s: 
+        conn.close()
+        return False, "Сбой связи", None
 
     b = get_path_multiplier(u)
     depth = s['depth'] + 1
     difficulty_mod = 1 + (depth // 50) * 0.2 
     
+    # Выбор события
     cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
     event = cur.fetchone()
+    if not event:
+        # Фоллбэк, если база пустая
+        event = {'text': "Пустота...", 'type': 'neutral', 'val': 0}
+
+    # Выбор подсказки
     cur.execute("SELECT text FROM raid_hints ORDER BY RANDOM() LIMIT 1")
     hint = cur.fetchone()
+    hint_text = hint['text'] if hint else "Нет данных"
 
     riddle = None
+    # Логика загадок (парсинг ответа)
     if "(Ответ:" in event['text']:
         raw_text = event['text'].split("(Ответ:")
         event_text = raw_text[0].strip()
         correct = raw_text[1].split(")")[0].strip()
         
+        # Генерация вариантов ответа
+        # (SYNC_CATEGORIES должен быть в config)
         category = next((c for c, t in SYNC_CATEGORIES.items() if any(item.lower() in correct.lower() for item in t)), "tech")
         wrong = random.sample([t for t in SYNC_CATEGORIES[category] if t.lower() not in correct.lower()], 2)
         opts = wrong + [correct]
@@ -130,16 +153,21 @@ def raid_step_logic(uid):
     else:
         event_text = event['text']
 
+    # Расчет урона и лута
     base_dmg = event['val'] if event['type'] == 'trap' else random.randint(3, 8)
     final_dmg = int(base_dmg * difficulty_mod * b['sig_prot'])
     
     new_sig = max(0, s['signal'] - (final_dmg if event['type'] != 'heal' else -20))
+    # Хил (отрицательный урон) не может поднять сигнал выше 100
+    if event['type'] == 'heal': new_sig = min(100, new_sig)
+    
     new_buff = s['buffer_xp'] + (int(event['val'] * b['xp_mult']) if event['type'] == 'loot' else 0)
 
+    # GAME OVER
     if new_sig <= 0:
         cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
         conn.commit(); conn.close()
-        return False, "💀 **СИГНАЛ РАЗОРВАН.**\nТы слишком глубоко зашел. Весь буфер уничтожен.", None
+        return False, "💀 <b>СИГНАЛ РАЗОРВАН.</b>\nТы слишком глубоко зашел. Весь буфер уничтожен.", None
 
     cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, buffer_xp=%s WHERE uid=%s", (depth, new_sig, new_buff, uid))
     if depth > u['max_depth']: db.update_user(uid, max_depth=depth)
@@ -147,11 +175,13 @@ def raid_step_logic(uid):
     conn.commit(); conn.close()
 
     status = "🟢" if new_sig > 60 else "🟡" if new_sig > 30 else "🔴"
-    msg = (f"⚓️ **ГЛУБИНА: {depth} м**\n\n"
+    
+    # HTML ФОРМАТИРОВАНИЕ
+    msg = (f"⚓️ <b>ГЛУБИНА: {depth} м</b>\n\n"
            f"{event_text}\n"
-           f"\n🧭 **КОМПАС:** _{hint['text']}_"
-           f"\n\n🎒 **В МЕШКЕ:** {new_buff} XP\n"
-           f"📡 **СИГНАЛ:** {status} {new_sig}%")
+           f"\n🧭 <b>КОМПАС:</b> <i>{hint_text}</i>"
+           f"\n\n🎒 <b>В МЕШКЕ:</b> {new_buff} XP\n"
+           f"📡 <b>СИГНАЛ:</b> {status} {new_sig}%")
            
     return True, msg, riddle
 
@@ -193,6 +223,7 @@ def get_level_progress_stats(u):
     lvl = u['level']
     
     current_threshold = LEVELS.get(lvl, 0)
+    # Защита от кейса, когда уровень максимальный (нет следующего ключа)
     next_threshold = LEVELS.get(lvl + 1, current_threshold)
     
     if next_threshold == current_threshold:
@@ -200,6 +231,10 @@ def get_level_progress_stats(u):
     
     needed = next_threshold - current_threshold
     got = xp - current_threshold
+    
+    # Защита от деления на ноль, если пороги равны (хотя это баг конфига)
+    if needed == 0: return 100, 0
+        
     percent = int((got / needed) * 100)
     
     return min(max(percent, 0), 100), (next_threshold - xp)
