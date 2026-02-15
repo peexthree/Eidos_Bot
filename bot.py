@@ -137,7 +137,7 @@ def handle_query(call):
         else:
             for e in entries: txt += f"• [{e['created_at'].strftime('%d.%m')}] {e['entry'][:50]}...\n"
         m = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("➕ ЗАПИСАТЬ", callback_data="diary_add"), types.InlineKeyboardButton("🔙", callback_data="back"))
-        bot.edit_message_caption(txt, call.message.chat.id, call.message.message_id, reply_markup=m, parse_mode="Markdown")
+        bot.edit_message_caption(txt, call.message.chat.id, call.message.message_id, reply_markup=m, parse_mode="HTML")
 
     elif call.data == "diary_add":
         waiting_for_diary[uid] = True
