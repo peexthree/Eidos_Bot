@@ -8,12 +8,6 @@ import database as db
 # =============================================================
 
 def get_path_multiplier(u):
-    """
-    Рассчитывает бонусы в зависимости от выбранной Школы.
-    Материя: +20% к XP от Лута в Рейдах.
-    Разум: -20% к урону Сигнала в Загадках.
-    AI: -10% ко всем кулдаунам.
-    """
     bonuses = {"xp_mult": 1.0, "sig_prot": 1.0, "cd_mult": 1.0}
     if u['path'] == 'money': bonuses['xp_mult'] = 1.2
     elif u['path'] == 'mind': bonuses['sig_prot'] = 0.8
@@ -31,7 +25,6 @@ def check_cooldown(uid, action_type):
     now = int(time.time())
     b = get_path_multiplier(u)
     
-    # Расчет Кулдауна с учетом Ускорителя и Бонуса Школы AI
     if action_type == 'protocol':
         base_cd = COOLDOWN_ACCEL if u['accel_exp'] > now else COOLDOWN_BASE
         cd = base_cd * b['cd_mult']
@@ -69,11 +62,9 @@ def process_xp_logic(uid, amount, source='general'):
                 new_streak = 1
         db.update_user(uid, streak=new_streak, last_active=today)
 
-    # Применяем бонусы школы (если опыт из рейда — Материя дает +20%)
     final_amount = amount * b['xp_mult'] if source == 'raid' else amount
-    total_gain = int(final_amount + (new_streak * 2)) # Бонус за дисциплину
+    total_gain = int(final_amount + (new_streak * 2))
     
-    # Начисление и проверка уровня
     new_xp = u['xp'] + total_gain
     new_lvl = u['level']
     for lvl, thr in sorted(LEVELS.items(), reverse=True):
@@ -84,10 +75,10 @@ def process_xp_logic(uid, amount, source='general'):
     is_lvl_up = new_lvl > u['level']
     db.update_user(uid, xp=new_xp, level=new_lvl)
     
-    # Авто-проверка 25 ачивок
-    check_achievements(uid)
+    # Нам нужно возвращать список новых ачивок, чтобы бот их показал
+    new_achs = check_achievements(uid)
     
-    return total_gain, is_lvl_up
+    return total_gain, is_lvl_up, new_achs
 
 # =============================================================
 # 4. АВТОМАТИКА ДОСТИЖЕНИЙ
@@ -118,24 +109,19 @@ def raid_step_logic(uid):
 
     b = get_path_multiplier(u)
     depth = s['depth'] + 1
-    
-    # Сложность растет каждые 50 метров
     difficulty_mod = 1 + (depth // 50) * 0.2 
     
-    # Событие и Компас
     cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
     event = cur.fetchone()
     cur.execute("SELECT text FROM raid_hints ORDER BY RANDOM() LIMIT 1")
     hint = cur.fetchone()
 
-    # Загадка с умными обманками
     riddle = None
     if "(Ответ:" in event['text']:
         raw_text = event['text'].split("(Ответ:")
         event_text = raw_text[0].strip()
         correct = raw_text[1].split(")")[0].strip()
         
-        # Поиск категории для обманок
         category = next((c for c, t in SYNC_CATEGORIES.items() if any(item.lower() in correct.lower() for item in t)), "tech")
         wrong = random.sample([t for t in SYNC_CATEGORIES[category] if t.lower() not in correct.lower()], 2)
         opts = wrong + [correct]
@@ -144,7 +130,6 @@ def raid_step_logic(uid):
     else:
         event_text = event['text']
 
-    # РАСЧЕТ УРОНА: Школа Разума снижает урон Сигналу
     base_dmg = event['val'] if event['type'] == 'trap' else random.randint(3, 8)
     final_dmg = int(base_dmg * difficulty_mod * b['sig_prot'])
     
@@ -157,8 +142,6 @@ def raid_step_logic(uid):
         return False, "💀 **СИГНАЛ РАЗОРВАН.**\nТы слишком глубоко зашел. Весь буфер уничтожен.", None
 
     cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, buffer_xp=%s WHERE uid=%s", (depth, new_sig, new_buff, uid))
-    
-    # Обновление рекорда
     if depth > u['max_depth']: db.update_user(uid, max_depth=depth)
     
     conn.commit(); conn.close()
@@ -171,3 +154,52 @@ def raid_step_logic(uid):
            f"📡 **СИГНАЛ:** {status} {new_sig}%")
            
     return True, msg, riddle
+
+# =============================================================
+# 6. НОВОЕ: КОНТЕНТНЫЙ ДВИЖЕК (ДЛЯ СИНХРОНА И СИГНАЛА)
+# =============================================================
+
+def get_content_logic(c_type, path='general', level=1, has_decoder=False):
+    """
+    Получает знания из базы. 
+    Если у игрока есть Дешифратор, он может получить контент на 1 уровень выше.
+    """
+    conn = db.get_db_connection()
+    cur = conn.cursor(cursor_factory=db.RealDictCursor)
+    
+    effective_level = level + 1 if has_decoder else level
+    
+    if c_type == 'signal':
+        cur.execute("SELECT id, text FROM raid_content WHERE type = 'loot' ORDER BY RANDOM() LIMIT 1")
+    else:
+        # Ищем протоколы, подходящие по школе и уровню
+        cur.execute("""SELECT id, text FROM content 
+                       WHERE type = 'protocol' 
+                       AND (path = %s OR path = 'general') 
+                       AND level <= %s 
+                       ORDER BY RANDOM() LIMIT 1""", (path, effective_level))
+    
+    res = cur.fetchone()
+    conn.close()
+    return res
+
+# =============================================================
+# 7. НОВОЕ: СТАТИСТИКА ПРОГРЕССА (ДЛЯ ПРОФИЛЯ)
+# =============================================================
+
+def get_level_progress_stats(u):
+    """Рассчитывает % опыта до следующего уровня"""
+    xp = u['xp']
+    lvl = u['level']
+    
+    current_threshold = LEVELS.get(lvl, 0)
+    next_threshold = LEVELS.get(lvl + 1, current_threshold)
+    
+    if next_threshold == current_threshold:
+        return 100, 0 # Максимальный уровень
+    
+    needed = next_threshold - current_threshold
+    got = xp - current_threshold
+    percent = int((got / needed) * 100)
+    
+    return min(max(percent, 0), 100), (next_threshold - xp)
