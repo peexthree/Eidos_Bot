@@ -18,25 +18,36 @@ def get_progress_bar(current, total, length=8):
 # =============================================================
 
 def main_menu(u):
-    # ОСТАВЛЯЕМ КАК БЫЛО, НО УБЕДИСЬ, ЧТО ТАМ НЕТ ЛИШНИХ КНОПОК
     uid = u['uid']
     m = types.InlineKeyboardMarkup(row_width=2)
+    
+    # Блок 1: Энергия
     m.add(types.InlineKeyboardButton("💠 СИНХРОНИЗАЦИЯ", callback_data="get_protocol"),
           types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal"))
-    m.add(types.InlineKeyboardButton("─── 🌑 ВХОД В ПРИКЛЮЧЕНИЕ ───", callback_data="zero_layer_menu"))
     
-    # Stats
+    # Блок 2: Рейд
+    m.add(types.InlineKeyboardButton("─── 🌑 НУЛЕВОЙ СЛОЙ ───", callback_data="zero_layer_menu"))
+    
+    # Блок 3: Статистика и Профиль
     current_lvl = u['level']
     next_lvl_xp = LEVELS.get(current_lvl + 1, LEVELS.get(current_lvl, 999999))
-    p_bar = get_progress_bar(u['xp'] - LEVELS.get(current_lvl, 0), next_lvl_xp - LEVELS.get(current_lvl, 0))
+    base_xp = LEVELS.get(current_lvl, 0)
     
-    m.add(types.InlineKeyboardButton(f"👤 [{current_lvl}] ПРОФИЛЬ", callback_data="profile"),
+    # Считаем прогресс внутри текущего уровня
+    xp_in_level = max(0, u['xp'] - base_xp)
+    needed_in_level = max(1, next_lvl_xp - base_xp)
+    
+    p_bar = get_progress_bar(xp_in_level, needed_in_level)
+    
+    m.add(types.InlineKeyboardButton(f"👤 [{current_lvl}] {p_bar}", callback_data="profile"),
           types.InlineKeyboardButton("🎰 МАГАЗИН", callback_data="shop"))
     
+    # Блок 4: Социум
     m.add(types.InlineKeyboardButton("🏆 РЕЙТИНГ", callback_data="leaderboard"),
-          types.InlineKeyboardButton("🔗 СЕТЬ", callback_data="referral"))
+          types.InlineKeyboardButton("🔗 СИНДИКАТ", callback_data="referral"))
     
-    m.add(types.InlineKeyboardButton("📓 ИСПОВЕДЬ", callback_data="diary_mode"),
+    # Блок 5: Знания
+    m.add(types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_mode"),
           types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide"))
 
     if str(uid) == str(ADMIN_ID):
@@ -65,15 +76,12 @@ def shop_menu(u):
     if u['accel_exp'] > now:
         rem_min = int((u['accel_exp'] - now) // 60)
         accel_btn = f"⚡️ УСКОРИТЕЛЬ [АКТИВЕН: {rem_min}м]"
-        # Кнопка неактивна для покупки, но показывает статус (можно сделать dummy callback)
         m.add(types.InlineKeyboardButton(accel_btn, callback_data="shop_dummy"))
     else:
         accel_btn = f"⚡️ УСКОРИТЕЛЬ ⚡️ ─── {PRICES['accel']} XP"
         m.add(types.InlineKeyboardButton(accel_btn, callback_data="buy_accel"))
     
     # ДЕШИФРАТОР
-    # Если дешифратор есть (например, bool флаг или счетчик), можно менять текст
-    # Но пока по твоей логике это просто покупка
     m.add(types.InlineKeyboardButton(
         f"🔑 ДЕШИФРАТОР ─── {PRICES['decoder']} XP", 
         callback_data="buy_decoder"
@@ -91,72 +99,40 @@ def shop_menu(u):
     return m
 
 # =============================================================
-# 🕹 КОКПИТ РЕЙДА (GAME DESIGN)
+# 🕹 КОКПИТ РЕЙДА (GAME DESIGN - V2)
 # =============================================================
+
 def raid_action_keyboard():
-    """Обычный шаг или выход"""
+    """
+    Основная клавиатура действий в рейде (V2).
+    Используется, когда нет активной загадки.
+    """
     m = types.InlineKeyboardMarkup()
     m.add(types.InlineKeyboardButton("👣 ШАГ В ТЕМНОТУ (-5 XP)", callback_data="raid_step"))
     m.add(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ", callback_data="raid_extract"))
     return m
 
 def riddle_keyboard(options):
-    """Варианты ответов"""
+    """
+    Клавиатура для ответов на загадки (V2).
+    Генерирует кнопки r_check_... которые ждет bot.py.
+    """
     m = types.InlineKeyboardMarkup(row_width=1)
     for opt in options:
-        # Передаем хэш или начало строки, чтобы уложиться в лимит байт
-        short_opt = opt[:15]
+        # Обрезаем callback_data до безопасной длины (Telegram лимит 64 байта)
+        # В bot.py мы проверяем вхождение (ans in correct), так что частичное совпадение сработает
+        short_opt = opt[:20] 
         m.add(types.InlineKeyboardButton(f"› {opt}", callback_data=f"r_check_{short_opt}"))
     return m
-def raid_keyboard():
-    m = types.InlineKeyboardMarkup()
-    # Логика кнопок перемещения должна совпадать с bot.py
-    # В твоем коде логики перемещения (step_f, step_l) пока нет явной обработки направления, 
-    # обычно это просто "следующий шаг". Сделаем унификацию.
-    
-    m.row(types.InlineKeyboardButton("🔼 ВГЛУБЬ", callback_data="raid_step"))
-    
-    # Если ты планируешь механику выбора пути (лево/право), оставь так. 
-    # Если нет — упрости до одной кнопки "Дальше".
-    # Сейчас сделаю заглушки для визуальной красоты, но функционал "Шаг"
-    
-    # m.row(
-    #     types.InlineKeyboardButton("⬅️", callback_data="raid_step"),
-    #     types.InlineKeyboardButton("⏺", callback_data="raid_info"), # Просто инфо о статусе
-    #     types.InlineKeyboardButton("➡️", callback_data="raid_step")
-    # )
-    
-    m.row(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ (СОХРАНИТЬ ВСЁ)", callback_data="raid_extract"))
-    return m
 
-def riddle_keyboard(options, correct_answer):
-    """
-    Клавиатура для загадок.
-    ВАЖНО: callback_data должна содержать ответ, чтобы проверить его в bot.py.
-    Но передавать весь текст опасно (лимит 64 байта).
-    Лучше передавать хэш или индекс, но для простоты передадим урезанный текст.
-    """
-    m = types.InlineKeyboardMarkup(row_width=1)
-    
-    # Перемешиваем варианты уже на входе, здесь просто рендерим
-    for opt in options:
-        # Обрезаем callback_data до 60 символов, чтобы не словить ошибку Telegram
-        # Добавляем префикс r_ans_ для отлова в хендлере
-        cb_data = f"r_ans_{opt[:20]}" 
-        m.add(types.InlineKeyboardButton(f"› {opt}", callback_data=cb_data))
-    
-    # Опция "Не знаю" — это пропуск с уроном
-    # m.add(types.InlineKeyboardButton("☣️ ПРОПУСТИТЬ (-ЗДОРОВЬЕ)", callback_data="raid_skip_riddle"))
-    return m
+# Старую функцию raid_keyboard удаляем, так как она дублирует функционал
+# и может запутать бота.
 
 # =============================================================
 # 🧬 ВЫБОР ФРАКЦИИ (MARKETING PSYCHOLOGY)
 # =============================================================
 
 def path_selection_keyboard():
-    """
-    Каждая школа должна выглядеть как элитный клуб.
-    """
     m = types.InlineKeyboardMarkup(row_width=1)
     m.add(
         types.InlineKeyboardButton("🏦 ШКОЛА МАТЕРИИ [КАПИТАЛ]", callback_data="set_path_money"),
@@ -170,10 +146,14 @@ def path_selection_keyboard():
 # =============================================================
 
 def back_button():
-    """Создает стандартную кнопку возврата в главное меню"""
     m = types.InlineKeyboardMarkup()
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
+
+# =============================================================
+# ⚡️ АДМИН-ПАНЕЛЬ
+# =============================================================
+
 def admin_keyboard():
     m = types.InlineKeyboardMarkup(row_width=2)
     m.add(types.InlineKeyboardButton("📢 Рассылка", callback_data="admin_broadcast"),
@@ -182,6 +162,4 @@ def admin_keyboard():
           types.InlineKeyboardButton("📊 СТАТИСТИКА", callback_data="admin_stats"))
     m.add(types.InlineKeyboardButton("➕ НАЧИСЛИТЬ XP", callback_data="admin_give_xp"),
           types.InlineKeyboardButton("🔙 Выход", callback_data="back"))
-          
     return m
-
