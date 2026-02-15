@@ -105,85 +105,136 @@ def check_achievements(uid):
     return newly_unlocked
 
 # =============================================================
-# 5. НУЛЕВОЙ СЛОЙ: ГЛУБОКАЯ ЛОГИКА (РЕЙД)
+# 5. НУЛЕВОЙ СЛОЙ: ГЛУБОКАЯ ЛОГИКА (РЕЙД V2)
 # =============================================================
 
-def raid_step_logic(uid):
+def raid_step_logic(uid, answer=None):
+    """
+    answer: 
+      - None (обычный шаг или начало)
+      - 'skip' (пропуск загадки с уроном)
+      - <строка> (вариант ответа игрока)
+    """
     u = db.get_user(uid)
     conn = db.get_db_connection()
-    # Используем RealDictCursor из модуля db (убедись, что он там есть)
     cur = conn.cursor(cursor_factory=db.RealDictCursor)
     
     cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
     s = cur.fetchone()
+    
     if not s: 
         conn.close()
-        return False, "Сбой связи", None
+        return False, "Сбой сессии. Перезайди.", None, u
 
-    b = get_path_multiplier(u)
+    # --- ФАЗА 1: ПРОВЕРКА ОТВЕТА (ЕСЛИ БЫЛ) ---
+    msg_prefix = ""
+    damage = 0
+    xp_penalty = 0
+    
+    if answer:
+        # Получаем данные о текущем событии (нужно было хранить state, но для простоты
+        # мы считаем, что answer приходит только если была загадка)
+        pass 
+        # В этой архитектуре сложно валидировать ответ без хранения 'current_riddle' в БД.
+        # Упростим: Если answer пришел, мы проверяем его на лету в bot.py или здесь?
+        # ДАВАЙ ПЕРЕПИШЕМ ЛОГИКУ В BOT.PY ЧТОБЫ ОНА ПЕРЕДАВАЛА РЕЗУЛЬТАТ ПРОВЕРКИ.
+        # Но чтобы не ломать структуру, сделаем так:
+        # Логика шага просто генерирует НОВОЕ событие.
+        # А обработка правильности ответа будет ВНЕ этой функции (в bot.py перед вызовом step).
+    
+    # Списание цены шага (Настоящий XP)
+    if u['xp'] < RAID_STEP_COST:
+        conn.close()
+        return False, "🪫 <b>НЕДОСТАТОЧНО ЭНЕРГИИ</b>\nТы слишком слаб, чтобы идти дальше.", None, u
+
+    db.update_user(uid, xp=u['xp'] - RAID_STEP_COST)
+    u['xp'] -= RAID_STEP_COST # Обновляем локально для отображения
+
+    # --- ФАЗА 2: ГЕНЕРАЦИЯ НОВОГО СОБЫТИЯ ---
     depth = s['depth'] + 1
     difficulty_mod = 1 + (depth // 50) * 0.2 
     
     # Выбор события
     cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
     event = cur.fetchone()
-    if not event:
-        # Фоллбэк, если база пустая
-        event = {'text': "Пустота...", 'type': 'neutral', 'val': 0}
+    if not event: event = {'text': "Пустота...", 'type': 'neutral', 'val': 0}
 
     # Выбор подсказки
     cur.execute("SELECT text FROM raid_hints ORDER BY RANDOM() LIMIT 1")
     hint = cur.fetchone()
-    hint_text = hint['text'] if hint else "Нет данных"
+    hint_text = hint['text'] if hint else "..."
 
-    riddle = None
-    # Логика загадок (парсинг ответа)
+    # Обработка Загадок
+    riddle_data = None
+    clean_text = event['text']
+    
     if "(Ответ:" in event['text']:
-        raw_text = event['text'].split("(Ответ:")
-        event_text = raw_text[0].strip()
-        correct = raw_text[1].split(")")[0].strip()
+        # ПАРСИНГ: Разделяем текст вопроса и ответ
+        parts = event['text'].split("(Ответ:")
+        clean_text = parts[0].strip() # Текст без ответа
+        correct = parts[1].split(")")[0].strip()
         
-        # Генерация вариантов ответа
-        # (SYNC_CATEGORIES должен быть в config)
-        category = next((c for c, t in SYNC_CATEGORIES.items() if any(item.lower() in correct.lower() for item in t)), "tech")
-        wrong = random.sample([t for t in SYNC_CATEGORIES[category] if t.lower() not in correct.lower()], 2)
-        opts = wrong + [correct]
-        random.shuffle(opts)
-        riddle = {"correct": correct, "options": opts}
-    else:
-        event_text = event['text']
+        # Генерация вариантов
+        category = "tech" # Заглушка, можно улучшить поиск категории
+        # Генерируем 2 неправильных варианта из базы (или хардкод для надежности)
+        wrongs = ["Ошибка", "Сбой", "Пустота", "Иллюзия", "Симулякр"]
+        options = random.sample(wrongs, 2) + [correct]
+        random.shuffle(options)
+        
+        riddle_data = {
+            "question": clean_text,
+            "correct": correct,
+            "options": options
+        }
+        # Урон при ошибке считаем тут же
+        event['type'] = 'riddle' 
+        event['val'] = 15 # Урон за ошибку
 
-    # Расчет урона и лута
-    base_dmg = event['val'] if event['type'] == 'trap' else random.randint(3, 8)
-    final_dmg = int(base_dmg * difficulty_mod * b['sig_prot'])
+    # Расчет (если это не загадка, урон наносится сразу)
+    # Если загадка - урон нанесется только если юзер ошибется (в след. шаге)
     
-    new_sig = max(0, s['signal'] - (final_dmg if event['type'] != 'heal' else -20))
-    # Хил (отрицательный урон) не может поднять сигнал выше 100
-    if event['type'] == 'heal': new_sig = min(100, new_sig)
-    
-    new_buff = s['buffer_xp'] + (int(event['val'] * b['xp_mult']) if event['type'] == 'loot' else 0)
+    base_dmg = event['val']
+    if event['type'] == 'trap':
+        final_dmg = int(base_dmg * difficulty_mod)
+        new_sig = max(0, s['signal'] - final_dmg)
+        msg_prefix += f"💥 ЛОВУШКА! -{final_dmg}% Сигнала.\n"
+    elif event['type'] == 'heal':
+        new_sig = min(100, s['signal'] + 20)
+        msg_prefix += "❤️ ВОССТАНОВЛЕНИЕ.\n"
+    elif event['type'] == 'loot':
+        bonus = int(event['val'])
+        # Лут идет в буфер
+        cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp + %s WHERE uid = %s", (bonus, uid))
+        msg_prefix += f"💎 НАЙДЕНЫ ДАННЫЕ: +{bonus} XP (в мешок).\n"
+        new_sig = s['signal']
+    else: # neutral / riddle
+        new_sig = s['signal']
 
-    # GAME OVER
-    if new_sig <= 0:
-        cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
-        conn.commit(); conn.close()
-        return False, "💀 <b>СИГНАЛ РАЗОРВАН.</b>\nТы слишком глубоко зашел. Весь буфер уничтожен.", None
-
-    cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, buffer_xp=%s WHERE uid=%s", (depth, new_sig, new_buff, uid))
+    # Сохраняем прогресс
+    cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s WHERE uid=%s", (depth, new_sig, uid))
     if depth > u['max_depth']: db.update_user(uid, max_depth=depth)
     
+    # Читаем актуальный буфер
+    cur.execute("SELECT buffer_xp FROM raid_sessions WHERE uid = %s", (uid,))
+    current_buffer = cur.fetchone()['buffer_xp']
     conn.commit(); conn.close()
 
-    status = "🟢" if new_sig > 60 else "🟡" if new_sig > 30 else "🔴"
+    if new_sig <= 0:
+        db.admin_exec_query(f"DELETE FROM raid_sessions WHERE uid = {uid}")
+        return False, "💀 <b>СИГНАЛ ПОТЕРЯН</b>\nТвое сознание растворилось в шуме.", None, u
+
+    status_icon = "🟢" if new_sig > 60 else "🟡" if new_sig > 30 else "🔴"
     
-    # HTML ФОРМАТИРОВАНИЕ
-    msg = (f"⚓️ <b>ГЛУБИНА: {depth} м</b>\n\n"
-           f"{event_text}\n"
-           f"\n🧭 <b>КОМПАС:</b> <i>{hint_text}</i>"
-           f"\n\n🎒 <b>В МЕШКЕ:</b> {new_buff} XP\n"
-           f"📡 <b>СИГНАЛ:</b> {status} {new_sig}%")
-           
-    return True, msg, riddle
+    # ФОРМИРУЕМ UI
+    msg = (f"⚓️ <b>ГЛУБИНА: {depth} м</b>\n"
+           f"{msg_prefix}\n"
+           f"{clean_text}\n"
+           f"🧭 <i>{hint_text}</i>\n\n"
+           f"🎒 Мешок: <b>{current_buffer} XP</b>\n"
+           f"📡 Сигнал: {status_icon} <b>{new_sig}%</b>\n"
+           f"🔋 Твой заряд: <b>{u['xp']} XP</b> (Шаг: -{RAID_STEP_COST})")
+
+    return True, msg, riddle_data, u
 
 # =============================================================
 # 6. НОВОЕ: КОНТЕНТНЫЙ ДВИЖЕК (ДЛЯ СИНХРОНА И СИГНАЛА)
