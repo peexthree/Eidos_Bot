@@ -18,52 +18,29 @@ def get_progress_bar(current, total, length=8):
 # =============================================================
 
 def main_menu(u):
-    """
-    Интерфейс уровня 'Архитектор'.
-    Кнопки сгруппированы по смысловым блокам.
-    """
+    # ОСТАВЛЯЕМ КАК БЫЛО, НО УБЕДИСЬ, ЧТО ТАМ НЕТ ЛИШНИХ КНОПОК
     uid = u['uid']
     m = types.InlineKeyboardMarkup(row_width=2)
+    m.add(types.InlineKeyboardButton("💠 СИНХРОНИЗАЦИЯ", callback_data="get_protocol"),
+          types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal"))
+    m.add(types.InlineKeyboardButton("─── 🌑 ВХОД В ПРИКЛЮЧЕНИЕ ───", callback_data="zero_layer_menu"))
     
-    # БЛОК 1: ГЕНЕРАЦИЯ ЭНЕРГИИ (CORE)
-    btn_sync = types.InlineKeyboardButton("💠 СИНХРОНИЗАЦИЯ", callback_data="get_protocol")
-    btn_sig = types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal")
-    m.add(btn_sync, btn_sig)
-    
-    # БЛОК 2: ЭКСПЕДИЦИИ (RISK)
-    m.add(types.InlineKeyboardButton("─── 🌑 НУЛЕВОЙ СЛОЙ ───", callback_data="zero_layer_menu"))
-    
-    # БЛОК 3: ПЕРСОНАЛЬНЫЕ ДАННЫЕ (STATS)
-    # Показываем уровень и прогресс
-    # Защита от кейса макс. уровня
+    # Stats
     current_lvl = u['level']
     next_lvl_xp = LEVELS.get(current_lvl + 1, LEVELS.get(current_lvl, 999999))
-    prev_lvl_xp = LEVELS.get(current_lvl, 0)
+    p_bar = get_progress_bar(u['xp'] - LEVELS.get(current_lvl, 0), next_lvl_xp - LEVELS.get(current_lvl, 0))
     
-    # Расчет прогресса внутри уровня, а не с нуля
-    xp_in_level = u['xp'] - prev_lvl_xp
-    needed_in_level = next_lvl_xp - prev_lvl_xp
+    m.add(types.InlineKeyboardButton(f"👤 [{current_lvl}] ПРОФИЛЬ", callback_data="profile"),
+          types.InlineKeyboardButton("🎰 МАГАЗИН", callback_data="shop"))
     
-    p_bar = get_progress_bar(xp_in_level, needed_in_level)
+    m.add(types.InlineKeyboardButton("🏆 РЕЙТИНГ", callback_data="leaderboard"),
+          types.InlineKeyboardButton("🔗 СЕТЬ", callback_data="referral"))
     
-    m.add(
-        types.InlineKeyboardButton(f"👤 [{current_lvl}] {p_bar}", callback_data="profile"),
-        types.InlineKeyboardButton("🎰 РЫНОК", callback_data="shop")
-    )
-    
-    # БЛОК 4: СОЦИАЛЬНЫЙ ГРАФ (NETWORK)
-    m.add(
-        types.InlineKeyboardButton("🏆 ТОП-10", callback_data="leaderboard"),
-        types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_mode") # Пока заглушка или нет?
-    )
-    
-    m.add(
-        types.InlineKeyboardButton("🔗 СИНДИКАТ", callback_data="referral"),
-        types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide")
-    )
+    m.add(types.InlineKeyboardButton("📓 ИСПОВЕДЬ", callback_data="diary_mode"),
+          types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide"))
 
-    if uid == ADMIN_ID:
-        m.add(types.InlineKeyboardButton("⚡️ ТЕРМИНАЛ УПРАВЛЕНИЯ ⚡️", callback_data="admin_panel"))
+    if str(uid) == str(ADMIN_ID):
+        m.add(types.InlineKeyboardButton("⚡️ GOD MODE ⚡️", callback_data="admin_panel"))
         
     return m
 
@@ -116,7 +93,21 @@ def shop_menu(u):
 # =============================================================
 # 🕹 КОКПИТ РЕЙДА (GAME DESIGN)
 # =============================================================
+def raid_action_keyboard():
+    """Обычный шаг или выход"""
+    m = types.InlineKeyboardMarkup()
+    m.add(types.InlineKeyboardButton("👣 ШАГ В ТЕМНОТУ (-5 XP)", callback_data="raid_step"))
+    m.add(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ", callback_data="raid_extract"))
+    return m
 
+def riddle_keyboard(options):
+    """Варианты ответов"""
+    m = types.InlineKeyboardMarkup(row_width=1)
+    for opt in options:
+        # Передаем хэш или начало строки, чтобы уложиться в лимит байт
+        short_opt = opt[:15]
+        m.add(types.InlineKeyboardButton(f"› {opt}", callback_data=f"r_check_{short_opt}"))
+    return m
 def raid_keyboard():
     m = types.InlineKeyboardMarkup()
     # Логика кнопок перемещения должна совпадать с bot.py
@@ -183,14 +174,14 @@ def back_button():
     m = types.InlineKeyboardMarkup()
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
-
 def admin_keyboard():
-    """Меню админа"""
     m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(
-        types.InlineKeyboardButton("📢 РАССЫЛКА", callback_data="admin_broadcast"),
-        types.InlineKeyboardButton("📊 СТАТИСТИКА", callback_data="admin_stats"),
-        types.InlineKeyboardButton("➕ НАЧИСЛИТЬ XP", callback_data="admin_give_xp"),
-        types.InlineKeyboardButton("🔙 ВЫХОД", callback_data="back")
-    )
+    m.add(types.InlineKeyboardButton("📢 Рассылка", callback_data="admin_broadcast"),
+          types.InlineKeyboardButton("📜 SQL запрос", callback_data="admin_sql"))
+    m.add(types.InlineKeyboardButton("👥 Users Count", callback_data="admin_users_count"),
+          types.InlineKeyboardButton("📊 СТАТИСТИКА", callback_data="admin_stats"))
+    m.add(types.InlineKeyboardButton("➕ НАЧИСЛИТЬ XP", callback_data="admin_give_xp"),
+          types.InlineKeyboardButton("🔙 Выход", callback_data="back"))
+          
     return m
+
