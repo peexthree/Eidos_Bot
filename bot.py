@@ -80,7 +80,7 @@ def system_startup():
         # Даем серверу продышаться перед нагрузкой
         time.sleep(2)
         print("/// SYSTEM STARTUP INITIATED...")
-        init_db()
+        db.init_db()
         if WEBHOOK_URL:
             try:
                 bot.remove_webhook()
