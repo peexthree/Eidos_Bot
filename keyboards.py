@@ -150,6 +150,15 @@ def path_selection_keyboard():
     m.add(
         types.InlineKeyboardButton("🏦 ШКОЛА МАТЕРИИ [КАПИТАЛ]", callback_data="set_path_money"),
         types.InlineKeyboardButton("🧠 ШКОЛА РАЗУМА [ВЛИЯНИЕ]", callback_data="set_path_mind"),
+        # =============================================================
+# 🔙 УНИВЕРСАЛЬНАЯ КНОПКА ВОЗВРАТА
+# =============================================================
+
+def back_button():
+    """Создает стандартную кнопку возврата в главное меню"""
+    m = types.InlineKeyboardMarkup()
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m
         types.InlineKeyboardButton("🤖 ШКОЛА СИНГУЛЯРНОСТИ [AI]", callback_data="set_path_tech")
     )
     return m
