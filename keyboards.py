@@ -30,11 +30,10 @@ def main_menu(u):
     )
     
     # БЛОК 2: ЭКСПЕДИЦИИ (RISK)
-    # Используем спецсимволы для акцента на опасности
     m.add(types.InlineKeyboardButton("─── 🌑 НУЛЕВОЙ СЛОЙ ───", callback_data="zero_layer_menu"))
     
     # БЛОК 3: ПЕРСОНАЛЬНЫЕ ДАННЫЕ (STATS)
-    # Прямо на кнопке Профиля показываем уровень и прогресс!
+    # Показываем уровень и прогресс
     next_lvl_xp = LEVELS.get(u['level'] + 1, LEVELS[u['level']])
     p_bar = get_progress_bar(u['xp'], next_lvl_xp)
     
@@ -65,8 +64,7 @@ def main_menu(u):
 
 def shop_menu(u):
     """
-    Магазин в стиле 'Dark Web'. 
-    Маркетинговые приемы: дефицит и статус активации.
+    Магазин в стиле 'Dark Web'.
     """
     m = types.InlineKeyboardMarkup(row_width=1)
     now = time.time()
@@ -77,7 +75,7 @@ def shop_menu(u):
         callback_data="buy_cryo"
     ))
     
-    # УСКОРИТЕЛЬ: Статус-бар прямо на кнопке
+    # УСКОРИТЕЛЬ
     if u['accel_exp'] > now:
         rem_min = int((u['accel_exp'] - now) // 60)
         accel_btn = f"⚡️ УСКОРИТЕЛЬ [АКТИВЕН: {rem_min}м]"
@@ -106,32 +104,19 @@ def shop_menu(u):
 # =============================================================
 
 def raid_keyboard():
-    """
-    Визуальный D-pad. Игрок должен чувствовать 'направление'.
-    """
     m = types.InlineKeyboardMarkup()
-    
-    # Джойстик управления
     m.row(types.InlineKeyboardButton("⬆️ ВПЕРЕД", callback_data="raid_step_f"))
     m.row(
         types.InlineKeyboardButton("⬅️ ЛЕВО", callback_data="raid_step_l"),
         types.InlineKeyboardButton("⏺", callback_data="raid_stay"),
         types.InlineKeyboardButton("➡️ ПРАВО", callback_data="raid_step_r")
     )
-    
-    # Кнопка жизни
     m.row(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ (СОХРАНИТЬ ВСЁ)", callback_data="raid_extract"))
-    
     return m
 
 def riddle_keyboard(options):
-    """
-    Кнопки дешифровки. Минимализм и фокус.
-    """
     m = types.InlineKeyboardMarkup(row_width=1)
-    # Сортируем варианты для эстетики (по длине текста)
     sorted_opts = sorted(options, key=len)
-    
     for opt in sorted_opts:
         m.add(types.InlineKeyboardButton(f"› {opt.upper()}", callback_data=f"r_p_{opt[:15]}"))
     
@@ -150,7 +135,11 @@ def path_selection_keyboard():
     m.add(
         types.InlineKeyboardButton("🏦 ШКОЛА МАТЕРИИ [КАПИТАЛ]", callback_data="set_path_money"),
         types.InlineKeyboardButton("🧠 ШКОЛА РАЗУМА [ВЛИЯНИЕ]", callback_data="set_path_mind"),
-        # =============================================================
+        types.InlineKeyboardButton("🤖 ШКОЛА СИНГУЛЯРНОСТИ [AI]", callback_data="set_path_tech")
+    )
+    return m
+
+# =============================================================
 # 🔙 УНИВЕРСАЛЬНАЯ КНОПКА ВОЗВРАТА
 # =============================================================
 
@@ -158,7 +147,4 @@ def back_button():
     """Создает стандартную кнопку возврата в главное меню"""
     m = types.InlineKeyboardMarkup()
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
-    return m
-        types.InlineKeyboardButton("🤖 ШКОЛА СИНГУЛЯРНОСТИ [AI]", callback_data="set_path_tech")
-    )
     return m
