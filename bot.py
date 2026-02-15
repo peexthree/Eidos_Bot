@@ -285,7 +285,7 @@ def get_content(c_type, path, level):
         row = cur.fetchone()
         return (row[0], row[1]) if row else (None, None)
     finally: conn.close()
-        def get_referral_count(uid):
+def get_referral_count(uid):
     conn = get_db_connection()
     if not conn: return 0
     try:
