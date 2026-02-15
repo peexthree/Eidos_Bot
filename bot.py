@@ -627,7 +627,12 @@ def callback(call):
             safe_edit(call, text, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙", callback_data="profile")))
         elif call.data == "leaderboard": safe_edit(call, get_leaderboard_text(), types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")))
         elif call.data == "diary_mode": user_action_state[uid] = {'type': 'diary_wait'}; safe_edit(call, "📓 **РЕЖИМ ДНЕВНИКА**\nПиши...", types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back_to_menu")))
-        elif call.data == "back_to_menu": try: bot.delete_message(call.message.chat.id, call.message.message_id); except: pass; bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// СИСТЕМА АКТИВНА.", reply_markup=get_main_menu(uid))
+       elif call.data == "back_to_menu":
+            try:
+                bot.delete_message(call.message.chat.id, call.message.message_id)
+            except:
+                pass
+            bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// СИСТЕМА АКТИВНА.", reply_markup=get_main_menu(uid))
         elif call.data == "shop": safe_edit(call, SHOP_FULL, types.InlineKeyboardMarkup(row_width=1).add(types.InlineKeyboardButton("❄️ КУПИТЬ КРИО (200 XP)", callback_data="buy_cryo"), types.InlineKeyboardButton("⚡️ КУПИТЬ УСКОРИТЕЛЬ (500 XP)", callback_data="buy_accel"), types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back_to_menu")))
         elif call.data.startswith("buy_"):
             item = call.data.split("_")[1]
