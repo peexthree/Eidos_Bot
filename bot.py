@@ -9,7 +9,11 @@ import logic
 # Инициализация
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
+
+# STATES
 waiting_for_diary = {} 
+waiting_for_admin_sql = {}
+active_riddles = {} # {uid: "correct_answer_string"}
 
 # =============================================================
 # 📡 СИСТЕМНЫЕ УВЕДОМЛЕНИЯ
@@ -23,7 +27,6 @@ def broadcast_progress(uid, is_up, new_achs):
         
         if is_up:
             u = db.get_user(uid)
-            # Берем текст из конфига (он уже в HTML)
             msg = LEVEL_UP_MSG.get(u['level'], f"👑 <b>НОВЫЙ СТАТУС:</b> {TITLES.get(u['level'])}")
             bot.send_message(uid, msg, parse_mode="HTML")
     except Exception as e:
@@ -36,31 +39,26 @@ def broadcast_progress(uid, is_up, new_achs):
 @bot.message_handler(commands=['start'])
 def start(m):
     uid = m.from_user.id
-    # Парсинг рефералки
     args = m.text.split()
     ref_id = args[1] if len(args) > 1 else None
     if ref_id and str(ref_id) == str(uid): ref_id = None
     
-    # Регистрация
     if not db.get_user(uid):
         username = m.from_user.username if m.from_user.username else "Unknown"
         first_name = m.from_user.first_name if m.from_user.first_name else "User"
         db.create_user(uid, username, first_name, ref_id)
         if ref_id: 
-            # Начисляем бонус рефереру
             db.add_xp_to_user(int(ref_id), REFERRAL_BONUS)
             try:
                 bot.send_message(int(ref_id), f"🤝 <b>НОВЫЙ УЗЕЛ В СЕТИ.</b>\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
             except: pass
 
     welcome = random.choice(WELCOME_VARIANTS)
-    # Используем HTML для форматирования
     caption_text = f"<code>{welcome}</code>"
     
     try:
         bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=caption_text, reply_markup=kb.main_menu(db.get_user(uid)), parse_mode="HTML")
     except Exception as e:
-        # Фоллбэк, если картинка не грузится
         bot.send_message(m.chat.id, caption_text, reply_markup=kb.main_menu(db.get_user(uid)), parse_mode="HTML")
 
 # =============================================================
@@ -74,145 +72,151 @@ def handle_query(call):
         u = db.get_user(uid)
         if not u: return
 
-        # --- 💠 СИНХРОН И 📡 СИГНАЛ ---
+        # ХЕЛПЕР ОБНОВЛЕНИЯ МЕНЮ
+        def menu_update(text, markup=None):
+            try:
+                bot.edit_message_caption(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+            except Exception as e:
+                try:
+                    bot.delete_message(call.message.chat.id, call.message.message_id)
+                    bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption=text, reply_markup=markup, parse_mode="HTML")
+                except: pass
+
+        # --- 💠 СИНХРОН ---
         if call.data == "get_protocol":
             ok, rem = logic.check_cooldown(uid, 'protocol')
             if not ok:
-                bot.answer_callback_query(call.id, f"⏳ ПЕРЕГРЕВ: {rem//60}м", show_alert=True)
+                bot.answer_callback_query(call.id, f"⏳ Остынь: {rem//60}м", show_alert=True)
                 return
             
             content = logic.get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
             if content:
                 gain, is_up, achs = logic.process_xp_logic(uid, XP_GAIN)
                 db.update_user(uid, last_protocol_time=int(time.time()), notified=False)
-                
-                # HTML FORMAT
                 msg = f"🧬 <b>ПРОТОКОЛ</b>\n\n{content['text']}\n\n⚡️ +{gain} XP"
-                bot.send_message(uid, msg, reply_markup=kb.back_button(), parse_mode="HTML")
+                menu_update(msg, kb.back_button())
                 broadcast_progress(uid, is_up, achs)
             else:
-                bot.answer_callback_query(call.id, "⚠️ Нет данных для твоего уровня.", show_alert=True)
+                bot.answer_callback_query(call.id, "Пусто.", show_alert=True)
 
         elif call.data == "get_signal":
             ok, rem = logic.check_cooldown(uid, 'signal')
             if not ok:
-                bot.answer_callback_query(call.id, f"📡 ЖДИ: {rem}с.", show_alert=True)
+                bot.answer_callback_query(call.id, f"⏳ {rem} сек", show_alert=True)
                 return
-            
             content = logic.get_content_logic('signal')
             if content:
                 gain, is_up, achs = logic.process_xp_logic(uid, XP_SIGNAL)
                 db.update_user(uid, last_signal_time=int(time.time()))
-                
                 msg = f"📶 <b>СИГНАЛ</b>\n\n{content['text']}\n\n⚡️ +{gain} XP"
-                bot.send_message(uid, msg, reply_markup=kb.back_button(), parse_mode="HTML")
+                menu_update(msg, kb.back_button())
                 broadcast_progress(uid, is_up, achs)
 
-        # --- 🎰 РЫНОК И ПОКУПКИ ---
-        elif call.data == "shop":
-            bot.edit_message_caption(SHOP_FULL, call.message.chat.id, call.message.message_id, reply_markup=kb.shop_menu(u), parse_mode="HTML")
-
-        elif call.data == "buy_cryo":
-            if u['xp'] >= PRICES['cryo']:
-                db.update_user(uid, xp=u['xp']-PRICES['cryo'], cryo=u['cryo']+1, total_spent=u['total_spent']+PRICES['cryo'])
-                bot.answer_callback_query(call.id, "❄️ КРИО-КАПСУЛА ПРИОБРЕТЕНА", show_alert=True)
-                bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=kb.shop_menu(db.get_user(uid)))
-            else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
-
-        elif call.data == "buy_accel":
-            if u['accel_exp'] > time.time(): 
-                bot.answer_callback_query(call.id, "⚡️ УЖЕ АКТИВЕН", show_alert=True)
-            elif u['xp'] >= PRICES['accel']:
-                db.update_user(uid, xp=u['xp']-PRICES['accel'], accel_exp=int(time.time())+86400, total_spent=u['total_spent']+PRICES['accel'])
-                bot.answer_callback_query(call.id, "⚡️ РАЗГОН ВКЛЮЧЕН (24ч)", show_alert=True)
-                bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=kb.shop_menu(db.get_user(uid)))
-            else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
-        
-        elif call.data == "buy_decoder":
-            if u['decoder'] > 0:
-                 bot.answer_callback_query(call.id, "🔑 У ТЕБЯ УЖЕ ЕСТЬ ДЕШИФРАТОР", show_alert=True)
-            elif u['xp'] >= PRICES['decoder']:
-                db.update_user(uid, xp=u['xp']-PRICES['decoder'], decoder=1, total_spent=u['total_spent']+PRICES['decoder'])
-                bot.answer_callback_query(call.id, "🔑 ДОСТУП ПОВЫШЕН", show_alert=True)
-                bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=kb.shop_menu(db.get_user(uid)))
-            else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
-
-        elif call.data == "change_path":
-            if u['xp'] >= PATH_CHANGE_COST:
-                bot.edit_message_caption("🧬 <b>ВЫБЕРИ ВЕКТОР:</b>", call.message.chat.id, call.message.message_id, reply_markup=kb.path_selection_keyboard(), parse_mode="HTML")
-            else: bot.answer_callback_query(call.id, f"Нужно {PATH_CHANGE_COST} XP", show_alert=True)
-
-        elif call.data.startswith("set_path_"):
-            new_p = call.data.replace("set_path_", "")
-            db.update_user(uid, path=new_p, xp=u['xp']-PATH_CHANGE_COST)
-            bot.edit_message_caption("/// ВЕКТОР УСТАНОВЛЕН", call.message.chat.id, call.message.message_id, reply_markup=kb.main_menu(db.get_user(uid)), parse_mode="HTML")
-
-        # --- 🌑 НУЛЕВОЙ СЛОЙ (РЕЙДЫ) ---
+        # --- 🌑 РЕЙД V2 ---
         elif call.data == "zero_layer_menu":
              msg = (f"<b>🌑 НУЛЕВОЙ СЛОЙ</b>\n\n"
-                    f"Зона высокого риска. Здесь нет законов физики.\n"
-                    f"Стоимость входа: <b>{RAID_COST} XP</b>\n\n"
-                    f"Твой баланс: {u['xp']} XP")
+                    f"Цена входа: <b>{RAID_COST} XP</b>\n"
+                    f"Цена шага: <b>{RAID_STEP_COST} XP</b>\n"
+                    f"Твой баланс: {u['xp']} XP\n\n"
+                    f"<i>Здесь ты тратишь реальность, чтобы найти истину.</i>")
              
-             # Клавиатура входа
              m = types.InlineKeyboardMarkup()
              if u['xp'] >= RAID_COST:
-                 m.add(types.InlineKeyboardButton(f"🚀 ВОЙТИ (-{RAID_COST})", callback_data="raid_start"))
-             else:
-                 m.add(types.InlineKeyboardButton("🔒 НЕДОСТАТОЧНО ЭНЕРГИИ", callback_data="shop"))
+                 m.add(types.InlineKeyboardButton("🚀 ВОЙТИ", callback_data="raid_start"))
              m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
-             
-             bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=m, parse_mode="HTML")
+             menu_update(msg, m)
 
         elif call.data == "raid_start":
              if u['xp'] < RAID_COST: return
-             # Списываем XP и создаем сессию
              db.update_user(uid, xp=u['xp'] - RAID_COST)
              
              conn = db.get_db_connection()
              with conn.cursor() as cur:
-                 cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,)) # Очистка старой
+                 cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
                  cur.execute("INSERT INTO raid_sessions (uid, start_time) VALUES (%s, %s)", (uid, int(time.time())))
                  conn.commit()
              conn.close()
              
-             # Первый шаг
              handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
 
-        elif call.data == "raid_step" or call.data.startswith("r_ans_"):
-             # Проверка ответа на загадку (если был)
-             # В этой версии упростим: любой ответ ведет дальше, но правильный дает бонус?
-             # Пока просто логика шага
-             
-             alive, msg, riddle = logic.raid_step_logic(uid)
-             
+        elif call.data == "raid_step":
+             alive, msg, riddle, u_new = logic.raid_step_logic(uid)
              if not alive:
-                 # Гейм овер
-                 bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.back_button(), parse_mode="HTML")
+                 menu_update(msg, kb.back_button())
              else:
-                 # Продолжаем
-                 markup = kb.riddle_keyboard(riddle['options'], riddle['correct']) if riddle else kb.raid_keyboard()
-                 bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+                 if riddle:
+                     active_riddles[uid] = riddle['correct']
+                     menu_update(msg, kb.riddle_keyboard(riddle['options']))
+                 else:
+                     menu_update(msg, kb.raid_action_keyboard())
+
+        elif call.data.startswith("r_check_"):
+             ans = call.data.replace("r_check_", "")
+             correct = active_riddles.get(uid, "")
+             
+             if ans in correct: 
+                 bot.answer_callback_query(call.id, "✅ ВЕРНО! +10 XP", show_alert=True)
+                 db.add_xp_to_user(uid, 10)
+                 handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+             else:
+                 bot.answer_callback_query(call.id, "❌ ОШИБКА! УДАР ТОКОМ.", show_alert=True)
+                 conn = db.get_db_connection()
+                 with conn.cursor() as cur:
+                     cur.execute("UPDATE raid_sessions SET signal = signal - 25 WHERE uid = %s", (uid,))
+                     conn.commit()
+                 conn.close()
+                 handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
 
         elif call.data == "raid_extract":
              conn = db.get_db_connection()
              with conn.cursor(cursor_factory=RealDictCursor) as cur:
                  cur.execute("SELECT buffer_xp FROM raid_sessions WHERE uid = %s", (uid,))
                  res = cur.fetchone()
-                 if res:
-                     loot = res['buffer_xp']
-                     cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
-                     conn.commit()
-                     
-                     gain, is_up, achs = logic.process_xp_logic(uid, loot, source='raid')
-                     bot.edit_message_caption(f"🚁 <b>ЭВАКУАЦИЯ УСПЕШНА</b>\n\nВынесено: +{loot} XP", call.message.chat.id, call.message.message_id, reply_markup=kb.back_button(), parse_mode="HTML")
-                     broadcast_progress(uid, is_up, achs)
-                 else:
-                     bot.answer_callback_query(call.id, "Ошибка шлюза", show_alert=True)
+                 loot = res['buffer_xp'] if res else 0
+                 cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
+                 conn.commit()
              conn.close()
+             
+             gain, is_up, achs = logic.process_xp_logic(uid, loot, source='raid')
+             msg = f"🚁 <b>ЭВАКУАЦИЯ УСПЕШНА</b>\n\nВынесено: +{loot} XP\nБаланс: {u['xp']+loot}"
+             menu_update(msg, kb.back_button())
+             broadcast_progress(uid, is_up, achs)
 
+        # --- 🔗 СИНДИКАТ ---
+        elif call.data == "referral":
+             refs = db.get_referrals_stats(uid)
+             count = len(refs)
+             earnings = sum([r['generated'] for r in refs])
+             
+             txt = (f"<b>🔗 СИНДИКАТ</b>\n\n"
+                    f"Твоя сеть: {count} узлов\n"
+                    f"Пассивный доход: {earnings} XP\n\n"
+                    f"📜 <b>СПИСОК:</b>\n")
+             
+             if not refs: txt += "<i>Пусто. Распространяй вирус.</i>"
+             else:
+                 for r in refs[:10]:
+                     txt += f"• {r['first_name']} (Lvl {r['level']}) — дал {r['generated']} XP\n"
+             
+             txt += f"\n🔗 Твоя ссылка:\n<code>https://t.me/{BOT_USERNAME}?start={uid}</code>"
+             menu_update(txt, kb.back_button())
 
-        # --- 👤 ПРОФИЛЬ ---
+        # --- ⚡️ ADMIN PANEL ---
+        elif call.data == "admin_panel" and str(uid) == str(ADMIN_ID):
+             menu_update("⚡️ <b>GOD MODE CONSOLE</b>", kb.admin_keyboard())
+
+        elif call.data == "admin_sql":
+             waiting_for_admin_sql[uid] = True
+             bot.send_message(uid, "⌨️ <b>Введи SQL запрос:</b>\nНапример: <code>SELECT * FROM users LIMIT 5</code>", parse_mode="HTML")
+
+        elif call.data == "admin_users_count":
+             res = db.admin_exec_query("SELECT COUNT(*) FROM users")
+             bot.answer_callback_query(call.id, f"Users: {res}", show_alert=True)
+
+        # --- СТАНДАРТНЫЕ ---
+        elif call.data == "shop":
+            menu_update(SHOP_FULL, kb.shop_menu(u))
+        
         elif call.data == "profile":
             percent, xp_needed = logic.get_level_progress_stats(u)
             p_bar = kb.get_progress_bar(percent, 100)
@@ -223,7 +227,6 @@ def handle_query(call):
                     achs = [row[0] for row in cur.fetchall()]
             
             ach_names = ", ".join([ACHIEVEMENTS_LIST[a]['name'] for a in achs if a in ACHIEVEMENTS_LIST]) or "Нет"
-            
             accel_info = f"✅ ({int((u['accel_exp']-time.time())//60)}м)" if u['accel_exp'] > time.time() else "❌"
 
             msg = (f"👤 <b>ТЕРМИНАЛ: {u['first_name']}</b>\n"
@@ -240,96 +243,119 @@ def handle_query(call):
                    f"━━━━━━━━━━━━━━\n"
                    f"🏆 <b>ДОСТИЖЕНИЯ:</b>\n<i>{ach_names}</i>")
             
-            bot.edit_message_caption(msg, call.message.chat.id, call.message.message_id, reply_markup=kb.main_menu(u), parse_mode="HTML")
+            menu_update(msg, kb.main_menu(u))
 
-        # --- 🏆 ТОП-10 И ДРУГОЕ ---
         elif call.data == "leaderboard":
             top = db.get_leaderboard()
             txt = "🏆 <b>ТОП-10 АРХИТЕКТОРОВ:</b>\n\n"
             for i, r in enumerate(top, 1): 
                 txt += f"{i}. {r['first_name']} — <code>{r['xp']} XP</code> (Lvl {r['level']})\n"
-            bot.send_message(uid, txt, parse_mode="HTML", reply_markup=kb.back_button())
+            menu_update(txt, kb.back_button())
 
         elif call.data == "guide": 
-            bot.send_message(uid, GUIDE_FULL, parse_mode="HTML")
-        
-        elif call.data == "referral": 
-            bot.send_message(uid, f"{SYNDICATE_FULL}\n\n🔗 Ссылка: <code>https://t.me/{BOT_USERNAME}?start={uid}</code>", parse_mode="HTML")
-        
-        # --- 📓 ДНЕВНИК ---
+            menu_update(GUIDE_FULL, kb.back_button())
+
         elif call.data == "diary_mode":
             entries = db.get_diary_entries(uid)
             txt = "📓 <b>ДНЕВНИК ИНСАЙТОВ</b>\n\n"
-            if not entries: 
-                txt += "<i>Пусто. Запиши свою первую мысль.</i>"
+            if not entries: txt += "<i>Пусто. Запиши свою первую мысль.</i>"
             else:
                 for e in entries: 
-                    # Форматирование даты
                     d = e['created_at'].strftime('%d.%m') if hasattr(e['created_at'], 'strftime') else "Unknown"
                     txt += f"• [{d}] {e['entry'][:50]}...\n"
             
             m = types.InlineKeyboardMarkup()
             m.add(types.InlineKeyboardButton("➕ ЗАПИСАТЬ", callback_data="diary_add"))
             m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+            menu_update(txt, m)
             
-            bot.edit_message_caption(txt, call.message.chat.id, call.message.message_id, reply_markup=m, parse_mode="HTML")
-
         elif call.data == "diary_add":
             waiting_for_diary[uid] = True
             bot.send_message(uid, "📝 Отправь инсайт следующим сообщением (до 500 символов).")
 
-        elif call.data == "back": 
-            # Якорь на картинку
-            caption = "/// ТЕРМИНАЛ ОНЛАЙН"
-            try:
-                bot.edit_message_caption(caption, call.message.chat.id, call.message.message_id, reply_markup=kb.main_menu(u), parse_mode="HTML")
-            except:
-                # Если старое сообщение было без картинки (текст), то шлем новое фото
-                bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption=caption, reply_markup=kb.main_menu(u), parse_mode="HTML")
+        elif call.data == "back":
+            menu_update("/// ТЕРМИНАЛ ОНЛАЙН", kb.main_menu(u))
+            
+        elif call.data == "buy_cryo":
+            if u['xp'] >= PRICES['cryo']:
+                db.update_user(uid, xp=u['xp']-PRICES['cryo'], cryo=u['cryo']+1, total_spent=u['total_spent']+PRICES['cryo'])
+                bot.answer_callback_query(call.id, "❄️ КРИО-КАПСУЛА ПРИОБРЕТЕНА", show_alert=True)
+                menu_update(SHOP_FULL, kb.shop_menu(db.get_user(uid)))
+            else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
+            
+        elif call.data == "buy_accel":
+             if u['accel_exp'] > time.time(): 
+                 bot.answer_callback_query(call.id, "⚡️ УЖЕ АКТИВЕН", show_alert=True)
+             elif u['xp'] >= PRICES['accel']:
+                 db.update_user(uid, xp=u['xp']-PRICES['accel'], accel_exp=int(time.time())+86400, total_spent=u['total_spent']+PRICES['accel'])
+                 bot.answer_callback_query(call.id, "⚡️ РАЗГОН ВКЛЮЧЕН (24ч)", show_alert=True)
+                 menu_update(SHOP_FULL, kb.shop_menu(db.get_user(uid)))
+             else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
+             
+        elif call.data == "buy_decoder":
+            if u['decoder'] > 0:
+                 bot.answer_callback_query(call.id, "🔑 У ТЕБЯ УЖЕ ЕСТЬ ДЕШИФРАТОР", show_alert=True)
+            elif u['xp'] >= PRICES['decoder']:
+                db.update_user(uid, xp=u['xp']-PRICES['decoder'], decoder=1, total_spent=u['total_spent']+PRICES['decoder'])
+                bot.answer_callback_query(call.id, "🔑 ДОСТУП ПОВЫШЕН", show_alert=True)
+                menu_update(SHOP_FULL, kb.shop_menu(db.get_user(uid)))
+            else: bot.answer_callback_query(call.id, "❌ МАЛО XP", show_alert=True)
+            
+        elif call.data == "change_path":
+             if u['xp'] >= PATH_CHANGE_COST:
+                 menu_update("🧬 <b>ВЫБЕРИ ВЕКТОР:</b>", kb.path_selection_keyboard())
+             else: bot.answer_callback_query(call.id, f"Нужно {PATH_CHANGE_COST} XP", show_alert=True)
 
-        # --- ADMIN PANEL ---
-        elif call.data == "admin_panel" and uid == ADMIN_ID:
-             bot.send_message(uid, "⚡️ ADMIN TERMINAL ACTIVE", reply_markup=kb.admin_keyboard())
-        
-        # Финализация коллбека, чтобы не крутился спиннер
+        elif call.data.startswith("set_path_"):
+             new_p = call.data.replace("set_path_", "")
+             db.update_user(uid, path=new_p, xp=u['xp']-PATH_CHANGE_COST)
+             menu_update("/// ВЕКТОР УСТАНОВЛЕН", kb.main_menu(db.get_user(uid)))
+
         bot.answer_callback_query(call.id)
 
     except Exception as e:
-        print(f"/// HANDLER ERROR: {e}")
-        try:
-            bot.answer_callback_query(call.id, "❌ GLITCH DETECTED", show_alert=True)
-        except: pass
+        print(f"ERROR: {e}")
 
-# =============================================================
-# 📨 ОБРАБОТЧИК СООБЩЕНИЙ (ДНЕВНИК И ПР.)
-# =============================================================
+# --- MESSAGE HANDLERS ---
 
 @bot.message_handler(func=lambda m: waiting_for_diary.get(m.from_user.id))
 def save_diary(m):
     uid = m.from_user.id
     waiting_for_diary[uid] = False
     db.add_diary_entry(uid, m.text[:500])
-    gain, is_up, achs = logic.process_xp_logic(uid, 5) # +5 XP за рефлексию
+    gain, is_up, achs = logic.process_xp_logic(uid, 5) 
     bot.send_message(uid, "✅ Инсайт сохранен в Дневник. +5 XP", reply_markup=kb.main_menu(db.get_user(uid)), parse_mode="HTML")
     broadcast_progress(uid, is_up, achs)
 
-# =============================================================
-# 🔌 WEBHOOK & SERVER
-# =============================================================
+@bot.message_handler(func=lambda m: waiting_for_admin_sql.get(m.from_user.id))
+def admin_sql_handler(m):
+    uid = m.from_user.id
+    waiting_for_admin_sql[uid] = False
+    res = db.admin_exec_query(m.text)
+    bot.send_message(uid, f"📊 <b>RESULT:</b>\n<code>{res}</code>", parse_mode="HTML")
+
+# --- WEBHOOK ---
 
 @app.route('/health')
 def health(): return 'OK', 200
 
 @app.route('/', methods=['POST'])
 def webhook():
-    bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+    if flask.request.headers.get('content-type') == 'application/json':
+        try:
+            json_string = flask.request.get_data().decode('utf-8')
+            update = telebot.types.Update.de_json(json_string)
+            bot.process_new_updates([update])
+            return 'OK', 200
+        except Exception as e:
+            print(f"/// WEBHOOK ERROR: {e}")
+            return 'ERROR', 500
     return 'OK', 200
 
 def system_startup():
     print("/// EIDOS CORE STARTING...")
     db.init_db()
     
-    # Настройка вебхука
     if WEBHOOK_URL:
         try:
             bot.remove_webhook()
@@ -339,7 +365,6 @@ def system_startup():
         except Exception as e:
             print(f"/// WEBHOOK ERROR: {e}")
     
-    # Воркер уведомлений
     while True:
         try:
             time.sleep(60)
@@ -349,7 +374,6 @@ def system_startup():
                     cur.execute("SELECT uid, last_protocol_time, accel_exp FROM users WHERE notified = FALSE")
                     rows = cur.fetchall()
                 conn.close()
-                
                 for row in rows:
                     cd = COOLDOWN_ACCEL if row['accel_exp'] > time.time() else COOLDOWN_BASE
                     if time.time() - row['last_protocol_time'] >= cd:
@@ -357,12 +381,9 @@ def system_startup():
                             kb_start = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 НАЧАТЬ", callback_data="get_protocol"))
                             bot.send_message(row['uid'], "⚡️ <b>СИСТЕМА ГОТОВА К СИНХРОНИЗАЦИИ.</b>", reply_markup=kb_start, parse_mode="HTML")
                             db.update_user(row['uid'], notified=True)
-                        except Exception as e:
-                            print(f"/// NOTIFY ERROR for {row['uid']}: {e}")
-        except Exception as e:
-            print(f"/// WORKER ERROR: {e}")
+                        except: pass
+        except: pass
 
-# Запуск в отдельном потоке, чтобы Flask не блокировал воркера
 threading.Thread(target=system_startup, daemon=True).start()
 
 if __name__ == "__main__":
