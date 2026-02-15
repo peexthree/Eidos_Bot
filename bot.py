@@ -56,12 +56,41 @@ def handle_query(call):
     elif call.data == "back":
         bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption="/// ONLINE", reply_markup=kb.main_menu(uid))
 
-@app.route('/', methods=['POST'])
-def webhook():
-    bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+# --- 9. ЗАПУСК И МАРШРУТЫ (SAFE BOOT PROTOCOL) ---
+@app.route('/health', methods=['GET'])
+def health_check():
     return 'OK', 200
 
+@app.route('/', methods=['GET', 'POST'])
+def webhook():
+    if flask.request.method == 'POST':
+        try:
+            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+            return 'OK', 200
+        except Exception as e:
+            print(f"/// WEBHOOK ERROR: {e}")
+            return 'Error', 500
+    return 'Eidos SQL Interface is Operational', 200
+
+# ФОНОВЫЙ ЗАПУСК СИСТЕМ (ЧТОБЫ НЕ БЛОКИРОВАТЬ СТАРТ)
+def system_startup():
+    with app.app_context():
+        # Даем серверу продышаться перед нагрузкой
+        time.sleep(2)
+        print("/// SYSTEM STARTUP INITIATED...")
+        init_db()
+        if WEBHOOK_URL:
+            try:
+                bot.remove_webhook()
+                bot.set_webhook(url=WEBHOOK_URL)
+                print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+            except Exception as e:
+                print(f"/// WEBHOOK ERROR: {e}")
+        # Запускаем воркер уведомлений
+        notification_worker()
+
+threading.Thread(target=system_startup, daemon=True).start()
+
 if __name__ == "__main__":
-    db.init_db()
-    if WEBHOOK_URL: bot.set_webhook(url=WEBHOOK_URL)
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host="0.0.0.0", port=port)
