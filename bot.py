@@ -58,6 +58,7 @@ def handle_query(call):
 
 # --- НОВОЕ: ОБЯЗАТЕЛЬНЫЕ МАРШРУТЫ ДЛЯ RENDER ---
 
+
 @app.route('/health', methods=['GET'])
 def health_check():
     return 'OK', 200
@@ -65,27 +66,34 @@ def health_check():
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if flask.request.method == 'POST':
-        bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
-        return 'OK', 200
-    return 'Eidos System: Operational', 200
-
-def system_startup():
-    """Фоновая инициализация базы и вебхука"""
-    time.sleep(2)
-    print("/// SYSTEM STARTUP INITIATED...")
-    db.init_db() # Теперь вызывается через db.
-    if WEBHOOK_URL:
         try:
-            bot.remove_webhook()
-            time.sleep(1)
-            bot.set_webhook(url=WEBHOOK_URL)
-            print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+            return 'OK', 200
         except Exception as e:
             print(f"/// WEBHOOK ERROR: {e}")
+            return 'Error', 500
+    return 'Eidos SQL Interface is Operational', 200
 
-# Запуск стартового потока
+# ФОНОВЫЙ ЗАПУСК СИСТЕМ (ЧТОБЫ НЕ БЛОКИРОВАТЬ СТАРТ)
+def system_startup():
+    with app.app_context():
+        # Даем серверу продышаться перед нагрузкой
+        time.sleep(2)
+        print("/// SYSTEM STARTUP INITIATED...")
+        init_db()
+        if WEBHOOK_URL:
+            try:
+                bot.remove_webhook()
+                bot.set_webhook(url=WEBHOOK_URL)
+                print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+            except Exception as e:
+                print(f"/// WEBHOOK ERROR: {e}")
+        # Запускаем воркер уведомлений
+        notification_worker()
+
 threading.Thread(target=system_startup, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host="0.0.0.0", port=port)
+
