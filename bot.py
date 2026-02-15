@@ -1013,44 +1013,41 @@ def callback(call):
             safe_edit(call, GUIDE_FULL, types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔙 В ТЕРМИНАЛ", callback_data="back_to_menu")))
     except Exception as e: print(f"/// CALLBACK ERROR: {e}")
 
-# ==========================================
-# 6. ЗАПУСК ДЛЯ GUNICORN (ФИКС)
-# ==========================================
+# --- 9. ЗАПУСК И МАРШРУТЫ (SAFE BOOT PROTOCOL) ---
 @app.route('/health', methods=['GET'])
-def health(): return 'OK', 200
+def health_check():
+    return 'OK', 200
 
-@app.route('/', methods=['POST'])
+@app.route('/', methods=['GET', 'POST'])
 def webhook():
-    try: bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))]); return 'OK', 200
-    except: return 'Error', 500
-
-def notification_worker():
-    while True:
+    if flask.request.method == 'POST':
         try:
-            time.sleep(60); conn = get_db_connection()
-            if not conn: continue
-            cur = conn.cursor(cursor_factory=RealDictCursor); cur.execute("SELECT * FROM users WHERE notified = FALSE")
-            for u in cur.fetchall():
-                cd = COOLDOWN_ACCEL if u['accel_exp'] > time.time() else COOLDOWN_BASE
-                if u['last_protocol_time'] > 0 and (time.time() - u['last_protocol_time'] >= cd):
-                    try: bot.send_message(u['uid'], "⚡️ READY", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 GO", callback_data="get_protocol"))); update_user_db(u['uid'], notified=True)
-                    except: pass
-            conn.close()
-        except: pass
+            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+            return 'OK', 200
+        except Exception as e:
+            print(f"/// WEBHOOK ERROR: {e}")
+            return 'Error', 500
+    return 'Eidos SQL Interface is Operational', 200
 
-def background_tasks():
+# ФОНОВЫЙ ЗАПУСК СИСТЕМ (ЧТОБЫ НЕ БЛОКИРОВАТЬ СТАРТ)
+def system_startup():
     with app.app_context():
-        try:
-            init_db()
-            if WEBHOOK_URL:
+        # Даем серверу продышаться перед нагрузкой
+        time.sleep(2)
+        print("/// SYSTEM STARTUP INITIATED...")
+        init_db()
+        if WEBHOOK_URL:
+            try:
                 bot.remove_webhook()
-                time.sleep(1)
                 bot.set_webhook(url=WEBHOOK_URL)
-        except Exception as e: print(e)
+                print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+            except Exception as e:
+                print(f"/// WEBHOOK ERROR: {e}")
+        # Запускаем воркер уведомлений
         notification_worker()
 
-# ЗАПУСК ПОТОКОВ ВНЕ "IF MAIN" (ЭТО РЕШАЕТ ПРОБЛЕМУ RENDER)
-threading.Thread(target=background_tasks, daemon=True).start()
+threading.Thread(target=system_startup, daemon=True).start()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host="0.0.0.0", port=port)
