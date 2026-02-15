@@ -1014,53 +1014,43 @@ def callback(call):
     except Exception as e: print(f"/// CALLBACK ERROR: {e}")
 
 # ==========================================
-# 7. ЗАПУСК И МАРШРУТЫ (RENDER FIX)
+# 6. ЗАПУСК ДЛЯ GUNICORN (ФИКС)
 # ==========================================
 @app.route('/health', methods=['GET'])
-def health_check():
-    return 'OK', 200
+def health(): return 'OK', 200
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['POST'])
 def webhook():
-    if flask.request.method == 'POST':
-        try:
-            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
-            return 'OK', 200
-        except Exception as e:
-            print(f"/// WEBHOOK ERROR: {e}")
-            return 'Error', 500
-    return 'Eidos SQL Interface is Operational', 200
+    try: bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))]); return 'OK', 200
+    except: return 'Error', 500
 
-def system_startup():
-    """Фоновый запуск БД и воркеров (не блокирует Flask)"""
+def notification_worker():
+    while True:
+        try:
+            time.sleep(60); conn = get_db_connection()
+            if not conn: continue
+            cur = conn.cursor(cursor_factory=RealDictCursor); cur.execute("SELECT * FROM users WHERE notified = FALSE")
+            for u in cur.fetchall():
+                cd = COOLDOWN_ACCEL if u['accel_exp'] > time.time() else COOLDOWN_BASE
+                if u['last_protocol_time'] > 0 and (time.time() - u['last_protocol_time'] >= cd):
+                    try: bot.send_message(u['uid'], "⚡️ READY", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🧬 GO", callback_data="get_protocol"))); update_user_db(u['uid'], notified=True)
+                    except: pass
+            conn.close()
+        except: pass
+
+def background_tasks():
     with app.app_context():
-        # Даем серверу продышаться перед нагрузкой
-        time.sleep(2)
-        print("/// SYSTEM STARTUP INITIATED...")
-        
-        # 1. Инициализация БД
         try:
             init_db()
-        except Exception as e:
-            print(f"/// DB STARTUP ERROR: {e}")
-            
-        # 2. Установка вебхука
-        if WEBHOOK_URL:
-            try:
+            if WEBHOOK_URL:
                 bot.remove_webhook()
                 time.sleep(1)
                 bot.set_webhook(url=WEBHOOK_URL)
-                print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
-            except Exception as e:
-                print(f"/// WEBHOOK ERROR: {e}")
-        
-        # 3. Запуск воркера уведомлений
+        except Exception as e: print(e)
         notification_worker()
 
+# ЗАПУСК ПОТОКОВ ВНЕ "IF MAIN" (ЭТО РЕШАЕТ ПРОБЛЕМУ RENDER)
+threading.Thread(target=background_tasks, daemon=True).start()
+
 if __name__ == "__main__":
-    # Запускаем фоновые задачи в отдельном потоке
-    threading.Thread(target=system_startup, daemon=True).start()
-    
-    # Запускаем Flask в основном потоке (чтобы Render видел порт)
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
