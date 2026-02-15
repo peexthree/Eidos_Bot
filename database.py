@@ -305,3 +305,46 @@ def get_diary_entries(uid, limit=5):
             return cur.fetchall()
     finally:
         conn.close()
+
+# =============================================================
+# 🔗 СИНДИКАТ (РЕФЕРАЛЫ)
+# =============================================================
+
+def get_referrals_stats(uid):
+    """Возвращает список рефералов и сколько они принесли (эмуляция 10% от их XP)"""
+    conn = get_db_connection()
+    if not conn: return []
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Мы считаем "Заработок" как 10% от текущего XP реферала (упрощенная модель)
+            # Или просто показываем их статус
+            cur.execute("""
+                SELECT username, first_name, level, xp, 
+                       TRUNC(xp * 0.1) as generated 
+                FROM users WHERE referrer = %s ORDER BY xp DESC
+            """, (str(uid),))
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+# =============================================================
+# ⚡️ АДМИН-ПАНЕЛЬ (GOD MODE)
+# =============================================================
+
+def admin_exec_query(query):
+    """Выполняет любой SQL запрос (SELECT/UPDATE/DELETE)"""
+    conn = get_db_connection()
+    if not conn: return "❌ No Connection"
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query)
+            if query.strip().upper().startswith("SELECT"):
+                res = cur.fetchall()
+                return str(res)[:3500] # Обрезаем, чтобы влезло в сообщение
+            else:
+                conn.commit()
+                return f"✅ DONE. Rows affected: {cur.rowcount}"
+    except Exception as e:
+        return f"❌ ERROR: {e}"
+    finally:
+        conn.close()
