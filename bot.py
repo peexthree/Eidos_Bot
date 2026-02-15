@@ -83,31 +83,59 @@ def handle_query(call):
 
 
 @app.route('/', methods=['GET', 'POST'])
+
 def webhook():
+
     if flask.request.method == 'POST':
+
         bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+
         return 'OK', 200
+
     return 'Eidos System: Operational', 200
 
+
+
 def system_startup():
+
     """Инициализация базы и вебхука"""
+
     time.sleep(2)
+
     print("/// SYSTEM STARTUP INITIATED...")
+
     db.init_db()
+
     if WEBHOOK_URL:
+
         try:
+
             bot.remove_webhook()
+
             time.sleep(1)
+
             bot.set_webhook(url=WEBHOOK_URL)
+
             print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+
         except Exception as e:
+
             print(f"/// WEBHOOK ERROR: {e}")
+
     # Запускаем воркер уведомлений
+
     notification_worker()
 
+
+
 # Запуск в отдельном потоке, чтобы не блокировать Flask
+
 threading.Thread(target=system_startup, daemon=True).start()
 
+
+
 if __name__ == "__main__":
+
     port = int(os.environ.get('PORT', 10000))
+
     app.run(host="0.0.0.0", port=port)
