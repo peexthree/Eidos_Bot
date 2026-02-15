@@ -519,26 +519,54 @@ def text_input_handler(m):
             user_action_state.pop(ADMIN_ID)
 
 # --- АДМИН HANDLER ---
+# --- АДМИН HANDLER ДЛЯ КОМАНД ---
 @bot.message_handler(content_types=['text', 'photo'])
 def admin_cmd_handler(message):
     if message.from_user.id == ADMIN_ID:
-        if message.text == '/refresh': init_db(); bot.send_message(message.chat.id, "✅ БД проверена.")
+        if message.text == '/refresh':
+            init_db()
+            bot.send_message(message.chat.id, "✅ Структура БД проверена.")
+        
         elif message.text and message.text.startswith('/telegraph '):
             parts = message.text.split(maxsplit=2)
             if len(parts) >= 2:
-                url, text = parts[1], parts[2] if len(parts) > 2 else "/// АРХИВ ДЕШИФРОВАН"
-                markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("📂 ОТКРЫТЬ", url=url.split("google.com/search?q=")[-1] if "google.com" in url else url), types.InlineKeyboardButton("📶 ПОЛУЧИТЬ СИГНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=signal"))
+                url = parts[1]
+                text = parts[2] if len(parts) > 2 else "/// АРХИВ ДЕШИФРОВАН"
+                clean_url = url.split("google.com/search?q=")[-1] if "google.com" in url else url
+                markup = types.InlineKeyboardMarkup().add(
+                    types.InlineKeyboardButton("📂 ОТКРЫТЬ ДОСЬЕ", url=clean_url),
+                    types.InlineKeyboardButton("📶 ПОЛУЧИТЬ СИГНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=signal")
+                )
                 bot.send_message(CHANNEL_ID, text, reply_markup=markup, parse_mode="Markdown")
+        
         elif message.text and message.text.startswith('/post '):
             markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 ВОЙТИ В ТЕРМИНАЛ", url=f"https://t.me/{BOT_USERNAME}?start=channel"))
             bot.send_message(CHANNEL_ID, message.text[6:], reply_markup=markup, parse_mode="Markdown")
+        
         elif message.text and message.text.startswith('/ban '): 
-            try: target_id = int(message.text.split()[1]); conn = get_db_connection(); cur = conn.cursor(); cur.execute("DELETE FROM users WHERE uid = %s", (target_id,)); conn.commit(); conn.close(); bot.send_message(message.chat.id, f"🚫 УЗЕЛ {target_id} СТЕРТ.")
-            except: bot.send_message(message.chat.id, "❌ Ошибка ID.")
+            try:
+                target_id = int(message.text.split()[1])
+                conn = get_db_connection()
+                cur = conn.cursor()
+                cur.execute("DELETE FROM users WHERE uid = %s", (target_id,))
+                conn.commit()
+                conn.close()
+                bot.send_message(message.chat.id, f"🚫 УЗЕЛ {target_id} СТЕРТ.")
+            except:
+                bot.send_message(message.chat.id, "❌ Ошибка ID.")
+        
         elif message.text and message.text.startswith('/give_xp '):
-            try: _, t_id, amount = message.text.split(); t_id, amount = int(t_id), int(amount); u = get_user_from_db(t_id); 
-            if u: update_user_db(t_id, xp=u['xp'] + amount); bot.send_message(t_id, f"⚡️ Начислено {amount} XP."); bot.send_message(message.chat.id, "✅ Начислено.")
-            except: bot.send_message(message.chat.id, "❌ Формат: /give_xp ID СУММА")
+            try:
+                _, t_id, amount = message.text.split()
+                t_id = int(t_id)
+                amount = int(amount)
+                u = get_user_from_db(t_id)
+                if u:
+                    update_user_db(t_id, xp=u['xp'] + amount)
+                    bot.send_message(t_id, f"⚡️ **ВМЕШАТЕЛЬСТВО АРХИТЕКТОРА:** Начислено {amount} XP.")
+                    bot.send_message(message.chat.id, "✅ Начислено.")
+            except:
+                bot.send_message(message.chat.id, "❌ Формат: /give_xp ID СУММА")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
