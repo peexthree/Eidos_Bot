@@ -615,24 +615,29 @@ def notification_worker():
             conn.close()
         except: pass
 
-# --- ЗАПУСК ---
-@app.route('/health', methods=['GET'])
-def health(): return 'OK', 200
-
-@app.route('/', methods=['POST'])
-def webhook():
-    try: bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))]); return 'OK', 200
-    except: return 'Error', 500
+# --- ИСПРАВЛЕННЫЙ БЛОК ЗАПУСКА ---
 
 def system_startup():
+    """Безопасный запуск фоновых систем"""
     with app.app_context():
-        time.sleep(2); init_db()
-        if WEBHOOK_URL:
-            try: bot.remove_webhook(); bot.set_webhook(url=WEBHOOK_URL)
-            except: pass
+        try:
+            print("/// ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ...")
+            init_db()
+            if WEBHOOK_URL:
+                bot.remove_webhook()
+                time.sleep(1)
+                bot.set_webhook(url=WEBHOOK_URL)
+                print(f"/// WEBHOOK УСТАНОВЛЕН: {WEBHOOK_URL}")
+        except Exception as e:
+            print(f"/// ОШИБКА СТАРТА: {e}")
+        
+        # Запуск воркера уведомлений в этом же фоновом потоке
         notification_worker()
 
-threading.Thread(target=system_startup, daemon=True).start()
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    # 1. Сначала запускаем фоновый поток для логики бота
+    threading.Thread(target=system_startup, daemon=True).start()
+    
+    # 2. МГНОВЕННО запускаем Flask, чтобы Render увидел открытый порт
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host="0.0.0.0", port=port)
