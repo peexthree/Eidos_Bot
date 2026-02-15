@@ -2,10 +2,6 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from config import DATABASE_URL
 
-# =============================================================
-# 1. ЯДРО СИСТЕМЫ (БЕЗОПАСНЫЕ ПОДКЛЮЧЕНИЯ)
-# =============================================================
-
 def get_db_connection():
     try:
         return psycopg2.connect(DATABASE_URL, sslmode='require')
@@ -14,10 +10,9 @@ def get_db_connection():
         return None
 
 def init_db():
-    """Инициализация, авто-патчинг и оптимизация (Индексы)"""
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            # Таблица пользователей (все поля из твоего идеального конфига)
+            # Таблица пользователей
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     uid BIGINT PRIMARY KEY,
@@ -42,47 +37,34 @@ def init_db():
                     total_spent INTEGER DEFAULT 0
                 );
             ''')
-
             # Таблица достижений
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS achievements (
-                    uid BIGINT,
-                    ach_id TEXT,
-                    date_received TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    uid BIGINT, ach_id TEXT, date_received TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY(uid, ach_id)
                 );
             ''')
-
-            # Таблица открытых знаний (Архив)
+            # Таблица открытых знаний
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS user_knowledge (
-                    uid BIGINT,
-                    content_id INTEGER,
-                    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    uid BIGINT, content_id INTEGER, unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY(uid, content_id)
                 );
             ''')
-
-            # ОПТИМИЗАЦИЯ: Индексы для скорости (Рейтинг, Рефералы, Активность)
+            # ТАБЛИЦА ДНЕВНИКА
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS diary (
+                    id SERIAL PRIMARY KEY, uid BIGINT, entry TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ''')
+            
+            # Индексы и патчинг
             cur.execute("CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC);")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_users_referrer ON users(referrer);")
-
-            # АВТО-ПАТЧИНГ (Добавляем поля, если их нет)
-            patch_cols = [
-                ("ref_count", "INTEGER DEFAULT 0"),
-                ("know_count", "INTEGER DEFAULT 0"),
-                ("total_spent", "INTEGER DEFAULT 0"),
-                ("max_depth", "INTEGER DEFAULT 0")
-            ]
+            patch_cols = [("ref_count", "INTEGER DEFAULT 0"), ("know_count", "INTEGER DEFAULT 0"), ("total_spent", "INTEGER DEFAULT 0"), ("max_depth", "INTEGER DEFAULT 0")]
             for col, col_type in patch_cols:
                 cur.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {col_type};")
-            
             conn.commit()
-    print("/// DATABASE ENGINE: SYNCHRONIZED & OPTIMIZED.")
-
-# =============================================================
-# 2. ОПЕРАЦИОННЫЙ СЛОЙ (CRUD)
-# =============================================================
+    print("/// DATABASE ENGINE: SYNCHRONIZED.")
 
 def get_user(uid):
     with get_db_connection() as conn:
@@ -91,7 +73,6 @@ def get_user(uid):
             return cur.fetchone()
 
 def update_user(uid, **kwargs):
-    """Безопасное обновление полей"""
     if not kwargs: return
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -99,8 +80,13 @@ def update_user(uid, **kwargs):
             cur.execute(f"UPDATE users SET {set_clause} WHERE uid = %s", list(kwargs.values()) + [uid])
             conn.commit()
 
+def add_xp_to_user(uid, amount):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (amount, uid))
+            conn.commit()
+
 def save_knowledge(uid, content_id):
-    """Транзакционная запись знаний"""
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             try:
@@ -108,13 +94,7 @@ def save_knowledge(uid, content_id):
                 if cur.rowcount > 0:
                     cur.execute("UPDATE users SET know_count = know_count + 1 WHERE uid = %s", (uid,))
                 conn.commit()
-            except Exception as e:
-                conn.rollback()
-                print(f"/// KNOWLEDGE SAVE ERROR: {e}")
-
-# =============================================================
-# 3. ГЕЙМИФИКАЦИЯ (АЧИВКИ И РЕЙТИНГ)
-# =============================================
+            except: conn.rollback()
 
 def check_achievement_exists(uid, ach_id):
     with get_db_connection() as conn:
@@ -131,13 +111,22 @@ def grant_achievement(uid, ach_id, bonus_xp):
                     cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (bonus_xp, uid))
                 conn.commit()
                 return True
-            except:
-                conn.rollback()
-                return False
+            except: conn.rollback(); return False
 
 def get_leaderboard(limit=10):
-    """Получает топ игроков для кнопки РЕЙТИНГ"""
     with get_db_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT first_name, xp, level FROM users ORDER BY xp DESC LIMIT %s", (limit,))
+            return cur.fetchall()
+
+def add_diary_entry(uid, text):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO diary (uid, entry) VALUES (%s, %s)", (uid, text))
+            conn.commit()
+
+def get_diary_entries(uid):
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT entry, created_at FROM diary WHERE uid = %s ORDER BY created_at DESC LIMIT 5", (uid,))
             return cur.fetchall()
