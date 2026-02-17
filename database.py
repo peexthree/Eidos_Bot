@@ -8,15 +8,10 @@ from datetime import datetime
 import re
 from config import ITEMS_INFO, INVENTORY_LIMIT
 
-# =============================================================
-# ⚙️ НАСТРОЙКИ БАЗЫ ДАННЫХ
-# =============================================================
-
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 @contextmanager
 def db_session():
-    """Контекстный менеджер для соединения с БД."""
     conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL, sslmode='require')
@@ -30,7 +25,6 @@ def db_session():
 
 @contextmanager
 def db_cursor(cursor_factory=None):
-    """Контекстный менеджер для курсора."""
     with db_session() as conn:
         if conn:
             with conn.cursor(cursor_factory=cursor_factory) as cur:
@@ -39,7 +33,6 @@ def db_cursor(cursor_factory=None):
             yield None
 
 def admin_exec_query(query, params=None):
-    """Выполняет произвольный SQL (только для админа)."""
     try:
         with db_session() as conn:
             with conn.cursor() as cur:
@@ -50,15 +43,10 @@ def admin_exec_query(query, params=None):
     except Exception as e:
         return f"ERROR: {e}"
 
-# =============================================================
-# 🚀 ИНИЦИАЛИЗАЦИЯ
-# =============================================================
-
 def init_db():
     with db_session() as conn:
         if not conn: return
         with conn.cursor() as cur:
-            # 1. ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     uid BIGINT PRIMARY KEY,
@@ -71,23 +59,24 @@ def init_db():
                     ref_profit_xp INTEGER DEFAULT 0, ref_profit_coins INTEGER DEFAULT 0,
                     last_protocol_time BIGINT DEFAULT 0, last_signal_time BIGINT DEFAULT 0,
                     notified BOOLEAN DEFAULT TRUE, max_depth INTEGER DEFAULT 0,
-                    ref_count INTEGER DEFAULT 0, know_count INTEGER DEFAULT 0, total_spent INTEGER DEFAULT 0
+                    ref_count INTEGER DEFAULT 0, know_count INTEGER DEFAULT 0, total_spent INTEGER DEFAULT 0,
+                    raid_count_today INTEGER DEFAULT 0, last_raid_date DATE DEFAULT CURRENT_DATE
                 );
             ''')
+            try:
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS raid_count_today INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_raid_date DATE DEFAULT CURRENT_DATE")
+            except: pass
 
-            # 2. ИНВЕНТАРЬ
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS inventory (
                     uid BIGINT, item_id TEXT, quantity INTEGER DEFAULT 1, durability INTEGER DEFAULT 100,
                     PRIMARY KEY(uid, item_id)
                 );
             ''')
-
-            # Fix Inventory Unique Constraint if needed
             try:
                 cur.execute("SELECT 1 FROM pg_constraint WHERE conname = 'inventory_uid_item_id_key'")
                 if not cur.fetchone():
-                    # print("/// FIXING INVENTORY SCHEMA...")
                     cur.execute("""
                         CREATE TEMP TABLE IF NOT EXISTS inv_backup AS
                         SELECT uid, item_id, SUM(quantity) as q, MAX(durability) as d
@@ -98,149 +87,89 @@ def init_db():
                     cur.execute("DROP TABLE inv_backup")
                     cur.execute("ALTER TABLE inventory ADD CONSTRAINT inventory_uid_item_id_key UNIQUE (uid, item_id)")
                     conn.commit()
-            except Exception as e:
-                # print(f"/// SCHEMA FIX ERROR: {e}")
-                conn.rollback()
+            except: conn.rollback()
 
-            # 3. КОНТЕНТ (СИГНАЛЫ И ПРОТОКОЛЫ)
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS content (
-                    id SERIAL PRIMARY KEY,
-                    type TEXT, -- 'signal' or 'protocol'
-                    path TEXT DEFAULT 'general',
-                    level INTEGER DEFAULT 1,
-                    text TEXT UNIQUE
+                    id SERIAL PRIMARY KEY, type TEXT, path TEXT DEFAULT 'general', level INTEGER DEFAULT 1, text TEXT UNIQUE
                 );
             ''')
 
-            # 4. РЕЙД КОНТЕНТ (ЗАГАДКИ, СОБЫТИЯ)
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS raid_content (
-                    id SERIAL PRIMARY KEY,
-                    text TEXT,
-                    type TEXT DEFAULT 'neutral',
-                    val INTEGER DEFAULT 0
+                    id SERIAL PRIMARY KEY, text TEXT, type TEXT DEFAULT 'neutral', val INTEGER DEFAULT 0
                 );
             ''')
 
-            # 5. СЕССИИ РЕЙДОВ
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS raid_sessions (
-                    uid BIGINT PRIMARY KEY,
-                    depth INTEGER DEFAULT 0,
-                    signal INTEGER DEFAULT 100,
-                    start_time BIGINT,
-                    buffer_xp INTEGER DEFAULT 0,
-                    buffer_coins INTEGER DEFAULT 0
+                    uid BIGINT PRIMARY KEY, depth INTEGER DEFAULT 0, signal INTEGER DEFAULT 100,
+                    start_time BIGINT, buffer_xp INTEGER DEFAULT 0, buffer_coins INTEGER DEFAULT 0
                 );
             ''')
-
             try:
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS current_enemy_id INTEGER DEFAULT NULL")
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS current_enemy_hp INTEGER DEFAULT NULL")
-            except Exception as e:
-                conn.rollback()
+                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS riddles_solved INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS current_riddle_answer TEXT DEFAULT NULL")
+            except: conn.rollback()
 
-            # 6. ЗНАНИЯ И ПРОТОКОЛЫ
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS user_knowledge (
-                    uid BIGINT, content_id INTEGER,
-                    PRIMARY KEY(uid, content_id)
+                    uid BIGINT, content_id INTEGER, PRIMARY KEY(uid, content_id)
                 );
             ''')
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS unlocked_protocols (
-                    uid BIGINT, protocol_id INTEGER,
-                    PRIMARY KEY(uid, protocol_id)
+                    uid BIGINT, protocol_id INTEGER, PRIMARY KEY(uid, protocol_id)
                 );
             ''')
-
-            # 7. ЭКИПИРОВКА
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS user_equipment (
-                    uid BIGINT, slot TEXT, item_id TEXT,
-                    PRIMARY KEY(uid, slot)
+                    uid BIGINT, slot TEXT, item_id TEXT, PRIMARY KEY(uid, slot)
                 );
             ''')
-
-            # 8. ДНЕВНИК
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS diary (
                     id SERIAL PRIMARY KEY, uid BIGINT, entry TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             ''')
-
-            # 9. ДОСТИЖЕНИЯ [NEW]
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS achievements (
-                    uid BIGINT, ach_id TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY(uid, ach_id)
+                    uid BIGINT, ach_id TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(uid, ach_id)
                 );
             ''')
-
-            # 10. ЗЛОДЕИ [NEW]
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS villains (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT,
-                    level INTEGER,
-                    hp INTEGER,
-                    atk INTEGER,
-                    def INTEGER,
-                    xp_reward INTEGER,
-                    coin_reward INTEGER,
-                    description TEXT,
-                    UNIQUE(name)
+                    id SERIAL PRIMARY KEY, name TEXT, level INTEGER, hp INTEGER, atk INTEGER, def INTEGER,
+                    xp_reward INTEGER, coin_reward INTEGER, description TEXT, UNIQUE(name)
                 );
             ''')
-
-    # Заполнение злодеев
     populate_villains()
 
 def populate_villains():
-    # Russian Localized Villains
     VILLAINS_DATA = [
-        {"name": "Цифровой Паразит", "level": 1, "hp": 20, "atk": 5, "def": 0, "xp": 10, "coin": 5, "desc": "Мелкий вредоносный скрипт, сосущий данные."},
+        {"name": "Цифровой Паразит", "level": 1, "hp": 20, "atk": 5, "def": 0, "xp": 10, "coin": 5, "desc": "Мелкий вредоносный скрипт."},
         {"name": "Призрак Глитча", "level": 1, "hp": 30, "atk": 8, "def": 2, "xp": 15, "coin": 8, "desc": "Искаженная тень удаленного файла."},
-        {"name": "Дрон-Страж", "level": 2, "hp": 50, "atk": 12, "def": 5, "xp": 30, "coin": 15, "desc": "Автоматическая система защиты периметра."},
-        {"name": "Логическая Бомба", "level": 2, "hp": 40, "atk": 20, "def": 0, "xp": 35, "coin": 20, "desc": "Нестабильный код. Тикает перед взрывом."},
-        {"name": "Крипто-Майнер", "level": 3, "hp": 60, "atk": 10, "def": 8, "xp": 40, "coin": 50, "desc": "Вор ресурсов. Крадет вычислительную мощность."},
+        {"name": "Дрон-Страж", "level": 2, "hp": 50, "atk": 12, "def": 5, "xp": 30, "coin": 15, "desc": "Автоматическая система защиты."},
+        {"name": "Логическая Бомба", "level": 2, "hp": 40, "atk": 20, "def": 0, "xp": 35, "coin": 20, "desc": "Нестабильный код."},
+        {"name": "Крипто-Майнер", "level": 3, "hp": 60, "atk": 10, "def": 8, "xp": 40, "coin": 50, "desc": "Вор ресурсов."},
         {"name": "Спам-Гидра", "level": 3, "hp": 80, "atk": 15, "def": 5, "xp": 50, "coin": 25, "desc": "Отрежь один баннер - всплывут два."},
-        {"name": "Фатальный Сбой", "level": 4, "hp": 100, "atk": 25, "def": 10, "xp": 80, "coin": 40, "desc": "Воплощение системной ошибки."},
-        {"name": "Ассасин Даркнета", "level": 4, "hp": 90, "atk": 30, "def": 5, "xp": 90, "coin": 60, "desc": "Скрытный убийца, атакующий из тени."},
-        {"name": "ИИ-Доминатор", "level": 5, "hp": 200, "atk": 40, "def": 20, "xp": 200, "coin": 100, "desc": "Мятежный искусственный интеллект."},
-        {"name": "Стиратель", "level": 6, "hp": 500, "atk": 60, "def": 40, "xp": 500, "coin": 300, "desc": "Сущность пустоты, удаляющая всё живое."}
+        {"name": "Фатальный Сбой", "level": 4, "hp": 100, "atk": 25, "def": 10, "xp": 80, "coin": 40, "desc": "Воплощение ошибки."},
+        {"name": "Ассасин Даркнета", "level": 4, "hp": 90, "atk": 30, "def": 5, "xp": 90, "coin": 60, "desc": "Скрытный убийца."},
+        {"name": "ИИ-Доминатор", "level": 5, "hp": 200, "atk": 40, "def": 20, "xp": 200, "coin": 100, "desc": "Мятежный ИИ."},
+        {"name": "Стиратель", "level": 6, "hp": 500, "atk": 60, "def": 40, "xp": 500, "coin": 300, "desc": "Сущность пустоты."}
     ]
-
-    # We clear the table to remove English duplicates if they exist, or use upsert
-    # Safe approach: Upsert on name.
-    # Warning: If names changed (English -> Russian), Upsert won't replace, it will add new.
-    # So we should probably check if table has English entries and delete them?
-    # Or just Truncate. Truncate is cleaner but resets IDs.
-
     with db_session() as conn:
         with conn.cursor() as cur:
-            # Let's delete old English names if they exist
-            cur.execute("DELETE FROM villains WHERE name IN ('Data Leech', 'Glitch Phantom', 'Firewall Drone', 'Logic Bomb', 'Cryptominer', 'Spam Hydra', 'Kernel Panic', 'Dark Web Assassin', 'AI Overlord', 'The Nullifier')")
-
+            cur.execute("DELETE FROM villains WHERE name IN ('Data Leech', 'Glitch Phantom')") # Minimal cleanup
             for v in VILLAINS_DATA:
                 cur.execute("""
                     INSERT INTO villains (name, level, hp, atk, def, xp_reward, coin_reward, description)
                     VALUES (%(name)s, %(level)s, %(hp)s, %(atk)s, %(def)s, %(xp)s, %(coin)s, %(desc)s)
-                    ON CONFLICT (name) DO UPDATE SET
-                        level = EXCLUDED.level,
-                        hp = EXCLUDED.hp,
-                        atk = EXCLUDED.atk,
-                        def = EXCLUDED.def,
-                        xp_reward = EXCLUDED.xp_reward,
-                        coin_reward = EXCLUDED.coin_reward,
-                        description = EXCLUDED.description
+                    ON CONFLICT (name) DO UPDATE SET level = EXCLUDED.level, hp = EXCLUDED.hp, atk = EXCLUDED.atk, def = EXCLUDED.def, xp_reward = EXCLUDED.xp_reward, coin_reward = EXCLUDED.coin_reward, description = EXCLUDED.description
                 """, v)
-
-# =============================================================
-# 👤 ПОЛЬЗОВАТЕЛЬ
-# =============================================================
 
 def get_user(uid):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
@@ -250,10 +179,8 @@ def get_user(uid):
 
 def add_user(uid, username, first_name, referrer=None):
     with db_session() as conn:
-        if not conn: return
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (uid, username, first_name, referrer, last_active) VALUES (%s, %s, %s, %s, CURRENT_DATE) ON CONFLICT (uid) DO NOTHING",
-                        (uid, username, first_name, referrer))
+            cur.execute("INSERT INTO users (uid, username, first_name, referrer, last_active) VALUES (%s, %s, %s, %s, CURRENT_DATE) ON CONFLICT (uid) DO NOTHING", (uid, username, first_name, referrer))
             if referrer and str(referrer) != str(uid):
                 cur.execute("UPDATE users SET ref_count = ref_count + 1 WHERE uid = %s", (referrer,))
 
@@ -269,27 +196,24 @@ def add_xp_to_user(uid, amount):
     with db_session() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (amount, uid))
-            # Referral logic
             cur.execute("SELECT referrer FROM users WHERE uid = %s", (uid,))
             res = cur.fetchone()
             if res and res[0]:
                 ref_id = res[0]
-                profit = int(amount * 0.1) # 10% tax
+                profit = int(amount * 0.1)
                 if profit > 0:
                     cur.execute("UPDATE users SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
 
-# =============================================================
-# 🎒 ИНВЕНТАРЬ
-# =============================================================
+def reset_daily_stats(uid):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET raid_count_today = 0, last_raid_date = CURRENT_DATE WHERE uid = %s", (uid,))
 
 def add_item(uid, item_id, qty=1):
     with db_cursor() as cur:
         if not cur: return False
-
-        # Check limit
         cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
         if cur.fetchone()[0] >= INVENTORY_LIMIT: return False
-
         durability = ITEMS_INFO.get(item_id, {}).get('durability', 100)
         cur.execute("""
             INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, %s, %s)
@@ -318,7 +242,6 @@ def decrease_durability(uid, item_id, amount=1):
         cur.execute("SELECT durability, quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
         res = cur.fetchone()
         if not res: return False
-
         new_dur = res[0] - amount
         if new_dur <= 0:
             if res[1] > 1:
@@ -336,10 +259,6 @@ def get_inventory_size(uid):
         if not cur: return 0
         cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
         return cur.fetchone()[0]
-
-# =============================================================
-# ⚔️ ЭКИПИРОВКА
-# =============================================================
 
 def equip_item(uid, item_id, slot):
     try:
@@ -391,10 +310,6 @@ def get_item_count(uid, item_id):
         res = cur.fetchone()
         return res[0] if res else 0
 
-# =============================================================
-# 🏆 АЧИВКИ, ЗНАНИЯ, АРХИВ
-# =============================================================
-
 def check_achievement_exists(uid, ach_id):
     with db_cursor() as cur:
         if not cur: return False
@@ -427,7 +342,6 @@ def save_knowledge(uid, content_id):
     with db_cursor() as cur:
         if not cur: return
         cur.execute("INSERT INTO user_knowledge (uid, content_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, content_id))
-        # Для совместимости протоколы тоже сохраняем если это контент
         cur.execute("INSERT INTO unlocked_protocols (uid, protocol_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, content_id))
 
 def get_leaderboard(limit=10):
@@ -441,11 +355,17 @@ def add_diary_entry(uid, text):
         if not cur: return
         cur.execute("INSERT INTO diary (uid, entry) VALUES (%s, %s)", (uid, text))
 
-def get_diary_entries(uid, limit=5):
+def get_diary_entries(uid, limit=5, offset=0):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
-        cur.execute("SELECT entry, created_at FROM diary WHERE uid = %s ORDER BY created_at DESC LIMIT %s", (uid, limit))
+        cur.execute("SELECT entry, created_at FROM diary WHERE uid = %s ORDER BY created_at DESC LIMIT %s OFFSET %s", (uid, limit, offset))
         return cur.fetchall()
+
+def get_diary_count(uid):
+    with db_cursor() as cur:
+        if not cur: return 0
+        cur.execute("SELECT COUNT(*) FROM diary WHERE uid = %s", (uid,))
+        return cur.fetchone()[0]
 
 def get_referrals_stats(uid):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
@@ -459,19 +379,14 @@ def get_user_achievements(uid):
         cur.execute("SELECT ach_id FROM achievements WHERE uid = %s", (uid,))
         return [row[0] for row in cur.fetchall()]
 
-# =============================================================
-# 👾 НОВЫЕ ФУНКЦИИ ДЛЯ БОЕВКИ
-# =============================================================
-
 def get_random_villain(level=1):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
-        # Ищем врага +- 1 уровень от уровня игрока, но не меньше 1
         min_lvl = max(1, level - 1)
         max_lvl = level + 1
         cur.execute("SELECT * FROM villains WHERE level BETWEEN %s AND %s ORDER BY RANDOM() LIMIT 1", (min_lvl, max_lvl))
         v = cur.fetchone()
-        if not v: # Fallback
+        if not v:
             cur.execute("SELECT * FROM villains ORDER BY RANDOM() LIMIT 1")
             v = cur.fetchone()
         return v
@@ -498,10 +413,6 @@ def get_villain_by_id(vid):
         cur.execute("SELECT * FROM villains WHERE id = %s", (vid,))
         return cur.fetchone()
 
-# =============================================================
-# 🛠 АДМИН
-# =============================================================
-
 def admin_add_content(c_type, text):
     with db_cursor() as cur:
         if not cur: return
@@ -511,19 +422,8 @@ def admin_add_content(c_type, text):
             cur.execute("INSERT INTO content (type, path, text) VALUES (%s, 'general', %s)", (c_type, text))
 
 def populate_content():
-    from content_presets import CONTENT_DATA
-    try:
-        with db_cursor() as cur:
-            if not cur: return
-            for lvl, items in CONTENT_DATA.items():
-                for item in items:
-                    cur.execute("SELECT 1 FROM content WHERE text = %s", (item['text'],))
-                    if not cur.fetchone():
-                        cur.execute("INSERT INTO content (type, path, text, level) VALUES (%s, %s, %s, %s)",
-                                    (item['type'], item['path'], item['text'], lvl))
-                        print(f"/// ADDED CONTENT LVL {lvl}: {item['text'][:20]}...")
-    except Exception as e:
-        print(f"/// CONTENT POPULATION ERROR: {e}")
+    # Only if needed
+    pass
 
 def admin_get_users_dossier(limit=50):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
@@ -536,7 +436,6 @@ def admin_get_users_dossier(limit=50):
             LIMIT %s
         """, (limit,))
         users = cur.fetchall()
-
         report = "📂 <b>DOSSIER: USERS LIST</b>\n\n"
         for u in users:
             active = u['last_active'].strftime('%d.%m') if u['last_active'] else "N/A"

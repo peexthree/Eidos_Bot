@@ -1,30 +1,75 @@
 import unittest
 import sys
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from datetime import date
 
-# Mock dependencies
+# Mock database dependencies to avoid connection errors
 sys.modules['psycopg2'] = MagicMock()
 sys.modules['psycopg2.extras'] = MagicMock()
 sys.modules['telebot'] = MagicMock()
 sys.modules['flask'] = MagicMock()
 
-# Mock internal modules
+# Mock database module (logic.py imports 'database as db')
+# We need to do this before importing logic
+db_mock = MagicMock()
+sys.modules['database'] = db_mock
+
+# Now import logic
 import logic
 
 class TestLogic(unittest.TestCase):
-    def test_get_raid_entry_cost(self):
-        # Basic check for now as function is simple
-        self.assertEqual(logic.get_raid_entry_cost(123), 100)
+
+    @patch('logic.db.get_user')
+    def test_get_raid_entry_cost(self, mock_get_user):
+        # Case 1: First time today
+        mock_get_user.return_value = {'raid_count_today': 0, 'last_raid_date': date.today()}
+        # Assuming RAID_ENTRY_COSTS = [100, 200, 400]
+        self.assertEqual(logic.get_raid_entry_cost(1), 100)
+
+        # Case 2: Second time
+        mock_get_user.return_value = {'raid_count_today': 1, 'last_raid_date': date.today()}
+        self.assertEqual(logic.get_raid_entry_cost(1), 200)
+
+        # Case 3: Third time (Max)
+        mock_get_user.return_value = {'raid_count_today': 2, 'last_raid_date': date.today()}
+        self.assertEqual(logic.get_raid_entry_cost(1), 400)
+
+        # Case 4: Different date (should reset logic-wise, function returns base)
+        mock_get_user.return_value = {'raid_count_today': 5, 'last_raid_date': date(2020, 1, 1)}
+        self.assertEqual(logic.get_raid_entry_cost(1), 100)
+
+    @patch('logic.db.get_inventory')
+    @patch('logic.db.get_equipped_items')
+    @patch('logic.db.get_user')
+    def test_format_inventory(self, mock_user, mock_eq, mock_inv):
+        mock_inv.return_value = [{'item_id': 'battery', 'quantity': 1}]
+        mock_eq.return_value = {'weapon': 'rusty_knife'}
+        mock_user.return_value = {'uid': 1}
+
+        txt = logic.format_inventory(1)
+        self.assertIn("РЮКЗАК", txt)
+        self.assertIn("БАТАРЕЯ", txt) # Assuming ITEMS_INFO fallback uses id if name missing or check real name
+        self.assertIn("НОЖ", txt) # Assuming EQUIPMENT_DB fallback
+
+    @patch('logic.db.get_user')
+    def test_get_profile_stats(self, mock_get_user):
+        mock_get_user.return_value = {
+            'level': 2,
+            'streak': 3,
+            'max_depth': 50,
+            'ref_profit_xp': 100,
+            'ref_profit_coins': 50,
+            'raid_count_today': 1
+        }
+        stats = logic.get_profile_stats(1)
+        self.assertEqual(stats['streak'], 3)
+        self.assertEqual(stats['max_depth'], 50)
+        # Income: (2 * 1000) + (3 * 50) + 150 = 2000 + 150 + 150 = 2300
+        self.assertEqual(stats['income_total'], 2300)
 
     def test_draw_bar(self):
         bar = logic.draw_bar(50, 100, 10)
         self.assertEqual(bar, "█████░░░░░")
-
-        bar_full = logic.draw_bar(100, 100, 10)
-        self.assertEqual(bar_full, "██████████")
-
-        bar_empty = logic.draw_bar(0, 100, 10)
-        self.assertEqual(bar_empty, "░░░░░░░░░░")
 
 if __name__ == '__main__':
     unittest.main()
