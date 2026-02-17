@@ -11,9 +11,6 @@ CHANNEL_ID = "@Eidos_Chronicles"
 BOT_USERNAME = "Eidos_Interface_bot"
 
 MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_welcome_menu_202602132051.jpeg"
-MENU_IMAGE_URL_MONEY = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/main.jpeg"
-MENU_IMAGE_URL_MIND = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/mind.jpeg"
-MENU_IMAGE_URL_TECH = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/neuro.jpeg"
 
 # =============================================================================
 # 2. НЕЙРО-ЭКОНОМИКА (ARPG БАЛАНС)
