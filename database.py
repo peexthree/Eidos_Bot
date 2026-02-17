@@ -395,12 +395,12 @@ def get_referrals_stats(uid):
             return cur.fetchall()
     finally: conn.close()
 
-def admin_exec_query(query):
+def admin_exec_query(query, params=None):
     conn = get_db_connection()
     if not conn: return "❌ No Connection"
     try:
         with conn.cursor() as cur:
-            cur.execute(query)
+            cur.execute(query, params)
             if query.strip().upper().startswith("SELECT"):
                 return str(cur.fetchall())[:3500]
             else:
