@@ -18,18 +18,6 @@ active_riddles = {} # {uid: "correct_answer"}
 # 🟢 СИСТЕМНЫЕ ФУНКЦИИ
 # =============================================================
 
-def broadcast_progress(uid, is_up, new_achs):
-    """Отправляет уведомления о левел-апе и ачивках"""
-    try:
-        for ach in new_achs:
-            bot.send_message(uid, f"🏆 <b>ДОСТИЖЕНИЕ:</b> {ach}", parse_mode="HTML")
-        
-        if is_up:
-            u = db.get_user(uid)
-            msg = LEVEL_UP_MSG.get(u['level'], f"👑 <b>НОВЫЙ СТАТУС:</b> {TITLES.get(u['level'])}")
-            bot.send_message(uid, msg, parse_mode="HTML")
-    except: pass
-
 def menu_update(call, text, markup=None):
     """Безопасное обновление меню (Caption или Text)"""
     try:
@@ -43,172 +31,161 @@ def menu_update(call, text, markup=None):
                 bot.send_photo(call.message.chat.id, MENU_IMAGE_URL, caption=text, reply_markup=markup, parse_mode="HTML")
             except: pass
 
-# =============================================================
-# 🚀 СТАРТ И РЕГИСТРАЦИЯ
-# =============================================================
-
 @bot.message_handler(commands=['start'])
-def start(m):
+def start_command(m):
     uid = m.from_user.id
-    args = m.text.split()
-    ref_id = args[1] if len(args) > 1 else None
+    ref_id = m.text.split()[1] if len(m.text.split()) > 1 else None
     
-    if ref_id and str(ref_id) == str(uid): ref_id = None
-    
-    if not db.get_user(uid):
-        username = m.from_user.username or "Unknown"
-        first_name = m.from_user.first_name or "User"
-        db.create_user(uid, username, first_name, ref_id)
-        if ref_id:
-            try:
-                db.add_xp_to_user(int(ref_id), REFERRAL_BONUS)
-                bot.send_message(int(ref_id), f"🤝 <b>НОВЫЙ УЗЕЛ В СЕТИ!</b>\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
+    u = db.get_user(uid)
+    if not u:
+        db.get_db_connection().cursor().execute("INSERT INTO users (uid, username, first_name, referrer) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                                                (uid, m.from_user.username, m.from_user.first_name, ref_id))
+        db.get_db_connection().commit()
+        if ref_id and str(ref_id) != str(uid):
+            db.update_user(int(ref_id), ref_count=db.get_user(int(ref_id))['ref_count']+1)
+            db.add_xp_to_user(int(ref_id), REFERRAL_BONUS)
+            try: bot.send_message(int(ref_id), f"🤝 <b>НОВЫЙ АГЕНТ:</b> {m.from_user.first_name}\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
             except: pass
 
-    u = db.get_user(uid)
-    caption = f"<code>{random.choice(WELCOME_VARIANTS)}</code>"
-    try:
-        bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=caption, reply_markup=kb.main_menu(u), parse_mode="HTML")
-    except:
-        bot.send_message(m.chat.id, caption, reply_markup=kb.main_menu(u), parse_mode="HTML")
+    # [FIXED] Принудительное создание инвентаря
+    if db.get_inventory_size(uid) == 0:
+        db.add_item(uid, 'rusty_knife')
 
-# =============================================================
-# 🎮 ОБРАБОТЧИК КНОПОК (ГЛАВНЫЙ ЦИКЛ)
-# =============================================================
+    u = db.get_user(uid)
+    bot.send_photo(m.chat.id, MENU_IMAGE_URL, caption=random.choice(WELCOME_VARIANTS), reply_markup=kb.main_menu(u), parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
-    try:
-        uid = call.from_user.id
-        u = db.get_user(uid)
-        if not u: return
+    uid = call.from_user.id
+    u = db.get_user(uid)
+    if not u: return
 
-        # --- 1. ЭНЕРГИЯ И ЗНАНИЯ ---
+    try:
+        # --- 1. ЭНЕРГИЯ ---
         if call.data == "get_protocol":
-            ok, rem = logic.check_cooldown(uid, 'protocol')
-            if not ok:
-                bot.answer_callback_query(call.id, f"⏳ ПЕРЕГРЕВ: {rem//60} мин", show_alert=True)
+            cd = COOLDOWN_ACCEL if u['accel_exp'] > time.time() else COOLDOWN_BASE
+            if time.time() - u['last_protocol_time'] < cd:
+                rem = int(cd - (time.time() - u['last_protocol_time']))
+                bot.answer_callback_query(call.id, f"⏳ Жди {rem} сек.", show_alert=True)
                 return
+
+            cat = random.choice(list(SYNC_CATEGORIES.keys()))
+            txt = random.choice(SYNC_CATEGORIES[cat])
+
+            # [FIXED] Начисление
+            amt, is_up, unlocks = logic.process_xp_logic(uid, 50 + (u['level']*5))
+            db.update_user(uid, last_protocol_time=int(time.time()), notified=False)
+            db.save_knowledge(uid, db.get_archived_protocols(uid).__len__() + 1) # Просто счетчик для примера
+
+            msg = f"📡 <b>СИНХРОНИЗАЦИЯ:</b>\n\n[{cat.upper()}] ... {txt}\n\n⚡️ +{amt} XP"
+            if is_up: msg += f"\n🆙 <b>LEVEL UP!</b> {u['level']} -> {u['level']+1}"
+            if unlocks: msg += "\n🏅 " + ", ".join(unlocks)
             
-            content = logic.get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
-            if content:
-                gain, is_up, achs = logic.process_xp_logic(uid, XP_GAIN)
-                db.update_user(uid, last_protocol_time=int(time.time()), notified=False)
-                # Сохраняем в историю для архива
-                db.save_knowledge(uid, content.get('id', 0)) 
-                menu_update(call, f"🧬 <b>ПРОТОКОЛ ЗАГРУЖЕН</b>\n\n{content['text']}\n\n⚡️ +{gain} XP", kb.back_button())
-                broadcast_progress(uid, is_up, achs)
+            menu_update(call, msg, kb.back_button())
 
         elif call.data == "get_signal":
-            ok, rem = logic.check_cooldown(uid, 'signal')
-            if not ok:
-                bot.answer_callback_query(call.id, f"⏳ ЖДИ: {rem} сек", show_alert=True)
+            cd = COOLDOWN_SIGNAL if u['level'] < 8 else 150
+            if time.time() - u['last_signal_time'] < cd:
+                bot.answer_callback_query(call.id, "⏳ Сигнал не найден.", show_alert=True)
                 return
-            content = logic.get_content_logic('signal')
-            if content:
-                gain, is_up, achs = logic.process_xp_logic(uid, XP_SIGNAL)
-                db.update_user(uid, last_signal_time=int(time.time()))
-                menu_update(call, f"📡 <b>СИГНАЛ ПОЛУЧЕН</b>\n\n{content['text']}\n\n⚡️ +{gain} XP", kb.back_button())
-                broadcast_progress(uid, is_up, achs)
 
-        # --- 2. РЕЙД (ЭКСПЕДИЦИЯ) ---
+            amt, is_up, unlocks = logic.process_xp_logic(uid, 25)
+            db.update_user(uid, last_signal_time=int(time.time()))
+            bot.answer_callback_query(call.id, f"⚡️ +{amt} XP", show_alert=False)
+            handle_query(type('obj', (object,), {'data': 'back', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+
+        # --- 2. РЕЙД (С ЛОГИКОЙ) ---
         elif call.data == "zero_layer_menu":
-             m = types.InlineKeyboardMarkup()
-             if u['xp'] >= RAID_COST: 
-                 m.add(types.InlineKeyboardButton(f"🚀 НАЧАТЬ (-{RAID_COST} XP)", callback_data="raid_start"))
-             m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
-             menu_update(call, f"<b>🌑 НУЛЕВОЙ СЛОЙ</b>\n\nВход: <b>{RAID_COST} XP</b>\nТвой заряд: {u['xp']} XP", m)
-
-        elif call.data == "raid_start":
-             # Фикс кнопки начать: Инициализация + Первый шаг
-             if u['xp'] < RAID_COST: return
+             # [FIXED] Гарантированный старт
              alive, msg, riddle, u_new, ev_type = logic.raid_step_logic(uid)
-             if alive:
-                 if riddle:
-                     active_riddles[uid] = riddle['correct']
-                     menu_update(call, msg, kb.riddle_keyboard(riddle['options']))
-                 else:
-                     has_key = db.get_item_count(uid, 'master_key') > 0
-                     menu_update(call, msg, kb.raid_action_keyboard(RAID_STEP_COST, ev_type, has_key))
+             if not alive:
+                 menu_update(call, msg, kb.back_button())
+             else:
+                 # Если загадка
+                 markup = kb.riddle_keyboard(riddle['options']) if riddle else kb.raid_action_keyboard(10, ev_type, db.get_item_count(uid, 'master_key') > 0)
+                 if riddle: active_riddles[uid] = riddle['correct']
+                 menu_update(call, msg, markup)
 
         elif call.data == "raid_step" or call.data == "raid_open_chest":
              ans = 'open_chest' if call.data == "raid_open_chest" else None
              alive, msg, riddle, u_new, ev_type = logic.raid_step_logic(uid, answer=ans)
+
              if not alive:
+                 # Смерть или выход
                  menu_update(call, msg, kb.back_button())
              else:
-                 if riddle:
-                     active_riddles[uid] = riddle['correct']
-                     menu_update(call, msg, kb.riddle_keyboard(riddle['options']))
-                 else:
-                     has_key = db.get_item_count(uid, 'master_key') > 0
-                     menu_update(call, msg, kb.raid_action_keyboard(RAID_STEP_COST, ev_type, has_key))
+                 markup = kb.riddle_keyboard(riddle['options']) if riddle else kb.raid_action_keyboard(10, ev_type, db.get_item_count(uid, 'master_key') > 0)
+                 if riddle: active_riddles[uid] = riddle['correct']
+                 menu_update(call, msg, markup)
 
         elif call.data.startswith("r_check_"):
-             ans = call.data.replace("r_check_", "")
-             correct = active_riddles.get(uid, "")
-             if ans in correct:
-                 bot.answer_callback_query(call.id, "✅ ВЕРНО! +15 XP")
-                 db.add_xp_to_user(uid, 15)
-             else:
-                 bot.answer_callback_query(call.id, "❌ ОШИБКА! Удар током.", show_alert=True)
-                 conn = db.get_db_connection()
-                 with conn.cursor() as cur: cur.execute("UPDATE raid_sessions SET signal = signal - 20 WHERE uid = %s", (uid,)); conn.commit()
-                 conn.close()
-             handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+            if uid not in active_riddles:
+                menu_update(call, "⚠️ Ошибка реальности.", kb.back_button())
+                return
+
+            ans = call.data.replace("r_check_", "")
+            correct = active_riddles[uid]
+            del active_riddles[uid]
+
+            if ans == correct[:20]: # Сравнение с обрезкой
+                db.add_xp_to_user(uid, 100)
+                bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP")
+                handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+            else:
+                # Наказание
+                conn = db.get_db_connection()
+                cur = conn.cursor()
+                cur.execute("UPDATE raid_sessions SET signal = GREATEST(0, signal - 25) WHERE uid = %s RETURNING signal", (uid,))
+                sig = cur.fetchone()[0]
+                conn.commit(); conn.close()
+                bot.answer_callback_query(call.id, "❌ ОШИБКА! -25% СИГНАЛА", show_alert=True)
+                handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
 
         elif call.data == "raid_extract":
-             conn = db.get_db_connection()
-             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                 cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
-                 res = cur.fetchone()
-                 xp_gain = res['buffer_xp'] if res else 0
-                 coin_gain = res['buffer_coins'] if res else 0
-                 cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
-                 conn.commit()
-             conn.close()
-             gain, is_up, achs = logic.process_xp_logic(uid, xp_gain, source='raid')
-             db.update_user(uid, biocoin=u['biocoin'] + coin_gain)
-             menu_update(call, f"🚁 <b>ЭВАКУАЦИЯ УСПЕШНА</b>\n\n⚡️ +{gain} XP\n🪙 +{coin_gain} BC", kb.back_button())
-             broadcast_progress(uid, is_up, achs)
+            conn = db.get_db_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
+            res = cur.fetchone()
+            if res:
+                # [FIXED] Исправлен баг с начислением
+                logic.process_xp_logic(uid, res['buffer_xp'], source='raid')
+                db.update_user(uid, biocoin=u['biocoin'] + res['buffer_coins'])
+                cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
+                conn.commit()
+                menu_update(call, f"🚁 <b>ЭВАКУАЦИЯ УСПЕШНА</b>\n\n⚡️ +{res['buffer_xp']} XP\n🪙 +{res['buffer_coins']} BC", kb.back_button())
+            else:
+                menu_update(call, "⚠️ Ошибка данных.", kb.back_button())
+            conn.close()
 
-        # --- 3. МАГАЗИН И ИНВЕНТАРЬ ---
+        # --- 3. ИНВЕНТАРЬ И МАГАЗИН ---
+        elif call.data == "inventory":
+            inv = db.get_inventory(uid)
+            equipped = db.get_equipped_items(uid)
+            menu_update(call, f"🎒 <b>РЮКЗАК ({len(inv)}/{INVENTORY_LIMIT})</b>\n\nНажми на предмет, чтобы использовать или надеть.", kb.inventory_menu(inv, equipped))
+
         elif call.data == "shop":
-            menu_update(call, SHOP_FULL + f"\n\n💰 Баланс: <b>{u['biocoin']} BC</b>", kb.shop_menu(u))
-        
+            # [FIXED] Динамическое описание товаров
+            shop_text = SHOP_FULL + "\n"
+            shop_text += "\n<b>🛒 ДОСТУПНЫЕ ТОВАРЫ:</b>\n"
+            for k, v in EQUIPMENT_DB.items():
+                shop_text += f"▪️ <b>{v['name']}</b> ({v['price']} BC)\n   <i>{v['desc']}</i>\n"
+
+            shop_text += f"\n💰 Твой баланс: <b>{u['biocoin']} BC</b>"
+            menu_update(call, shop_text, kb.shop_menu(u))
+
         elif call.data.startswith("buy_"):
             item = call.data.replace("buy_", "")
-            price = PRICES.get(item, EQUIPMENT_DB.get(item, {}).get('price', 99999))
-            currency = 'xp' if item in ['cryo', 'accel', 'decoder'] else 'biocoin'
+            price = EQUIPMENT_DB.get(item, {}).get('price', PRICES.get(item, 999999))
             
-            can_buy = False
-            if currency == 'xp' and u['xp'] >= price: can_buy = True
-            elif currency == 'biocoin' and u['biocoin'] >= price: can_buy = True
-            
-            if can_buy:
-                if item not in ['cryo', 'accel', 'decoder'] and not db.add_item(uid, item):
-                    bot.answer_callback_query(call.id, "🎒 НЕТ МЕСТА!", show_alert=True)
-                    return
-                if currency == 'xp': db.update_user(uid, xp=u['xp']-price)
-                else: db.update_user(uid, biocoin=u['biocoin']-price)
-                
-                # Эффекты
-                if item == 'cryo': db.update_user(uid, cryo=u['cryo']+1)
-                elif item == 'accel': db.update_user(uid, accel_exp=int(time.time())+86400)
-                elif item == 'decoder': db.update_user(uid, decoder=1)
-                
-                bot.answer_callback_query(call.id, f"✅ КУПЛЕНО: {item}")
-                handle_query(type('obj', (object,), {'data': 'shop', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
-            else: bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО СРЕДСТВ", show_alert=True)
-
-        elif call.data == "inventory":
-            items = db.get_inventory(uid)
-            equipped = db.get_equipped_items(uid)
-            stats, _ = logic.get_user_stats(uid)
-            txt = f"🎒 <b>ИНВЕНТАРЬ ({len(items)}/{INVENTORY_LIMIT})</b>\n\n"
-            txt += f"⚔️ АТАКA: {stats['atk']}\n🛡 ЗАЩИТА: {stats['def']}\n🍀 УДАЧА: {stats['luck']}\n\n"
-            txt += "<i>Выбери предмет, чтобы надеть или снять его.</i>"
-            menu_update(call, txt, kb.inventory_menu(items, equipped))
+            if u['biocoin'] >= price:
+                if db.add_item(uid, item):
+                    db.update_user(uid, biocoin=u['biocoin'] - price, total_spent=u['total_spent'] + price)
+                    bot.answer_callback_query(call.id, f"✅ КУПЛЕНО: {item}", show_alert=True)
+                    handle_query(type('obj', (object,), {'data': 'shop', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+                else:
+                    bot.answer_callback_query(call.id, "🎒 РЮКЗАК ПОЛОН!", show_alert=True)
+            else:
+                bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО СРЕДСТВ", show_alert=True)
 
         elif call.data.startswith("equip_"):
             db.equip_item(uid, call.data.replace("equip_", ""), EQUIPMENT_DB.get(call.data.replace("equip_", ""), {}).get('slot'))
