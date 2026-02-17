@@ -391,12 +391,26 @@ def text_input_handler(m):
 
         del user_states[uid]
 
-# =============================================================
-# ⚙️ ЗАПУСК
-# =============================================================
+# --- WEBHOOK ---
+
+@app.route('/health')
+def health(): return 'OK', 200
+
+@app.route('/', methods=['POST'])
+def webhook():
+    if flask.request.headers.get('content-type') == 'application/json':
+        try:
+            json_string = flask.request.get_data().decode('utf-8')
+            update = telebot.types.Update.de_json(json_string)
+            bot.process_new_updates([update])
+            return 'OK', 200
+        except Exception as e:
+            print(f"/// WEBHOOK ERROR: {e}")
+            return 'ERROR', 500
+    return 'OK', 200
 
 def system_startup():
-    print("/// SYSTEM BOOT...")
+    print("/// EIDOS CORE STARTING...")
     db.init_db()
     
     if WEBHOOK_URL:
@@ -404,26 +418,27 @@ def system_startup():
             bot.remove_webhook()
             time.sleep(1)
             bot.set_webhook(url=WEBHOOK_URL)
-        except Exception as e: print(e)
+            print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+        except Exception as e:
+            print(f"/// WEBHOOK ERROR: {e}")
     
-    # Фоновый цикл уведомлений
     while True:
         try:
             time.sleep(60)
             conn = db.get_db_connection()
             if conn:
-                with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute("SELECT uid, last_protocol_time, accel_exp FROM users WHERE notified = FALSE")
                     rows = cur.fetchall()
-                    now = time.time()
-                    for r in rows:
-                        cd = COOLDOWN_ACCEL if r['accel_exp'] > now else COOLDOWN_BASE
-                        if (now - r['last_protocol_time']) >= cd:
-                            try:
-                                bot.send_message(r['uid'], "🧠 <b>СИНХРОНИЗАЦИЯ ДОСТУПНА</b>", parse_mode="HTML")
-                                db.update_user(r['uid'], notified=True)
-                            except: pass
                 conn.close()
+                for row in rows:
+                    cd = COOLDOWN_ACCEL if row['accel_exp'] > time.time() else COOLDOWN_BASE
+                    if time.time() - row['last_protocol_time'] >= cd:
+                        try:
+                            kb_start = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("👁 НАЧАТЬ", callback_data="get_protocol"))
+                            bot.send_message(row['uid'], "⚡️ <b>СИСТЕМА ГОТОВА К СИНХРОНИЗАЦИИ.</b>", reply_markup=kb_start, parse_mode="HTML")
+                            db.update_user(row['uid'], notified=True)
+                        except: pass
         except: pass
 
 threading.Thread(target=system_startup, daemon=True).start()
