@@ -122,6 +122,7 @@ def init_db():
         
         conn.commit()
     conn.close()
+    populate_content()
 
 # =============================================================
 # 👤 ПОЛЬЗОВАТЕЛИ
@@ -416,4 +417,32 @@ def admin_add_content(c_type, text):
             else:
                 cur.execute("INSERT INTO content (type, path, text) VALUES (%s, 'general', %s)", (c_type, text))
             conn.commit()
+    finally: conn.close()
+
+def populate_content():
+    """Заполнение базы контентом для уровней 5+"""
+    from content_presets import CONTENT_DATA
+    conn = get_db_connection()
+    if not conn: return
+    try:
+        with conn.cursor() as cur:
+            for lvl, items in CONTENT_DATA.items():
+                for item in items:
+                    cur.execute("SELECT 1 FROM content WHERE text = %s", (item['text'],))
+                    if not cur.fetchone():
+                        cur.execute("INSERT INTO content (type, path, text, level) VALUES (%s, %s, %s, %s)",
+                                    (item['type'], item['path'], item['text'], lvl))
+                        print(f"/// ADDED CONTENT LVL {lvl}: {item['text'][:20]}...")
+            conn.commit()
+    except Exception as e:
+        print(f"/// CONTENT POPULATION ERROR: {e}")
+    finally: conn.close()
+
+def get_user_achievements(uid):
+    conn = get_db_connection()
+    if not conn: return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT ach_id FROM achievements WHERE uid = %s", (uid,))
+            return [row[0] for row in cur.fetchall()]
     finally: conn.close()
