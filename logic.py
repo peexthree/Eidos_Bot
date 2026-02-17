@@ -62,6 +62,22 @@ def draw_bar(current, total, length=10):
     fill = max(0, min(length, fill))
     return "█" * fill + "░" * (length - fill)
 
+def get_raid_entry_cost(uid):
+    u = db.get_user(uid)
+    if not u: return RAID_COST
+
+    today = datetime.now().date()
+    last = u.get('last_raid_date')
+    count = u.get('raid_entry_count', 0)
+
+    if isinstance(last, str):
+        last = datetime.strptime(last, "%Y-%m-%d").date()
+
+    if last != today:
+        return RAID_COST
+
+    return RAID_COST + (count * 50)
+
 # =============================================================
 # 3. ЭКОНОМИКА (XP + REFERRAL)
 # =============================================================
@@ -128,23 +144,27 @@ def raid_step_logic(uid, answer=None):
     conn = db.get_db_connection()
     cur = conn.cursor(cursor_factory=db.RealDictCursor)
     
-    # 1. СЕССИЯ (Починка кнопки «Начать»)
+    # 1. СЕССИЯ
     cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
     s = cur.fetchone()
     
     is_new = False
     if not s:
-        if u['xp'] < RAID_COST:
+        cost = get_raid_entry_cost(uid)
+        if u['xp'] < cost:
             conn.close()
-            return False, f"🪫 <b>МАЛО ЭНЕРГИИ</b>\nНужно {RAID_COST} XP для входа.", None, u, 'neutral'
-        db.update_user(uid, xp=u['xp'] - RAID_COST)
-        cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time) VALUES (%s, %s, 100, %s)", (uid, u.get('max_depth', 0), int(time.time())))
-        conn.commit()
-        cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
-        s = cur.fetchone()
-        is_new = True
+            return False, f"🪫 <b>МАЛО ЭНЕРГИИ</b>\nНужно {cost} XP для входа.", None, u, 'neutral', 0
 
-    depth = s['depth']
+        pass
+
+    depth = s['depth'] if s else u.get('max_depth', 0)
+    if not s:
+         cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time) VALUES (%s, %s, 100, %s)", (uid, depth, int(time.time())))
+         conn.commit()
+         cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
+         s = cur.fetchone()
+         is_new = True
+
     msg_prefix = ""
 
     # 2. ДЕЙСТВИЕ: ВЗЛОМ СУНДУКА
@@ -162,7 +182,7 @@ def raid_step_logic(uid, answer=None):
     step_cost = RAID_STEP_COST + (depth // 25)
     if u['xp'] < step_cost:
         conn.close()
-        return False, f"🪫 <b>ВЫДОХСЯ</b>\nНужно {step_cost} XP.", None, u, 'neutral'
+        return False, f"🪫 <b>ВЫДОХСЯ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
 
     db.update_user(uid, xp=u['xp'] - step_cost)
     u['xp'] -= step_cost
@@ -182,6 +202,16 @@ def raid_step_logic(uid, answer=None):
         cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
         event = cur.fetchone()
         if not event: event = {'text': "Пустые коридоры кода...", 'type': 'neutral', 'val': 0}
+
+    # [FIX] Очистка и Загадки
+    riddle_answer = None
+    if 'Ответ:' in event['text']:
+         match = re.search(r'\s*\(Ответ:\s*(.*?)\)', event['text'], re.IGNORECASE)
+         if match:
+             riddle_answer = match.group(1).strip()
+
+    # Очищаем текст от (Ответ: ...) и (Техника: ...)
+    event['text'] = re.sub(r'\s*\(.*?\)', '', event['text']).strip()
 
     new_sig = s['signal']
     riddle_data = None
@@ -236,11 +266,10 @@ def raid_step_logic(uid, answer=None):
         flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['empty'])
         msg_event = f"👣 {flavor}"
 
-    # Загадки
-    match = re.search(r'\s*\(Ответ:\s*(.*?)\)', event['text'], re.IGNORECASE)
-    if match:
-        correct = match.group(1).strip()
-        q = event['text'].replace(match.group(0), "").strip()
+    # Загадки (с использованием ранее извлеченного ответа)
+    if riddle_answer:
+        correct = riddle_answer
+        q = event['text'] # Уже очищенный текст
         # Smart distractors
         if " и " in correct or " and " in correct.lower():
              d1 = random.choice(RIDDLE_DISTRACTORS)
@@ -255,12 +284,19 @@ def raid_step_logic(uid, answer=None):
         riddle_data = {"question": q, "correct": correct, "options": options}
         msg_event = f"🧩 <b>ШИФР:</b>\n{q}"
 
-    # [FIXED] Честный Компас
+    # [FIXED] Честный Компас (с подсказками)
     compass_txt = ""
     if db.get_item_count(uid, 'compass') > 0:
         if db.decrease_durability(uid, 'compass'):
-            res = "❇️ БЕЗОПАСНО (Ресурсы)" if event['type'] in ['loot', 'heal', 'locked_chest'] else ("⬜️ ПУСТО" if event['type'] == 'neutral' else "⚠️ УГРОЗА (Ловушка)")
-            compass_txt = f"🧭 <b>СКАНЕР:</b> {res} (Удача: {stats['luck']})"
+            if event['type'] in ['loot', 'heal', 'locked_chest']:
+                res = "❇️ РЕЗОНАНС (Полезная находка)"
+            elif event['type'] == 'trap':
+                res = "⚠️ СЕЙСМОАКТИВНОСТЬ (Ловушка)"
+            elif event['type'] == 'neutral':
+                res = "⬜️ ТИШИНА (Пусто)"
+            else:
+                res = "❓ АНОМАЛИЯ"
+            compass_txt = f"🧭 <b>КОМПАС:</b> {res} (Удача: {stats['luck']})"
         else:
             compass_txt = "💔 <b>КОМПАС СЛОМАЛСЯ.</b>"
 
@@ -278,7 +314,7 @@ def raid_step_logic(uid, answer=None):
         broken = db.break_equipment_randomly(uid) if random.random() < 0.25 else None
         death_msg = f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n❌ Весь невынесенный лут стерт."
         if broken: death_msg += f"\n💔 <b>ПОЛОМКА:</b> {ITEMS_INFO.get(broken, {}).get('name', 'Вещь')} разрушена."
-        return False, death_msg, None, u, 'death'
+        return False, death_msg, None, u, 'death', 0
 
     # HUD (Интерфейс)
     sig_bar = draw_bar(new_sig, 100, 8)
@@ -289,10 +325,13 @@ def raid_step_logic(uid, answer=None):
         f"{msg_prefix}{msg_event}\n"
         f"━━━━━━━━━━━━━━\n"
         f"🎒 В сумке: <b>{res['buffer_xp']} XP</b> | 🪙 <b>{res['buffer_coins']} BC</b>\n"
+        f"💳 Баланс: <b>{u['xp']} XP</b>\n"
         f"⚔️ ATK {stats['atk']} | 🛡 DEF {stats['def']} | 🍀 LUCK {stats['luck']}\n"
         f"<i>{compass_txt}</i>"
     )
-    return True, interface, riddle_data, u, event['type']
+    # Возвращаем step_cost для UI кнопки
+    next_step_cost = RAID_STEP_COST + (new_depth // 25)
+    return True, interface, riddle_data, u, event['type'], next_step_cost
 
 def get_content_logic(c_type, path='general', level=1, has_decoder=False):
     conn = db.get_db_connection()

@@ -111,7 +111,9 @@ def init_db():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0;",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_profit_coins INTEGER DEFAULT 0;",
             "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1;",
-            "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS durability INTEGER DEFAULT 100;"
+            "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS durability INTEGER DEFAULT 100;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_raid_date DATE DEFAULT CURRENT_DATE;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS raid_entry_count INTEGER DEFAULT 0;"
         ]
         for q in alter_queries:
             try:
@@ -362,7 +364,7 @@ def get_leaderboard(limit=10):
     if not conn: return []
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT first_name, xp, level FROM users ORDER BY xp DESC LIMIT %s", (limit,))
+            cur.execute("SELECT first_name, xp, level, max_depth FROM users ORDER BY max_depth DESC, xp DESC LIMIT %s", (limit,))
             return cur.fetchall()
     finally: conn.close()
 
@@ -445,4 +447,55 @@ def get_user_achievements(uid):
         with conn.cursor() as cur:
             cur.execute("SELECT ach_id FROM achievements WHERE uid = %s", (uid,))
             return [row[0] for row in cur.fetchall()]
+    finally: conn.close()
+
+# =============================================================
+# 🛠 АДМИН-ИНСТРУМЕНТЫ (НОВЫЕ)
+# =============================================================
+
+def admin_get_users_dossier(limit=50):
+    conn = get_db_connection()
+    if not conn: return "❌ No DB Connection"
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT uid, first_name, username, level, xp, path,
+                       streak, max_depth, last_active
+                FROM users
+                ORDER BY last_active DESC
+                LIMIT %s
+            """, (limit,))
+            users = cur.fetchall()
+
+            report = "📂 <b>DOSSIER: USERS LIST</b>\n\n"
+            for u in users:
+                active = u['last_active'].strftime('%d.%m') if u['last_active'] else "N/A"
+                report += (f"👤 <b>{u['first_name']}</b> (@{u['username']})\n"
+                           f"   Lvl {u['level']} | {u['xp']} XP | {u['path'].upper()}\n"
+                           f"   Streak: {u['streak']} | Depth: {u['max_depth']}m | Last: {active}\n"
+                           f"   🆔 <code>{u['uid']}</code>\n\n")
+            return report
+    finally: conn.close()
+
+def admin_add_riddle_to_db(text):
+    conn = get_db_connection()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            # Пытаемся распарсить ответ для проверки, но сохраняем как есть
+            # Логика бота сама разберет (Ответ: ...)
+            cur.execute("INSERT INTO raid_content (text, type, val) VALUES (%s, 'neutral', 0)", (text,))
+            conn.commit()
+            return True
+    finally: conn.close()
+
+def admin_add_signal_to_db(text, level=1, c_type='protocol', path='general'):
+    conn = get_db_connection()
+    if not conn: return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO content (type, path, text, level) VALUES (%s, %s, %s, %s)",
+                        (c_type, path, text, level))
+            conn.commit()
+            return True
     finally: conn.close()
