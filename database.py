@@ -16,10 +16,14 @@ def get_db_connection():
 
 def get_item_count(uid, item_id):
     conn = get_db_connection()
-    with conn.cursor() as cur:
-        cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
-        res = cur.fetchone()
-        return res[0] if res else 0
+    if not conn: return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
+            res = cur.fetchone()
+            return res[0] if res else 0
+    finally: conn.close()
+
 # =============================================================
 # 🛠 ИНИЦИАЛИЗАЦИЯ (СТРУКТУРА МИРА)
 # =============================================================
@@ -54,6 +58,28 @@ def init_db():
             );
         ''')
 
+        # --- FIX: INVENTORY CONSTRAINT ---
+        try:
+            cur.execute("SELECT 1 FROM pg_constraint WHERE conname = 'inventory_uid_item_id_key'")
+            if not cur.fetchone():
+                print("/// FIXING INVENTORY SCHEMA...")
+                # Aggregate duplicates
+                cur.execute("""
+                    CREATE TEMP TABLE IF NOT EXISTS inv_backup AS
+                    SELECT uid, item_id, SUM(quantity) as q, MAX(durability) as d
+                    FROM inventory GROUP BY uid, item_id
+                """)
+                cur.execute("TRUNCATE inventory CASCADE")
+                cur.execute("INSERT INTO inventory (uid, item_id, quantity, durability) SELECT uid, item_id, q, d FROM inv_backup")
+                cur.execute("DROP TABLE inv_backup")
+                # Add unique constraint
+                cur.execute("ALTER TABLE inventory ADD CONSTRAINT inventory_uid_item_id_key UNIQUE (uid, item_id)")
+                conn.commit()
+                print("/// INVENTORY SCHEMA FIXED.")
+        except Exception as e:
+            print(f"/// SCHEMA FIX ERROR: {e}")
+            conn.rollback()
+
         # 3. ЭКИПИРОВКА [RPG]
         cur.execute('''
             CREATE TABLE IF NOT EXISTS user_equipment (
@@ -79,7 +105,8 @@ def init_db():
         
         # [NEW] Таблица разблокированных протоколов для Архива
         cur.execute('''CREATE TABLE IF NOT EXISTS unlocked_protocols (uid BIGINT, protocol_id INTEGER, PRIMARY KEY(uid, protocol_id));''')
-# Автоматическое добавление недостающих колонок
+
+        # Автоматическое добавление недостающих колонок
         alter_queries = [
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0;",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_profit_coins INTEGER DEFAULT 0;",
@@ -92,40 +119,12 @@ def init_db():
                 conn.commit()
             except:
                 conn.rollback()
-        # --- МИГРАЦИЯ (ЛЕЧЕНИЕ СТАРЫХ БАЗ) ---
-        patch_cols = [
-            ("users", "biocoin", "INTEGER DEFAULT 0"),
-            ("users", "ref_profit_xp", "INTEGER DEFAULT 0"),
-            ("users", "ref_profit_coins", "INTEGER DEFAULT 0"),
-            ("users", "max_depth", "INTEGER DEFAULT 0"),
-            ("inventory", "quantity", "INTEGER DEFAULT 1"),
-            ("inventory", "durability", "INTEGER DEFAULT 100"),
-            ("raid_sessions", "buffer_coins", "INTEGER DEFAULT 0")
-        ]
         
-        for table, col, dtype in patch_cols:
-            try:
-                cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {dtype};")
-            except:
-                conn.rollback()
-            else:
-                conn.commit()
-
-        # --- SEEDING (ЗАПОЛНЕНИЕ, ЕСЛИ ПУСТО) ---
-        cur.execute("SELECT COUNT(*) FROM content")
-        if cur.fetchone()[0] == 0:
-            base_content = [
-                ('protocol', 'general', '<b>СИСТЕМА:</b> Мир — это код.', 1),
-                ('signal', 'general', 'Слушай тишину.', 1)
-            ]
-            cur.executemany("INSERT INTO content (type, path, text, level) VALUES (%s, %s, %s, %s)", base_content)
-            
         conn.commit()
     conn.close()
-    print("/// DATABASE ENGINE: SYNCHRONIZED (v7.5 FIXED).")
 
 # =============================================================
-# 👤 УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ
+# 👤 ПОЛЬЗОВАТЕЛИ
 # =============================================================
 
 def get_user(uid):
@@ -137,25 +136,14 @@ def get_user(uid):
             return cur.fetchone()
     finally: conn.close()
 
-def create_user(uid, username, first_name, referrer=None):
-    conn = get_db_connection()
-    if not conn: return
-    try:
-        with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (uid, username, first_name, referrer) VALUES (%s, %s, %s, %s) ON CONFLICT (uid) DO NOTHING", (uid, username, first_name, referrer))
-            if referrer:
-                cur.execute("UPDATE users SET ref_count = ref_count + 1 WHERE uid = %s", (referrer,))
-            conn.commit()
-    finally: conn.close()
-
 def update_user(uid, **kwargs):
-    if not kwargs: return
     conn = get_db_connection()
     if not conn: return
     try:
         with conn.cursor() as cur:
             set_clause = ", ".join([f"{k} = %s" for k in kwargs.keys()])
-            cur.execute(f"UPDATE users SET {set_clause} WHERE uid = %s", list(kwargs.values()) + [uid])
+            values = list(kwargs.values()) + [uid]
+            cur.execute(f"UPDATE users SET {set_clause} WHERE uid = %s", values)
             conn.commit()
     finally: conn.close()
 
@@ -169,7 +157,6 @@ def add_xp_to_user(uid, amount):
     finally: conn.close()
 
 def add_referral_profit(uid, xp_amount, coin_amount):
-    """Обновляет статистику профита реферера"""
     conn = get_db_connection()
     if not conn: return
     try:
@@ -301,6 +288,20 @@ def get_equipped_items(uid):
             return {row['slot']: row['item_id'] for row in cur.fetchall()}
     finally: conn.close()
 
+def break_equipment_randomly(uid):
+    conn = get_db_connection()
+    if not conn: return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT slot, item_id FROM user_equipment WHERE uid=%s ORDER BY RANDOM() LIMIT 1", (uid,))
+            item = cur.fetchone()
+            if item:
+                cur.execute("DELETE FROM user_equipment WHERE uid=%s AND slot=%s", (uid, item[0]))
+                conn.commit()
+                return item[1]
+            return None
+    finally: conn.close()
+
 # =============================================================
 # 🏆 АЧИВКИ, ЗНАНИЯ, АРХИВ
 # =============================================================
@@ -342,6 +343,9 @@ def get_archived_protocols(uid):
             return cur.fetchall()
     finally: conn.close()
 
+def get_unlocked_protocols(uid):
+    return get_archived_protocols(uid)
+
 def save_knowledge(uid, content_id):
     conn = get_db_connection()
     if not conn: return
@@ -351,8 +355,6 @@ def save_knowledge(uid, content_id):
             cur.execute("INSERT INTO unlocked_protocols (uid, protocol_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, content_id))
             conn.commit()
     finally: conn.close()
-
-# Остальные функции (get_leaderboard, diary, admin) оставлены без изменений.
 
 def get_leaderboard(limit=10):
     conn = get_db_connection()
