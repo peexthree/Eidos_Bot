@@ -199,7 +199,7 @@ def raid_step_logic(uid, answer=None):
             msg_prefix += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
         
         new_sig = max(0, new_sig - dmg)
-        flavor = random.choice(RAID_FLAVOR_TEXT['trap'])
+        flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['trap'])
         msg_event = f"💥 <b>ЛОВУШКА:</b> {flavor}\n🔻 <b>-{dmg}% Сигнала</b> (Защита: {stats['def']})"
         
     elif event['type'] == 'loot':
@@ -208,7 +208,7 @@ def raid_step_logic(uid, answer=None):
         coins = int(random.randint(5, 20) * (1 + stats['luck']/20) * coin_mult) 
         
         cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, coins, uid))
-        flavor = random.choice(RAID_FLAVOR_TEXT['loot'])
+        flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['loot'])
         msg_event = f"💎 <b>ЛУТ:</b> {flavor}\n✳️ +{bonus_xp} XP | 🪙 +{coins} BC"
         
         # Дроп предметов (с проверкой 10 слотов)
@@ -230,9 +230,10 @@ def raid_step_logic(uid, answer=None):
             
     elif event['type'] == 'heal':
         new_sig = min(100, new_sig + 25)
-        msg_event = "❤️ <b>АПТЕЧКА:</b> +25% Сигнала."
+        desc = event["text"] if len(event.get("text","")) > 15 else "Найден источник энергии."
+        msg_event = f"❤️ <b>АПТЕЧКА:</b> {desc}\n+25% Сигнала."
     else: 
-        flavor = random.choice(RAID_FLAVOR_TEXT['empty'])
+        flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['empty'])
         msg_event = f"👣 {flavor}"
 
     # Загадки
@@ -240,7 +241,16 @@ def raid_step_logic(uid, answer=None):
     if match:
         correct = match.group(1).strip()
         q = event['text'].replace(match.group(0), "").strip()
-        options = random.sample(["Ошибка", "Сбой", "Пустота", "Шум"], 2) + [correct]
+        # Smart distractors
+        if " и " in correct or " and " in correct.lower():
+             d1 = random.choice(RIDDLE_DISTRACTORS)
+             d2 = random.choice(RIDDLE_DISTRACTORS)
+             d3 = random.choice(RIDDLE_DISTRACTORS)
+             d4 = random.choice(RIDDLE_DISTRACTORS)
+             opts = [f"{d1} и {d2}", f"{d3} и {d4}"]
+             options = opts + [correct]
+        else:
+             options = random.sample(RIDDLE_DISTRACTORS, 2) + [correct]
         random.shuffle(options)
         riddle_data = {"question": q, "correct": correct, "options": options}
         msg_event = f"🧩 <b>ШИФР:</b>\n{q}"
@@ -249,7 +259,7 @@ def raid_step_logic(uid, answer=None):
     compass_txt = ""
     if db.get_item_count(uid, 'compass') > 0:
         if db.decrease_durability(uid, 'compass'):
-            res = "БЕЗОПАСНО" if event['type'] in ['loot', 'heal', 'neutral'] else "⚠️ УГРОЗА"
+            res = "❇️ БЕЗОПАСНО (Ресурсы)" if event['type'] in ['loot', 'heal', 'locked_chest'] else ("⬜️ ПУСТО" if event['type'] == 'neutral' else "⚠️ УГРОЗА (Ловушка)")
             compass_txt = f"🧭 <b>СКАНЕР:</b> {res} (Удача: {stats['luck']})"
         else:
             compass_txt = "💔 <b>КОМПАС СЛОМАЛСЯ.</b>"
