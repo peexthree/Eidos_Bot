@@ -1,5 +1,5 @@
 from telebot import types
-from config import ADMIN_ID, PRICES, SCHOOLS, LEVELS, EQUIPMENT_DB, ITEMS_INFO, SLOTS
+from config import ADMIN_ID, PRICES, SCHOOLS, LEVELS, EQUIPMENT_DB, ITEMS_INFO, SLOTS, ARCHIVE_COST
 
 # =============================================================
 # 🛠 ТУЛКИТ ДИЗАЙНЕРА
@@ -26,9 +26,9 @@ def main_menu(u):
     # 2. Рейд
     m.add(types.InlineKeyboardButton("─── 🌑 ЭКСПЕДИЦИЯ ───", callback_data="zero_layer_menu"))
     
-    # 3. Персонаж
+    # 3. Персонаж (Улучшенный прогресс-бар)
     current_lvl = u['level']
-    next_lvl_xp = LEVELS.get(current_lvl + 1, LEVELS.get(current_lvl, 999999))
+    next_lvl_xp = LEVELS.get(current_lvl + 1, 999999)
     base_xp = LEVELS.get(current_lvl, 0)
     xp_in_level = max(0, u['xp'] - base_xp)
     needed = max(1, next_lvl_xp - base_xp)
@@ -41,9 +41,11 @@ def main_menu(u):
     m.add(types.InlineKeyboardButton("🎒 ИНВЕНТАРЬ", callback_data="inventory"),
           types.InlineKeyboardButton("🏆 РЕЙТИНГ", callback_data="leaderboard"))
           
-    # 5. Социум & Дневник (ВЕРНУЛИ)
+    # 5. Социум, Знания & Гайды
     m.add(types.InlineKeyboardButton("🔗 СИНДИКАТ", callback_data="referral"),
           types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_menu"))
+    
+    m.add(types.InlineKeyboardButton("📚 ИНСТРУКЦИЯ (ГАЙД)", callback_data="guide"))
 
     if str(uid) == str(ADMIN_ID):
         m.add(types.InlineKeyboardButton("⚡️ GOD MODE ⚡️", callback_data="admin_panel"))
@@ -51,36 +53,28 @@ def main_menu(u):
     return m
 
 # =============================================================
-# 📓 ДНЕВНИК (ЧИТАЛКА v2.0)
+# 📓 ДНЕВНИК И АРХИВ (v3.0)
 # =============================================================
 
 def diary_menu():
-    """Главное меню дневника"""
-    m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(types.InlineKeyboardButton("✍️ НОВАЯ ЗАПИСЬ", callback_data="diary_new"),
-          types.InlineKeyboardButton("📖 ЧИТАТЬ АРХИВ", callback_data="diary_read_0")) # 0 - первая страница
+    """Меню дневника с разделом Архива"""
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(
+        types.InlineKeyboardButton("✍️ НОВАЯ ЗАПИСЬ", callback_data="diary_new"),
+        types.InlineKeyboardButton("📖 МОИ МЫСЛИ (ПОЛНЫЙ ТЕКСТ)", callback_data="diary_read_0"),
+        types.InlineKeyboardButton(f"💾 АРХИВ ПРОТОКОЛОВ ({ARCHIVE_COST} XP)", callback_data="diary_archive")
+    )
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 
 def diary_read_nav(page, total_pages):
-    """Навигация по страницам (чтобы текст был читабельным)"""
+    """Навигация по дневнику (по 1 записи на экран для читаемости)"""
     m = types.InlineKeyboardMarkup(row_width=3)
     
     btns = []
-    # Кнопка "Назад" (страница)
-    if page > 0: 
-        btns.append(types.InlineKeyboardButton("⬅️", callback_data=f"diary_read_{page-1}"))
-    else:
-        btns.append(types.InlineKeyboardButton("🌑", callback_data="dummy"))
-        
-    # Индикатор
-    btns.append(types.InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="dummy"))
-    
-    # Кнопка "Вперед" (страница)
-    if page < total_pages - 1: 
-        btns.append(types.InlineKeyboardButton("➡️", callback_data=f"diary_read_{page+1}"))
-    else:
-        btns.append(types.InlineKeyboardButton("🌑", callback_data="dummy"))
+    if page > 0: btns.append(types.InlineKeyboardButton("⬅️", callback_data=f"diary_read_{page-1}"))
+    btns.append(types.InlineKeyboardButton(f"{page+1} / {total_pages}", callback_data="dummy"))
+    if page < total_pages - 1: btns.append(types.InlineKeyboardButton("➡️", callback_data=f"diary_read_{page+1}"))
     
     m.add(*btns)
     m.add(types.InlineKeyboardButton("🔙 В МЕНЮ ДНЕВНИКА", callback_data="diary_menu"))
@@ -93,55 +87,47 @@ def diary_read_nav(page, total_pages):
 def inventory_menu(items, equipped):
     m = types.InlineKeyboardMarkup(row_width=1)
     
-    # СЕКЦИЯ 1: НАДЕТО
     if equipped:
-        m.add(types.InlineKeyboardButton("--- 🛡 НАДЕТО ---", callback_data="dummy"))
+        m.add(types.InlineKeyboardButton("─── 🛡 НАДЕТО (Клик чтобы снять) ───", callback_data="dummy"))
         for slot, item_id in equipped.items():
             name = EQUIPMENT_DB.get(item_id, {}).get('name', '???')
-            m.add(types.InlineKeyboardButton(f"⬇️ СНЯТЬ: {name}", callback_data=f"unequip_{slot}"))
+            m.add(types.InlineKeyboardButton(f"⬇️ {SLOTS.get(slot, slot)}: {name}", callback_data=f"unequip_{slot}"))
     
-    # СЕКЦИЯ 2: РЮКЗАК
     if items:
-        m.add(types.InlineKeyboardButton("--- 📦 РЮКЗАК ---", callback_data="dummy"))
+        m.add(types.InlineKeyboardButton("─── 📦 РЮКЗАК (Клик чтобы надеть) ───", callback_data="dummy"))
         for i in items:
             item_id = i['item_id']
             qty = i['quantity']
-            
-            # Экипировка
             if item_id in EQUIPMENT_DB:
                 name = EQUIPMENT_DB[item_id]['name']
-                m.add(types.InlineKeyboardButton(f"⬆️ НАДЕТЬ: {name}", callback_data=f"equip_{item_id}"))
-            
-            # Активные предметы
+                m.add(types.InlineKeyboardButton(f"⬆️ {name} (x{qty})", callback_data=f"equip_{item_id}"))
             elif item_id == 'admin_key':
                 m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: GLITCH KEY (x{qty})", callback_data="use_admin_key"))
-            
-            # Расходники (можно добавить кнопку "Выбросить" в будущем)
             
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 
 # =============================================================
-# 🎰 МАГАЗИН (HYBRID: XP + BIOCOIN)
+# 🎰 ЧЕРНЫЙ РЫНОК (С ОПИСАНИЕМ ПРЕДМЕТОВ)
 # =============================================================
 
 def shop_menu(u):
     m = types.InlineKeyboardMarkup(row_width=2)
     
-    # Расходники (BioCoin)
+    # Расходники
     m.add(types.InlineKeyboardButton(f"🧭 КОМПАС ({PRICES['compass']} BC)", callback_data="buy_compass"),
           types.InlineKeyboardButton(f"🔑 КЛЮЧ ({PRICES['master_key']} BC)", callback_data="buy_master_key"))
     
     m.add(types.InlineKeyboardButton(f"🔋 БАТАРЕЯ ({PRICES['battery']} BC)", callback_data="buy_battery"),
           types.InlineKeyboardButton(f"🛡 ЭГИДА ({PRICES['aegis']} BC)", callback_data="buy_aegis"))
 
-    # Экипировка (BioCoin)
-    m.add(types.InlineKeyboardButton(f"🔪 НОЖ ({EQUIPMENT_DB['rusty_knife']['price']} BC)", callback_data="buy_rusty_knife"),
-          types.InlineKeyboardButton(f"🧥 ХУДИ ({EQUIPMENT_DB['hoodie']['price']} BC)", callback_data="buy_hoodie"))
+    # Снаряжение (Динамический вывод из базы)
+    for k, v in EQUIPMENT_DB.items():
+        m.add(types.InlineKeyboardButton(f"{v['name']} ({v['price']} BC)", callback_data=f"buy_{k}"))
           
-    # Апгрейды (XP - по твоему старому конфигу)
-    m.add(types.InlineKeyboardButton(f"❄️ КРИО ({PRICES['cryo']} BC)", callback_data="buy_cryo"),
-          types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} BC)", callback_data="buy_accel"))
+    # Апгрейды
+    m.add(types.InlineKeyboardButton(f"❄️ КРИО ({PRICES['cryo']} XP)", callback_data="buy_cryo"),
+          types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="buy_accel"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
@@ -151,12 +137,10 @@ def shop_menu(u):
 # =============================================================
 
 def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False):
-    """Контекстная клавиатура: кнопки меняются от ситуации"""
     m = types.InlineKeyboardMarkup()
     
-    # Сундук
     if event_type == 'locked_chest':
-        if has_key: m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ (КЛЮЧ)", callback_data="raid_open_chest"))
+        if has_key: m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ (НУЖЕН КЛЮЧ)", callback_data="raid_open_chest"))
         else: m.add(types.InlineKeyboardButton("🔒 НУЖЕН КЛЮЧ", callback_data="shop_dummy"))
             
     m.add(types.InlineKeyboardButton(f"👣 ШАГ ВГЛУБЬ (-{xp_cost} XP)", callback_data="raid_step"))
@@ -193,48 +177,43 @@ def back_button():
     return m
 
 # =============================================================
-# ⚡️ GOD MODE (РАСШИРЕННАЯ АДМИНКА)
+# ⚡️ GOD MODE (12 КНОПОК УПРАВЛЕНИЯ)
 # =============================================================
 
 def admin_keyboard():
-    """
-    Панель Демиурга. 10+ функций.
-    """
     m = types.InlineKeyboardMarkup(row_width=2)
     
-    # 1. КОММУНИКАЦИЯ
+    # Группа 1: Коммуникация
     m.add(types.InlineKeyboardButton("📢 РАССЫЛКА", callback_data="admin_broadcast"),
-          types.InlineKeyboardButton("✉️ ЛИЧНОЕ СООБЩЕНИЕ", callback_data="admin_dm"))
+          types.InlineKeyboardButton("✉️ ЛС ЮЗЕРУ", callback_data="admin_dm"))
           
-    # 2. ЭКОНОМИКА (Раздача)
-    m.add(types.InlineKeyboardButton("💰 ВЫДАТЬ XP/COINS", callback_data="admin_give_res"),
-          types.InlineKeyboardButton("🎁 ВЫДАТЬ ПРЕДМЕТ", callback_data="admin_give_item_menu"))
+    # Группа 2: Ресурсы
+    m.add(types.InlineKeyboardButton("💰 ВЫДАТЬ XP/BC", callback_data="admin_give_res"),
+          types.InlineKeyboardButton("🎁 ВЫДАТЬ ITEM", callback_data="admin_give_item_menu"))
           
-    # 3. БАЗА ДАННЫХ (Контроль)
-    m.add(types.InlineKeyboardButton("📜 SQL ТЕРМИНАЛ", callback_data="admin_sql"),
-          types.InlineKeyboardButton("📊 СТАТИСТИКА БД", callback_data="admin_db_stats"))
-          
-    # 4. КОНТЕНТ (Креатив)
+    # Группа 3: Мир и Контент
     m.add(types.InlineKeyboardButton("📝 ДОБАВИТЬ СИНХРОН", callback_data="admin_add_content"),
-          types.InlineKeyboardButton("🎭 ДОБАВИТЬ ЗАГАДКУ", callback_data="admin_add_riddle"))
+          types.InlineKeyboardButton("🎭 НОВАЯ ЗАГАДКА", callback_data="admin_add_riddle"))
+    
+    # Группа 4: Техническое
+    m.add(types.InlineKeyboardButton("📜 SQL КОНСОЛЬ", callback_data="admin_sql"),
+          types.InlineKeyboardButton("📊 СТАТИСТИКА БД", callback_data="admin_db_stats"))
+    
+    m.add(types.InlineKeyboardButton("👥 СПИСОК ЮЗЕРОВ", callback_data="admin_user_list"),
+          types.InlineKeyboardButton("🔍 ИНФО О ЮЗЕРЕ", callback_data="admin_user_info"))
           
-    # 5. ОПАСНАЯ ЗОНА
+    # Группа 5: Опасная зона
     m.add(types.InlineKeyboardButton("💀 ВАЙП ЮЗЕРА", callback_data="admin_wipe_user"),
-          types.InlineKeyboardButton("♻️ ПЕРЕЗАГРУЗКА БОТА", callback_data="admin_restart"))
+          types.InlineKeyboardButton("♻️ RESTART BOT", callback_data="admin_restart"))
           
     m.add(types.InlineKeyboardButton("🔙 ВЫХОД", callback_data="back"))
     return m
 
 def admin_item_select():
-    """Подменю для выбора предмета на выдачу"""
     m = types.InlineKeyboardMarkup(row_width=2)
-    # Генерируем кнопки из конфига
     for k, v in EQUIPMENT_DB.items():
         m.add(types.InlineKeyboardButton(v['name'], callback_data=f"adm_give_{k}"))
-        
-    # Добавляем расходники
     m.add(types.InlineKeyboardButton("🔑 MASTER KEY", callback_data="adm_give_master_key"),
           types.InlineKeyboardButton("🧭 COMPASS", callback_data="adm_give_compass"))
-          
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="admin_panel"))
     return m
