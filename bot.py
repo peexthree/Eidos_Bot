@@ -359,7 +359,7 @@ def text_handler(m):
     # Basic handler if needed
     pass
 
- ЗАПУСК И МАРШРУТЫ (SAFE BOOT PROTOCOL) ---
+ #ЗАПУСК И МАРШРУТЫ (SAFE BOOT PROTOCOL) ---
 @app.route('/health', methods=['GET'])
 def health_check():
     return 'OK', 200
