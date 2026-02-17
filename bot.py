@@ -9,7 +9,6 @@ import time
 import threading
 import flask
 import os
-import sys
 import random
 from datetime import datetime, timedelta
 from psycopg2.extras import RealDictCursor
@@ -18,12 +17,9 @@ from psycopg2.extras import RealDictCursor
 # ⚙️ НАСТРОЙКИ
 # =============================================================
 
-TOKEN = os.environ.get('BOT_TOKEN')
-if not TOKEN:
-    print("Error: BOT_TOKEN environment variable is not set.")
-    sys.exit(1)
+TOKEN = os.environ.get('TELEGRAM_TOKEN')
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
-ADMIN_ID = 5178416366 # Placeholder
+ADMIN_ID = 777000 # Placeholder
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
@@ -358,23 +354,6 @@ def handle_query(call):
 def text_handler(m):
     # Basic handler if needed
     pass
-
-
-@app.route('/' + TOKEN, methods=['POST'])
-def getMessage():
-    json_string = flask.request.get_data().decode('utf-8')
-    update = telebot.types.Update.de_json(json_string)
-    bot.process_new_updates([update])
-    return "OK", 200
-
-@app.route("/")
-def webhook():
-    bot.remove_webhook()
-    if WEBHOOK_URL:
-        bot.set_webhook(url=WEBHOOK_URL + "/" + TOKEN)
-        return "Webhook set!", 200
-    else:
-        return "Bot is running. Set WEBHOOK_URL to enable webhook.", 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 10000)))
