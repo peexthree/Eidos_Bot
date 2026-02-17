@@ -14,6 +14,12 @@ def get_db_connection():
         print(f"/// CRITICAL DB ERROR: {e}")
         return None
 
+def get_item_count(uid, item_id):
+    conn = get_db_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
+        res = cur.fetchone()
+        return res[0] if res else 0
 # =============================================================
 # 🛠 ИНИЦИАЛИЗАЦИЯ (СТРУКТУРА МИРА)
 # =============================================================
@@ -73,7 +79,19 @@ def init_db():
         
         # [NEW] Таблица разблокированных протоколов для Архива
         cur.execute('''CREATE TABLE IF NOT EXISTS unlocked_protocols (uid BIGINT, protocol_id INTEGER, PRIMARY KEY(uid, protocol_id));''')
-
+# Автоматическое добавление недостающих колонок
+        alter_queries = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_profit_coins INTEGER DEFAULT 0;",
+            "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1;",
+            "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS durability INTEGER DEFAULT 100;"
+        ]
+        for q in alter_queries:
+            try:
+                cur.execute(q)
+                conn.commit()
+            except:
+                conn.rollback()
         # --- МИГРАЦИЯ (ЛЕЧЕНИЕ СТАРЫХ БАЗ) ---
         patch_cols = [
             ("users", "biocoin", "INTEGER DEFAULT 0"),
