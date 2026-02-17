@@ -372,7 +372,7 @@ def text_handler(m):
 def health_check():
     return 'ALIVE', 200
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/webhook', methods=['POST'])
 def webhook():
     if flask.request.method == 'POST':
         try:
@@ -381,24 +381,24 @@ def webhook():
         except Exception as e:
             print(f"/// WEBHOOK ERROR: {e}")
             return 'Error', 500
-    return 'Eidos SQL Interface is Operational', 200
 
+@app.route("/", methods=["GET"])
+def index():
+    return "Eidos SQL Interface is Operational", 200
 # ФОНОВЫЙ ЗАПУСК СИСТЕМ (ЧТОБЫ НЕ БЛОКИРОВАТЬ СТАРТ)
 def system_startup():
     with app.app_context():
         # Даем серверу продышаться перед нагрузкой
         time.sleep(2)
         print("/// SYSTEM STARTUP INITIATED...")
-        init_db()
+        db.init_db()
         if WEBHOOK_URL:
             try:
                 bot.remove_webhook()
-                bot.set_webhook(url=WEBHOOK_URL)
+                bot.set_webhook(url=WEBHOOK_URL + "/webhook")
                 print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
             except Exception as e:
                 print(f"/// WEBHOOK ERROR: {e}")
-        # Запускаем воркер уведомлений
-        notification_worker()
 
 threading.Thread(target=system_startup, daemon=True).start()
 
