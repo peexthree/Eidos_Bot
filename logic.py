@@ -1,148 +1,64 @@
-import random, time, re
-from datetime import datetime
-from config import *
 import database as db
-
-# =============================================================
-# 1. СТАТИСТИКА И БОНУСЫ ШКОЛ [RPG]
-# =============================================================
+from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS
+import random
+import time
+import re
 
 def get_user_stats(uid):
-    """Считает сумму статов (Шмот + Школа)"""
+    u = db.get_user(uid)
+    if not u: return None, None
+
+    eq = db.get_equipped_items(uid)
     stats = {'atk': 0, 'def': 0, 'luck': 0}
     
-    # 1. Считаем от экипировки
-    equipped = db.get_equipped_items(uid)
-    for slot, item_id in equipped.items():
-        item_stats = EQUIPMENT_DB.get(item_id, {})
-        stats['atk'] += item_stats.get('atk', 0)
-        stats['def'] += item_stats.get('def', 0)
-        stats['luck'] += item_stats.get('luck', 0)
+    for slot, item_id in eq.items():
+        info = ITEMS_INFO.get(item_id, {})
+        stats['atk'] += info.get('atk', 0)
+        stats['def'] += info.get('def', 0)
+        stats['luck'] += info.get('luck', 0)
         
-    # 2. Добавляем бонусы Школы (Фракции)
-    u = db.get_user(uid)
-    if u:
-        if u['path'] == 'mind': stats['def'] += 10
-        elif u['path'] == 'tech': stats['luck'] += 10
-        
-    return stats, equipped
-
-# =============================================================
-# 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-# =============================================================
-
-def get_path_multiplier(u):
-    """Бонусы для 'мирных' действий (Синхрон/Сигнал)"""
-    bonuses = {"xp_mult": 1.0, "cd_mult": 1.0}
-    if u['path'] == 'money': bonuses['xp_mult'] = 1.2
-    elif u['path'] == 'tech': bonuses['cd_mult'] = 0.9
-    return bonuses
-
-def check_cooldown(uid, action_type):
-    u = db.get_user(uid)
-    if not u: return False, 0
-    now = int(time.time())
-    b = get_path_multiplier(u)
+    # School bonus
+    if u['path'] == 'mind': stats['def'] += 10
+    elif u['path'] == 'tech': stats['luck'] += 10
     
-    if action_type == 'protocol':
-        base_cd = COOLDOWN_ACCEL if u['accel_exp'] > now else COOLDOWN_BASE
-        cd = base_cd * b['cd_mult']
-        last = u['last_protocol_time']
-    else: 
-        cd = COOLDOWN_SIGNAL * b['cd_mult']
-        last = u['last_signal_time']
-        
-    rem = int(cd - (now - last))
-    return (rem <= 0), max(0, rem)
+    return stats, u
 
-def draw_bar(current, total, length=10):
+def draw_bar(curr, total, length=10):
     if total <= 0: return "░" * length
-    percent = current / total
-    fill = int(length * percent)
-    fill = max(0, min(length, fill))
-    return "█" * fill + "░" * (length - fill)
+    p = max(0.0, min(1.0, curr / total))
+    filled = int(length * p)
+    return "█" * filled + "░" * (length - filled)
 
 def get_raid_entry_cost(uid):
-    u = db.get_user(uid)
-    if not u: return RAID_COST
+    return 100
 
-    today = datetime.now().date()
-    last = u.get('last_raid_date')
-    count = u.get('raid_entry_count', 0)
-
-    if isinstance(last, str):
-        last = datetime.strptime(last, "%Y-%m-%d").date()
-
-    if last != today:
-        return RAID_COST
-
-    return RAID_COST + (count * 50)
-
-# =============================================================
-# 3. ЭКОНОМИКА (XP + REFERRAL)
-# =============================================================
-
-def process_xp_logic(uid, amount, source='general'):
-    u = db.get_user(uid)
-    if not u: return 0, False, []
+def format_combat_screen(villain, hp, signal, stats, session):
+    sig_bar = draw_bar(signal, 100, 8)
+    hp_bar = draw_bar(hp, villain['hp'], 8)
     
-    b = get_path_multiplier(u)
-    final_amount = int(amount * b['xp_mult'])
+    # Calculate Win Chance
+    # Formula: 50% base + (ATK - DEF)*2. Min 10%, Max 95%
+    win_chance = min(95, max(10, 50 + (stats['atk'] - villain['def']) * 2))
     
-    today = datetime.now().date()
-    last = u['last_active']
-    if isinstance(last, str): last = datetime.strptime(last, "%Y-%m-%d").date()
-    streak = u['streak']
-    
-    if last < today:
-        if (today - last).days == 1: streak += 1
-        elif u['cryo'] > 0: db.update_user(uid, cryo=u['cryo']-1)
-        else: streak = 1
-        db.update_user(uid, streak=streak, last_active=today)
-        
-    final_amount += (streak * 2) 
-    
-    # [FIXED] Реферальные 10% (XP и Монеты для Босса)
-    if u['referrer'] and source == 'raid':
-        ref_bonus_xp = int(final_amount * 0.1)
-        ref_bonus_coins = int(amount * 0.05) # Босс берет долю в монетах
-        if ref_bonus_xp > 0:
-            db.add_xp_to_user(int(u['referrer']), ref_bonus_xp)
-            db.add_referral_profit(int(u['referrer']), ref_bonus_xp, ref_bonus_coins)
-            
-    new_xp = u['xp'] + final_amount
-    new_lvl = u['level']
-    for lvl, thr in sorted(LEVELS.items(), reverse=True):
-        if new_xp >= thr:
-            new_lvl = lvl
-            break
-            
-    is_up = new_lvl > u['level']
-    db.update_user(uid, xp=new_xp, level=new_lvl)
-    
-    return final_amount, is_up, check_achievements(uid)
+    txt = (
+        f"⚠️ <b>ВНИМАНИЕ! ОБНАРУЖЕНА УГРОЗА!</b>\n\n"
+        f"👹 <b>{villain['name']}</b> (Lvl {villain['level']})\n"
+        f"❤️ HP: <code>{hp_bar}</code> {hp}/{villain['hp']}\n"
+        f"📝 <i>{villain['description']}</i>\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"📡 Твой Сигнал: <code>{sig_bar}</code> {signal}%\n"
+        f"⚔️ Твоя ATK: {stats['atk']} | 🛡 DEF: {stats['def']}\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"📊 <b>ШАНС ПОБЕДЫ: ~{win_chance}%</b>\n"
+        f"💀 При побеге: 50% шанс получить удар в спину."
+    )
+    return txt
 
-def check_achievements(uid):
-    u = db.get_user(uid)
-    unlocked = []
-    if not u: return []
-    for aid, data in ACHIEVEMENTS_LIST.items():
-        if not db.check_achievement_exists(uid, aid):
-            if data['cond'](u):
-                if db.grant_achievement(uid, aid, data['xp']):
-                    unlocked.append(data['name'])
-    return unlocked
-
-# =============================================================
-# 4. ДВИЖОК РЕЙДА v8.0 (GOD EDITION)
-# =============================================================
-
-def raid_step_logic(uid, answer=None):
-    u = db.get_user(uid)
-    stats, _ = get_user_stats(uid) 
+def process_raid_step(uid, answer=None):
+    stats, u = get_user_stats(uid)
+    if not u: return False, "User not found", None, None, 'error', 0
     
     with db.db_session() as conn:
-        if not conn: return False, "❌ DB CONNECTION ERROR", None, u, 'neutral', 0
         with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
             # 1. СЕССИЯ
             cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
@@ -153,7 +69,6 @@ def raid_step_logic(uid, answer=None):
                 cost = get_raid_entry_cost(uid)
                 if u['xp'] < cost:
                     return False, f"🪫 <b>МАЛО ЭНЕРГИИ</b>\nНужно {cost} XP для входа.", None, u, 'neutral', 0
-
                 pass
 
             depth = s['depth'] if s else u.get('max_depth', 0)
@@ -163,6 +78,17 @@ def raid_step_logic(uid, answer=None):
                  cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
                  s = cur.fetchone()
                  is_new = True
+
+            # CHECK COMBAT STATE FIRST
+            if s.get('current_enemy_id'):
+                # Force combat mode if enemy exists
+                vid = s['current_enemy_id']
+                v_hp = s.get('current_enemy_hp', 10) # Fallback
+                villain = db.get_villain_by_id(vid)
+                if villain:
+                    return True, format_combat_screen(villain, v_hp, s['signal'], stats, s), None, u, 'combat', 0
+                else:
+                    db.clear_raid_enemy(uid) # Error state
 
             msg_prefix = ""
 
@@ -177,23 +103,30 @@ def raid_step_logic(uid, answer=None):
                 else:
                     msg_prefix = "🔒 <b>НЕТ КЛЮЧА!</b>\n\n"
 
-            # 3. ЦЕНА ШАГА
+            # 3. ЦЕНА ШАГА (Skip cost if new)
             step_cost = RAID_STEP_COST + (depth // 25)
-            if u['xp'] < step_cost:
-                return False, f"🪫 <b>ВЫДОХСЯ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
-
-            db.update_user(uid, xp=u['xp'] - step_cost)
-            u['xp'] -= step_cost
+            if not is_new:
+                if u['xp'] < step_cost:
+                    return False, f"🪫 <b>ВЫДОХСЯ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
+                db.update_user(uid, xp=u['xp'] - step_cost)
+                u['xp'] -= step_cost
 
             # 4. БИОМ
             biome = RAID_BIOMES["wasteland"]
             if 50 <= depth < 100: biome = RAID_BIOMES["archive"]
             elif depth >= 100: biome = RAID_BIOMES["darknet"]
 
-            new_depth = depth + 1
+            new_depth = depth + 1 if not is_new else depth
             diff = biome['dmg_mod']
 
             # 5. ГЕНЕРАЦИЯ СОБЫТИЯ
+            # 15% Chance for Villain
+            if not is_new and random.random() < 0.15:
+                villain = db.get_random_villain(depth // 20 + 1)
+                if villain:
+                    db.update_raid_enemy(uid, villain['id'], villain['hp'])
+                    return True, format_combat_screen(villain, villain['hp'], s['signal'], stats, s), None, u, 'combat', 0
+
             if not is_new and random.random() < 0.15:
                 event = {'type': 'locked_chest', 'text': 'Зашифрованный контейнер с лутом.', 'val': 0}
             else:
@@ -207,20 +140,17 @@ def raid_step_logic(uid, answer=None):
                  match = re.search(r'\s*\(Ответ:\s*(.*?)\)', event['text'], re.IGNORECASE)
                  if match:
                      riddle_answer = match.group(1).strip()
-
-            # Очищаем текст от (Ответ: ...) и (Техника: ...)
             event['text'] = re.sub(r'\s*\(.*?\)', '', event['text']).strip()
 
             new_sig = s['signal']
             riddle_data = None
             msg_event = ""
 
-            # === RPG LOGIC (АТАКА/ЗАЩИТА/УДАЧА) ===
+            # === RPG LOGIC ===
             if event['type'] == 'trap':
                 base_dmg = int(event['val'] * diff)
-                dmg = max(5, base_dmg - stats['def']) # DEF реально спасает!
-
-                # Эгида
+                dmg = max(5, base_dmg - stats['def'])
+                # Aegis check
                 if db.get_item_count(uid, 'aegis') > 0 and (new_sig - dmg <= 0):
                     db.use_item(uid, 'aegis')
                     dmg = 0
@@ -234,12 +164,10 @@ def raid_step_logic(uid, answer=None):
                 coin_mult = 1.2 if u['path'] == 'money' else 1.0
                 bonus_xp = int(event['val'] * diff * (1 + stats['atk']/100))
                 coins = int(random.randint(5, 20) * (1 + stats['luck']/20) * coin_mult)
-
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, coins, uid))
                 flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['loot'])
                 msg_event = f"💎 <b>ЛУТ:</b> {flavor}\n✳️ +{bonus_xp} XP | 🪙 +{coins} BC"
-
-                # Дроп предметов (с проверкой 10 слотов)
+                # Drop Item
                 if db.get_inventory_size(uid) < INVENTORY_LIMIT:
                     dice = random.random()
                     drop_chance = 1.0 + (stats['luck'] / 100)
@@ -253,8 +181,6 @@ def raid_step_logic(uid, answer=None):
                                 if db.add_item(uid, item):
                                     msg_prefix += f"🎁 <b>ВЕЩЬ:</b> {ITEMS_INFO.get(item, {}).get('name', item)}\n"
                             break
-                else:
-                    msg_prefix += "🎒 <b>РЮКЗАК ПОЛЕН!</b> Пришлось оставить лут.\n"
 
             elif event['type'] == 'heal':
                 new_sig = min(100, new_sig + 25)
@@ -264,56 +190,62 @@ def raid_step_logic(uid, answer=None):
                 flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['empty'])
                 msg_event = f"👣 {flavor}"
 
-            # Загадки (с использованием ранее извлеченного ответа)
+            # Riddle Handling with Single Word Answer Support
             if riddle_answer:
-                correct = riddle_answer
-                q = event['text'] # Уже очищенный текст
-                # Smart distractors
-                if " и " in correct or " and " in correct.lower():
-                     d1 = random.choice(RIDDLE_DISTRACTORS)
-                     d2 = random.choice(RIDDLE_DISTRACTORS)
-                     d3 = random.choice(RIDDLE_DISTRACTORS)
-                     d4 = random.choice(RIDDLE_DISTRACTORS)
-                     opts = [f"{d1} и {d2}", f"{d3} и {d4}"]
-                     options = opts + [correct]
+                full_answer = riddle_answer
+                # Если ответ сложный (Игла и Тень), выбираем одно слово для кнопки
+                if " и " in full_answer or " and " in full_answer.lower():
+                    # Пытаемся разбить и взять первое значимое слово
+                    parts = re.split(r' и | and ', full_answer, flags=re.IGNORECASE)
+                    correct_button_text = parts[0].strip()
                 else:
-                     options = random.sample(RIDDLE_DISTRACTORS, 2) + [correct]
+                    correct_button_text = full_answer
+
+                q = event['text']
+
+                # Создаем список опций (3 дистрактора + 1 правильный)
+                options = random.sample(RIDDLE_DISTRACTORS, 3) + [correct_button_text]
                 random.shuffle(options)
-                riddle_data = {"question": q, "correct": correct, "options": options}
+
+                # Передаем и полный ответ (для проверки, на всякий случай) и текст кнопки
+                riddle_data = {
+                    "question": q,
+                    "correct": correct_button_text, # Логика бота будет сравнивать callback именно с этим
+                    "full_answer": full_answer,
+                    "options": options
+                }
                 msg_event = f"🧩 <b>ШИФР:</b>\n{q}"
 
-            # [FIXED] Честный Компас (с подсказками)
+            # Compass Logic
             compass_txt = ""
             if db.get_item_count(uid, 'compass') > 0:
                 if db.decrease_durability(uid, 'compass'):
                     if event['type'] in ['loot', 'heal', 'locked_chest']:
-                        res = "❇️ РЕЗОНАНС (Полезная находка)"
+                        res = "❇️ РЕЗОНАНС (Лутабельно)"
                     elif event['type'] == 'trap':
-                        res = "⚠️ СЕЙСМОАКТИВНОСТЬ (Ловушка)"
+                        res = "⚠️ УГРОЗА (Ловушка)"
                     elif event['type'] == 'neutral':
                         res = "⬜️ ТИШИНА (Пусто)"
                     else:
-                        res = "❓ АНОМАЛИЯ"
-                    compass_txt = f"🧭 <b>КОМПАС:</b> {res} (Удача: {stats['luck']})"
+                        res = "❓ НЕИЗВЕСТНО"
+                    compass_txt = f"🧭 <b>КОМПАС:</b> {res}"
                 else:
                     compass_txt = "💔 <b>КОМПАС СЛОМАЛСЯ.</b>"
 
-            # Сохранение
+            # Save state
             cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s WHERE uid=%s", (new_depth, new_sig, uid))
             if new_depth > u.get('max_depth', 0): db.update_user(uid, max_depth=new_depth)
 
+            # Fetch buffer for HUD
             cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
             res = cur.fetchone()
 
-    # Смерть
+    # Death Check
     if new_sig <= 0:
         db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
-        broken = db.break_equipment_randomly(uid) if random.random() < 0.25 else None
-        death_msg = f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n❌ Весь невынесенный лут стерт."
-        if broken: death_msg += f"\n💔 <b>ПОЛОМКА:</b> {ITEMS_INFO.get(broken, {}).get('name', 'Вещь')} разрушена."
-        return False, death_msg, None, u, 'death', 0
+        return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м", None, u, 'death', 0
 
-    # HUD (Интерфейс)
+    # HUD Generation
     sig_bar = draw_bar(new_sig, 100, 8)
     interface = (
         f"🏝 <b>{biome['name']}</b> | <b>{new_depth}м</b>\n"
@@ -321,14 +253,98 @@ def raid_step_logic(uid, answer=None):
         f"━━━━━━━━━━━━━━\n"
         f"{msg_prefix}{msg_event}\n"
         f"━━━━━━━━━━━━━━\n"
-        f"🎒 В сумке: <b>{res['buffer_xp']} XP</b> | 🪙 <b>{res['buffer_coins']} BC</b>\n"
+        f"🎒 <b>{res['buffer_xp']} XP</b> | 🪙 <b>{res['buffer_coins']} BC</b>\n"
         f"💳 Баланс: <b>{u['xp']} XP</b>\n"
-        f"⚔️ ATK {stats['atk']} | 🛡 DEF {stats['def']} | 🍀 LUCK {stats['luck']}\n"
+        f"⚔️ ATK {stats['atk']} | 🛡 DEF {stats['def']}\n"
         f"<i>{compass_txt}</i>"
     )
-    # Возвращаем step_cost для UI кнопки
     next_step_cost = RAID_STEP_COST + (new_depth // 25)
     return True, interface, riddle_data, u, event['type'], next_step_cost
+
+def process_combat_action(uid, action):
+    stats, u = get_user_stats(uid)
+    if not u: return "error", "Error"
+
+    s = db.get_raid_session_enemy(uid)
+    if not s or not s['current_enemy_id']:
+        return "error", "Враг исчез или вы не в бою."
+
+    villain = db.get_villain_by_id(s['current_enemy_id'])
+    # Need session signal
+    with db.db_session() as conn:
+        with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+            cur.execute("SELECT signal, buffer_xp, buffer_coins FROM raid_sessions WHERE uid=%s", (uid,))
+            session_data = cur.fetchone()
+
+    if not session_data: return "error", "Session lost"
+
+    signal = session_data['signal']
+    msg = ""
+    result_type = "combat"
+
+    if action == "attack":
+        win_chance = min(95, max(10, 50 + (stats['atk'] - villain['def']) * 2))
+        roll = random.uniform(0, 100)
+
+        if roll <= win_chance:
+            # WIN
+            db.clear_raid_enemy(uid)
+            xp = villain['xp_reward']
+            coins = villain['coin_reward']
+            with db.db_session() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (xp, coins, uid))
+
+            msg = (f"⚔️ <b>ПОБЕДА!</b>\n"
+                   f"Вы уничтожили {villain['name']}.\n"
+                   f"🎁 Получено: +{xp} XP | +{coins} BC")
+
+            # 20% Drop Chance
+            if random.random() < 0.2:
+                 item = "battery" if random.random() < 0.5 else "master_key"
+                 db.add_item(uid, item)
+                 msg += f"\n📦 Найден предмет: {ITEMS_INFO.get(item, {}).get('name', item)}"
+
+            result_type = "win"
+        else:
+            # FAIL - Single Turn Damage
+            dmg = max(5, villain['atk'] - stats['def'])
+            new_sig = max(0, signal - dmg)
+            with db.db_session() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE raid_sessions SET signal=%s WHERE uid=%s", (new_sig, uid))
+
+            msg = (f"💢 <b>ПРОМАХ!</b>\n"
+                   f"{villain['name']} контратакует!\n"
+                   f"🔻 -{dmg}% Сигнала.")
+
+            if new_sig <= 0:
+                result_type = "death"
+                db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
+                msg += "\n💀 <b>СИГНАЛ ПОТЕРЯН...</b>"
+
+    elif action == "run":
+        if random.random() < 0.5:
+            db.clear_raid_enemy(uid)
+            msg = "🏃 <b>УСПЕШНЫЙ ПОБЕГ!</b>\nВы скрылись в цифровом шуме."
+            result_type = "escaped"
+        else:
+            dmg = int(villain['atk'] * 0.5)
+            new_sig = max(0, signal - dmg)
+            with db.db_session() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE raid_sessions SET signal=%s WHERE uid=%s", (new_sig, uid))
+
+            msg = (f"🚫 <b>НЕ ВЫШЛО!</b>\n"
+                   f"Враг ударил в спину.\n"
+                   f"🔻 -{dmg}% Сигнала.")
+
+            if new_sig <= 0:
+                result_type = "death"
+                db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
+                msg += "\n💀 <b>СИГНАЛ ПОТЕРЯН...</b>"
+
+    return result_type, msg
 
 def get_content_logic(c_type, path='general', level=1, has_decoder=False):
     with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:

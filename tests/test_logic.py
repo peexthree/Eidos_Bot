@@ -2,38 +2,29 @@ import unittest
 import sys
 from unittest.mock import MagicMock
 
-# Mock modules that are not available in the environment
+# Mock dependencies
 sys.modules['psycopg2'] = MagicMock()
 sys.modules['psycopg2.extras'] = MagicMock()
-sys.modules['pyTelegramBotAPI'] = MagicMock()
 sys.modules['telebot'] = MagicMock()
 sys.modules['flask'] = MagicMock()
 
-# Mock database module which depends on psycopg2
-sys.modules['database'] = MagicMock()
+# Mock internal modules
+import logic
 
-from logic import get_path_multiplier
+class TestLogic(unittest.TestCase):
+    def test_get_raid_entry_cost(self):
+        # Basic check for now as function is simple
+        self.assertEqual(logic.get_raid_entry_cost(123), 100)
 
-class TestGetPathMultiplier(unittest.TestCase):
-    def test_money_path(self):
-        user = {'path': 'money'}
-        expected = {"xp_mult": 1.2, "cd_mult": 1.0}
-        self.assertEqual(get_path_multiplier(user), expected)
+    def test_draw_bar(self):
+        bar = logic.draw_bar(50, 100, 10)
+        self.assertEqual(bar, "█████░░░░░")
 
-    def test_tech_path(self):
-        user = {'path': 'tech'}
-        expected = {"xp_mult": 1.0, "cd_mult": 0.9}
-        self.assertEqual(get_path_multiplier(user), expected)
+        bar_full = logic.draw_bar(100, 100, 10)
+        self.assertEqual(bar_full, "██████████")
 
-    def test_default_path(self):
-        user = {'path': 'general'}
-        expected = {"xp_mult": 1.0, "cd_mult": 1.0}
-        self.assertEqual(get_path_multiplier(user), expected)
-
-    def test_unknown_path(self):
-        user = {'path': 'unknown'}
-        expected = {"xp_mult": 1.0, "cd_mult": 1.0}
-        self.assertEqual(get_path_multiplier(user), expected)
+        bar_empty = logic.draw_bar(0, 100, 10)
+        self.assertEqual(bar_empty, "░░░░░░░░░░")
 
 if __name__ == '__main__':
     unittest.main()
