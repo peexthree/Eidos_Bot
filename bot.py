@@ -35,6 +35,14 @@ user_states = {}
 # 🛠 УТИЛИТЫ UI
 # =============================================================
 
+def get_menu_text(u):
+    p = u.get("path", "unknown")
+    if p == "money": link = MENU_IMAGE_URL_MONEY
+    elif p == "mind": link = MENU_IMAGE_URL_MIND
+    elif p == "tech": link = MENU_IMAGE_URL_TECH
+    else: link = MENU_IMAGE_URL
+    return f'<a href="{link}">&#8205;</a>' + random.choice(WELCOME_VARIANTS)
+
 def menu_update(call, text, markup=None):
     try:
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, reply_markup=markup, parse_mode="HTML")
@@ -81,7 +89,7 @@ def start_handler(m):
         bot.send_message(uid, msg, reply_markup=kb.path_selection_keyboard(), parse_mode="HTML")
     else:
         u = db.get_user(uid)
-        bot.send_message(uid, random.choice(WELCOME_VARIANTS), reply_markup=kb.main_menu(u))
+        bot.send_message(uid, get_menu_text(u), reply_markup=kb.main_menu(u))
 
 # =============================================================
 # 🎮 ОБРАБОТЧИК КНОПОК
@@ -346,7 +354,7 @@ def handle_query(call):
             menu_update(call, txt, markup)
 
         elif call.data == "back":
-            menu_update(call, random.choice(WELCOME_VARIANTS), kb.main_menu(u))
+            menu_update(call, get_menu_text(u), kb.main_menu(u))
 
         bot.answer_callback_query(call.id)
     except Exception as e:
@@ -359,38 +367,38 @@ def text_handler(m):
     # Basic handler if needed
     pass
 
- #ЗАПУСК И МАРШРУТЫ (SAFE BOOT PROTOCOL) ---
+# ЗАПУСК И МАРШРУТЫ (SAFE BOOT PROTOCOL) ---
 @app.route('/health', methods=['GET'])
 def health_check():
-    return 'OK', 200
+    return 'ALIVE', 200
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/webhook', methods=['POST'])
 def webhook():
     if flask.request.method == 'POST':
         try:
             bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
-            return 'OK', 200
+            return 'ALIVE', 200
         except Exception as e:
             print(f"/// WEBHOOK ERROR: {e}")
             return 'Error', 500
-    return 'Eidos SQL Interface is Operational', 200
 
+@app.route("/", methods=["GET"])
+def index():
+    return "Eidos SQL Interface is Operational", 200
 # ФОНОВЫЙ ЗАПУСК СИСТЕМ (ЧТОБЫ НЕ БЛОКИРОВАТЬ СТАРТ)
 def system_startup():
     with app.app_context():
         # Даем серверу продышаться перед нагрузкой
         time.sleep(2)
         print("/// SYSTEM STARTUP INITIATED...")
-        init_db()
+        db.init_db()
         if WEBHOOK_URL:
             try:
                 bot.remove_webhook()
-                bot.set_webhook(url=WEBHOOK_URL)
+                bot.set_webhook(url=WEBHOOK_URL + "/webhook")
                 print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
             except Exception as e:
                 print(f"/// WEBHOOK ERROR: {e}")
-        # Запускаем воркер уведомлений
-        notification_worker()
 
 threading.Thread(target=system_startup, daemon=True).start()
 
