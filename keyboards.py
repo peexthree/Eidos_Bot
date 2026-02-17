@@ -93,7 +93,7 @@ def inventory_menu(items, equipped, dismantle_mode=False):
                  # Нельзя разбирать надетое
                  pass
             else:
-                 m.add(types.InlineKeyboardButton(f"⬇️ {SLOTS.get(slot, slot)}: {name}", callback_data=f"unequip_{slot}"))
+                 m.add(types.InlineKeyboardButton(f"⬇️ {SLOTS.get(slot, slot)}: {name}", callback_data=f"view_item_{item_id}"))
     
     if items:
         m.add(types.InlineKeyboardButton("─── 📦 РЮКЗАК ───", callback_data="dummy"))
@@ -107,9 +107,19 @@ def inventory_menu(items, equipped, dismantle_mode=False):
             else:
                 if item_id in EQUIPMENT_DB:
                     name = EQUIPMENT_DB[item_id]['name']
-                    m.add(types.InlineKeyboardButton(f"⬆️ {name} (x{qty})", callback_data=f"equip_{item_id}"))
+                    m.add(types.InlineKeyboardButton(f"⬆️ {name} (x{qty})", callback_data=f"view_item_{item_id}"))
                 elif item_id == 'admin_key':
                     m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: GLITCH KEY (x{qty})", callback_data="use_admin_key"))
+                else:
+                    name = item_id
+                    if item_id == 'compass': name = '🧭 КОМПАС'
+                    elif item_id == 'battery': name = '🔋 БАТАРЕЯ'
+                    elif item_id == 'master_key': name = '🔑 КЛЮЧ'
+                    elif item_id == 'aegis': name = '🛡 ЭГИДА'
+                    elif item_id == 'cryo': name = '❄️ КРИО'
+                    elif item_id == 'accel': name = '⚡️ УСКОРИТЕЛЬ'
+
+                    m.add(types.InlineKeyboardButton(f"📦 {name} (x{qty})", callback_data=f"view_item_{item_id}"))
             
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
@@ -129,17 +139,17 @@ def shop_section_menu(category):
     m = types.InlineKeyboardMarkup(row_width=2)
 
     if category == 'consumables':
-        m.add(types.InlineKeyboardButton(f"🧭 КОМПАС ({PRICES['compass']} BC)", callback_data="buy_compass"),
-              types.InlineKeyboardButton(f"🔑 КЛЮЧ ({PRICES['master_key']} BC)", callback_data="buy_master_key"))
-        m.add(types.InlineKeyboardButton(f"🔋 БАТАРЕЯ ({PRICES['battery']} BC)", callback_data="buy_battery"),
-              types.InlineKeyboardButton(f"🛡 ЭГИДА ({PRICES['aegis']} BC)", callback_data="buy_aegis"))
+        m.add(types.InlineKeyboardButton(f"🧭 КОМПАС ({PRICES['compass']} BC)", callback_data="view_shop_compass"),
+              types.InlineKeyboardButton(f"🔑 КЛЮЧ ({PRICES['master_key']} BC)", callback_data="view_shop_master_key"))
+        m.add(types.InlineKeyboardButton(f"🔋 БАТАРЕЯ ({PRICES['battery']} BC)", callback_data="view_shop_battery"),
+              types.InlineKeyboardButton(f"🛡 ЭГИДА ({PRICES['aegis']} BC)", callback_data="view_shop_aegis"))
         # Special Items
-        m.add(types.InlineKeyboardButton(f"❄️ КРИО ({PRICES['cryo']} XP)", callback_data="buy_cryo"),
-              types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="buy_accel"))
+        m.add(types.InlineKeyboardButton(f"❄️ КРИО ({PRICES['cryo']} XP)", callback_data="view_shop_cryo"),
+              types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="view_shop_accel"))
 
     elif category == 'artifacts':
         for k, v in EQUIPMENT_DB.items():
-            m.add(types.InlineKeyboardButton(f"{v['name']} ({v['price']} BC)", callback_data=f"buy_{k}"))
+            m.add(types.InlineKeyboardButton(f"{v['name']} ({v['price']} BC)", callback_data=f"view_shop_{k}"))
 
     m.add(types.InlineKeyboardButton("🔙 К КАТЕГОРИЯМ", callback_data="shop_menu"))
     return m
@@ -261,4 +271,28 @@ def admin_item_select():
     m.add(types.InlineKeyboardButton("🔑 MASTER KEY", callback_data="adm_give_master_key"),
           types.InlineKeyboardButton("🧭 COMPASS", callback_data="adm_give_compass"))
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="admin_panel"))
+    return m
+
+def item_details_keyboard(item_id, is_owned=True, is_equipped=False):
+    m = types.InlineKeyboardMarkup(row_width=2)
+    if is_equipped:
+        info = EQUIPMENT_DB.get(item_id)
+        slot = info['slot'] if info else None
+        if slot:
+             m.add(types.InlineKeyboardButton("📦 СНЯТЬ", callback_data=f"unequip_{slot}"))
+    else:
+        # Check if equippable
+        if item_id in EQUIPMENT_DB:
+             m.add(types.InlineKeyboardButton("🛡 НАДЕТЬ", callback_data=f"equip_{item_id}"))
+        elif item_id == 'admin_key':
+             m.add(types.InlineKeyboardButton("🔴 ИСПОЛЬЗОВАТЬ", callback_data="use_admin_key"))
+
+    m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"dismantle_{item_id}"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="inventory"))
+    return m
+
+def shop_item_details_keyboard(item_id, price, currency):
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton(f"💸 КУПИТЬ ({price} {currency.upper()})", callback_data=f"buy_{item_id}"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="shop_menu"))
     return m
