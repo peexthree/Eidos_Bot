@@ -23,7 +23,7 @@ def init_db():
     if not conn: return
     
     with conn.cursor() as cur:
-        # 1. ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ (Обновленная)
+        # 1. ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ
         cur.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 uid BIGINT PRIMARY KEY,
@@ -31,7 +31,7 @@ def init_db():
                 first_name TEXT,
                 path TEXT DEFAULT 'general',
                 xp INTEGER DEFAULT 0,
-                biocoin INTEGER DEFAULT 0, -- [NEW] Деньги
+                biocoin INTEGER DEFAULT 0,      -- [RPG] Валюта
                 level INTEGER DEFAULT 1,
                 streak INTEGER DEFAULT 1,
                 last_active DATE DEFAULT CURRENT_DATE,
@@ -40,8 +40,8 @@ def init_db():
                 decoder INTEGER DEFAULT 0,
                 accel_exp BIGINT DEFAULT 0,
                 referrer TEXT,
-                ref_profit_xp INTEGER DEFAULT 0, -- [NEW] Доход с реферала (XP)
-                ref_profit_coins INTEGER DEFAULT 0, -- [NEW] Доход с реферала (Coins)
+                ref_profit_xp INTEGER DEFAULT 0,    -- [META] Профит XP
+                ref_profit_coins INTEGER DEFAULT 0, -- [META] Профит Coins
                 last_protocol_time BIGINT DEFAULT 0,
                 last_signal_time BIGINT DEFAULT 0,
                 notified BOOLEAN DEFAULT TRUE,
@@ -52,15 +52,7 @@ def init_db():
             );
         ''')
         
-        # Миграция колонок (если база старая)
-        try:
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0;")
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_profit_xp INTEGER DEFAULT 0;")
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_profit_coins INTEGER DEFAULT 0;")
-        except: conn.rollback()
-        else: conn.commit()
-        
-        # 2. ИНВЕНТАРЬ [NEW]
+        # 2. ИНВЕНТАРЬ [RPG]
         cur.execute('''
             CREATE TABLE IF NOT EXISTS inventory (
                 uid BIGINT, 
@@ -71,7 +63,7 @@ def init_db():
             );
         ''')
 
-        # 3. ЭКИПИРОВКА [NEW]
+        # 3. ЭКИПИРОВКА [RPG]
         cur.execute('''
             CREATE TABLE IF NOT EXISTS user_equipment (
                 uid BIGINT, 
@@ -88,25 +80,76 @@ def init_db():
                 depth INTEGER DEFAULT 0,
                 signal INTEGER DEFAULT 100,
                 buffer_xp INTEGER DEFAULT 0,
-                buffer_coins INTEGER DEFAULT 0, -- [NEW] Буфер монет
+                buffer_coins INTEGER DEFAULT 0,
                 start_time BIGINT
             );
         ''')
-        try: cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS buffer_coins INTEGER DEFAULT 0;")
-        except: conn.rollback()
-        else: conn.commit()
 
-        # 5. ОСТАЛЬНЫЕ ТАБЛИЦЫ (Контент, Ачивки, Дневник - Без изменений)
+        # 5. ОСТАЛЬНЫЕ ТАБЛИЦЫ (БАЗОВЫЕ)
         cur.execute('''CREATE TABLE IF NOT EXISTS achievements (uid BIGINT, ach_id TEXT, date_received TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(uid, ach_id));''')
         cur.execute('''CREATE TABLE IF NOT EXISTS user_knowledge (uid BIGINT, content_id INTEGER, unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(uid, content_id));''')
         cur.execute('''CREATE TABLE IF NOT EXISTS diary (id SERIAL PRIMARY KEY, uid BIGINT, entry TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);''')
         cur.execute('''CREATE TABLE IF NOT EXISTS content (id SERIAL PRIMARY KEY, type TEXT, path TEXT, text TEXT, level INTEGER DEFAULT 1);''')
         cur.execute('''CREATE TABLE IF NOT EXISTS raid_content (id SERIAL PRIMARY KEY, text TEXT, type TEXT, val INTEGER DEFAULT 0);''')
         cur.execute('''CREATE TABLE IF NOT EXISTS raid_hints (id SERIAL PRIMARY KEY, text TEXT);''')
+
+        # --- МИГРАЦИЯ (ОБНОВЛЕНИЕ СТАРЫХ БАЗ) ---
+        # Добавляем все новые колонки, если их нет
+        patch_cols = [
+            ("users", "biocoin", "INTEGER DEFAULT 0"),
+            ("users", "ref_profit_xp", "INTEGER DEFAULT 0"),
+            ("users", "ref_profit_coins", "INTEGER DEFAULT 0"),
+            ("users", "ref_count", "INTEGER DEFAULT 0"),
+            ("users", "know_count", "INTEGER DEFAULT 0"),
+            ("users", "total_spent", "INTEGER DEFAULT 0"),
+            ("users", "max_depth", "INTEGER DEFAULT 0"),
+            ("raid_sessions", "buffer_coins", "INTEGER DEFAULT 0")
+        ]
         
+        for table, col, dtype in patch_cols:
+            try:
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {dtype};")
+            except Exception:
+                conn.rollback()
+            else:
+                conn.commit()
+
+        # --- SEEDING (АВТО-НАПОЛНЕНИЕ, ЕСЛИ ПУСТО) ---
+        # [ВОЗВРАЩЕНО ИЗ ТВОЕГО КОДА]
+        
+        # 1. Базовый контент
+        cur.execute("SELECT COUNT(*) FROM content")
+        if cur.fetchone()[0] == 0:
+            print("/// DB: SEEDING BASIC CONTENT...")
+            base_content = [
+                ('protocol', 'general', '<b>СИСТЕМА:</b> Мир — это набор договоренностей. Тот, кто создает новые договоренности — управляет миром.', 1),
+                ('signal', 'general', 'Не бойся выглядеть глупо. Бойся выглядеть одинаково.', 1),
+                ('protocol', 'money', '<b>ДЕНЬГИ:</b> Деньги любят тишину, но ненавидят застой. Деньги должны течь.', 1)
+            ]
+            cur.executemany("INSERT INTO content (type, path, text, level) VALUES (%s, %s, %s, %s)", base_content)
+        
+        # 2. Рейд-события
+        cur.execute("SELECT COUNT(*) FROM raid_content")
+        if cur.fetchone()[0] == 0:
+            print("/// DB: SEEDING RAID CONTENT...")
+            raid_ev = [
+                ('Ты наткнулся на старый сервер. В нем еще есть данные.', 'loot', 50),
+                ('Ловушка! Электромагнитный импульс.', 'trap', 20),
+                ('Тишина. Ты слышишь только гул проводов.', 'neutral', 0),
+                ('Источник питания. Сигнал восстановлен.', 'heal', 20)
+            ]
+            cur.executemany("INSERT INTO raid_content (text, type, val) VALUES (%s, %s, %s)", raid_ev)
+
+        # 3. Подсказки
+        cur.execute("SELECT COUNT(*) FROM raid_hints")
+        if cur.fetchone()[0] == 0:
+            print("/// DB: SEEDING HINTS...")
+            hints = [('Чувствую вибрацию...',), ('Впереди чисто.',), ('Опасно...',)]
+            cur.executemany("INSERT INTO raid_hints (text) VALUES (%s)", hints)
+            
         conn.commit()
     conn.close()
-    print("/// DATABASE ENGINE: SYNCHRONIZED (v7.0).")
+    print("/// DATABASE ENGINE: SYNCHRONIZED (v7.5 FIXED).")
 
 # =============================================================
 # 👤 УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ
@@ -163,7 +206,7 @@ def add_referral_profit(uid, xp_amount, coin_amount):
     finally: conn.close()
 
 # =============================================================
-# 🎒 ИНВЕНТАРЬ И ЭКИПИРОВКА [NEW BLOCK]
+# 🎒 ИНВЕНТАРЬ И ЭКИПИРОВКА [RPG SYSTEM]
 # =============================================================
 
 def get_inventory_size(uid):
@@ -180,7 +223,7 @@ def add_item(uid, item_id, qty=1):
     if not conn: return False
     try:
         with conn.cursor() as cur:
-            # Проверка наличия
+            # Проверка наличия (стак)
             cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
             exists = cur.fetchone()
             
@@ -261,21 +304,17 @@ def equip_item(uid, item_id, slot):
     if not conn: return False
     try:
         with conn.cursor() as cur:
-            # Снимаем старое
             cur.execute("SELECT item_id FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
             old = cur.fetchone()
             if old:
                 cur.execute("""INSERT INTO inventory (uid, item_id, quantity) VALUES (%s, %s, 1) 
                                ON CONFLICT (uid, item_id) DO UPDATE SET quantity = inventory.quantity + 1""", (uid, old[0]))
 
-            # Надеваем новое
             cur.execute("""INSERT INTO user_equipment (uid, slot, item_id) VALUES (%s, %s, %s)
                            ON CONFLICT (uid, slot) DO UPDATE SET item_id = %s""", (uid, slot, item_id, item_id))
             
-            # Удаляем из рюкзака
             cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE uid=%s AND item_id=%s", (uid, item_id))
             cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s AND quantity <= 0", (uid, item_id))
-            
             conn.commit()
             return True
     except: return False
@@ -290,7 +329,7 @@ def unequip_item(uid, slot):
             old = cur.fetchone()
             if not old: return False
             
-            # Проверка места
+            # Проверка места (если предмет не стакается)
             cur.execute("SELECT 1 FROM inventory WHERE uid=%s AND item_id=%s", (uid, old[0]))
             exists = cur.fetchone()
             if not exists:
@@ -331,7 +370,7 @@ def break_equipment_randomly(uid):
     return broken_item
 
 # =============================================================
-# 🏆 ДОСТИЖЕНИЯ, ЗНАНИЯ, ДНЕВНИК (STANDARD)
+# 🏆 АЧИВКИ, ЗНАНИЯ, ДНЕВНИК
 # =============================================================
 
 def check_achievement_exists(uid, ach_id):
