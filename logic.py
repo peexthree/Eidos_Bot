@@ -307,7 +307,7 @@ def raid_step_logic(uid, answer=None):
 
     # Смерть
     if new_sig <= 0:
-        db.admin_exec_query(f"DELETE FROM raid_sessions WHERE uid={uid}")
+        db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
         broken = db.break_equipment_randomly(uid) if random.random() < 0.25 else None
         death_msg = f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n❌ Весь невынесенный лут стерт."
         if broken: death_msg += f"\n💔 <b>ПОЛОМКА:</b> {ITEMS_INFO.get(broken, {}).get('name', 'Вещь')} разрушена."

@@ -341,17 +341,7 @@ def get_referrals_stats(uid):
         cur.execute("SELECT username, first_name, level, ref_profit_xp, ref_profit_coins FROM users WHERE referrer = %s ORDER BY ref_profit_xp DESC LIMIT 20", (str(uid),))
         return cur.fetchall()
 
-def admin_exec_query(query):
-    with db_session() as conn:
-        if not conn: return "❌ No Connection"
-        try:
-            with conn.cursor() as cur:
-                cur.execute(query)
-                if query.strip().upper().startswith("SELECT"):
-                    return str(cur.fetchall())[:3500]
-                else:
-                    return f"✅ DONE. Rows: {cur.rowcount}"
-        except Exception as e: return f"❌ ERROR: {e}"
+
 
 def admin_add_content(c_type, text):
     with db_cursor() as cur:
