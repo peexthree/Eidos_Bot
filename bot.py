@@ -145,7 +145,7 @@ def handle_query(call):
                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
 
         elif call.data == "get_signal":
-            cd = 3600 # 1 hour
+            cd = COOLDOWN_SIGNAL
             if time.time() - u['last_signal_time'] < cd:
                  rem = int((cd - (time.time() - u['last_signal_time'])) / 60)
                  bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
@@ -165,7 +165,12 @@ def handle_query(call):
             perc, xp_need = logic.get_level_progress_stats(u)
             p_bar = kb.get_progress_bar(perc, 100)
             ach_list = db.get_user_achievements(uid)
-            has_accel = db.get_item_count(uid, 'accelerator') > 0
+            has_accel = db.get_item_count(uid, 'accel') > 0
+            # Accelerator Status
+            accel_status = ""
+            if u.get('accel_exp', 0) > time.time():
+                 rem_hours = int((u['accel_exp'] - time.time()) / 3600)
+                 accel_status = f"\n⚡️ Ускоритель: <b>АКТИВЕН ({rem_hours}ч)</b>"
 
             msg = (f"👤 <b>ПРОФИЛЬ: {u['first_name']}</b>\n"
                    f"🔰 Статус: <code>{TITLES.get(u['level'], 'Unknown')}</code>\n"
@@ -173,7 +178,8 @@ def handle_query(call):
                    f"💡 До апа: {xp_need} XP\n\n"
                    f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
                    f"🏫 Школа: <code>{SCHOOLS.get(u['path'], 'Общая')}</code>\n"
-                   f"🔋 Энергия: {u['xp']} | 🪙 BioCoins: {u['biocoin']}\n\n"
+                   f"🔋 Энергия: {u['xp']} | 🪙 BioCoins: {u['biocoin']}\n"
+                   f"{accel_status}\n"
                    f"🏆 Ачивки: <b>{len(ach_list)}</b>\n"
                    f"🔥 Стрик: <b>{u['streak']} дн.</b>\n"
                    f"🕳 Рекорд глубины: <b>{u['max_depth']}м</b>")
@@ -197,9 +203,9 @@ def handle_query(call):
             menu_update(call, txt, kb.back_button())
 
         elif call.data == "use_accelerator":
-            if db.get_item_count(uid, 'accelerator') > 0:
+            if db.get_item_count(uid, 'accel') > 0:
                 db.update_user(uid, accel_exp=int(time.time() + 86400))
-                db.use_item(uid, 'accelerator')
+                db.use_item(uid, 'accel')
                 bot.answer_callback_query(call.id, "⚡️ УСКОРИТЕЛЬ АКТИВИРОВАН НА 24 ЧАСА!", show_alert=True)
                 handle_query(type('obj', (object,), {'data': 'profile', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
             else:
@@ -359,6 +365,72 @@ def handle_query(call):
             markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype)
             menu_update(call, txt, markup)
 
+
+
+        # --- 6. MISSING HANDLERS ---
+        elif call.data == "leaderboard":
+            leaders = db.get_leaderboard()
+            txt = "🏆 <b>ТОП-10 ИСКАТЕЛЕЙ</b>\n\n"
+            for i, l in enumerate(leaders, 1):
+                icon = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else "▫️"
+                txt += f"{icon} {l['first_name']} — {l['max_depth']}м | {l['xp']} XP\n"
+            menu_update(call, txt, kb.back_button())
+
+        elif call.data == "referral":
+            link = f"https://t.me/{BOT_USERNAME}?start={uid}"
+            txt = SYNDICATE_FULL + f"\n\n<code>{link}</code>"
+            menu_update(call, txt, kb.back_button())
+
+        elif call.data == "diary_menu":
+            menu_update(call, "📓 <b>ЛИЧНЫЙ ДНЕВНИК</b>\nЗдесь ты можешь записывать свои мысли.", kb.diary_menu())
+
+        elif call.data == "guide":
+            menu_update(call, GUIDE_FULL, kb.back_button())
+
+        elif call.data == "change_path_menu":
+            menu_update(call, f"🧬 <b>СМЕНА ФРАКЦИИ</b>\nЦена: {PATH_CHANGE_COST} XP.\nТекущая: {SCHOOLS.get(u['path'], 'Нет')}", kb.change_path_keyboard(PATH_CHANGE_COST))
+
+        elif call.data.startswith("change_path_") and call.data != "change_path_menu":
+            path = call.data.replace("change_path_", "")
+            if u['xp'] >= PATH_CHANGE_COST:
+                db.update_user(uid, path=path, xp=u['xp']-PATH_CHANGE_COST)
+                bot.answer_callback_query(call.id, f"✅ Выбрана школа: {SCHOOLS.get(path, path)}")
+                handle_query(type('obj', (object,), {'data': 'profile', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+            else:
+                bot.answer_callback_query(call.id, "❌ Недостаточно XP!", show_alert=True)
+
+        # --- 7. ITEM DETAILS ---
+        elif call.data.startswith("view_item_"):
+            item_id = call.data.replace("view_item_", "")
+            info = ITEMS_INFO.get(item_id)
+            if info:
+                # Add stats if equip
+                desc = info['desc']
+                if info.get('type') == 'equip':
+                    desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
+
+                is_equipped = item_id in db.get_equipped_items(uid).values()
+                menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped))
+
+        elif call.data.startswith("view_shop_"):
+            item_id = call.data.replace("view_shop_", "")
+            # Check price source
+            price = PRICES.get(item_id, EQUIPMENT_DB.get(item_id, {}).get('price', 9999))
+            currency = 'xp' if item_id in ['cryo', 'accel'] else 'biocoin'
+
+            info = ITEMS_INFO.get(item_id)
+            if not info:
+                 # Check if it's in prices but not items info (e.g. cryo, accel might need entries)
+                 if item_id == 'cryo': info = {'name': '❄️ КРИО-КАПСУЛА', 'desc': 'Позволяет сохранять стрик даже если пропустил день.', 'type': 'misc'}
+                 elif item_id == 'accel': info = {'name': '⚡️ УСКОРИТЕЛЬ', 'desc': 'Снижает кулдаун Синхронизации до 15 минут на 24 часа.', 'type': 'misc'}
+                 else: info = {'name': item_id, 'desc': '???', 'type': 'misc'}
+
+            desc = info['desc']
+            if info.get('type') == 'equip':
+                desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
+
+            txt = f"🎰 <b>{info['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}"
+            menu_update(call, txt, kb.shop_item_details_keyboard(item_id, price, currency))
         elif call.data == "back":
             # ИСПРАВЛЕНО: Используем fix ветку с image_url
             menu_update(call, get_menu_text(u), kb.main_menu(u), image_url=get_menu_image(u))
