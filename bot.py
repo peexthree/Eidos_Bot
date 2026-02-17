@@ -54,9 +54,10 @@ def start_command(m):
     
     u = db.get_user(uid)
     if not u:
-        db.get_db_connection().cursor().execute("INSERT INTO users (uid, username, first_name, referrer) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
-                                                (uid, m.from_user.username, m.from_user.first_name, ref_id))
-        db.get_db_connection().commit()
+        with db.db_cursor() as cur:
+            if cur:
+                cur.execute("INSERT INTO users (uid, username, first_name, referrer) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                            (uid, m.from_user.username, m.from_user.first_name, ref_id))
         if ref_id and str(ref_id) != str(uid):
             db.update_user(int(ref_id), ref_count=db.get_user(int(ref_id))['ref_count']+1)
             db.add_xp_to_user(int(ref_id), REFERRAL_BONUS)
@@ -149,11 +150,11 @@ def handle_query(call):
              alive, msg, riddle, u_new, ev_type, cost_next = logic.raid_step_logic(uid)
 
              # Лор при старте
-             conn = db.get_db_connection()
-             with conn.cursor() as cur:
-                 cur.execute("SELECT text FROM content WHERE type='signal' ORDER BY RANDOM() LIMIT 1")
-                 hint = cur.fetchone()
-             conn.close()
+             with db.db_cursor() as cur:
+                 if cur:
+                     cur.execute("SELECT text FROM content WHERE type='signal' ORDER BY RANDOM() LIMIT 1")
+                     hint = cur.fetchone()
+                 else: hint = None
              if hint: msg += f"\n\n<i>💬 {hint[0]}</i>"
 
              if not alive:
@@ -168,11 +169,11 @@ def handle_query(call):
              alive, msg, riddle, u_new, ev_type, cost_next = logic.raid_step_logic(uid, answer=ans)
 
              # Лор при шаге
-             conn = db.get_db_connection()
-             with conn.cursor() as cur:
-                 cur.execute("SELECT text FROM content WHERE type='signal' ORDER BY RANDOM() LIMIT 1")
-                 hint = cur.fetchone()
-             conn.close()
+             with db.db_cursor() as cur:
+                 if cur:
+                     cur.execute("SELECT text FROM content WHERE type='signal' ORDER BY RANDOM() LIMIT 1")
+                     hint = cur.fetchone()
+                 else: hint = None
              if hint: msg += f"\n\n<i>💬 {hint[0]}</i>"
 
              if not alive:
@@ -197,38 +198,37 @@ def handle_query(call):
                 db.add_xp_to_user(uid, 100)
 
                 # 2. Даем XP в мешок рейда (как просил юзер)
-                conn = db.get_db_connection()
-                cur = conn.cursor()
-                cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp + 100 WHERE uid = %s", (uid,))
-                conn.commit(); conn.close()
+                with db.db_cursor() as cur:
+                    if cur:
+                        cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp + 100 WHERE uid = %s", (uid,))
 
                 bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP (В сумку)")
                 handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
             else:
                 # Наказание
-                conn = db.get_db_connection()
-                cur = conn.cursor()
-                cur.execute("UPDATE raid_sessions SET signal = GREATEST(0, signal - 25) WHERE uid = %s RETURNING signal", (uid,))
-                sig = cur.fetchone()[0]
-                conn.commit(); conn.close()
+                with db.db_cursor() as cur:
+                    if cur:
+                        cur.execute("UPDATE raid_sessions SET signal = GREATEST(0, signal - 25) WHERE uid = %s RETURNING signal", (uid,))
+                        sig = cur.fetchone()[0]
+                    else: sig = 0
                 bot.answer_callback_query(call.id, "❌ ОШИБКА! -25% СИГНАЛА", show_alert=True)
                 handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
 
         elif call.data == "raid_extract":
-            conn = db.get_db_connection()
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
-            res = cur.fetchone()
-            if res:
-                # [FIXED] Исправлен баг с начислением
-                logic.process_xp_logic(uid, res['buffer_xp'], source='raid')
-                db.update_user(uid, biocoin=u['biocoin'] + res['buffer_coins'])
-                cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
-                conn.commit()
-                menu_update(call, f"🚁 <b>ЭВАКУАЦИЯ УСПЕШНА</b>\n\n⚡️ +{res['buffer_xp']} XP\n🪙 +{res['buffer_coins']} BC", kb.back_button())
-            else:
-                menu_update(call, "⚠️ Ошибка данных.", kb.back_button())
-            conn.close()
+            with db.db_cursor(cursor_factory=RealDictCursor) as cur:
+                if cur:
+                    cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
+                    res = cur.fetchone()
+                    if res:
+                        # [FIXED] Исправлен баг с начислением
+                        logic.process_xp_logic(uid, res['buffer_xp'], source='raid')
+                        db.update_user(uid, biocoin=u['biocoin'] + res['buffer_coins'])
+                        cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
+                        menu_update(call, f"🚁 <b>ЭВАКУАЦИЯ УСПЕШНА</b>\n\n⚡️ +{res['buffer_xp']} XP\n🪙 +{res['buffer_coins']} BC", kb.back_button())
+                    else:
+                        menu_update(call, "⚠️ Ошибка данных.", kb.back_button())
+                else:
+                    menu_update(call, "❌ Ошибка базы данных.", kb.back_button())
 
         # --- 3. ИНВЕНТАРЬ И МАГАЗИН ---
         elif call.data == "inventory":
@@ -444,11 +444,11 @@ def text_input_handler(m):
         elif state == "admin_broadcast":
             users = db.admin_exec_query("SELECT uid FROM users")
             # users придет как строка из-за admin_exec_query, поэтому лучше сделать через db напрямую
-            conn = db.get_db_connection()
-            with conn.cursor() as cur:
-                cur.execute("SELECT uid FROM users")
-                all_u = cur.fetchall()
-            conn.close()
+            with db.db_cursor() as cur:
+                if cur:
+                    cur.execute("SELECT uid FROM users")
+                    all_u = cur.fetchall()
+                else: all_u = []
             count = 0
             for usr in all_u:
                 try: bot.send_message(usr[0], f"📢 <b>ОПОВЕЩЕНИЕ:</b>\n\n{m.text}", parse_mode="HTML"); count += 1
@@ -537,12 +537,11 @@ def system_startup():
     while True:
         try:
             time.sleep(60)
-            conn = db.get_db_connection()
-            if conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with db.db_cursor(cursor_factory=RealDictCursor) as cur:
+                if cur:
                     cur.execute("SELECT uid, last_protocol_time, accel_exp FROM users WHERE notified = FALSE")
                     rows = cur.fetchall()
-                conn.close()
+                else: rows = []
                 for row in rows:
                     cd = COOLDOWN_ACCEL if row['accel_exp'] > time.time() else COOLDOWN_BASE
                     if time.time() - row['last_protocol_time'] >= cd:

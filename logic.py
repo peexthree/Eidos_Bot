@@ -141,172 +141,169 @@ def raid_step_logic(uid, answer=None):
     u = db.get_user(uid)
     stats, _ = get_user_stats(uid) 
     
-    conn = db.get_db_connection()
-    cur = conn.cursor(cursor_factory=db.RealDictCursor)
-    
-    # 1. СЕССИЯ
-    cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
-    s = cur.fetchone()
-    
-    is_new = False
-    if not s:
-        cost = get_raid_entry_cost(uid)
-        if u['xp'] < cost:
-            conn.close()
-            return False, f"🪫 <b>МАЛО ЭНЕРГИИ</b>\nНужно {cost} XP для входа.", None, u, 'neutral', 0
+    with db.db_session() as conn:
+        if not conn: return False, "❌ DB CONNECTION ERROR", None, u, 'neutral', 0
+        with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+            # 1. СЕССИЯ
+            cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
+            s = cur.fetchone()
 
-        pass
+            is_new = False
+            if not s:
+                cost = get_raid_entry_cost(uid)
+                if u['xp'] < cost:
+                    return False, f"🪫 <b>МАЛО ЭНЕРГИИ</b>\nНужно {cost} XP для входа.", None, u, 'neutral', 0
 
-    depth = s['depth'] if s else u.get('max_depth', 0)
-    if not s:
-         cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time) VALUES (%s, %s, 100, %s)", (uid, depth, int(time.time())))
-         conn.commit()
-         cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
-         s = cur.fetchone()
-         is_new = True
+                pass
 
-    msg_prefix = ""
+            depth = s['depth'] if s else u.get('max_depth', 0)
+            if not s:
+                 cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time) VALUES (%s, %s, 100, %s)", (uid, depth, int(time.time())))
+                 conn.commit()
+                 cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
+                 s = cur.fetchone()
+                 is_new = True
 
-    # 2. ДЕЙСТВИЕ: ВЗЛОМ СУНДУКА
-    if answer == 'open_chest':
-        if db.get_item_count(uid, 'master_key') > 0:
-            db.use_item(uid, 'master_key')
-            bonus_xp = 150 + (depth * 2)
-            bonus_coins = 50 + depth
-            cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, bonus_coins, uid))
-            msg_prefix = f"🔓 <b>СЕРВЕР ВЗЛОМАН:</b> +{bonus_xp} XP | +{bonus_coins} BC\n\n"
-        else:
-            msg_prefix = "🔒 <b>НЕТ КЛЮЧА!</b>\n\n"
+            msg_prefix = ""
 
-    # 3. ЦЕНА ШАГА
-    step_cost = RAID_STEP_COST + (depth // 25)
-    if u['xp'] < step_cost:
-        conn.close()
-        return False, f"🪫 <b>ВЫДОХСЯ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
+            # 2. ДЕЙСТВИЕ: ВЗЛОМ СУНДУКА
+            if answer == 'open_chest':
+                if db.get_item_count(uid, 'master_key') > 0:
+                    db.use_item(uid, 'master_key')
+                    bonus_xp = 150 + (depth * 2)
+                    bonus_coins = 50 + depth
+                    cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, bonus_coins, uid))
+                    msg_prefix = f"🔓 <b>СЕРВЕР ВЗЛОМАН:</b> +{bonus_xp} XP | +{bonus_coins} BC\n\n"
+                else:
+                    msg_prefix = "🔒 <b>НЕТ КЛЮЧА!</b>\n\n"
 
-    db.update_user(uid, xp=u['xp'] - step_cost)
-    u['xp'] -= step_cost
+            # 3. ЦЕНА ШАГА
+            step_cost = RAID_STEP_COST + (depth // 25)
+            if u['xp'] < step_cost:
+                return False, f"🪫 <b>ВЫДОХСЯ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
 
-    # 4. БИОМ
-    biome = RAID_BIOMES["wasteland"]
-    if 50 <= depth < 100: biome = RAID_BIOMES["archive"]
-    elif depth >= 100: biome = RAID_BIOMES["darknet"]
-    
-    new_depth = depth + 1
-    diff = biome['dmg_mod'] 
+            db.update_user(uid, xp=u['xp'] - step_cost)
+            u['xp'] -= step_cost
 
-    # 5. ГЕНЕРАЦИЯ СОБЫТИЯ
-    if not is_new and random.random() < 0.15:
-        event = {'type': 'locked_chest', 'text': 'Зашифрованный контейнер с лутом.', 'val': 0}
-    else:
-        cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
-        event = cur.fetchone()
-        if not event: event = {'text': "Пустые коридоры кода...", 'type': 'neutral', 'val': 0}
+            # 4. БИОМ
+            biome = RAID_BIOMES["wasteland"]
+            if 50 <= depth < 100: biome = RAID_BIOMES["archive"]
+            elif depth >= 100: biome = RAID_BIOMES["darknet"]
 
-    # [FIX] Очистка и Загадки
-    riddle_answer = None
-    if 'Ответ:' in event['text']:
-         match = re.search(r'\s*\(Ответ:\s*(.*?)\)', event['text'], re.IGNORECASE)
-         if match:
-             riddle_answer = match.group(1).strip()
+            new_depth = depth + 1
+            diff = biome['dmg_mod']
 
-    # Очищаем текст от (Ответ: ...) и (Техника: ...)
-    event['text'] = re.sub(r'\s*\(.*?\)', '', event['text']).strip()
-
-    new_sig = s['signal']
-    riddle_data = None
-    msg_event = ""
-
-    # === RPG LOGIC (АТАКА/ЗАЩИТА/УДАЧА) ===
-    if event['type'] == 'trap':
-        base_dmg = int(event['val'] * diff)
-        dmg = max(5, base_dmg - stats['def']) # DEF реально спасает!
-        
-        # Эгида
-        if db.get_item_count(uid, 'aegis') > 0 and (new_sig - dmg <= 0):
-            db.use_item(uid, 'aegis')
-            dmg = 0
-            msg_prefix += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
-        
-        new_sig = max(0, new_sig - dmg)
-        flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['trap'])
-        msg_event = f"💥 <b>ЛОВУШКА:</b> {flavor}\n🔻 <b>-{dmg}% Сигнала</b> (Защита: {stats['def']})"
-        
-    elif event['type'] == 'loot':
-        coin_mult = 1.2 if u['path'] == 'money' else 1.0
-        bonus_xp = int(event['val'] * diff * (1 + stats['atk']/100))
-        coins = int(random.randint(5, 20) * (1 + stats['luck']/20) * coin_mult) 
-        
-        cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, coins, uid))
-        flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['loot'])
-        msg_event = f"💎 <b>ЛУТ:</b> {flavor}\n✳️ +{bonus_xp} XP | 🪙 +{coins} BC"
-        
-        # Дроп предметов (с проверкой 10 слотов)
-        if db.get_inventory_size(uid) < INVENTORY_LIMIT:
-            dice = random.random()
-            drop_chance = 1.0 + (stats['luck'] / 100)
-            for item, chance in LOOT_TABLE.items():
-                if dice < (chance * drop_chance):
-                    if 'biocoin' in item:
-                        extra_c = 50 if 'bag' in item else 15
-                        cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (extra_c, uid))
-                        msg_prefix += f"💰 Найдено: +{extra_c} BC\n"
-                    else:
-                        if db.add_item(uid, item):
-                            msg_prefix += f"🎁 <b>ВЕЩЬ:</b> {ITEMS_INFO.get(item, {}).get('name', item)}\n"
-                    break
-        else:
-            msg_prefix += "🎒 <b>РЮКЗАК ПОЛЕН!</b> Пришлось оставить лут.\n"
-            
-    elif event['type'] == 'heal':
-        new_sig = min(100, new_sig + 25)
-        desc = event["text"] if len(event.get("text","")) > 15 else "Найден источник энергии."
-        msg_event = f"❤️ <b>АПТЕЧКА:</b> {desc}\n+25% Сигнала."
-    else: 
-        flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['empty'])
-        msg_event = f"👣 {flavor}"
-
-    # Загадки (с использованием ранее извлеченного ответа)
-    if riddle_answer:
-        correct = riddle_answer
-        q = event['text'] # Уже очищенный текст
-        # Smart distractors
-        if " и " in correct or " and " in correct.lower():
-             d1 = random.choice(RIDDLE_DISTRACTORS)
-             d2 = random.choice(RIDDLE_DISTRACTORS)
-             d3 = random.choice(RIDDLE_DISTRACTORS)
-             d4 = random.choice(RIDDLE_DISTRACTORS)
-             opts = [f"{d1} и {d2}", f"{d3} и {d4}"]
-             options = opts + [correct]
-        else:
-             options = random.sample(RIDDLE_DISTRACTORS, 2) + [correct]
-        random.shuffle(options)
-        riddle_data = {"question": q, "correct": correct, "options": options}
-        msg_event = f"🧩 <b>ШИФР:</b>\n{q}"
-
-    # [FIXED] Честный Компас (с подсказками)
-    compass_txt = ""
-    if db.get_item_count(uid, 'compass') > 0:
-        if db.decrease_durability(uid, 'compass'):
-            if event['type'] in ['loot', 'heal', 'locked_chest']:
-                res = "❇️ РЕЗОНАНС (Полезная находка)"
-            elif event['type'] == 'trap':
-                res = "⚠️ СЕЙСМОАКТИВНОСТЬ (Ловушка)"
-            elif event['type'] == 'neutral':
-                res = "⬜️ ТИШИНА (Пусто)"
+            # 5. ГЕНЕРАЦИЯ СОБЫТИЯ
+            if not is_new and random.random() < 0.15:
+                event = {'type': 'locked_chest', 'text': 'Зашифрованный контейнер с лутом.', 'val': 0}
             else:
-                res = "❓ АНОМАЛИЯ"
-            compass_txt = f"🧭 <b>КОМПАС:</b> {res} (Удача: {stats['luck']})"
-        else:
-            compass_txt = "💔 <b>КОМПАС СЛОМАЛСЯ.</b>"
+                cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
+                event = cur.fetchone()
+                if not event: event = {'text': "Пустые коридоры кода...", 'type': 'neutral', 'val': 0}
 
-    # Сохранение
-    cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s WHERE uid=%s", (new_depth, new_sig, uid))
-    if new_depth > u.get('max_depth', 0): db.update_user(uid, max_depth=new_depth)
-    
-    cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
-    res = cur.fetchone()
-    conn.commit(); conn.close()
+            # [FIX] Очистка и Загадки
+            riddle_answer = None
+            if 'Ответ:' in event['text']:
+                 match = re.search(r'\s*\(Ответ:\s*(.*?)\)', event['text'], re.IGNORECASE)
+                 if match:
+                     riddle_answer = match.group(1).strip()
+
+            # Очищаем текст от (Ответ: ...) и (Техника: ...)
+            event['text'] = re.sub(r'\s*\(.*?\)', '', event['text']).strip()
+
+            new_sig = s['signal']
+            riddle_data = None
+            msg_event = ""
+
+            # === RPG LOGIC (АТАКА/ЗАЩИТА/УДАЧА) ===
+            if event['type'] == 'trap':
+                base_dmg = int(event['val'] * diff)
+                dmg = max(5, base_dmg - stats['def']) # DEF реально спасает!
+
+                # Эгида
+                if db.get_item_count(uid, 'aegis') > 0 and (new_sig - dmg <= 0):
+                    db.use_item(uid, 'aegis')
+                    dmg = 0
+                    msg_prefix += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
+
+                new_sig = max(0, new_sig - dmg)
+                flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['trap'])
+                msg_event = f"💥 <b>ЛОВУШКА:</b> {flavor}\n🔻 <b>-{dmg}% Сигнала</b> (Защита: {stats['def']})"
+
+            elif event['type'] == 'loot':
+                coin_mult = 1.2 if u['path'] == 'money' else 1.0
+                bonus_xp = int(event['val'] * diff * (1 + stats['atk']/100))
+                coins = int(random.randint(5, 20) * (1 + stats['luck']/20) * coin_mult)
+
+                cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, coins, uid))
+                flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['loot'])
+                msg_event = f"💎 <b>ЛУТ:</b> {flavor}\n✳️ +{bonus_xp} XP | 🪙 +{coins} BC"
+
+                # Дроп предметов (с проверкой 10 слотов)
+                if db.get_inventory_size(uid) < INVENTORY_LIMIT:
+                    dice = random.random()
+                    drop_chance = 1.0 + (stats['luck'] / 100)
+                    for item, chance in LOOT_TABLE.items():
+                        if dice < (chance * drop_chance):
+                            if 'biocoin' in item:
+                                extra_c = 50 if 'bag' in item else 15
+                                cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (extra_c, uid))
+                                msg_prefix += f"💰 Найдено: +{extra_c} BC\n"
+                            else:
+                                if db.add_item(uid, item):
+                                    msg_prefix += f"🎁 <b>ВЕЩЬ:</b> {ITEMS_INFO.get(item, {}).get('name', item)}\n"
+                            break
+                else:
+                    msg_prefix += "🎒 <b>РЮКЗАК ПОЛЕН!</b> Пришлось оставить лут.\n"
+
+            elif event['type'] == 'heal':
+                new_sig = min(100, new_sig + 25)
+                desc = event["text"] if len(event.get("text","")) > 15 else "Найден источник энергии."
+                msg_event = f"❤️ <b>АПТЕЧКА:</b> {desc}\n+25% Сигнала."
+            else:
+                flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['empty'])
+                msg_event = f"👣 {flavor}"
+
+            # Загадки (с использованием ранее извлеченного ответа)
+            if riddle_answer:
+                correct = riddle_answer
+                q = event['text'] # Уже очищенный текст
+                # Smart distractors
+                if " и " in correct or " and " in correct.lower():
+                     d1 = random.choice(RIDDLE_DISTRACTORS)
+                     d2 = random.choice(RIDDLE_DISTRACTORS)
+                     d3 = random.choice(RIDDLE_DISTRACTORS)
+                     d4 = random.choice(RIDDLE_DISTRACTORS)
+                     opts = [f"{d1} и {d2}", f"{d3} и {d4}"]
+                     options = opts + [correct]
+                else:
+                     options = random.sample(RIDDLE_DISTRACTORS, 2) + [correct]
+                random.shuffle(options)
+                riddle_data = {"question": q, "correct": correct, "options": options}
+                msg_event = f"🧩 <b>ШИФР:</b>\n{q}"
+
+            # [FIXED] Честный Компас (с подсказками)
+            compass_txt = ""
+            if db.get_item_count(uid, 'compass') > 0:
+                if db.decrease_durability(uid, 'compass'):
+                    if event['type'] in ['loot', 'heal', 'locked_chest']:
+                        res = "❇️ РЕЗОНАНС (Полезная находка)"
+                    elif event['type'] == 'trap':
+                        res = "⚠️ СЕЙСМОАКТИВНОСТЬ (Ловушка)"
+                    elif event['type'] == 'neutral':
+                        res = "⬜️ ТИШИНА (Пусто)"
+                    else:
+                        res = "❓ АНОМАЛИЯ"
+                    compass_txt = f"🧭 <b>КОМПАС:</b> {res} (Удача: {stats['luck']})"
+                else:
+                    compass_txt = "💔 <b>КОМПАС СЛОМАЛСЯ.</b>"
+
+            # Сохранение
+            cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s WHERE uid=%s", (new_depth, new_sig, uid))
+            if new_depth > u.get('max_depth', 0): db.update_user(uid, max_depth=new_depth)
+
+            cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
+            res = cur.fetchone()
 
     # Смерть
     if new_sig <= 0:
@@ -334,14 +331,12 @@ def raid_step_logic(uid, answer=None):
     return True, interface, riddle_data, u, event['type'], next_step_cost
 
 def get_content_logic(c_type, path='general', level=1, has_decoder=False):
-    conn = db.get_db_connection()
-    cur = conn.cursor(cursor_factory=db.RealDictCursor)
-    eff_lvl = level + 1 if has_decoder else level
-    if c_type == 'signal': cur.execute("SELECT text FROM content WHERE type='signal' ORDER BY RANDOM() LIMIT 1")
-    else: cur.execute("SELECT text FROM content WHERE type='protocol' AND (path=%s OR path='general') AND level <= %s ORDER BY RANDOM() LIMIT 1", (path, eff_lvl))
-    res = cur.fetchone()
-    conn.close()
-    return res
+    with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
+        if not cur: return None
+        eff_lvl = level + 1 if has_decoder else level
+        if c_type == 'signal': cur.execute("SELECT text FROM content WHERE type='signal' ORDER BY RANDOM() LIMIT 1")
+        else: cur.execute("SELECT text FROM content WHERE type='protocol' AND (path=%s OR path='general') AND level <= %s ORDER BY RANDOM() LIMIT 1", (path, eff_lvl))
+        return cur.fetchone()
 
 def get_level_progress_stats(u):
     xp, lvl = u['xp'], u['level']
