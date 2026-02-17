@@ -1,5 +1,6 @@
 import telebot, flask, time, threading, random, os
 from telebot import types
+from psycopg2.extras import RealDictCursor
 from config import *
 import database as db
 import keyboards as kb
@@ -30,7 +31,7 @@ def broadcast_progress(uid, is_up, new_achs):
     except: pass
 
 def menu_update(call, text, markup=None):
-    """Безопасное обновление меню"""
+    """Безопасное обновление меню (Caption или Text)"""
     try:
         bot.edit_message_caption(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     except:
@@ -58,11 +59,10 @@ def start(m):
         username = m.from_user.username or "Unknown"
         first_name = m.from_user.first_name or "User"
         db.create_user(uid, username, first_name, ref_id)
-        
         if ref_id:
             try:
                 db.add_xp_to_user(int(ref_id), REFERRAL_BONUS)
-                bot.send_message(int(ref_id), f"🤝 <b>НОВЫЙ АГЕНТ!</b>\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
+                bot.send_message(int(ref_id), f"🤝 <b>НОВЫЙ УЗЕЛ В СЕТИ!</b>\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
             except: pass
 
     u = db.get_user(uid)
@@ -94,17 +94,16 @@ def handle_query(call):
             if content:
                 gain, is_up, achs = logic.process_xp_logic(uid, XP_GAIN)
                 db.update_user(uid, last_protocol_time=int(time.time()), notified=False)
+                # Сохраняем в историю для архива
+                db.save_knowledge(uid, content.get('id', 0)) 
                 menu_update(call, f"🧬 <b>ПРОТОКОЛ ЗАГРУЖЕН</b>\n\n{content['text']}\n\n⚡️ +{gain} XP", kb.back_button())
                 broadcast_progress(uid, is_up, achs)
-            else:
-                menu_update(call, "⚠️ Нет данных для твоего уровня.", kb.back_button())
 
         elif call.data == "get_signal":
             ok, rem = logic.check_cooldown(uid, 'signal')
             if not ok:
                 bot.answer_callback_query(call.id, f"⏳ ЖДИ: {rem} сек", show_alert=True)
                 return
-            
             content = logic.get_content_logic('signal')
             if content:
                 gain, is_up, achs = logic.process_xp_logic(uid, XP_SIGNAL)
@@ -121,24 +120,20 @@ def handle_query(call):
              menu_update(call, f"<b>🌑 НУЛЕВОЙ СЛОЙ</b>\n\nВход: <b>{RAID_COST} XP</b>\nТвой заряд: {u['xp']} XP", m)
 
         elif call.data == "raid_start":
+             # Фикс кнопки начать: Инициализация + Первый шаг
              if u['xp'] < RAID_COST: return
-             db.update_user(uid, xp=u['xp'] - RAID_COST)
-             
-             # Сброс старой сессии
-             conn = db.get_db_connection()
-             with conn.cursor() as cur:
-                 cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
-                 cur.execute("INSERT INTO raid_sessions (uid, start_time) VALUES (%s, %s)", (uid, int(time.time())))
-                 conn.commit()
-             conn.close()
-             
-             handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+             alive, msg, riddle, u_new, ev_type = logic.raid_step_logic(uid)
+             if alive:
+                 if riddle:
+                     active_riddles[uid] = riddle['correct']
+                     menu_update(call, msg, kb.riddle_keyboard(riddle['options']))
+                 else:
+                     has_key = db.get_item_count(uid, 'master_key') > 0
+                     menu_update(call, msg, kb.raid_action_keyboard(RAID_STEP_COST, ev_type, has_key))
 
         elif call.data == "raid_step" or call.data == "raid_open_chest":
              ans = 'open_chest' if call.data == "raid_open_chest" else None
-             
              alive, msg, riddle, u_new, ev_type = logic.raid_step_logic(uid, answer=ans)
-             
              if not alive:
                  menu_update(call, msg, kb.back_button())
              else:
@@ -147,28 +142,24 @@ def handle_query(call):
                      menu_update(call, msg, kb.riddle_keyboard(riddle['options']))
                  else:
                      has_key = db.get_item_count(uid, 'master_key') > 0
-                     cost = 15 + (u_new.get('max_depth', 0) // 20)
-                     menu_update(call, msg, kb.raid_action_keyboard(cost, ev_type, has_key))
+                     menu_update(call, msg, kb.raid_action_keyboard(RAID_STEP_COST, ev_type, has_key))
 
         elif call.data.startswith("r_check_"):
              ans = call.data.replace("r_check_", "")
              correct = active_riddles.get(uid, "")
-             
              if ans in correct:
-                 bot.answer_callback_query(call.id, "✅ ВЕРНО! +15 XP", show_alert=False)
+                 bot.answer_callback_query(call.id, "✅ ВЕРНО! +15 XP")
                  db.add_xp_to_user(uid, 15)
              else:
                  bot.answer_callback_query(call.id, "❌ ОШИБКА! Удар током.", show_alert=True)
-                 # Штраф в БД
                  conn = db.get_db_connection()
                  with conn.cursor() as cur: cur.execute("UPDATE raid_sessions SET signal = signal - 20 WHERE uid = %s", (uid,)); conn.commit()
                  conn.close()
-             
              handle_query(type('obj', (object,), {'data': 'raid_step', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
 
         elif call.data == "raid_extract":
              conn = db.get_db_connection()
-             with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                  cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
                  res = cur.fetchone()
                  xp_gain = res['buffer_xp'] if res else 0
@@ -176,34 +167,28 @@ def handle_query(call):
                  cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
                  conn.commit()
              conn.close()
-             
              gain, is_up, achs = logic.process_xp_logic(uid, xp_gain, source='raid')
              db.update_user(uid, biocoin=u['biocoin'] + coin_gain)
-             
-             msg = f"🚁 <b>ЭВАКУАЦИЯ УСПЕШНА</b>\n\n⚡️ +{gain} XP\n🪙 +{coin_gain} BC"
-             menu_update(call, msg, kb.back_button())
+             menu_update(call, f"🚁 <b>ЭВАКУАЦИЯ УСПЕШНА</b>\n\n⚡️ +{gain} XP\n🪙 +{coin_gain} BC", kb.back_button())
              broadcast_progress(uid, is_up, achs)
 
         # --- 3. МАГАЗИН И ИНВЕНТАРЬ ---
         elif call.data == "shop":
-            menu_update(call, SHOP_FULL + f"\n\n💳 Баланс: <b>{u['biocoin']} BC</b>", kb.shop_menu(u))
+            menu_update(call, SHOP_FULL + f"\n\n💰 Баланс: <b>{u['biocoin']} BC</b>", kb.shop_menu(u))
         
         elif call.data.startswith("buy_"):
             item = call.data.replace("buy_", "")
             price = PRICES.get(item, EQUIPMENT_DB.get(item, {}).get('price', 99999))
-            currency = 'xp' if item in ['cryo', 'accel', 'decoder'] else 'biocoin' # Гибридная оплата
+            currency = 'xp' if item in ['cryo', 'accel', 'decoder'] else 'biocoin'
             
             can_buy = False
             if currency == 'xp' and u['xp'] >= price: can_buy = True
             elif currency == 'biocoin' and u['biocoin'] >= price: can_buy = True
             
             if can_buy:
-                # Проверка места
                 if item not in ['cryo', 'accel', 'decoder'] and not db.add_item(uid, item):
                     bot.answer_callback_query(call.id, "🎒 НЕТ МЕСТА!", show_alert=True)
                     return
-
-                # Списание
                 if currency == 'xp': db.update_user(uid, xp=u['xp']-price)
                 else: db.update_user(uid, biocoin=u['biocoin']-price)
                 
@@ -214,14 +199,15 @@ def handle_query(call):
                 
                 bot.answer_callback_query(call.id, f"✅ КУПЛЕНО: {item}")
                 handle_query(type('obj', (object,), {'data': 'shop', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
-            else:
-                bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО СРЕДСТВ", show_alert=True)
+            else: bot.answer_callback_query(call.id, "❌ НЕДОСТАТОЧНО СРЕДСТВ", show_alert=True)
 
         elif call.data == "inventory":
             items = db.get_inventory(uid)
             equipped = db.get_equipped_items(uid)
             stats, _ = logic.get_user_stats(uid)
-            txt = f"🎒 <b>РЮКЗАК ({db.get_inventory_size(uid)}/10)</b>\n⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}"
+            txt = f"🎒 <b>ИНВЕНТАРЬ ({len(items)}/{INVENTORY_LIMIT})</b>\n\n"
+            txt += f"⚔️ АТАКA: {stats['atk']}\n🛡 ЗАЩИТА: {stats['def']}\n🍀 УДАЧА: {stats['luck']}\n\n"
+            txt += "<i>Выбери предмет, чтобы надеть или снять его.</i>"
             menu_update(call, txt, kb.inventory_menu(items, equipped))
 
         elif call.data.startswith("equip_"):
@@ -231,93 +217,105 @@ def handle_query(call):
         elif call.data.startswith("unequip_"):
             if db.unequip_item(uid, call.data.replace("unequip_", "")):
                 handle_query(type('obj', (object,), {'data': 'inventory', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
-            else:
-                bot.answer_callback_query(call.id, "🎒 НЕТ МЕСТА ЧТОБЫ СНЯТЬ!", show_alert=True)
+            else: bot.answer_callback_query(call.id, "🎒 НЕТ МЕСТА!", show_alert=True)
 
-        elif call.data == "use_admin_key":
-             if db.use_item(uid, 'admin_key'):
-                 db.add_xp_to_user(uid, 500)
-                 bot.answer_callback_query(call.id, "🔥 +500 XP")
-                 handle_query(type('obj', (object,), {'data': 'inventory', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
-
-        # --- 4. ДНЕВНИК (PAGINATION) ---
+        # --- 4. ДНЕВНИК И АРХИВ ---
         elif call.data == "diary_menu":
-            menu_update(call, "📓 <b>ДНЕВНИК ИНСАЙТОВ</b>\nВыбери действие:", kb.diary_menu())
+            menu_update(call, "📓 <b>ЦЕНТРАЛЬНЫЙ АРХИВ</b>\n\nТвои мысли и купленные знания.", kb.diary_menu())
 
         elif call.data == "diary_new":
             user_states[uid] = "diary_wait"
-            bot.send_message(uid, "📝 Отправь свою мысль (текстом):")
+            bot.send_message(uid, "📝 <b>ВВОД ИНСАЙТА:</b>\nПришли свою мысль следующим сообщением.", parse_mode="HTML")
 
         elif call.data.startswith("diary_read_"):
             page = int(call.data.replace("diary_read_", ""))
-            entries = db.get_diary_entries(uid, limit=50) # Берем все
-            total_pages = (len(entries) // 5) + 1
-            
-            # Срез 5 записей для страницы
-            start = page * 5
-            page_entries = entries[start:start+5]
-            
-            txt = f"📖 <b>АРХИВ (Страница {page+1}/{total_pages})</b>\n\n"
-            if not page_entries: txt += "<i>Пусто...</i>"
-            else:
-                for e in page_entries:
-                    d = e['created_at'].strftime('%d.%m') if hasattr(e['created_at'], 'strftime') else "???"
-                    txt += f"• [{d}] {e['entry'][:100]}...\n\n"
-            
-            menu_update(call, txt, kb.diary_read_nav(page, total_pages))
+            entries = db.get_diary_entries(uid, limit=100)
+            if not entries:
+                menu_update(call, "<i>Твой дневник пока пуст...</i>", kb.back_button())
+                return
+            entry = entries[page]
+            date_str = entry['created_at'].strftime('%d.%m.%y %H:%M')
+            txt = f"📖 <b>ЗАПИСЬ #{page+1}</b>\n📅 {date_str}\n\n{entry['entry']}"
+            menu_update(call, txt, kb.diary_read_nav(page, len(entries)))
 
-        # --- 5. АДМИНКА (GOD MODE) ---
+        elif call.data == "diary_archive":
+            if u['xp'] >= ARCHIVE_COST:
+                db.update_user(uid, xp=u['xp']-ARCHIVE_COST)
+                prots = db.get_archived_protocols(uid)
+                txt = "💾 <b>АРХИВ ПРОТОКОЛОВ</b>\n\n"
+                if not prots: txt += "<i>Архив пуст. Изучай новые протоколы через Синхронизацию.</i>"
+                else:
+                    for p in prots: txt += f"🔹 {p['text'][:150]}...\n\n"
+                menu_update(call, txt, kb.back_button())
+            else: bot.answer_callback_query(call.id, f"❌ Нужно {ARCHIVE_COST} XP", show_alert=True)
+
+        # --- 5. СОЦИУМ ---
+        elif call.data == "profile":
+            stats, _ = logic.get_user_stats(uid)
+            perc, xp_need = logic.get_level_progress_stats(u)
+            p_bar = kb.get_progress_bar(perc, 100)
+            msg = (f"👤 <b>ПРОФИЛЬ: {u['first_name']}</b>\n"
+                   f"🔰 Статус: <code>{TITLES.get(u['level'])}</code>\n"
+                   f"📊 LVL {u['level']} | {p_bar} ({perc}%)\n"
+                   f"💡 До апа: {xp_need} XP\n\n"
+                   f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
+                   f"🏫 Школа: <code>{SCHOOLS.get(u['path'], 'Общая')}</code>\n"
+                   f"🔋 Энергия: {u['xp']} | 🪙 BioCoins: {u['biocoin']}")
+            menu_update(call, msg, kb.back_button())
+
+        elif call.data == "leaderboard":
+            top = db.get_leaderboard()
+            txt = "🏆 <b>ТОП-10 АРХИТЕКТОРОВ</b>\n\n"
+            for i, r in enumerate(top, 1):
+                txt += f"{i}. {r['first_name']} — <code>{r['xp']} XP</code> (Lvl {r['level']})\n"
+            menu_update(call, txt, kb.back_button())
+
+        elif call.data == "referral":
+            refs = db.get_referrals_stats(uid)
+            txt = f"{SYNDICATE_FULL}\n\n📊 <b>ОТЧЕТ:</b>\n"
+            if not refs: txt += "<i>У тебя пока нет агентов.</i>"
+            else:
+                for r in refs:
+                    txt += f"• {r['first_name']} (Lvl {r['level']}) | +{r['ref_profit_xp']} XP | +{r['ref_profit_coins']} BC\n"
+            txt += f"\n🔗 Ссылка:\n<code>https://t.me/{BOT_USERNAME}?start={uid}</code>"
+            menu_update(call, txt, kb.back_button())
+
+        elif call.data == "guide":
+            menu_update(call, GUIDE_FULL, kb.back_button())
+
+        # --- 6. ADMIN PANEL ---
         elif call.data == "admin_panel" and str(uid) == str(ADMIN_ID):
-            menu_update(call, "⚡️ <b>GOD MODE:</b> Выбери инструмент.", kb.admin_keyboard())
+            menu_update(call, "⚡️ <b>GOD MODE CONSOLE</b>", kb.admin_keyboard())
 
         elif call.data == "admin_sql":
             user_states[uid] = "admin_sql"
-            bot.send_message(uid, "⌨️ Введи SQL запрос:")
-
+            bot.send_message(uid, "⌨️ <b>SQL INPUT:</b>")
+        
         elif call.data == "admin_broadcast":
             user_states[uid] = "admin_broadcast"
-            bot.send_message(uid, "⌨️ Введи текст рассылки:")
+            bot.send_message(uid, "📢 <b>TEXT FOR ALL:</b>")
 
         elif call.data == "admin_dm":
             user_states[uid] = "admin_dm_id"
-            bot.send_message(uid, "⌨️ Введи ID пользователя для ЛС:")
+            bot.send_message(uid, "✉️ <b>USER ID:</b>")
 
         elif call.data == "admin_give_res":
             user_states[uid] = "admin_give_res"
-            bot.send_message(uid, "⌨️ Введи: `ID XP COINS` (напр: `12345 1000 500`)")
-            
+            bot.send_message(uid, "💰 <b>ID XP COINS:</b>")
+
         elif call.data == "admin_give_item_menu":
-            menu_update(call, "🎁 Выбери предмет для выдачи:", kb.admin_item_select())
-            
+            menu_update(call, "🎁 <b>SELECT ITEM:</b>", kb.admin_item_select())
+
         elif call.data.startswith("adm_give_"):
-            item_id = call.data.replace("adm_give_", "")
-            user_states[uid] = f"admin_give_item_id:{item_id}"
-            bot.send_message(uid, f"⌨️ Введи ID пользователя, кому выдать {item_id}:")
-            
-        elif call.data == "admin_add_content":
-            user_states[uid] = "admin_add_content"
-            bot.send_message(uid, "⌨️ Введи текст нового СИНХРОНА:")
+            item = call.data.replace("adm_give_", "")
+            user_states[uid] = f"admin_give_item_id:{item}"
+            bot.send_message(uid, f"⌨️ <b>ID FOR {item}:</b>")
 
         elif call.data == "back":
-            menu_update(call, "/// ТЕРМИНАЛ ОНЛАЙН", kb.main_menu(u))
-            
-        # Остальные кнопки...
-        elif call.data == "profile":
-            stats, _ = logic.get_user_stats(uid)
-            msg = (f"👤 <b>{u['first_name']}</b> (Lvl {u['level']})\n"
-                   f"⚔️ {stats['atk']} 🛡 {stats['def']} 🍀 {stats['luck']}\n"
-                   f"🎒 Рюкзак: {db.get_inventory_size(uid)}/10")
-            menu_update(call, msg, kb.back_button())
-
-        elif call.data == "referral":
-             refs = db.get_referrals_stats(uid)
-             txt = f"🔗 <b>СЕТЬ: {len(refs)}</b>\nДоход: {u['ref_profit_xp']} XP\n\nСсылка:\n<code>https://t.me/{BOT_USERNAME}?start={uid}</code>"
-             menu_update(call, txt, kb.back_button())
+            menu_update(call, f"<code>{random.choice(WELCOME_VARIANTS)}</code>", kb.main_menu(u))
 
         bot.answer_callback_query(call.id)
-
-    except Exception as e:
-        print(f"ERROR: {e}")
+    except Exception as e: print(f"/// ERR: {e}")
 
 # =============================================================
 # ✉️ ОБРАБОТЧИК ТЕКСТА (INPUT)
@@ -328,68 +326,51 @@ def text_input_handler(m):
     uid = m.from_user.id
     state = user_states[uid]
     
-    # 1. ДНЕВНИК
     if state == "diary_wait":
-        db.add_diary_entry(uid, m.text[:500])
+        db.add_diary_entry(uid, m.text[:1000])
         logic.process_xp_logic(uid, 5)
-        bot.send_message(uid, "✅ Записано (+5 XP).", reply_markup=kb.main_menu(db.get_user(uid)))
+        bot.send_message(uid, "✅ <b>ИНСАЙТ СОХРАНЕН.</b>\n+5 XP", parse_mode="HTML", reply_markup=kb.main_menu(db.get_user(uid)))
         del user_states[uid]
 
-    # 2. АДМИНКА
     elif str(uid) == str(ADMIN_ID):
         if state == "admin_sql":
             res = db.admin_exec_query(m.text)
-            bot.send_message(uid, f"📊 <b>SQL:</b>\n<code>{res}</code>", parse_mode="HTML")
-            
+            bot.send_message(uid, f"📊 <b>SQL RESULT:</b>\n<code>{res}</code>", parse_mode="HTML")
         elif state == "admin_broadcast":
+            users = db.admin_exec_query("SELECT uid FROM users")
+            # users придет как строка из-за admin_exec_query, поэтому лучше сделать через db напрямую
             conn = db.get_db_connection()
             with conn.cursor() as cur:
                 cur.execute("SELECT uid FROM users")
-                users = cur.fetchall()
+                all_u = cur.fetchall()
+            conn.close()
             count = 0
-            for u in users:
-                try:
-                    bot.send_message(u[0], f"📢 <b>СИСТЕМА:</b>\n\n{m.text}", parse_mode="HTML")
-                    count += 1; time.sleep(0.05)
+            for usr in all_u:
+                try: bot.send_message(usr[0], f"📢 <b>ОПОВЕЩЕНИЕ:</b>\n\n{m.text}", parse_mode="HTML"); count += 1
                 except: pass
             bot.send_message(uid, f"✅ Разослано: {count}")
-
         elif state == "admin_dm_id":
-            user_states[uid] = f"admin_dm_text:{m.text}"
-            bot.send_message(uid, "✉️ Введи текст сообщения:")
-            return # Не удаляем состояние, ждем текст
-            
-        elif state.startswith("admin_dm_text:"):
-            target_id = state.split(":")[1]
-            try:
-                bot.send_message(target_id, f"📨 <b>ЛИЧНОЕ СООБЩЕНИЕ ОТ АДМИНА:</b>\n\n{m.text}", parse_mode="HTML")
-                bot.send_message(uid, "✅ Доставлено.")
-            except Exception as e:
-                bot.send_message(uid, f"❌ Ошибка: {e}")
-
+            user_states[uid] = f"admin_dm_msg:{m.text}"
+            bot.send_message(uid, "✉️ <b>MESSAGE TEXT:</b>")
+            return
+        elif state.startswith("admin_dm_msg:"):
+            target = state.split(":")[1]
+            try: bot.send_message(target, f"📩 <b>СООБЩЕНИЕ ОТ АДМИНИСТРАЦИИ:</b>\n\n{m.text}", parse_mode="HTML"); bot.send_message(uid, "✅ OK")
+            except: bot.send_message(uid, "❌ FAIL")
         elif state == "admin_give_res":
             try:
-                target, xp, coins = map(int, m.text.split())
-                db.add_xp_to_user(target, xp)
-                db.update_user(target, biocoin=db.get_user(target)['biocoin'] + coins)
-                bot.send_message(target, f"🎁 <b>АДМИН ВЫДАЛ:</b>\n+{xp} XP | +{coins} BC", parse_mode="HTML")
-                bot.send_message(uid, "✅ Выдано.")
-            except: bot.send_message(uid, "❌ Ошибка формата (ID XP COINS).")
-
+                tid, xp, bc = m.text.split()
+                db.add_xp_to_user(int(tid), int(xp))
+                db.update_user(int(tid), biocoin=db.get_user(int(tid))['biocoin'] + int(bc))
+                bot.send_message(uid, "✅ OK")
+            except: bot.send_message(uid, "❌ ERR (ID XP BC)")
         elif state.startswith("admin_give_item_id:"):
-            item_id = state.split(":")[1]
-            try:
-                target = int(m.text)
-                db.add_item(target, item_id)
-                bot.send_message(target, f"🎁 <b>АДМИН ВЫДАЛ ПРЕДМЕТ:</b> {item_id}", parse_mode="HTML")
-                bot.send_message(uid, "✅ Предмет выдан.")
-            except: bot.send_message(uid, "❌ Ошибка ID.")
-            
-        elif state == "admin_add_content":
-            db.admin_add_content('protocol', m.text)
-            bot.send_message(uid, "✅ Контент добавлен.")
+            item = state.split(":")[1]
+            if db.add_item(int(m.text), item): bot.send_message(uid, "✅ OK")
+            else: bot.send_message(uid, "❌ FAIL")
 
-        del user_states[uid]
+        if uid in user_states: del user_states[uid]
+
 
 # --- WEBHOOK ---
 
