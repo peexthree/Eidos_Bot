@@ -36,16 +36,17 @@ def main_menu(u):
     
     m.add(types.InlineKeyboardButton(f"👤 [{current_lvl}] {p_bar}", callback_data="profile"),
           types.InlineKeyboardButton("🎰 РЫНОК", callback_data="shop"))
+
+    m.add(types.InlineKeyboardButton("🧬 ФРАКЦИЯ", callback_data="change_path_menu"),
+          types.InlineKeyboardButton("🎒 ИНВЕНТАРЬ", callback_data="inventory"))
           
-    # 4. Инвентарь & Рейтинг
-    m.add(types.InlineKeyboardButton("🎒 ИНВЕНТАРЬ", callback_data="inventory"),
-          types.InlineKeyboardButton("🏆 РЕЙТИНГ", callback_data="leaderboard"))
+    # 4. Рейтинг и Социум
+    m.add(types.InlineKeyboardButton("🏆 РЕЙТИНГ", callback_data="leaderboard"),
+          types.InlineKeyboardButton("🔗 СИНДИКАТ", callback_data="referral"))
           
-    # 5. Социум, Знания & Гайды
-    m.add(types.InlineKeyboardButton("🔗 СИНДИКАТ", callback_data="referral"),
-          types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_menu"))
-    
-    m.add(types.InlineKeyboardButton("📚 ИНСТРУКЦИЯ (ГАЙД)", callback_data="guide"))
+    # 5. Знания & Гайды
+    m.add(types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_menu"),
+          types.InlineKeyboardButton("📚 ИНСТРУКЦИЯ (ГАЙД)", callback_data="guide"))
 
     if str(uid) == str(ADMIN_ID):
         m.add(types.InlineKeyboardButton("⚡️ GOD MODE ⚡️", callback_data="admin_panel"))
@@ -136,6 +137,12 @@ def shop_menu(u):
 # 🕹 КОКПИТ РЕЙДА
 # =============================================================
 
+def raid_welcome_keyboard(cost):
+    m = types.InlineKeyboardMarkup(row_width=2)
+    m.add(types.InlineKeyboardButton(f"🚀 ВОЙТИ (-{cost} XP)", callback_data="raid_enter"))
+    m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back"))
+    return m
+
 def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False):
     m = types.InlineKeyboardMarkup()
     
@@ -165,6 +172,16 @@ def path_selection_keyboard():
         types.InlineKeyboardButton("🧠 РАЗУМ [+10 ЗАЩИТЫ]", callback_data="set_path_mind"),
         types.InlineKeyboardButton("🤖 ТЕХНО [+10 УДАЧИ]", callback_data="set_path_tech")
     )
+    return m
+
+def change_path_keyboard(cost):
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(
+        types.InlineKeyboardButton(f"🏦 МАТЕРИЯ (-{cost} XP)", callback_data="change_path_money"),
+        types.InlineKeyboardButton(f"🧠 РАЗУМ (-{cost} XP)", callback_data="change_path_mind"),
+        types.InlineKeyboardButton(f"🤖 ТЕХНО (-{cost} XP)", callback_data="change_path_tech")
+    )
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 
 # =============================================================
