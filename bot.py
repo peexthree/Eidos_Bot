@@ -25,7 +25,7 @@ if not TOKEN:
     # sys.exit(1)
 
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
-ADMIN_ID = 5178416366 
+# ADMIN_ID loaded from config
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
@@ -112,6 +112,12 @@ def start_handler(m):
         u = db.get_user(uid)
         bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
 
+@bot.message_handler(commands=['admin'])
+def admin_command(m):
+    uid = m.from_user.id
+    if db.is_user_admin(uid):
+        bot.send_message(uid, "⚡️ <b>GOD MODE: ACCESS GRANTED</b>", reply_markup=kb.admin_main_menu(), parse_mode="HTML")
+
 # =============================================================
 # 🎮 ОБРАБОТЧИК КНОПОК
 # =============================================================
@@ -166,6 +172,71 @@ def handle_query(call):
 
                  final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
                  threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+
+        elif call.data == "admin_panel":
+             if db.is_user_admin(uid):
+                 menu_update(call, "⚡️ <b>GOD MODE: MAIN TERMINAL</b>", kb.admin_main_menu())
+             else:
+                 bot.answer_callback_query(call.id, "❌ ACCESS DENIED")
+
+        # --- ADMIN SUB-MENUS ---
+        elif call.data.startswith("admin_menu_"):
+             if not db.is_user_admin(uid): return
+             sub = call.data.replace("admin_menu_", "")
+             if sub == "users": menu_update(call, "👥 <b>USER MANAGEMENT</b>", kb.admin_users_menu())
+             elif sub == "content": menu_update(call, "📝 <b>CONTENT MANAGEMENT</b>", kb.admin_content_menu())
+             elif sub == "broadcast": menu_update(call, "📢 <b>BROADCAST SYSTEMS</b>", kb.admin_broadcast_menu())
+             elif sub == "system": menu_update(call, "⚙️ <b>SYSTEM TOOLS</b>", kb.admin_system_menu())
+
+        elif call.data == "admin_guide":
+             if not db.is_user_admin(uid): return
+             menu_update(call, config.ADMIN_GUIDE_TEXT, kb.back_button())
+
+        elif call.data == "admin_user_list":
+             if not db.is_user_admin(uid): return
+             report = db.admin_get_users_dossier()
+             menu_update(call, report, kb.back_button())
+
+        # --- ADMIN ACTIONS (STATE SETTERS) ---
+        elif call.data in ["admin_grant_admin", "admin_revoke_admin", "admin_give_res",
+                           "admin_broadcast", "admin_post_channel", "admin_add_riddle",
+                           "admin_add_content", "admin_add_signal", "admin_sql"]:
+             if not db.is_user_admin(uid): return
+
+             state_map = {
+                 "admin_grant_admin": "wait_grant_admin",
+                 "admin_revoke_admin": "wait_revoke_admin",
+                 "admin_give_res": "wait_give_res_id",
+                 "admin_broadcast": "wait_broadcast_text",
+                 "admin_post_channel": "wait_channel_post",
+                 "admin_add_riddle": "wait_add_riddle",
+                 "admin_add_content": "wait_add_protocol",
+                 "admin_add_signal": "wait_add_signal",
+                 "admin_sql": "wait_sql"
+             }
+             user_states[uid] = state_map[call.data]
+             msg_map = {
+                 "admin_grant_admin": "🆔 <b>ENTER USER ID TO PROMOTE:</b>",
+                 "admin_revoke_admin": "🆔 <b>ENTER USER ID TO DEMOTE:</b>",
+                 "admin_give_res": "🆔 <b>ENTER USER ID:</b>",
+                 "admin_broadcast": "📢 <b>ENTER MESSAGE TEXT (HTML Supported):</b>",
+                 "admin_post_channel": "📡 <b>ENTER POST TEXT (HTML Supported):</b>\nBot must be admin in channel.",
+                 "admin_add_riddle": "🎭 <b>ENTER RIDDLE:</b>\nFormat: Question (Ответ: Answer)",
+                 "admin_add_content": "💠 <b>ENTER PROTOCOL TEXT:</b>",
+                 "admin_add_signal": "📡 <b>ENTER SIGNAL TEXT:</b>",
+                 "admin_sql": "📜 <b>ENTER SQL QUERY:</b>\n⚠️ BE CAREFUL!"
+             }
+             menu_update(call, msg_map[call.data], kb.back_button())
+
+        elif call.data == "admin_give_item_menu":
+             if not db.is_user_admin(uid): return
+             menu_update(call, "🎁 <b>SELECT ITEM:</b>", kb.admin_item_select())
+
+        elif call.data.startswith("adm_give_"):
+             if not db.is_user_admin(uid): return
+             item = call.data.replace("adm_give_", "")
+             user_states[uid] = f"wait_give_item_id|{item}"
+             menu_update(call, f"🆔 <b>GIVING {item.upper()}\nENTER USER ID:</b>", kb.back_button())
 
         # --- 2. ПРОФИЛЬ И ФРАКЦИЯ ---
         elif call.data == "profile":
@@ -522,11 +593,127 @@ def handle_query(call):
 @bot.message_handler(content_types=['text'])
 def text_handler(m):
     uid = m.from_user.id
-    if user_states.get(uid) == "waiting_for_diary_entry":
+    state = user_states.get(uid)
+
+    if not state: return
+
+    # --- DIARY ---
+    if state == "waiting_for_diary_entry":
         db.add_diary_entry(uid, m.text)
         del user_states[uid]
         bot.send_message(uid, "✅ <b>ЗАПИСЬ СОХРАНЕНА.</b>", parse_mode="HTML")
         bot.send_message(uid, "📓 ДНЕВНИК", reply_markup=kb.diary_menu())
+        return
+
+    # --- ADMIN ---
+    if not db.is_user_admin(uid): return
+
+    if state == "wait_grant_admin":
+        try:
+            tid = int(m.text)
+            db.set_user_admin(tid, True)
+            bot.send_message(uid, f"✅ ADMIN GRANTED TO {tid}")
+        except: bot.send_message(uid, "❌ INVALID ID")
+        del user_states[uid]
+
+    elif state == "wait_revoke_admin":
+        try:
+            tid = int(m.text)
+            if str(tid) == str(config.ADMIN_ID):
+                 bot.send_message(uid, "❌ CANNOT REVOKE OWNER")
+            else:
+                 db.set_user_admin(tid, False)
+                 bot.send_message(uid, f"✅ ADMIN REVOKED FROM {tid}")
+        except: bot.send_message(uid, "❌ INVALID ID")
+        del user_states[uid]
+
+    elif state == "wait_give_res_id":
+        try:
+            tid = int(m.text)
+            user_states[uid] = f"wait_give_res_val|{tid}"
+            bot.send_message(uid, "💰 <b>ENTER AMOUNT:</b>\nExamples: '1000' (Coins), '500 xp' (XP)")
+        except:
+            bot.send_message(uid, "❌ INVALID ID")
+            del user_states[uid]
+
+    elif state.startswith("wait_give_res_val|"):
+        tid = int(state.split("|")[1])
+        try:
+            val = m.text.lower().strip()
+            if 'xp' in val:
+                amount = int(val.replace('xp', '').strip())
+                db.add_xp_to_user(tid, amount)
+                bot.send_message(uid, f"✅ GAVE {amount} XP TO {tid}")
+            else:
+                amount = int(val)
+                u = db.get_user(tid)
+                if u:
+                    db.update_user(tid, biocoin=u['biocoin'] + amount)
+                    bot.send_message(uid, f"✅ GAVE {amount} BC TO {tid}")
+                else: bot.send_message(uid, "❌ USER NOT FOUND")
+        except: bot.send_message(uid, "❌ ERROR")
+        del user_states[uid]
+
+    elif state.startswith("wait_give_item_id|"):
+        item = state.split("|")[1]
+        try:
+            tid = int(m.text)
+            if db.add_item(tid, item):
+                bot.send_message(uid, f"✅ SENT {item} TO {tid}")
+            else:
+                bot.send_message(uid, "❌ INVENTORY FULL OR ERROR")
+        except: bot.send_message(uid, "❌ INVALID ID")
+        del user_states[uid]
+
+    elif state == "wait_broadcast_text":
+        count = 0
+        try:
+            with db.db_cursor() as cur:
+                cur.execute("SELECT uid FROM users")
+                users = cur.fetchall()
+                for row in users:
+                    try:
+                        bot.send_message(row[0], m.text, parse_mode="HTML")
+                        count += 1
+                        time.sleep(0.05)
+                    except: pass
+            bot.send_message(uid, f"✅ SENT TO {count} USERS")
+        except Exception as e: bot.send_message(uid, f"❌ ERROR: {e}")
+        del user_states[uid]
+
+    elif state == "wait_channel_post":
+        try:
+            bot.send_message(config.CHANNEL_ID, m.text, parse_mode="HTML")
+            bot.send_message(uid, f"✅ POSTED TO {config.CHANNEL_ID}")
+        except Exception as e:
+            bot.send_message(uid, f"❌ ERROR: {e}\nCheck if bot is admin in channel.")
+        del user_states[uid]
+
+    elif state == "wait_add_riddle":
+        if db.admin_add_riddle_to_db(m.text):
+            bot.send_message(uid, "✅ RIDDLE ADDED")
+        else: bot.send_message(uid, "❌ ERROR")
+        del user_states[uid]
+
+    elif state == "wait_add_protocol":
+        if db.admin_add_signal_to_db(m.text, c_type='protocol'):
+             bot.send_message(uid, "✅ PROTOCOL ADDED")
+        else: bot.send_message(uid, "❌ ERROR")
+        del user_states[uid]
+
+    elif state == "wait_add_signal":
+        if db.admin_add_signal_to_db(m.text, c_type='signal'):
+             bot.send_message(uid, "✅ SIGNAL ADDED")
+        else: bot.send_message(uid, "❌ ERROR")
+        del user_states[uid]
+
+    elif state == "wait_sql":
+        res = db.admin_exec_query(m.text)
+        try:
+            bot.send_message(uid, f"<code>{str(res)[:4000]}</code>", parse_mode="HTML")
+        except:
+            bot.send_message(uid, "RESULT TOO LONG / ERROR")
+        del user_states[uid]
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -551,6 +738,14 @@ def system_startup():
         time.sleep(2)
         print("/// SYSTEM STARTUP INITIATED...")
         db.init_db()
+
+        # Sync Admin from Config
+        try:
+            db.set_user_admin(config.ADMIN_ID, True)
+            print(f"/// ADMIN SYNC: {config.ADMIN_ID} rights granted.")
+        except Exception as e:
+            print(f"/// ADMIN SYNC ERROR: {e}")
+
         if WEBHOOK_URL:
             try:
                 bot.remove_webhook()

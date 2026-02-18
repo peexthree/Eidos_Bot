@@ -48,7 +48,7 @@ def main_menu(u):
     m.add(types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_menu"),
           types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide"))
 
-    if str(uid) == "777000": # Placeholder for ADMIN_ID
+    if u.get('is_admin') or str(uid) == str(config.ADMIN_ID):
         m.add(types.InlineKeyboardButton("⚡️ GOD MODE ⚡️", callback_data="admin_panel"))
         
     return m
@@ -270,17 +270,45 @@ def back_button():
 # ⚡️ ADMIN
 # =============================================================
 
-def admin_keyboard():
+def admin_main_menu():
     m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(types.InlineKeyboardButton("📢 РАССЫЛКА", callback_data="admin_broadcast"),
-          types.InlineKeyboardButton("✉️ ЛС ЮЗЕРУ", callback_data="admin_dm"))
-    m.add(types.InlineKeyboardButton("💰 ВЫДАТЬ РЕСУРСЫ", callback_data="admin_give_res"),
-          types.InlineKeyboardButton("🎁 ВЫДАТЬ ПРЕДМЕТ", callback_data="admin_give_item_menu"))
-    m.add(types.InlineKeyboardButton("📝 ДОБАВИТЬ КОНТЕНТ", callback_data="admin_add_content"),
-          types.InlineKeyboardButton("🎭 НОВАЯ ЗАГАДКА", callback_data="admin_add_riddle"))
-    m.add(types.InlineKeyboardButton("📜 SQL", callback_data="admin_sql"),
-          types.InlineKeyboardButton("👥 ЮЗЕРЫ", callback_data="admin_user_list"))
-    m.add(types.InlineKeyboardButton("🔙 ВЫХОД", callback_data="back"))
+    m.add(types.InlineKeyboardButton("👥 USERS", callback_data="admin_menu_users"),
+          types.InlineKeyboardButton("📝 CONTENT", callback_data="admin_menu_content"))
+    m.add(types.InlineKeyboardButton("📢 BROADCAST", callback_data="admin_menu_broadcast"),
+          types.InlineKeyboardButton("⚙️ SYSTEM", callback_data="admin_menu_system"))
+    m.add(types.InlineKeyboardButton("📚 GUIDE (MANUAL)", callback_data="admin_guide"))
+    m.add(types.InlineKeyboardButton("🔙 EXIT", callback_data="back"))
+    return m
+
+def admin_users_menu():
+    m = types.InlineKeyboardMarkup(row_width=2)
+    m.add(types.InlineKeyboardButton("➕ GRANT ADMIN", callback_data="admin_grant_admin"),
+          types.InlineKeyboardButton("➖ REVOKE ADMIN", callback_data="admin_revoke_admin"))
+    m.add(types.InlineKeyboardButton("💰 GIVE RESOURCES", callback_data="admin_give_res"),
+          types.InlineKeyboardButton("🎁 GIVE ITEM", callback_data="admin_give_item_menu"))
+    m.add(types.InlineKeyboardButton("🔙 BACK", callback_data="admin_panel"))
+    return m
+
+def admin_content_menu():
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton("➕ ADD RIDDLE", callback_data="admin_add_riddle"),
+          types.InlineKeyboardButton("➕ ADD PROTOCOL", callback_data="admin_add_content"),
+          types.InlineKeyboardButton("➕ ADD SIGNAL", callback_data="admin_add_signal"))
+    m.add(types.InlineKeyboardButton("🔙 BACK", callback_data="admin_panel"))
+    return m
+
+def admin_broadcast_menu():
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton("📢 TO ALL PLAYERS", callback_data="admin_broadcast"),
+          types.InlineKeyboardButton("📡 TO CHANNEL", callback_data="admin_post_channel"))
+    m.add(types.InlineKeyboardButton("🔙 BACK", callback_data="admin_panel"))
+    return m
+
+def admin_system_menu():
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton("📜 SQL EXECUTE", callback_data="admin_sql"),
+          types.InlineKeyboardButton("👥 USER LIST (DOSSIER)", callback_data="admin_user_list"))
+    m.add(types.InlineKeyboardButton("🔙 BACK", callback_data="admin_panel"))
     return m
 
 def admin_item_select():
@@ -289,7 +317,7 @@ def admin_item_select():
         m.add(types.InlineKeyboardButton(v['name'], callback_data=f"adm_give_{k}"))
     m.add(types.InlineKeyboardButton("🔑 MASTER KEY", callback_data="adm_give_master_key"),
           types.InlineKeyboardButton("🧭 COMPASS", callback_data="adm_give_compass"))
-    m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="admin_panel"))
+    m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="admin_menu_users"))
     return m
 
 def item_details_keyboard(item_id, is_owned=True, is_equipped=False):
