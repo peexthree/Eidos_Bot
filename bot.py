@@ -173,23 +173,33 @@ def handle_query(call):
             msg = (f"👤 <b>ПРОФИЛЬ: {u['first_name']}</b>\n"
                    f"🔰 Статус: <code>{TITLES.get(u['level'], 'Unknown')}</code>\n"
                    f"📊 LVL {u['level']} | {p_bar} ({perc}%)\n"
-                   f"💡 До апа: {xp_need} XP\n\n"
+                   f"📉 ДО СЛЕДУЮЩЕГО УРОВНЯ: {xp_need} XP\n\n"
                    f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
                    f"🏫 Школа: <code>{SCHOOLS.get(u['path'], 'Общая')}</code>\n"
-                   f"🔋 Энергия: {u['xp']} | 🪙 BioCoins: {u['biocoin']}\n"
+                   f"🔋 ТЕКУЩИЙ ОПЫТ: {u['xp']} | 🪙 BioCoins: {u['biocoin']}\n"
                    f"{accel_status}\n"
-                   f"🔥 Стрик: <b>{p_stats['streak']} дн.</b>\n"
+                   f"🔥 СТРИК: <b>{p_stats['streak']} дн. (+{p_stats['streak_bonus']}% к опыту)</b>\n"
                    f"🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
-                   f"💸 Доход/мес: <b>~{p_stats['income_total']}</b> (Lvl + Refs)\n"
                    f"🏆 Ачивки: <b>{len(ach_list)}</b>")
 
             menu_update(call, msg, kb.profile_menu(u, has_accel))
 
         elif call.data.startswith("set_path_"):
             path = call.data.replace("set_path_", "")
+            info = SCHOOLS_INFO.get(path)
+            txt = (f"🧬 <b>ВЫБОР: {info['name']}</b>\n\n"
+                   f"✅ Бонус: {info['bonus']}\n"
+                   f"⚠️ Штраф: {info['penalty']}\n\n"
+                   f"📜 <i>{info['ideology']}</i>\n\n"
+                   "Подтвердить выбор?")
+            menu_update(call, txt, kb.faction_confirm_menu(path))
+
+        elif call.data.startswith("confirm_path_"):
+            path = call.data.replace("confirm_path_", "")
             db.update_user(uid, path=path)
             bot.answer_callback_query(call.id, f"✅ ВЫБРАН ПУТЬ: {path.upper()}")
-            u = db.get_user(uid); bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
+            u = db.get_user(uid)
+            bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
 
         elif call.data == "achievements_list":
             alist = db.get_user_achievements(uid)
@@ -289,7 +299,7 @@ def handle_query(call):
         # --- 5. РЕЙД ---
         elif call.data == "zero_layer_menu":
              cost = logic.get_raid_entry_cost(uid)
-             menu_update(call, f"🚀 <b>ЭКСПЕДИЦИЯ</b>\nСтоимость входа: <b>{cost} XP</b>.\nГотов рискнуть?", kb.raid_welcome_keyboard(cost))
+             menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {u['xp']}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost))
 
         elif call.data == "raid_enter":
              res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
@@ -309,8 +319,17 @@ def handle_query(call):
 
         elif call.data == "raid_open_chest":
              res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid, answer='open_chest')
-             markup = kb.raid_action_keyboard(cost, etype)
-             menu_update(call, txt, markup)
+             if not res:
+                 if txt == "no_key":
+                     bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
+                 else:
+                     bot.answer_callback_query(call.id, txt, show_alert=True)
+             else:
+                 # Success
+                 alert_txt = f"🔓 СИСТЕМА РАЗБЛОКИРОВАНА. Получено: {riddle.get('alert', '')}"
+                 bot.answer_callback_query(call.id, alert_txt, show_alert=True)
+                 markup = kb.raid_action_keyboard(cost, etype)
+                 menu_update(call, txt, markup)
 
         elif call.data == "raid_extract":
              with db.db_session() as conn:
@@ -320,6 +339,15 @@ def handle_query(call):
                      if res:
                          db.add_xp_to_user(uid, res[0])
                          db.update_user(uid, biocoin=u['biocoin'] + res[1])
+
+             # Process buffered items
+             with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
+                  cur.execute("SELECT buffer_items FROM raid_sessions WHERE uid=%s", (uid,))
+                  res_items = cur.fetchone()
+                  if res_items and res_items['buffer_items']:
+                      item_list = res_items['buffer_items'].split(',')
+                      for itm in item_list:
+                          if itm: db.add_item(uid, itm)
 
              with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
                   cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
@@ -427,19 +455,15 @@ def handle_query(call):
                  bot.answer_callback_query(call.id, f"❌ Нужно {ARCHIVE_COST} XP", show_alert=True)
 
         elif call.data == "guide":
-            menu_update(call, GUIDE_FULL, kb.back_button())
+            menu_update(call, GUIDE_PAGES.get('basics', "Error"), kb.guide_menu('basics'))
+
+        elif call.data.startswith("guide_page_"):
+            page = call.data.replace("guide_page_", "")
+            text = GUIDE_PAGES.get(page, "Error")
+            menu_update(call, text, kb.guide_menu(page))
 
         elif call.data == "change_path_menu":
             menu_update(call, f"🧬 <b>СМЕНА ФРАКЦИИ</b>\nЦена: {PATH_CHANGE_COST} XP.\nТекущая: {SCHOOLS.get(u['path'], 'Нет')}", kb.change_path_keyboard(PATH_CHANGE_COST))
-
-        elif call.data.startswith("change_path_") and call.data != "change_path_menu":
-            path = call.data.replace("change_path_", "")
-            if u['xp'] >= PATH_CHANGE_COST:
-                db.update_user(uid, path=path, xp=u['xp']-PATH_CHANGE_COST)
-                bot.answer_callback_query(call.id, f"✅ Выбрана школа: {SCHOOLS.get(path, path)}")
-                handle_query(type('obj', (object,), {'data': 'profile', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
-            else:
-                bot.answer_callback_query(call.id, "❌ Недостаточно XP!", show_alert=True)
 
         elif call.data.startswith("view_item_"):
             item_id = call.data.replace("view_item_", "")

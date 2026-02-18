@@ -1,5 +1,5 @@
 from telebot import types
-from config import LEVELS, PRICES, EQUIPMENT_DB, SLOTS, SCHOOLS, ARCHIVE_COST
+from config import LEVELS, PRICES, EQUIPMENT_DB, SLOTS, SCHOOLS, ARCHIVE_COST, GUIDE_PAGES
 
 # =============================================================
 # ⚙️ ГЕНЕРАТОРЫ UI
@@ -25,7 +25,7 @@ def main_menu(u):
           types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal"))
     
     # 2. Рейд
-    m.add(types.InlineKeyboardButton("─── 🌑 ЭКСПЕДИЦИЯ ───", callback_data="zero_layer_menu"))
+    m.add(types.InlineKeyboardButton("─── 🌑 НУЛЕВОЙ СЛОЙ ───", callback_data="zero_layer_menu"))
     
     # 3. Персонаж
     current_lvl = u['level']
@@ -46,7 +46,7 @@ def main_menu(u):
           
     # 5. Знания & Гайды
     m.add(types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_menu"),
-          types.InlineKeyboardButton("📚 ИНСТРУКЦИЯ", callback_data="guide"))
+          types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide"))
 
     if str(uid) == "777000": # Placeholder for ADMIN_ID
         m.add(types.InlineKeyboardButton("⚡️ GOD MODE ⚡️", callback_data="admin_panel"))
@@ -173,8 +173,7 @@ def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False):
         return m
 
     if event_type == 'locked_chest':
-        if has_key: m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ (НУЖЕН КЛЮЧ)", callback_data="raid_open_chest"))
-        else: m.add(types.InlineKeyboardButton("🔒 НУЖЕН КЛЮЧ", callback_data="shop_dummy"))
+        m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ СУНДУК", callback_data="raid_open_chest"))
             
     m.add(types.InlineKeyboardButton(f"👣 ШАГ ВГЛУБЬ (-{xp_cost} XP)", callback_data="raid_step"))
     m.add(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ", callback_data="raid_extract"))
@@ -185,13 +184,6 @@ def riddle_keyboard(options):
     for opt in options:
         # Truncate just in case, but keep clean
         clean_opt = opt[:30]
-        # We need to preserve the text to check against correctness later if needed,
-        # but logic passes 'short' to callback.
-        # Actually logic.py needs to handle partial matching or we store full answer map in redis/db?
-        # For simplicity, we assume unique prefixes or short enough answers.
-        # But 'r_check_' limits length.
-        # Let's use the full text in callback if < 20 chars, else hash or index?
-        # Simplify: Use text directly.
         m.add(types.InlineKeyboardButton(f"› {clean_opt}", callback_data=f"r_check_{clean_opt}"))
     return m
 
@@ -210,16 +202,25 @@ def path_selection_keyboard():
 
 def change_path_keyboard(cost):
     m = types.InlineKeyboardMarkup(row_width=1)
+    # Changed to show details first via "set_path_" callbacks in logic if needed,
+    # but here we follow the "Detailed Description" request.
+    # The callback should trigger a message with details + "Confirm" button.
     m.add(
-        types.InlineKeyboardButton(f"🏦 МАТЕРИЯ (-{cost} XP)", callback_data="change_path_money"),
-        types.InlineKeyboardButton(f"🧠 РАЗУМ (-{cost} XP)", callback_data="change_path_mind"),
-        types.InlineKeyboardButton(f"🤖 ТЕХНО (-{cost} XP)", callback_data="change_path_tech")
+        types.InlineKeyboardButton(f"🏦 МАТЕРИЯ (-{cost} XP)", callback_data="set_path_money"),
+        types.InlineKeyboardButton(f"🧠 РАЗУМ (-{cost} XP)", callback_data="set_path_mind"),
+        types.InlineKeyboardButton(f"🤖 ТЕХНО (-{cost} XP)", callback_data="set_path_tech")
     )
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="profile"))
     return m
 
+def faction_confirm_menu(path):
+    m = types.InlineKeyboardMarkup(row_width=2)
+    m.add(types.InlineKeyboardButton("✅ ПОДТВЕРДИТЬ", callback_data=f"confirm_path_{path}"))
+    m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="change_path_menu"))
+    return m
+
 # =============================================================
-# 📓 ДНЕВНИК
+# 📓 ДНЕВНИК & ГАЙД
 # =============================================================
 
 def diary_menu():
@@ -240,6 +241,24 @@ def diary_read_nav(page, total_pages):
     if page < total_pages - 1: btns.append(types.InlineKeyboardButton("➡️", callback_data=f"diary_read_{page+1}"))
     m.add(*btns)
     m.add(types.InlineKeyboardButton("🔙 В МЕНЮ ДНЕВНИКА", callback_data="diary_menu"))
+    return m
+
+def guide_menu(page_key='basics'):
+    m = types.InlineKeyboardMarkup(row_width=2)
+    # [BASICS] [ECONOMY] [FACTIONS] [COMBAT]
+    keys = list(GUIDE_PAGES.keys())
+    # Arrange in rows of 2
+
+    # We want navigation buttons.
+    # Current request: "Разбить длинную инструкцию на блоки с Inline-навигацией: [ОСНОВЫ] [ЭКОНОМИКА] [ФРАКЦИИ] [БОЙ]."
+    # So we show buttons to jump to pages.
+
+    m.add(types.InlineKeyboardButton("🔹 ОСНОВЫ", callback_data="guide_page_basics"),
+          types.InlineKeyboardButton("💰 ЭКОНОМИКА", callback_data="guide_page_economy"))
+    m.add(types.InlineKeyboardButton("🧬 ФРАКЦИЯ", callback_data="guide_page_factions"),
+          types.InlineKeyboardButton("⚔️ БОЙ", callback_data="guide_page_combat"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 
 def back_button():
