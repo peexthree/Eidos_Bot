@@ -1,4 +1,5 @@
 from telebot import types
+import config
 from config import LEVELS, PRICES, EQUIPMENT_DB, SLOTS, SCHOOLS, ARCHIVE_COST, GUIDE_PAGES
 
 # =============================================================
