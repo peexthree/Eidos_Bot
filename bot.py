@@ -143,7 +143,7 @@ def handle_query(call):
                 txt = proto['text'] if proto else "/// ДАННЫЕ ПОВРЕЖДЕНЫ. ПОПРОБУЙ ПОЗЖЕ."
                 xp = random.randint(15, 40)
                 db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
-                if proto: db.save_knowledge(uid, 0)
+                if proto: db.save_knowledge(uid, proto.get('id', 0))
 
                 lvl, msg = logic.check_level_up(uid)
                 if lvl:
@@ -310,6 +310,7 @@ def handle_query(call):
                  for a in current_items:
                      info = config.ACHIEVEMENTS_LIST.get(a)
                      if info: txt += f"✅ <b>{info['name']}</b>\n{info['desc']}\n\n"
+                     else: txt += f"✅ <b>НЕИЗВЕСТНОЕ ДОСТИЖЕНИЕ ({a})</b>\nДанные утеряны.\n\n"
 
              menu_update(call, txt, kb.achievements_nav(page, total_pages))
 
@@ -582,17 +583,32 @@ def handle_query(call):
 
                 menu_update(call, txt, kb.diary_read_nav(page, total_pages))
 
-        elif call.data == "diary_archive":
+        elif call.data == "archive_list":
              if u['xp'] >= config.ARCHIVE_COST:
                  db.update_user(uid, xp=u['xp']-config.ARCHIVE_COST)
-                 chunks = logic.get_full_archive_chunks(uid)
-
-                 for chunk in chunks:
-                     try: bot.send_message(uid, chunk, parse_mode="HTML")
-                     except: pass
-                 menu_update(call, "✅ Архив загружен в чат.", kb.back_button())
+                 call.data = "archive_list_0"
+                 handle_query(call)
              else:
                  bot.answer_callback_query(call.id, f"❌ Нужно {config.ARCHIVE_COST} XP", show_alert=True)
+
+        elif call.data.startswith("archive_list_"):
+             page = int(call.data.replace("archive_list_", ""))
+             limit = 5
+             offset = page * limit
+
+             protocols = db.get_archived_protocols_paginated(uid, limit, offset)
+             total = db.get_archived_protocols_count(uid)
+             total_pages = (total // limit) + (1 if total % limit > 0 else 0)
+             if total_pages == 0: total_pages = 1
+
+             txt = f"💾 <b>АРХИВ ДАННЫХ ({page+1}/{total_pages}):</b>\n\n"
+             if not protocols: txt += "Пусто."
+             else:
+                 for p in protocols:
+                     icon = "🧬" if p['type'] == 'protocol' else "📡"
+                     txt += f"{icon} <b>ЗАПИСЬ</b> (Lvl {p['level']})\n{p['text']}\n\n"
+
+             menu_update(call, txt, kb.archive_nav(page, total_pages))
 
         elif call.data == "guide":
             menu_update(call, GUIDE_PAGES.get('basics', "Error"), kb.guide_menu('basics'))

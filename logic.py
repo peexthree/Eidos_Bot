@@ -482,6 +482,8 @@ def process_raid_step(uid, answer=None):
 
             return True, interface, riddle_data, u, event['type'], next_step_cost
 
+    return False, "⚠️ СИСТЕМНАЯ ОШИБКА", None, u, 'error', 0
+
 # =============================================================
 # 👤 ПРОФИЛЬ И СИСТЕМЫ
 # =============================================================
@@ -640,7 +642,6 @@ def get_content_logic(c_type, path='general', level=1, decoder=False):
 
     if filtered:
         choice = random.choice(filtered).copy()
-        choice['id'] = 0
         return choice
 
     return None

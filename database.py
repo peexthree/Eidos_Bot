@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 import re
 from config import ITEMS_INFO, INVENTORY_LIMIT
+from content_presets import CONTENT_DATA
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
@@ -153,6 +154,7 @@ def init_db():
                 );
             ''')
     populate_villains()
+    populate_content()
 
 def populate_villains():
     VILLAINS_DATA = [
@@ -465,8 +467,39 @@ def admin_add_content(c_type, text):
             cur.execute("INSERT INTO content (type, path, text) VALUES (%s, 'general', %s)", (c_type, text))
 
 def populate_content():
-    # Only if needed
-    pass
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            for level, items in CONTENT_DATA.items():
+                for item in items:
+                    cur.execute("""
+                        INSERT INTO content (type, path, level, text)
+                        SELECT %s, %s, %s, %s
+                        WHERE NOT EXISTS (SELECT 1 FROM content WHERE text = %s)
+                    """, (item['type'], item['path'], level, item['text'], item['text']))
+
+def get_archived_protocols_paginated(uid, limit=5, offset=0):
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return []
+        cur.execute("""
+            SELECT c.text, c.type, c.level
+            FROM content c
+            JOIN unlocked_protocols up ON c.id = up.protocol_id
+            WHERE up.uid = %s
+            ORDER BY c.id DESC
+            LIMIT %s OFFSET %s
+        """, (uid, limit, offset))
+        return cur.fetchall()
+
+def get_archived_protocols_count(uid):
+    with db_cursor() as cur:
+        if not cur: return 0
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM content c
+            JOIN unlocked_protocols up ON c.id = up.protocol_id
+            WHERE up.uid = %s
+        """, (uid,))
+        return cur.fetchone()[0]
 
 def admin_get_users_dossier(limit=50):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
