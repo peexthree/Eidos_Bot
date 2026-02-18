@@ -376,12 +376,11 @@ def process_raid_step(uid, answer=None):
 
             # Парсинг загадки
             riddle_answer = None
-            if 'ответ:' in event['text'].lower():
-                 match = re.search(r'\s*\(Ответ:\s*(.*?)\)', event['text'], re.IGNORECASE)
-                 if match:
-                     riddle_answer = match.group(1).strip()
-                     start, end = match.span()
-                     event['text'] = (event['text'][:start] + event['text'][end:]).strip()
+            match = re.search(r'\s*\((?:Ответ|Протокол):\s*(.*?)\)', event['text'], re.IGNORECASE)
+            if match:
+                 riddle_answer = match.group(1).strip()
+                 start, end = match.span()
+                 event['text'] = (event['text'][:start] + event['text'][end:]).strip()
 
             new_sig = s['signal']
             msg_event = ""

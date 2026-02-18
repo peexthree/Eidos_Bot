@@ -244,7 +244,13 @@ def use_item(uid, item_id, qty=1, cursor=None):
     if cursor:
         cursor.execute("UPDATE inventory SET quantity = quantity - %s WHERE uid = %s AND item_id = %s RETURNING quantity", (qty, uid, item_id))
         res = cursor.fetchone()
-        if res and res[0] <= 0:
+
+        quantity = None
+        if res:
+            if isinstance(res, dict): quantity = res['quantity']
+            else: quantity = res[0]
+
+        if quantity is not None and quantity <= 0:
             cursor.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
         return True
 
