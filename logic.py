@@ -175,40 +175,52 @@ def process_raid_step(uid, answer=None):
     stats, u = get_user_stats(uid)
     if not u: return False, "User not found", None, None, 'error', 0
     
+    # ИСПОЛЬЗУЕМ ОДНО СОЕДИНЕНИЕ (чтобы избежать зависания бота)
     with db.db_session() as conn:
         with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
-            # 1. СЕССИЯ
+            # 1. ПОЛУЧАЕМ СЕССИЮ
             cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
             s = cur.fetchone()
 
             is_new = False
+            
+            # --- ЛОГИКА ВХОДА ---
             if not s:
-                # ENTRY LOGIC
                 today = datetime.now().date()
                 last = u.get('last_raid_date')
+                
+                # Сброс ежедневных лимитов (ПРЯМОЙ SQL)
                 if str(last) != str(today):
-                    db.reset_daily_stats(uid)
-                    u = db.get_user(uid)
+                    cur.execute("UPDATE users SET raid_count_today=0, last_raid_date=%s WHERE id=%s", (today, uid))
+                    u['raid_count_today'] = 0
 
+                # Проверка баланса
                 cost = get_raid_entry_cost(uid)
                 if u['xp'] < cost:
-                    return False, f"🪫 <b>МАЛО ЭНЕРГИИ</b>\nНужно {cost} XP для погружения.", None, u, 'neutral', 0
+                    return False, f"🪫 <b>НЕДОСТАТОЧНО ЭНЕРГИИ</b>\nВход: {cost} XP\nУ вас: {u['xp']} XP", None, u, 'neutral', 0
 
-                db.update_user(uid, xp=u['xp'] - cost, raid_count_today=u.get('raid_count_today', 0) + 1, last_raid_date=today)
-                u['xp'] -= cost
-                pass
+                # Списание XP и вход (ПРЯМОЙ SQL)
+                new_xp = u['xp'] - cost
+                cur.execute("UPDATE users SET xp=%s, raid_count_today=raid_count_today+1, last_raid_date=%s WHERE id=%s", 
+                           (new_xp, today, uid))
+                u['xp'] = new_xp # Обновляем локально
 
-            depth = s['depth'] if s else u.get('max_depth', 0)
-            if not s:
-                 # Initialize with a random next event
-                 first_next = generate_random_event_type()
-                 cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, buffer_items) VALUES (%s, %s, 100, %s, 0, 0, %s, '')", (uid, depth, int(time.time()), first_next))
-                 conn.commit()
-                 cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
-                 s = cur.fetchone()
-                 is_new = True
+                # Создаем сессию
+                depth = u.get('max_depth', 0)
+                first_next = generate_random_event_type()
+                cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, buffer_items, buffer_xp, buffer_coins) VALUES (%s, %s, 100, %s, 0, 0, %s, '', 0, 0)", 
+                           (uid, depth, int(time.time()), first_next))
+                
+                conn.commit() # ВАЖНО: Сохраняем вход
+                
+                cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
+                s = cur.fetchone()
+                is_new = True
 
-            # CHECK COMBAT
+            # --- ДАЛЬШЕ ЛОГИКА ШАГА ---
+            depth = s['depth']
+            
+            # ПРОВЕРКА БОЯ
             if s.get('current_enemy_id'):
                 vid = s['current_enemy_id']
                 v_hp = s.get('current_enemy_hp', 10)
@@ -216,78 +228,52 @@ def process_raid_step(uid, answer=None):
                 if villain:
                     return True, format_combat_screen(villain, v_hp, s['signal'], stats, s), None, u, 'combat', 0
                 else:
-                    db.clear_raid_enemy(uid)
+                    cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
+                    conn.commit()
 
-            # CHECK RIDDLE STATE
-            if s.get('current_riddle_answer'):
-                cur.execute("UPDATE raid_sessions SET signal = signal - 10, current_riddle_answer=NULL WHERE uid=%s", (uid,))
-
-            # 2. ДЕЙСТВИЕ: ВЗЛОМ/ИСПОЛЬЗОВАНИЕ
+            # 2. ДЕЙСТВИЕ: ОТКРЫТИЕ СУНДУКА (ИСПРАВЛЕНО)
             if answer == 'open_chest':
                 has_abyssal = db.get_item_count(uid, 'abyssal_key') > 0
                 has_master = db.get_item_count(uid, 'master_key') > 0
 
                 if not (has_abyssal or has_master):
-                    return False, "no_key", None, u, 'locked_chest', 0
+                    return False, "🔒 <b>НУЖЕН КЛЮЧ</b>\nКупите [КЛЮЧ] или найдите [КЛЮЧ БЕЗДНЫ].", None, u, 'locked_chest', 0
 
                 key_used = 'abyssal_key' if has_abyssal else 'master_key'
-                db.use_item(uid, key_used)
+                
+                # Удаляем ключ прямым запросом (чтобы не блокировать БД)
+                cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE user_id=%s AND item_id=%s", (uid, key_used))
+                cur.execute("DELETE FROM inventory WHERE user_id=%s AND item_id=%s AND quantity <= 0", (uid, key_used))
 
                 bonus_xp = (300 + (depth * 5)) if key_used == 'abyssal_key' else (150 + (depth * 2))
                 bonus_coins = (100 + (depth * 2)) if key_used == 'abyssal_key' else (50 + depth)
 
+                # Дроп предмета
+                loot_item_txt = ""
+                if random.random() < 0.30: # 30% шанс на предмет
+                     drops = ['battery', 'compass', 'rusty_knife']
+                     l_item = random.choice(drops)
+                     cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
+                     loot_item_txt = f"\n📦 Предмет: {ITEMS_INFO.get(l_item, {}).get('name')}"
+
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, bonus_coins, uid))
+                conn.commit() 
 
-                # Fetch updated session for HUD
-                cur.execute("SELECT buffer_xp, buffer_coins, kills, riddles_solved FROM raid_sessions WHERE uid = %s", (uid,))
-                res = cur.fetchone()
-
-                # Re-generate interface for "Loot Opened" state
-                # Using same depth/signal
-                hud_bar = generate_hud(uid, u, res)
-                sig_bar = draw_bar(s['signal'], 100, 8)
-
-                # Get biome
-                biome = RAID_BIOMES["wasteland"]
-                if 50 <= depth < 100: biome = RAID_BIOMES["archive"]
-                elif depth >= 100: biome = RAID_BIOMES["darknet"]
-
-                # Compass
-                next_preview = s.get('next_event_type', 'random')
-                if next_preview == 'combat': comp_res = "⚔️ БОЙ"
-                elif next_preview == 'locked_chest': comp_res = "💎 ЛУТ (Сундук)"
-                else: comp_res = "❔ СОБЫТИЕ"
-
-                compass_txt = ""
-                if db.get_item_count(uid, 'compass') > 0:
-                     compass_txt = f"🧭 <b>КОМПАС (Через 1 ход):</b> {comp_res}"
-
-                interface = (
-                    f"🏝 <b>{biome['name']}</b> | <b>{depth}м</b>\n"
-                    f"📡 Сигнал: <code>{sig_bar}</code> {s['signal']}%\n"
-                    f"━━━━━━━━━━━━━━\n"
-                    f"🔓 <b>СУНДУК ОТКРЫТ!</b>\n"
-                    f"Вы использовали {ITEMS_INFO.get(key_used, {}).get('name', key_used)}.\n"
-                    f"Получено: +{bonus_xp} XP | +{bonus_coins} BC\n"
-                    f"━━━━━━━━━━━━━━\n"
-                    f"🎒 <b>+{res['buffer_xp']} XP</b> | 🪙 <b>+{res['buffer_coins']} BC</b>\n"
-                    f"{hud_bar}\n"
-                    f"⚔️ ATK {stats['atk']} | 🛡 DEF {stats['def']}\n"
-                    f"<i>{compass_txt}</i>"
-                )
-
-                reward_text = f"XP: {bonus_xp}, Coins: {bonus_coins}"
-                return True, interface, {'alert': reward_text}, u, 'loot', 0
+                alert_txt = f"🔓 УСПЕХ!\nXP: +{bonus_xp}\nCoins: +{bonus_coins}{loot_item_txt}"
+                
+                # Возвращаем тип 'loot_opened' чтобы обновить кнопки
+                return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt}, u, 'loot_opened', 0
 
             # 3. ЦЕНА ШАГА
             step_cost = RAID_STEP_COST + (depth // 25)
-            if not is_new:
+            if not is_new and answer != 'open_chest':
                 if u['xp'] < step_cost:
-                    return False, f"🪫 <b>ВЫДОХСЯ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
-                db.update_user(uid, xp=u['xp'] - step_cost)
+                    return False, f"🪫 <b>НЕТ ЭНЕРГИИ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
+                
+                cur.execute("UPDATE users SET xp = xp - %s WHERE id=%s", (step_cost, uid))
                 u['xp'] -= step_cost
 
-            # 4. БИОМ
+            # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
             biome = RAID_BIOMES["wasteland"]
             if 50 <= depth < 100: biome = RAID_BIOMES["archive"]
             elif depth >= 100: biome = RAID_BIOMES["darknet"]
@@ -295,150 +281,138 @@ def process_raid_step(uid, answer=None):
             new_depth = depth + 1 if not is_new else depth
             diff = biome['dmg_mod']
 
-            # 5. ГЕНЕРАЦИЯ СОБЫТИЯ
+            # Логика типа события
             current_type_code = s.get('next_event_type', 'random')
             if current_type_code == 'random' or not current_type_code:
-                if random.random() < 0.15: current_type_code = 'combat'
-                elif random.random() < 0.15: current_type_code = 'locked_chest'
-                else: current_type_code = 'random_content'
+                first_next = generate_random_event_type()
+                current_type_code = first_next
 
             event = None
             msg_prefix = ""
 
+            # БОЙ
             if current_type_code == 'combat':
                 villain = db.get_random_villain(depth // 20 + 1)
                 if villain:
-                    db.update_raid_enemy(uid, villain['id'], villain['hp'])
+                    cur.execute("UPDATE raid_sessions SET current_enemy_id=%s, current_enemy_hp=%s WHERE uid=%s", 
+                               (villain['id'], villain['hp'], uid))
+                    
                     next_preview = generate_random_event_type()
                     cur.execute("UPDATE raid_sessions SET next_event_type=%s WHERE uid=%s", (next_preview, uid))
+                    conn.commit()
                     return True, format_combat_screen(villain, villain['hp'], s['signal'], stats, s), None, u, 'combat', 0
 
+            # СУНДУК
             elif current_type_code == 'locked_chest':
-                event = {'type': 'locked_chest', 'text': 'Зашифрованный контейнер с лутом.', 'val': 0}
+                event = {'type': 'locked_chest', 'text': 'Запертый контейнер.', 'val': 0}
 
+            # СЛУЧАЙНОЕ
             else:
                 cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
                 event = cur.fetchone()
-                if not event: event = {'text': "Пустые коридоры кода...", 'type': 'neutral', 'val': 0}
+                if not event: event = {'text': "Пустота...", 'type': 'neutral', 'val': 0}
 
+            # Парсинг загадки
             riddle_answer = None
             if 'Ответ:' in event['text']:
                  match = re.search(r'\s*\(Ответ:\s*(.*?)\)', event['text'], re.IGNORECASE)
                  if match:
                      riddle_answer = match.group(1).strip()
-            event['text'] = re.sub(r'\s*\(.*?\)', '', event['text']).strip()
+                     event['text'] = re.sub(r'\s*\(.*?\)', '', event['text']).strip()
 
             new_sig = s['signal']
-            riddle_data = None
             msg_event = ""
+            riddle_data = None
 
+            # ЭФФЕКТЫ СОБЫТИЙ
             if event['type'] == 'trap':
                 base_dmg = int(event['val'] * diff)
                 dmg = max(5, base_dmg - stats['def'])
-                if db.get_item_count(uid, 'aegis') > 0 and (new_sig - dmg <= 0):
-                    db.use_item(uid, 'aegis')
+                
+                # Проверка Эгиды (Прямой SQL для скорости)
+                has_aegis = False
+                cur.execute("SELECT quantity FROM inventory WHERE user_id=%s AND item_id='aegis'", (uid,))
+                ae_res = cur.fetchone()
+                if ae_res and ae_res['quantity'] > 0 and (new_sig - dmg <= 0):
+                    cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE user_id=%s AND item_id='aegis'", (uid,))
+                    cur.execute("DELETE FROM inventory WHERE user_id=%s AND item_id='aegis' AND quantity <= 0", (uid,))
                     dmg = 0
                     msg_prefix += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
+
                 new_sig = max(0, new_sig - dmg)
-                flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['trap'])
-                msg_event = f"💥 <b>ЛОВУШКА:</b> {flavor}\n🔻 <b>-{dmg}% Сигнала</b> (Защита: {stats['def']})"
+                msg_event = f"💥 <b>ЛОВУШКА:</b> {event['text']}\n🔻 <b>-{dmg}% Сигнала</b>"
 
             elif event['type'] == 'loot':
-                coin_mult = 1.2 if u['path'] == 'money' else 1.0
-                bonus_xp = int(event['val'] * diff * (1 + stats['atk']/100))
-                coins = int(random.randint(5, 20) * (1 + stats['luck']/20) * coin_mult)
+                bonus_xp = int(event['val'] * diff)
+                coins = int(random.randint(5, 20))
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, coins, uid))
-                flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['loot'])
-                msg_event = f"💎 <b>ЛУТ:</b> {flavor}\n✳️ +{bonus_xp} XP | 🪙 +{coins} BC"
-
-                if db.get_inventory_size(uid) < INVENTORY_LIMIT:
-                    dice = random.random()
-                    drop_chance = 1.0 + (stats['luck'] / 100)
-                    for item, chance in LOOT_TABLE.items():
-                        if dice < (chance * drop_chance):
-                            if 'biocoin' in item:
-                                extra_c = 50 if 'bag' in item else 15
-                                cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (extra_c, uid))
-                                msg_prefix += f"💰 Найдено: +{extra_c} BC\n"
-                            else:
-                                cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (item, uid))
-                                msg_prefix += f"🎁 <b>ВЕЩЬ:</b> {ITEMS_INFO.get(item, {}).get('name', item)} (В буфер)\n"
-                            break
+                msg_event = f"💎 <b>НАХОДКА:</b> {event['text']}\n+{bonus_xp} XP | +{coins} BC"
 
             elif event['type'] == 'heal':
                 new_sig = min(100, new_sig + 25)
-                desc = event["text"] if len(event.get("text","")) > 15 else "Найден источник энергии."
-                msg_event = f"❤️ <b>АПТЕЧКА:</b> {desc}\n+25% Сигнала."
+                msg_event = f"❤️ <b>АПТЕЧКА:</b> {event['text']}\n+25% Сигнала"
+
             else:
-                flavor = event['text'] if len(event.get('text','')) > 15 else random.choice(RAID_FLAVOR_TEXT['empty'])
-                msg_event = f"👣 {flavor}"
+                msg_event = f"👣 {event['text']}"
 
+            # ЗАГАДКА
             if riddle_answer:
-                full_answer = riddle_answer
-                if " и " in full_answer or " and " in full_answer.lower():
-                    parts = re.split(r' и | and ', full_answer, flags=re.IGNORECASE)
-                    correct_button_text = parts[0].strip()
-                else:
-                    correct_button_text = full_answer
-
-                q = event['text']
-                options = random.sample(RIDDLE_DISTRACTORS, 2) + [correct_button_text]
+                options = random.sample(RIDDLE_DISTRACTORS, 2) + [riddle_answer]
                 random.shuffle(options)
-
-                riddle_data = {
-                    "question": q,
-                    "correct": correct_button_text,
-                    "options": options
-                }
-                msg_event = f"🧩 <b>ШИФР:</b>\n{q}"
-                cur.execute("UPDATE raid_sessions SET current_riddle_answer=%s WHERE uid=%s", (correct_button_text, uid))
+                riddle_data = {"question": event['text'], "correct": riddle_answer, "options": options}
+                msg_event = f"🧩 <b>ЗАГАДКА:</b>\n{event['text']}"
+                cur.execute("UPDATE raid_sessions SET current_riddle_answer=%s WHERE uid=%s", (riddle_answer, uid))
                 event['type'] = 'riddle'
 
+            # ПОДГОТОВКА СЛЕДУЮЩЕГО ШАГА
             next_preview = generate_random_event_type()
             cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, next_event_type=%s WHERE uid=%s", (new_depth, new_sig, next_preview, uid))
+            
+            if new_depth > u.get('max_depth', 0): 
+                cur.execute("UPDATE users SET max_depth=%s WHERE id=%s", (new_depth, uid))
 
-            if new_depth > u.get('max_depth', 0): db.update_user(uid, max_depth=new_depth)
+            conn.commit() # ФИКСИРУЕМ ШАГ
 
-            cur.execute("SELECT buffer_xp, buffer_coins, kills, riddles_solved FROM raid_sessions WHERE uid = %s", (uid,))
+            # СБОРКА UI
+            cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
             res = cur.fetchone()
+            
+            sig_bar = draw_bar(new_sig, 100, 8)
+            
+            # КОМПАС (БУДУЩЕЕ)
+            comp_txt = ""
+            # Проверяем наличие компаса (безопасно)
+            cur.execute("SELECT quantity FROM inventory WHERE user_id=%s AND item_id='compass'", (uid,))
+            comp_q = cur.fetchone()
+            if comp_q and comp_q['quantity'] > 0:
+                 # Тратим заряд компаса
+                 cur.execute("UPDATE inventory SET durability = durability - 1 WHERE user_id=%s AND item_id='compass'", (uid,))
+                 # Если сломался (условно, если есть механика поломки), но пока просто показываем
+                 comp_map = {'combat': '⚔️ ВРАГ', 'trap': '💥 ЛОВУШКА', 'loot': '💎 ЛУТ', 'random': '❔ НЕИЗВЕСТНО', 'locked_chest': '🔒 СУНДУК'}
+                 comp_res = comp_map.get(next_preview, '❔')
+                 comp_txt = f"🧭 <b>КОМПАС (Дальше):</b> {comp_res}"
+                 conn.commit()
 
-            if next_preview == 'combat': comp_res = "⚔️ БОЙ"
-            elif next_preview == 'locked_chest': comp_res = "💎 ЛУТ (Сундук)"
-            else: comp_res = "❔ СОБЫТИЕ"
+            interface = (
+                f"🏝 <b>{biome['name']}</b> | <b>{new_depth}м</b>\n"
+                f"📡 Сигнал: <code>{sig_bar}</code> {new_sig}%\n"
+                f"━━━━━━━━━━━━━━\n"
+                f"{msg_prefix}{msg_event}\n"
+                f"━━━━━━━━━━━━━━\n"
+                f"🎒 +{res['buffer_xp']} XP | 🪙 +{res['buffer_coins']} BC\n"
+                f"{generate_hud(uid, u, res)}\n" 
+                f"<i>{comp_txt}</i>"
+            )
+            
+            next_step_cost = RAID_STEP_COST + (new_depth // 25)
+            
+            # СМЕРТЬ
+            if new_sig <= 0:
+                 cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
+                 conn.commit()
+                 return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\nРесурсы утеряны.", None, u, 'death', 0
 
-            compass_txt = ""
-            if db.get_item_count(uid, 'compass') > 0:
-                if db.decrease_durability(uid, 'compass'):
-                     compass_txt = f"🧭 <b>КОМПАС (Через 1 ход):</b> {comp_res}"
-                else:
-                    compass_txt = "💔 <b>КОМПАС СЛОМАЛСЯ.</b>"
-
-    if new_sig <= 0:
-        report = generate_raid_report(uid, s)
-        broken_msg = ""
-        broken_item = db.break_equipment_randomly(uid)
-        if broken_item:
-             broken_msg = f"\n⚠️ СТАТУС: Артефакт [{ITEMS_INFO.get(broken_item, {}).get('name', broken_item)}] РАЗРУШЕН."
-
-        db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
-        return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n\n{report}{broken_msg}", None, u, 'death', 0
-
-    hud_bar = generate_hud(uid, u, res)
-    sig_bar = draw_bar(new_sig, 100, 8)
-
-    interface = (
-        f"🏝 <b>{biome['name']}</b> | <b>{new_depth}м</b>\n"
-        f"📡 Сигнал: <code>{sig_bar}</code> {new_sig}%\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"{msg_prefix}{msg_event}\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"🎒 <b>+{res['buffer_xp']} XP</b> | 🪙 <b>+{res['buffer_coins']} BC</b>\n"
-        f"{hud_bar}\n"
-        f"⚔️ ATK {stats['atk']} | 🛡 DEF {stats['def']}\n"
-        f"<i>{compass_txt}</i>"
-    )
-    next_step_cost = RAID_STEP_COST + (new_depth // 25)
-    return True, interface, riddle_data, u, event['type'], next_step_cost
+            return True, interface, riddle_data, u, event['type'], next_step_cost
 
 # =============================================================
 # 👤 ПРОФИЛЬ И СИСТЕМЫ
