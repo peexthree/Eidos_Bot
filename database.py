@@ -558,3 +558,20 @@ def is_user_admin(uid):
         cur.execute("SELECT is_admin FROM users WHERE uid = %s", (uid,))
         res = cur.fetchone()
         return res[0] if res else False
+
+def get_random_raid_advice(level, cursor=None):
+    query = "SELECT text FROM content WHERE type='advice' AND path='raid_general' AND level=%s ORDER BY RANDOM() LIMIT 1"
+
+    if cursor:
+        cursor.execute(query, (level,))
+        res = cursor.fetchone()
+        if not res: return None
+        # Handle both RealDictCursor and normal cursor
+        if isinstance(res, dict): return res['text']
+        return res[0]
+
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return None
+        cur.execute(query, (level,))
+        res = cur.fetchone()
+        return res['text'] if res else None

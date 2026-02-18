@@ -461,11 +461,23 @@ def process_raid_step(uid, answer=None):
                  comp_txt = f"🧭 <b>КОМПАС (Дальше):</b> {comp_res}"
                  conn.commit()
 
+            # ЛОР / СОВЕТЫ
+            advice_text = ""
+            # Only show advice if not in combat and not dead, 40% chance
+            if current_type_code != 'combat' and new_sig > 0 and random.random() < 0.4:
+                adv_level = 1
+                if new_depth >= 100: adv_level = 3
+                elif new_depth >= 50: adv_level = 2
+
+                advice = db.get_random_raid_advice(adv_level, cursor=cur)
+                if advice:
+                    advice_text = f"\n\n🧩 <i>Совет: {advice}</i>"
+
             interface = (
                 f"🏝 <b>{biome['name']}</b> | <b>{new_depth}м</b>\n"
                 f"📡 Сигнал: <code>{sig_bar}</code> {new_sig}%\n"
                 f"━━━━━━━━━━━━━━\n"
-                f"{msg_prefix}{msg_event}\n"
+                f"{msg_prefix}{msg_event}{advice_text}\n"
                 f"━━━━━━━━━━━━━━\n"
                 f"🎒 +{res['buffer_xp']} XP | 🪙 +{res['buffer_coins']} BC\n"
                 f"{generate_hud(uid, u, res, cursor=cur)}\n"
