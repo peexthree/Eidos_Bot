@@ -243,10 +243,20 @@ def diary_menu():
     m.add(
         types.InlineKeyboardButton("✍️ НОВАЯ ЗАПИСЬ", callback_data="diary_new"),
         types.InlineKeyboardButton("📖 МОИ МЫСЛИ", callback_data="diary_read_0"),
-        types.InlineKeyboardButton(f"💾 АРХИВ (500 XP)", callback_data="diary_archive")
+        types.InlineKeyboardButton(f"💾 АРХИВ (500 XP)", callback_data="archive_list")
     )
     m.add(types.InlineKeyboardButton("🏆 ДОСТИЖЕНИЯ", callback_data="achievements_list"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m
+
+def archive_nav(page, total_pages):
+    m = types.InlineKeyboardMarkup(row_width=3)
+    btns = []
+    if page > 0: btns.append(types.InlineKeyboardButton("⬅️", callback_data=f"archive_list_{page-1}"))
+    btns.append(types.InlineKeyboardButton(f"{page+1} / {total_pages}", callback_data="dummy"))
+    if page < total_pages - 1: btns.append(types.InlineKeyboardButton("➡️", callback_data=f"archive_list_{page+1}"))
+    m.add(*btns)
+    m.add(types.InlineKeyboardButton("🔙 В МЕНЮ ДНЕВНИКА", callback_data="diary_menu"))
     return m
 
 def diary_read_nav(page, total_pages):
