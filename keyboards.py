@@ -164,7 +164,7 @@ def raid_welcome_keyboard(cost):
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back"))
     return m
 
-def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False):
+def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, has_battery=False):
     m = types.InlineKeyboardMarkup()
     
     if event_type == 'combat':
@@ -174,6 +174,9 @@ def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False):
 
     if event_type == 'locked_chest':
         m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ СУНДУК", callback_data="raid_open_chest"))
+
+    if has_battery:
+        m.add(types.InlineKeyboardButton("🔋 ИСПОЛЬЗОВАТЬ БАТАРЕЮ", callback_data="raid_use_battery"))
             
     m.add(types.InlineKeyboardButton(f"👣 ШАГ ВГЛУБЬ (-{xp_cost} XP)", callback_data="raid_step"))
     m.add(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ", callback_data="raid_extract"))
@@ -272,43 +275,43 @@ def back_button():
 
 def admin_main_menu():
     m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(types.InlineKeyboardButton("👥 USERS", callback_data="admin_menu_users"),
-          types.InlineKeyboardButton("📝 CONTENT", callback_data="admin_menu_content"))
-    m.add(types.InlineKeyboardButton("📢 BROADCAST", callback_data="admin_menu_broadcast"),
-          types.InlineKeyboardButton("⚙️ SYSTEM", callback_data="admin_menu_system"))
-    m.add(types.InlineKeyboardButton("📚 GUIDE (MANUAL)", callback_data="admin_guide"))
-    m.add(types.InlineKeyboardButton("🔙 EXIT", callback_data="back"))
+    m.add(types.InlineKeyboardButton("👥 ПОЛЬЗОВАТЕЛИ", callback_data="admin_menu_users"),
+          types.InlineKeyboardButton("📝 КОНТЕНТ", callback_data="admin_menu_content"))
+    m.add(types.InlineKeyboardButton("📢 РАССЫЛКА", callback_data="admin_menu_broadcast"),
+          types.InlineKeyboardButton("⚙️ СИСТЕМА", callback_data="admin_menu_system"))
+    m.add(types.InlineKeyboardButton("📚 СПРАВКА", callback_data="admin_guide"))
+    m.add(types.InlineKeyboardButton("🔙 ВЫХОД", callback_data="back"))
     return m
 
 def admin_users_menu():
     m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(types.InlineKeyboardButton("➕ GRANT ADMIN", callback_data="admin_grant_admin"),
-          types.InlineKeyboardButton("➖ REVOKE ADMIN", callback_data="admin_revoke_admin"))
-    m.add(types.InlineKeyboardButton("💰 GIVE RESOURCES", callback_data="admin_give_res"),
-          types.InlineKeyboardButton("🎁 GIVE ITEM", callback_data="admin_give_item_menu"))
-    m.add(types.InlineKeyboardButton("🔙 BACK", callback_data="admin_panel"))
+    m.add(types.InlineKeyboardButton("➕ НАЗНАЧИТЬ АДМИНА", callback_data="admin_grant_admin"),
+          types.InlineKeyboardButton("➖ СНЯТЬ АДМИНА", callback_data="admin_revoke_admin"))
+    m.add(types.InlineKeyboardButton("💰 ВЫДАТЬ РЕСУРСЫ", callback_data="admin_give_res"),
+          types.InlineKeyboardButton("🎁 ВЫДАТЬ ПРЕДМЕТ", callback_data="admin_give_item_menu"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 
 def admin_content_menu():
     m = types.InlineKeyboardMarkup(row_width=1)
-    m.add(types.InlineKeyboardButton("➕ ADD RIDDLE", callback_data="admin_add_riddle"),
-          types.InlineKeyboardButton("➕ ADD PROTOCOL", callback_data="admin_add_content"),
-          types.InlineKeyboardButton("➕ ADD SIGNAL", callback_data="admin_add_signal"))
-    m.add(types.InlineKeyboardButton("🔙 BACK", callback_data="admin_panel"))
+    m.add(types.InlineKeyboardButton("➕ ЗАГАДКА", callback_data="admin_add_riddle"),
+          types.InlineKeyboardButton("➕ ПРОТОКОЛ", callback_data="admin_add_content"),
+          types.InlineKeyboardButton("➕ СИГНАЛ", callback_data="admin_add_signal"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 
 def admin_broadcast_menu():
     m = types.InlineKeyboardMarkup(row_width=1)
-    m.add(types.InlineKeyboardButton("📢 TO ALL PLAYERS", callback_data="admin_broadcast"),
-          types.InlineKeyboardButton("📡 TO CHANNEL", callback_data="admin_post_channel"))
-    m.add(types.InlineKeyboardButton("🔙 BACK", callback_data="admin_panel"))
+    m.add(types.InlineKeyboardButton("📢 ВСЕМ ИГРОКАМ", callback_data="admin_broadcast"),
+          types.InlineKeyboardButton("📡 В КАНАЛ", callback_data="admin_post_channel"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 
 def admin_system_menu():
     m = types.InlineKeyboardMarkup(row_width=1)
-    m.add(types.InlineKeyboardButton("📜 SQL EXECUTE", callback_data="admin_sql"),
-          types.InlineKeyboardButton("👥 USER LIST (DOSSIER)", callback_data="admin_user_list"))
-    m.add(types.InlineKeyboardButton("🔙 BACK", callback_data="admin_panel"))
+    m.add(types.InlineKeyboardButton("📜 SQL ЗАПРОС", callback_data="admin_sql"),
+          types.InlineKeyboardButton("👥 СПИСОК ИГРОКОВ", callback_data="admin_user_list"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 
 def admin_item_select():

@@ -154,12 +154,23 @@ def process_riddle_answer(uid, user_answer):
             if not s or not s.get('current_riddle_answer'):
                 return False, "Загадка не активна."
 
-            correct = s['current_riddle_answer']
+            correct_full = s['current_riddle_answer']
+
+            # Split correct answer logic
+            parts = re.split(r'\s+(?:или|и)\s+', correct_full, flags=re.IGNORECASE)
+            valid_answers = [p.strip().lower() for p in parts if p.strip()]
+
+            user_ans_lower = user_answer.lower()
+            is_correct = False
+            for va in valid_answers:
+                if va.startswith(user_ans_lower):
+                     is_correct = True
+                     break
 
             # Reset riddle
             cur.execute("UPDATE raid_sessions SET current_riddle_answer=NULL WHERE uid=%s", (uid,))
 
-            if correct.lower().startswith(user_answer.lower()):
+            if is_correct:
                 # Correct
                 bonus_xp = 100 + (s['depth'] * 2)
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, riddles_solved=riddles_solved+1 WHERE uid=%s", (bonus_xp, uid))
@@ -277,9 +288,26 @@ def process_raid_step(uid, answer=None):
                 # Возвращаем тип 'loot_opened' чтобы обновить кнопки
                 return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt}, u, 'loot_opened', 0
 
+            # 2.5 ДЕЙСТВИЕ: ИСПОЛЬЗОВАНИЕ БАТАРЕИ
+            if answer == 'use_battery':
+                 if db.get_item_count(uid, 'battery', cursor=cur) > 0:
+                      if db.use_item(uid, 'battery', cursor=cur):
+                           # Heal
+                           new_signal = min(100, s['signal'] + 30)
+                           cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_signal, uid))
+                           conn.commit()
+
+                           # Refresh s because signal changed
+                           s['signal'] = new_signal
+
+                           alert_txt = f"🔋 ЭНЕРГИЯ ВОССТАНОВЛЕНА\nСигнал: {new_signal}%"
+                           return True, "ЗАРЯД ИСПОЛЬЗОВАН", {'alert': alert_txt}, u, 'battery_used', 0
+
+                 return False, "❌ НЕТ БАТАРЕИ", None, u, 'battery_error', 0
+
             # 3. ЦЕНА ШАГА
             step_cost = RAID_STEP_COST + (depth // 25)
-            if not is_new and answer != 'open_chest':
+            if not is_new and answer != 'open_chest' and answer != 'use_battery':
                 if u['xp'] < step_cost:
                     return False, f"🪫 <b>НЕТ ЭНЕРГИИ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
                 
@@ -327,11 +355,12 @@ def process_raid_step(uid, answer=None):
 
             # Парсинг загадки
             riddle_answer = None
-            if 'Ответ:' in event['text']:
+            if 'ответ:' in event['text'].lower():
                  match = re.search(r'\s*\(Ответ:\s*(.*?)\)', event['text'], re.IGNORECASE)
                  if match:
                      riddle_answer = match.group(1).strip()
-                     event['text'] = re.sub(r'\s*\(.*?\)', '', event['text']).strip()
+                     start, end = match.span()
+                     event['text'] = (event['text'][:start] + event['text'][end:]).strip()
 
             new_sig = s['signal']
             msg_event = ""
@@ -370,7 +399,12 @@ def process_raid_step(uid, answer=None):
 
             # ЗАГАДКА
             if riddle_answer:
-                options = random.sample(RIDDLE_DISTRACTORS, 2) + [riddle_answer]
+                # Split options
+                parts = re.split(r'\s+(?:или|и)\s+', riddle_answer, flags=re.IGNORECASE)
+                valid_answers = [p.strip() for p in parts if p.strip()]
+                button_answer = valid_answers[0] if valid_answers else riddle_answer
+
+                options = random.sample(RIDDLE_DISTRACTORS, 2) + [button_answer]
                 random.shuffle(options)
                 riddle_data = {"question": event['text'], "correct": riddle_answer, "options": options}
                 msg_event = f"🧩 <b>ЗАГАДКА:</b>\n{event['text']}"
