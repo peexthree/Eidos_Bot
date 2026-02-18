@@ -225,10 +225,15 @@ def add_item(uid, item_id, qty=1):
         """, (uid, item_id, qty, durability, qty))
         return True
 
-def get_inventory(uid):
+def get_inventory(uid, cursor=None):
+    query = "SELECT * FROM inventory WHERE quantity > 0 AND uid = %s"
+    if cursor:
+        cursor.execute(query, (uid,))
+        return cursor.fetchall()
+
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
-        cur.execute("SELECT * FROM inventory WHERE quantity > 0 AND uid = %s", (uid,))
+        cur.execute(query, (uid,))
         return cur.fetchall()
 
 def use_item(uid, item_id, qty=1):
@@ -307,10 +312,18 @@ def break_equipment_randomly(uid):
             return item[1]
         return None
 
-def get_item_count(uid, item_id):
+def get_item_count(uid, item_id, cursor=None):
+    query = "SELECT quantity FROM inventory WHERE uid=%s AND item_id=%s"
+    if cursor:
+        cursor.execute(query, (uid, item_id))
+        res = cursor.fetchone()
+        if not res: return 0
+        if isinstance(res, dict): return res['quantity']
+        return res[0]
+
     with db_cursor() as cur:
         if not cur: return 0
-        cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
+        cur.execute(query, (uid, item_id))
         res = cur.fetchone()
         return res[0] if res else 0
 
@@ -383,15 +396,28 @@ def get_user_achievements(uid):
         cur.execute("SELECT ach_id FROM achievements WHERE uid = %s", (uid,))
         return [row[0] for row in cur.fetchall()]
 
-def get_random_villain(level=1):
+def get_random_villain(level=1, cursor=None):
+    query_range = "SELECT * FROM villains WHERE level BETWEEN %s AND %s ORDER BY RANDOM() LIMIT 1"
+    query_any = "SELECT * FROM villains ORDER BY RANDOM() LIMIT 1"
+
+    if cursor:
+        min_lvl = max(1, level - 1)
+        max_lvl = level + 1
+        cursor.execute(query_range, (min_lvl, max_lvl))
+        v = cursor.fetchone()
+        if not v:
+            cursor.execute(query_any)
+            v = cursor.fetchone()
+        return v
+
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
         min_lvl = max(1, level - 1)
         max_lvl = level + 1
-        cur.execute("SELECT * FROM villains WHERE level BETWEEN %s AND %s ORDER BY RANDOM() LIMIT 1", (min_lvl, max_lvl))
+        cur.execute(query_range, (min_lvl, max_lvl))
         v = cur.fetchone()
         if not v:
-            cur.execute("SELECT * FROM villains ORDER BY RANDOM() LIMIT 1")
+            cursor.execute(query_any)
             v = cur.fetchone()
         return v
 
@@ -411,7 +437,11 @@ def get_raid_session_enemy(uid):
         cur.execute("SELECT current_enemy_id, current_enemy_hp FROM raid_sessions WHERE uid = %s", (uid,))
         return cur.fetchone()
 
-def get_villain_by_id(vid):
+def get_villain_by_id(vid, cursor=None):
+    if cursor:
+        cursor.execute("SELECT * FROM villains WHERE id = %s", (vid,))
+        return cursor.fetchone()
+
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
         cur.execute("SELECT * FROM villains WHERE id = %s", (vid,))
