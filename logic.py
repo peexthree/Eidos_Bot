@@ -10,6 +10,32 @@ from content_presets import CONTENT_DATA
 # 🛠 УТИЛИТЫ И HUD
 # =============================================================
 
+def parse_riddle(text):
+    """
+    Парсит текст загадки, извлекая ответ из скобок.
+    Поддерживает форматы:
+    1. (Ответ: Ответ) или (Протокол: Ответ) - строгий поиск.
+    2. (Ответ) - если текст содержит 'ЗАГАДКА', ищет в конце строки.
+    Возвращает (answer, clean_text). Если ответ не найден, answer=None.
+    """
+    if not text: return None, text
+
+    # 1. Строгий поиск с префиксом
+    match = re.search(r'\s*\((?:Ответ|Протокол):\s*(.*?)\)', text, re.IGNORECASE)
+
+    # 2. Мягкий поиск (fallback), если это явно загадка
+    if not match and "ЗАГАДКА" in text.upper():
+         # Ищем содержимое скобок в самом конце строки
+         match = re.search(r'\s*\(([^()]+)\)\s*$', text)
+
+    if match:
+         answer = match.group(1).strip()
+         start, end = match.span()
+         clean_text = (text[:start] + text[end:]).strip()
+         return answer, clean_text
+
+    return None, text
+
 def get_full_archive_chunks(uid):
     protocols = db.get_archived_protocols(uid)
     if not protocols:
@@ -375,12 +401,7 @@ def process_raid_step(uid, answer=None):
                 if not event: event = {'text': "Пустота...", 'type': 'neutral', 'val': 0}
 
             # Парсинг загадки
-            riddle_answer = None
-            match = re.search(r'\s*\((?:Ответ|Протокол):\s*(.*?)\)', event['text'], re.IGNORECASE)
-            if match:
-                 riddle_answer = match.group(1).strip()
-                 start, end = match.span()
-                 event['text'] = (event['text'][:start] + event['text'][end:]).strip()
+            riddle_answer, event['text'] = parse_riddle(event['text'])
 
             new_sig = s['signal']
             msg_event = ""
