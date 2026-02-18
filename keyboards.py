@@ -280,20 +280,14 @@ def achievements_nav(page, total_pages):
     m.add(types.InlineKeyboardButton("🔙 В МЕНЮ ДНЕВНИКА", callback_data="diary_menu"))
     return m
 
-def guide_menu(page_key='basics'):
+def guide_menu(page_key='intro'):
     m = types.InlineKeyboardMarkup(row_width=2)
-    # [BASICS] [ECONOMY] [FACTIONS] [COMBAT]
-    keys = list(GUIDE_PAGES.keys())
-    # Arrange in rows of 2
 
-    # We want navigation buttons.
-    # Current request: "Разбить длинную инструкцию на блоки с Inline-навигацией: [ОСНОВЫ] [ЭКОНОМИКА] [ФРАКЦИИ] [БОЙ]."
-    # So we show buttons to jump to pages.
-
-    m.add(types.InlineKeyboardButton("🔹 ОСНОВЫ", callback_data="guide_page_basics"),
-          types.InlineKeyboardButton("💰 ЭКОНОМИКА", callback_data="guide_page_economy"))
-    m.add(types.InlineKeyboardButton("🧬 ФРАКЦИЯ", callback_data="guide_page_factions"),
+    m.add(types.InlineKeyboardButton("👋 ОСНОВЫ", callback_data="guide_page_intro"),
           types.InlineKeyboardButton("⚔️ БОЙ", callback_data="guide_page_combat"))
+    m.add(types.InlineKeyboardButton("🌍 БИОМЫ", callback_data="guide_page_biomes"),
+          types.InlineKeyboardButton("📊 СТАТЫ", callback_data="guide_page_stats"))
+    m.add(types.InlineKeyboardButton("🧬 ФРАКЦИЯ", callback_data="guide_page_factions"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
