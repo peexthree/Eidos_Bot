@@ -369,7 +369,7 @@ def handle_query(call):
                   cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
                   s = cur.fetchone()
 
-             report = logic.generate_raid_report(uid, s)
+             report = logic.generate_raid_report(uid, s, success=True)
              db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
              menu_update(call, report, kb.back_button())
 
