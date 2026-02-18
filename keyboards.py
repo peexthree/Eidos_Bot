@@ -184,7 +184,7 @@ def riddle_keyboard(options):
     for opt in options:
         # Truncate just in case, but keep clean
         clean_opt = opt[:30]
-        m.add(types.InlineKeyboardButton(f"› {clean_opt}", callback_data=f"r_check_{clean_opt}"))
+        m.add(types.InlineKeyboardButton(f"› {clean_opt}", callback_data=f"r_check_{clean_opt[:20]}"))
     return m
 
 # =============================================================

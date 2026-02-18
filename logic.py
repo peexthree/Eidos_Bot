@@ -146,7 +146,7 @@ def process_riddle_answer(uid, user_answer):
             # Reset riddle
             cur.execute("UPDATE raid_sessions SET current_riddle_answer=NULL WHERE uid=%s", (uid,))
 
-            if user_answer.lower() == correct.lower():
+            if correct.lower().startswith(user_answer.lower()):
                 # Correct
                 bonus_xp = 100 + (s['depth'] * 2)
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, riddles_solved=riddles_solved+1 WHERE uid=%s", (bonus_xp, uid))
@@ -443,6 +443,23 @@ def process_raid_step(uid, answer=None):
 # =============================================================
 # 👤 ПРОФИЛЬ И СИСТЕМЫ
 # =============================================================
+
+def get_level_progress_stats(u):
+    if not u: return 0, 0
+    level = u.get("level", 1)
+    xp = u.get("xp", 0)
+
+    target = LEVELS.get(level, 999999)
+    prev_target = LEVELS.get(level - 1, 0)
+
+    needed = target - xp
+    total = target - prev_target
+    current = xp - prev_target
+
+    if total <= 0: perc = 100
+    else: perc = int((current / total) * 100)
+
+    return max(0, perc), max(0, needed)
 
 def get_profile_stats(uid):
     u = db.get_user(uid)
