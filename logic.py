@@ -35,9 +35,9 @@ def draw_bar(curr, total, length=10):
     filled = int(length * p)
     return "█" * filled + "░" * (length - filled)
 
-def generate_hud(uid, u, session_data):
+def generate_hud(uid, u, session_data, cursor=None):
     # Fetch inventory details
-    inv_items = db.get_inventory(uid)
+    inv_items = db.get_inventory(uid, cursor=cursor)
     inv_count = sum(i['quantity'] for i in inv_items)
     inv_limit = INVENTORY_LIMIT
 
@@ -191,7 +191,7 @@ def process_raid_step(uid, answer=None):
                 
                 # Сброс ежедневных лимитов (ПРЯМОЙ SQL)
                 if str(last) != str(today):
-                    cur.execute("UPDATE users SET raid_count_today=0, last_raid_date=%s WHERE id=%s", (today, uid))
+                    cur.execute("UPDATE users SET raid_count_today=0, last_raid_date=%s WHERE uid=%s", (today, uid))
                     u['raid_count_today'] = 0
 
                 # Проверка баланса
@@ -201,7 +201,7 @@ def process_raid_step(uid, answer=None):
 
                 # Списание XP и вход (ПРЯМОЙ SQL)
                 new_xp = u['xp'] - cost
-                cur.execute("UPDATE users SET xp=%s, raid_count_today=raid_count_today+1, last_raid_date=%s WHERE id=%s", 
+                cur.execute("UPDATE users SET xp=%s, raid_count_today=raid_count_today+1, last_raid_date=%s WHERE uid=%s",
                            (new_xp, today, uid))
                 u['xp'] = new_xp # Обновляем локально
 
@@ -224,7 +224,7 @@ def process_raid_step(uid, answer=None):
             if s.get('current_enemy_id'):
                 vid = s['current_enemy_id']
                 v_hp = s.get('current_enemy_hp', 10)
-                villain = db.get_villain_by_id(vid)
+                villain = db.get_villain_by_id(vid, cursor=cur)
                 if villain:
                     return True, format_combat_screen(villain, v_hp, s['signal'], stats, s), None, u, 'combat', 0
                 else:
@@ -233,8 +233,8 @@ def process_raid_step(uid, answer=None):
 
             # 2. ДЕЙСТВИЕ: ОТКРЫТИЕ СУНДУКА (ИСПРАВЛЕНО)
             if answer == 'open_chest':
-                has_abyssal = db.get_item_count(uid, 'abyssal_key') > 0
-                has_master = db.get_item_count(uid, 'master_key') > 0
+                has_abyssal = db.get_item_count(uid, 'abyssal_key', cursor=cur) > 0
+                has_master = db.get_item_count(uid, 'master_key', cursor=cur) > 0
 
                 if not (has_abyssal or has_master):
                     return False, "🔒 <b>НУЖЕН КЛЮЧ</b>\nКупите [КЛЮЧ] или найдите [КЛЮЧ БЕЗДНЫ].", None, u, 'locked_chest', 0
@@ -242,8 +242,8 @@ def process_raid_step(uid, answer=None):
                 key_used = 'abyssal_key' if has_abyssal else 'master_key'
                 
                 # Удаляем ключ прямым запросом (чтобы не блокировать БД)
-                cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE user_id=%s AND item_id=%s", (uid, key_used))
-                cur.execute("DELETE FROM inventory WHERE user_id=%s AND item_id=%s AND quantity <= 0", (uid, key_used))
+                cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE uid=%s AND item_id=%s", (uid, key_used))
+                cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id=%s AND quantity <= 0", (uid, key_used))
 
                 bonus_xp = (300 + (depth * 5)) if key_used == 'abyssal_key' else (150 + (depth * 2))
                 bonus_coins = (100 + (depth * 2)) if key_used == 'abyssal_key' else (50 + depth)
@@ -270,7 +270,7 @@ def process_raid_step(uid, answer=None):
                 if u['xp'] < step_cost:
                     return False, f"🪫 <b>НЕТ ЭНЕРГИИ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
                 
-                cur.execute("UPDATE users SET xp = xp - %s WHERE id=%s", (step_cost, uid))
+                cur.execute("UPDATE users SET xp = xp - %s WHERE uid=%s", (step_cost, uid))
                 u['xp'] -= step_cost
 
             # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
@@ -292,7 +292,7 @@ def process_raid_step(uid, answer=None):
 
             # БОЙ
             if current_type_code == 'combat':
-                villain = db.get_random_villain(depth // 20 + 1)
+                villain = db.get_random_villain(depth // 20 + 1, cursor=cur)
                 if villain:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=%s, current_enemy_hp=%s WHERE uid=%s", 
                                (villain['id'], villain['hp'], uid))
@@ -331,11 +331,11 @@ def process_raid_step(uid, answer=None):
                 
                 # Проверка Эгиды (Прямой SQL для скорости)
                 has_aegis = False
-                cur.execute("SELECT quantity FROM inventory WHERE user_id=%s AND item_id='aegis'", (uid,))
+                cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id='aegis'", (uid,))
                 ae_res = cur.fetchone()
                 if ae_res and ae_res['quantity'] > 0 and (new_sig - dmg <= 0):
-                    cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE user_id=%s AND item_id='aegis'", (uid,))
-                    cur.execute("DELETE FROM inventory WHERE user_id=%s AND item_id='aegis' AND quantity <= 0", (uid,))
+                    cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE uid=%s AND item_id='aegis'", (uid,))
+                    cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id='aegis' AND quantity <= 0", (uid,))
                     dmg = 0
                     msg_prefix += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
 
@@ -369,7 +369,7 @@ def process_raid_step(uid, answer=None):
             cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, next_event_type=%s WHERE uid=%s", (new_depth, new_sig, next_preview, uid))
             
             if new_depth > u.get('max_depth', 0): 
-                cur.execute("UPDATE users SET max_depth=%s WHERE id=%s", (new_depth, uid))
+                cur.execute("UPDATE users SET max_depth=%s WHERE uid=%s", (new_depth, uid))
 
             conn.commit() # ФИКСИРУЕМ ШАГ
 
@@ -382,11 +382,11 @@ def process_raid_step(uid, answer=None):
             # КОМПАС (БУДУЩЕЕ)
             comp_txt = ""
             # Проверяем наличие компаса (безопасно)
-            cur.execute("SELECT quantity FROM inventory WHERE user_id=%s AND item_id='compass'", (uid,))
+            cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id='compass'", (uid,))
             comp_q = cur.fetchone()
             if comp_q and comp_q['quantity'] > 0:
                  # Тратим заряд компаса
-                 cur.execute("UPDATE inventory SET durability = durability - 1 WHERE user_id=%s AND item_id='compass'", (uid,))
+                 cur.execute("UPDATE inventory SET durability = durability - 1 WHERE uid=%s AND item_id='compass'", (uid,))
                  # Если сломался (условно, если есть механика поломки), но пока просто показываем
                  comp_map = {'combat': '⚔️ ВРАГ', 'trap': '💥 ЛОВУШКА', 'loot': '💎 ЛУТ', 'random': '❔ НЕИЗВЕСТНО', 'locked_chest': '🔒 СУНДУК'}
                  comp_res = comp_map.get(next_preview, '❔')
@@ -400,7 +400,7 @@ def process_raid_step(uid, answer=None):
                 f"{msg_prefix}{msg_event}\n"
                 f"━━━━━━━━━━━━━━\n"
                 f"🎒 +{res['buffer_xp']} XP | 🪙 +{res['buffer_coins']} BC\n"
-                f"{generate_hud(uid, u, res)}\n" 
+                f"{generate_hud(uid, u, res, cursor=cur)}\n"
                 f"<i>{comp_txt}</i>"
             )
             
