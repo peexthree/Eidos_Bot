@@ -167,7 +167,17 @@ def populate_villains():
         {"name": "Фатальный Сбой", "level": 4, "hp": 100, "atk": 25, "def": 10, "xp": 80, "coin": 40, "desc": "Воплощение ошибки."},
         {"name": "Ассасин Даркнета", "level": 4, "hp": 90, "atk": 30, "def": 5, "xp": 90, "coin": 60, "desc": "Скрытный убийца."},
         {"name": "ИИ-Доминатор", "level": 5, "hp": 200, "atk": 40, "def": 20, "xp": 200, "coin": 100, "desc": "Мятежный ИИ."},
-        {"name": "Стиратель", "level": 6, "hp": 500, "atk": 60, "def": 40, "xp": 500, "coin": 300, "desc": "Сущность пустоты."}
+        {"name": "Стиратель", "level": 6, "hp": 500, "atk": 60, "def": 40, "xp": 500, "coin": 300, "desc": "Сущность пустоты."},
+        # NEW VILLAINS (v26.0)
+        {"name": "Нейро-Призрак", "level": 7, "hp": 800, "atk": 80, "def": 50, "xp": 800, "coin": 400, "desc": "Фантом нейросети."},
+        {"name": "Кибер-Лич", "level": 8, "hp": 1200, "atk": 100, "def": 60, "xp": 1200, "coin": 600, "desc": "Восставший из удаленных."},
+        {"name": "Архитектор Кошмаров", "level": 9, "hp": 2000, "atk": 150, "def": 80, "xp": 2500, "coin": 1000, "desc": "Строит лабиринты страха."},
+        {"name": "Пожиратель Кода", "level": 10, "hp": 5000, "atk": 200, "def": 100, "xp": 5000, "coin": 2000, "desc": "Уничтожитель миров."},
+        {"name": "Страж Ядра", "level": 12, "hp": 8000, "atk": 250, "def": 150, "xp": 8000, "coin": 3000, "desc": "Охраняет самое ценное."},
+        {"name": "Омни-Синтез", "level": 15, "hp": 15000, "atk": 400, "def": 200, "xp": 15000, "coin": 5000, "desc": "Слияние всех ошибок."},
+        {"name": "Бог Машины", "level": 20, "hp": 50000, "atk": 1000, "def": 500, "xp": 50000, "coin": 20000, "desc": "Deus Ex Machina."},
+        {"name": "Пустотный Странник", "level": 25, "hp": 100000, "atk": 2000, "def": 1000, "xp": 100000, "coin": 50000, "desc": "Пришел из-за грани."},
+        {"name": "Энтропия", "level": 30, "hp": 500000, "atk": 5000, "def": 2000, "xp": 500000, "coin": 100000, "desc": "Хаос воплоти."}
     ]
     with db_session() as conn:
         with conn.cursor() as cur:
@@ -581,3 +591,10 @@ def get_random_raid_advice(level, cursor=None):
         cur.execute(query, (level,))
         res = cur.fetchone()
         return res['text'] if res else None
+
+def get_random_user_for_hack(exclude_uid):
+    with db_cursor() as cur:
+        if not cur: return None
+        cur.execute("SELECT uid FROM users WHERE uid != %s ORDER BY RANDOM() LIMIT 1", (exclude_uid,))
+        res = cur.fetchone()
+        return res[0] if res else None

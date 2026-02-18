@@ -1,3 +1,18 @@
+# =============================================================================
+# STANDARD: CONTENT STRUCTURE
+# =============================================================================
+# TABLE: content
+# FIELDS:
+#   - type: 'protocol' (Sync), 'signal' (Sync), 'event' (Raid), 'advice' (Raid)
+#   - path: 'money', 'mind', 'tech', 'general' (for Sync), 'raid_general' (for Raid)
+#   - level: 1-4 (Sync), 1-3 (Raid Depth Tiers)
+#   - text: Content string
+#
+# RULES:
+#   - Raid texts (events/advice) MUST have path='raid_general'.
+#   - Protocol texts should generally follow the path theme.
+# =============================================================================
+
 CONTENT_DATA = {
     # LEVEL 5: Business & Sales (Demiurge)
     5: [
