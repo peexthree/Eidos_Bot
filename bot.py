@@ -200,7 +200,7 @@ def handle_query(call):
         # --- ADMIN ACTIONS (STATE SETTERS) ---
         elif call.data in ["admin_grant_admin", "admin_revoke_admin", "admin_give_res",
                            "admin_broadcast", "admin_post_channel", "admin_add_riddle",
-                           "admin_add_content", "admin_add_signal", "admin_sql"]:
+                           "admin_add_content", "admin_add_signal", "admin_sql", "admin_dm_user"]:
              if not db.is_user_admin(uid): return
 
              state_map = {
@@ -212,7 +212,8 @@ def handle_query(call):
                  "admin_add_riddle": "wait_add_riddle",
                  "admin_add_content": "wait_add_protocol",
                  "admin_add_signal": "wait_add_signal",
-                 "admin_sql": "wait_sql"
+                 "admin_sql": "wait_sql",
+                 "admin_dm_user": "wait_dm_user_id"
              }
              user_states[uid] = state_map[call.data]
              msg_map = {
@@ -224,7 +225,8 @@ def handle_query(call):
                  "admin_add_riddle": "🎭 <b>ENTER RIDDLE:</b>\nFormat: Question (Ответ: Answer)",
                  "admin_add_content": "💠 <b>ENTER PROTOCOL TEXT:</b>",
                  "admin_add_signal": "📡 <b>ENTER SIGNAL TEXT:</b>",
-                 "admin_sql": "📜 <b>ENTER SQL QUERY:</b>\n⚠️ BE CAREFUL!"
+                 "admin_sql": "📜 <b>ENTER SQL QUERY:</b>\n⚠️ BE CAREFUL!",
+                 "admin_dm_user": "🆔 <b>ENTER USER ID TO DM:</b>"
              }
              menu_update(call, msg_map[call.data], kb.back_button())
 
@@ -285,14 +287,31 @@ def handle_query(call):
             bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
 
         elif call.data == "achievements_list":
-            alist = db.get_user_achievements(uid)
-            txt = "🏆 <b>ТВОИ ДОСТИЖЕНИЯ:</b>\n\n"
-            if not alist: txt += "Пока пусто."
-            else:
-                for a in alist:
-                    info = ACHIEVEMENTS_LIST.get(a)
-                    if info: txt += f"✅ <b>{info['name']}</b>\n{info['desc']}\n\n"
-            menu_update(call, txt, kb.back_button())
+             # Redirect to page 0
+             call.data = "achievements_list_0"
+             handle_query(call)
+
+        elif call.data.startswith("achievements_list_"):
+             page = int(call.data.replace("achievements_list_", ""))
+             limit = 5
+             offset = page * limit
+
+             alist = db.get_user_achievements(uid)
+             total = len(alist)
+             total_pages = (total // limit) + (1 if total % limit > 0 else 0)
+             if total_pages == 0: total_pages = 1
+
+             # Slice
+             current_items = alist[offset : offset + limit]
+
+             txt = f"🏆 <b>ТВОИ ДОСТИЖЕНИЯ ({page+1}/{total_pages}):</b>\n\n"
+             if not current_items: txt += "Пока пусто."
+             else:
+                 for a in current_items:
+                     info = config.ACHIEVEMENTS_LIST.get(a)
+                     if info: txt += f"✅ <b>{info['name']}</b>\n{info['desc']}\n\n"
+
+             menu_update(call, txt, kb.achievements_nav(page, total_pages))
 
         elif call.data == "use_accelerator":
             if db.get_item_count(uid, 'accel') > 0:
@@ -305,10 +324,22 @@ def handle_query(call):
 
         # --- 3. ИНВЕНТАРЬ ---
         elif call.data == "inventory":
-            txt = logic.format_inventory(uid)
+            txt = logic.format_inventory(uid, category='all')
             items = db.get_inventory(uid)
             equipped = db.get_equipped_items(uid)
-            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False))
+            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='all'))
+
+        elif call.data == "inv_cat_equip":
+            txt = logic.format_inventory(uid, category='equip')
+            items = db.get_inventory(uid)
+            equipped = db.get_equipped_items(uid)
+            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip'))
+
+        elif call.data == "inv_cat_consumable":
+            txt = logic.format_inventory(uid, category='consumable')
+            items = db.get_inventory(uid)
+            equipped = db.get_equipped_items(uid)
+            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='consumable'))
         
         elif call.data == "inv_mode_dismantle":
             txt = logic.format_inventory(uid)
@@ -391,8 +422,8 @@ def handle_query(call):
              if not res:
                  bot.answer_callback_query(call.id, txt, show_alert=True)
              else:
-                 has_battery = db.get_item_count(uid, 'battery') > 0
-                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, has_battery=has_battery)
+                 battery_count = db.get_item_count(uid, 'battery')
+                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
                  menu_update(call, txt, markup)
 
         elif call.data == "raid_step":
@@ -400,8 +431,8 @@ def handle_query(call):
              if not res:
                  menu_update(call, txt, kb.back_button())
              else:
-                 has_battery = db.get_item_count(uid, 'battery') > 0
-                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, has_battery=has_battery)
+                 battery_count = db.get_item_count(uid, 'battery')
+                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
                  menu_update(call, txt, markup)
 
         elif call.data == "raid_open_chest":
@@ -415,8 +446,8 @@ def handle_query(call):
                  # Success
                  alert_txt = f"🔓 СИСТЕМА РАЗБЛОКИРОВАНА. Получено: {riddle.get('alert', '')}"
                  bot.answer_callback_query(call.id, alert_txt, show_alert=True)
-                 has_battery = db.get_item_count(uid, 'battery') > 0
-                 markup = kb.raid_action_keyboard(cost, etype, has_battery=has_battery)
+                 battery_count = db.get_item_count(uid, 'battery')
+                 markup = kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
                  menu_update(call, txt, markup)
 
         elif call.data == "raid_use_battery":
@@ -426,8 +457,8 @@ def handle_query(call):
              else:
                  alert_txt = riddle.get('alert', 'Батарея использована')
                  bot.answer_callback_query(call.id, alert_txt, show_alert=True)
-                 has_battery = db.get_item_count(uid, 'battery') > 0
-                 markup = kb.raid_action_keyboard(cost, etype, has_battery=has_battery)
+                 battery_count = db.get_item_count(uid, 'battery')
+                 markup = kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
                  menu_update(call, txt, markup)
 
         elif call.data == "raid_extract":
@@ -469,7 +500,9 @@ def handle_query(call):
              if res_type == 'error':
                  bot.answer_callback_query(call.id, msg, show_alert=True)
                  res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
-                 if res: menu_update(call, txt, kb.raid_action_keyboard(cost, etype))
+                 if res:
+                     battery_count = db.get_item_count(uid, 'battery')
+                     menu_update(call, txt, kb.raid_action_keyboard(cost, etype, battery_count=battery_count))
                  else: menu_update(call, "Ошибка синхронизации.", kb.back_button())
 
              elif res_type == 'win':
@@ -477,14 +510,14 @@ def handle_query(call):
                  # Continue after win
                  res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
-                 has_battery = db.get_item_count(uid, 'battery') > 0
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, has_battery=has_battery))
+                 battery_count = db.get_item_count(uid, 'battery')
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, battery_count=battery_count))
 
              elif res_type == 'escaped':
                  res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
-                 has_battery = db.get_item_count(uid, 'battery') > 0
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, has_battery=has_battery))
+                 battery_count = db.get_item_count(uid, 'battery')
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, battery_count=battery_count))
 
              elif res_type == 'death':
                  menu_update(call, msg, kb.back_button())
@@ -492,8 +525,8 @@ def handle_query(call):
              elif res_type == 'combat':
                  res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
-                 has_battery = db.get_item_count(uid, 'battery') > 0
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, 'combat', has_battery=has_battery))
+                 battery_count = db.get_item_count(uid, 'battery')
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, 'combat', battery_count=battery_count))
 
         # --- RIDDLES ---
         elif call.data.startswith("r_check_"):
@@ -503,8 +536,8 @@ def handle_query(call):
 
             res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
             full_txt = f"{msg}\n\n{txt}"
-            has_battery = db.get_item_count(uid, 'battery') > 0
-            markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, has_battery=has_battery)
+            battery_count = db.get_item_count(uid, 'battery')
+            markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
             menu_update(call, full_txt, markup)
 
         # --- 6. MISC ---
@@ -550,17 +583,16 @@ def handle_query(call):
                 menu_update(call, txt, kb.diary_read_nav(page, total_pages))
 
         elif call.data == "diary_archive":
-             if u['xp'] >= ARCHIVE_COST:
-                 db.update_user(uid, xp=u['xp']-ARCHIVE_COST)
-                 protos = db.get_archived_protocols(uid)
-                 txt = "💾 <b>АРХИВ ПРОТОКОЛОВ</b>\n\n"
-                 if not protos: txt += "Пусто."
-                 else:
-                     for p in protos:
-                         txt += f"💠 {p['text'][:100]}...\n\n"
-                 menu_update(call, txt, kb.back_button())
+             if u['xp'] >= config.ARCHIVE_COST:
+                 db.update_user(uid, xp=u['xp']-config.ARCHIVE_COST)
+                 chunks = logic.get_full_archive_chunks(uid)
+
+                 for chunk in chunks:
+                     try: bot.send_message(uid, chunk, parse_mode="HTML")
+                     except: pass
+                 menu_update(call, "✅ Архив загружен в чат.", kb.back_button())
              else:
-                 bot.answer_callback_query(call.id, f"❌ Нужно {ARCHIVE_COST} XP", show_alert=True)
+                 bot.answer_callback_query(call.id, f"❌ Нужно {config.ARCHIVE_COST} XP", show_alert=True)
 
         elif call.data == "guide":
             menu_update(call, GUIDE_PAGES.get('basics', "Error"), kb.guide_menu('basics'))
@@ -665,12 +697,16 @@ def text_handler(m):
                 amount = int(val.replace('xp', '').strip())
                 db.add_xp_to_user(tid, amount)
                 bot.send_message(uid, f"✅ GAVE {amount} XP TO {tid}")
+                try: bot.send_message(tid, f"👤 <b>Создатель перечислил Вам в награду {amount} XP</b>", parse_mode="HTML")
+                except: pass
             else:
                 amount = int(val)
                 u = db.get_user(tid)
                 if u:
                     db.update_user(tid, biocoin=u['biocoin'] + amount)
                     bot.send_message(uid, f"✅ GAVE {amount} BC TO {tid}")
+                    try: bot.send_message(tid, f"👤 <b>Создатель перечислил Вам в награду {amount} BioCoins</b>", parse_mode="HTML")
+                    except: pass
                 else: bot.send_message(uid, "❌ USER NOT FOUND")
         except: bot.send_message(uid, "❌ ERROR")
         del user_states[uid]
@@ -681,9 +717,30 @@ def text_handler(m):
             tid = int(m.text)
             if db.add_item(tid, item):
                 bot.send_message(uid, f"✅ SENT {item} TO {tid}")
+                item_name = config.ITEMS_INFO.get(item, {}).get('name', item)
+                try: bot.send_message(tid, f"👤 <b>Создатель отправил Вам предмет: {item_name}</b>", parse_mode="HTML")
+                except: pass
             else:
                 bot.send_message(uid, "❌ INVENTORY FULL OR ERROR")
         except: bot.send_message(uid, "❌ INVALID ID")
+        del user_states[uid]
+
+    elif state == "wait_dm_user_id":
+        try:
+            tid = int(m.text)
+            user_states[uid] = f"wait_dm_text|{tid}"
+            bot.send_message(uid, "✉️ <b>ENTER MESSAGE TEXT (HTML Supported):</b>")
+        except:
+            bot.send_message(uid, "❌ INVALID ID")
+            del user_states[uid]
+
+    elif state.startswith("wait_dm_text|"):
+        tid = int(state.split("|")[1])
+        try:
+            bot.send_message(tid, f"✉️ <b>ЛИЧНОЕ СООБЩЕНИЕ ОТ АДМИНИСТРАТОРА:</b>\n\n{m.text}", parse_mode="HTML")
+            bot.send_message(uid, f"✅ SENT TO {tid}")
+        except Exception as e:
+            bot.send_message(uid, f"❌ ERROR: {e}")
         del user_states[uid]
 
     elif state == "wait_broadcast_text":

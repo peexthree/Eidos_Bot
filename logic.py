@@ -10,6 +10,27 @@ from content_presets import CONTENT_DATA
 # 🛠 УТИЛИТЫ И HUD
 # =============================================================
 
+def get_full_archive_chunks(uid):
+    protocols = db.get_archived_protocols(uid)
+    if not protocols:
+        return ["💾 <b>АРХИВ ПРОТОКОЛОВ</b>\n\nПусто."]
+
+    chunks = []
+    current_chunk = "💾 <b>ПОЛНЫЙ АРХИВ ПРОТОКОЛОВ</b>\n\n"
+
+    for i, p in enumerate(protocols, 1):
+        entry = f"💠 <b>ЗАПИСЬ #{i}</b>\n{p['text']}\n\n"
+        if len(current_chunk) + len(entry) > 4000:
+            chunks.append(current_chunk)
+            current_chunk = entry
+        else:
+            current_chunk += entry
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
 def get_user_stats(uid):
     u = db.get_user(uid)
     if not u: return None, None
@@ -544,24 +565,33 @@ def get_syndicate_stats(uid):
     txt += f"\n💰 <b>ВСЕГО ПОЛУЧЕНО:</b> {total_profit}"
     return txt
 
-def format_inventory(uid):
+def format_inventory(uid, category='all'):
     items = db.get_inventory(uid)
     equipped = db.get_equipped_items(uid)
     u = db.get_user(uid)
     inv_limit = INVENTORY_LIMIT
 
+    from config import EQUIPMENT_DB
+
     txt = f"🎒 <b>РЮКЗАК [{len(items)}/{inv_limit}]</b>\n\n"
 
-    if equipped:
-        txt += "<b>🛡 ЭКИПИРОВАНО:</b>\n"
-        for slot, iid in equipped.items():
-            name = ITEMS_INFO.get(iid, {}).get('name', iid)
-            txt += f"• {name}\n"
-        txt += "\n"
+    if category == 'all' or category == 'equip':
+        if equipped:
+            txt += "<b>🛡 ЭКИПИРОВАНО:</b>\n"
+            for slot, iid in equipped.items():
+                name = ITEMS_INFO.get(iid, {}).get('name', iid)
+                txt += f"• {name}\n"
+            txt += "\n"
 
-    if items:
+    # Filter
+    filtered = []
+    if category == 'all': filtered = items
+    elif category == 'equip': filtered = [i for i in items if i['item_id'] in EQUIPMENT_DB]
+    elif category == 'consumable': filtered = [i for i in items if i['item_id'] not in EQUIPMENT_DB]
+
+    if filtered:
         txt += "<b>📦 ПРЕДМЕТЫ:</b>\n"
-        for i in items:
+        for i in filtered:
             iid = i['item_id']
             name = ITEMS_INFO.get(iid, {}).get('name', iid)
             qty = i['quantity']

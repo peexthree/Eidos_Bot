@@ -238,7 +238,14 @@ def get_inventory(uid, cursor=None):
         cur.execute(query, (uid,))
         return cur.fetchall()
 
-def use_item(uid, item_id, qty=1):
+def use_item(uid, item_id, qty=1, cursor=None):
+    if cursor:
+        cursor.execute("UPDATE inventory SET quantity = quantity - %s WHERE uid = %s AND item_id = %s RETURNING quantity", (qty, uid, item_id))
+        res = cursor.fetchone()
+        if res and res[0] <= 0:
+            cursor.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
+        return True
+
     with db_cursor() as cur:
         if not cur: return False
         cur.execute("UPDATE inventory SET quantity = quantity - %s WHERE uid = %s AND item_id = %s RETURNING quantity", (qty, uid, item_id))

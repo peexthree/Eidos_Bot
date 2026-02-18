@@ -21,7 +21,7 @@ def main_menu(u):
     m = types.InlineKeyboardMarkup(row_width=2)
     
     # 1. Энергия
-    m.add(types.InlineKeyboardButton("💠 СИНХРОНИЗАЦИЯ", callback_data="get_protocol"),
+    m.add(types.InlineKeyboardButton("💠 СИНХРОН", callback_data="get_protocol"),
           types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal"))
     
     # 2. Рейд
@@ -68,9 +68,6 @@ def profile_menu(u, has_accel=False):
     if has_accel:
         m.add(types.InlineKeyboardButton("⚡️ АКТИВИРОВАТЬ УСКОРИТЕЛЬ", callback_data="use_accelerator"))
 
-    # Ачивки
-    m.add(types.InlineKeyboardButton("🏆 ДОСТИЖЕНИЯ", callback_data="achievements_list"))
-    
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 
@@ -78,14 +75,19 @@ def profile_menu(u, has_accel=False):
 # 🎒 ИНВЕНТАРЬ (RPG UI)
 # =============================================================
 
-def inventory_menu(items, equipped, dismantle_mode=False):
-    m = types.InlineKeyboardMarkup(row_width=1)
+def inventory_menu(items, equipped, dismantle_mode=False, category='all'):
+    m = types.InlineKeyboardMarkup(row_width=3)
     
+    # Tabs
+    m.add(types.InlineKeyboardButton(f"{'✅' if category=='all' else ''} ВСЕ", callback_data="inventory"),
+          types.InlineKeyboardButton(f"{'✅' if category=='equip' else ''} ЭКИП", callback_data="inv_cat_equip"),
+          types.InlineKeyboardButton(f"{'✅' if category=='consumable' else ''} РАСХОД", callback_data="inv_cat_consumable"))
+
     mode_btn = "♻️ РЕЖИМ РАЗБОРА: ВКЛ" if dismantle_mode else "♻️ РАЗОБРАТЬ ВЕЩИ (10%)"
     mode_cb = "inv_mode_normal" if dismantle_mode else "inv_mode_dismantle"
     m.add(types.InlineKeyboardButton(mode_btn, callback_data=mode_cb))
 
-    if equipped:
+    if (category == 'all' or category == 'equip') and equipped:
         m.add(types.InlineKeyboardButton("─── 🛡 НАДЕТО ───", callback_data="dummy"))
         for slot, item_id in equipped.items():
             name = EQUIPMENT_DB.get(item_id, {}).get('name', '???')
@@ -95,9 +97,16 @@ def inventory_menu(items, equipped, dismantle_mode=False):
             else:
                  m.add(types.InlineKeyboardButton(f"⬇️ {SLOTS.get(slot, slot)}: {name}", callback_data=f"view_item_{item_id}"))
     
+    # Filter items
+    filtered = []
     if items:
+        if category == 'all': filtered = items
+        elif category == 'equip': filtered = [i for i in items if i['item_id'] in EQUIPMENT_DB]
+        elif category == 'consumable': filtered = [i for i in items if i['item_id'] not in EQUIPMENT_DB]
+
+    if filtered:
         m.add(types.InlineKeyboardButton("─── 📦 РЮКЗАК ───", callback_data="dummy"))
-        for i in items:
+        for i in filtered:
             item_id = i['item_id']
             qty = i['quantity']
 
@@ -130,7 +139,9 @@ def inventory_menu(items, equipped, dismantle_mode=False):
 
 def shop_category_menu():
     m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(types.InlineKeyboardButton("⚔️ СНАРЯЖЕНИЕ", callback_data="shop_cat_artifacts"),
+    m.add(types.InlineKeyboardButton("⚔️ ОРУЖИЕ", callback_data="shop_cat_weapon"),
+          types.InlineKeyboardButton("👕 БРОНЯ", callback_data="shop_cat_armor"))
+    m.add(types.InlineKeyboardButton("💾 ЧИПЫ", callback_data="shop_cat_chip"),
           types.InlineKeyboardButton("📦 РАСХОДНИКИ", callback_data="shop_cat_consumables"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
@@ -147,9 +158,10 @@ def shop_section_menu(category):
         m.add(types.InlineKeyboardButton(f"❄️ КРИО ({PRICES['cryo']} XP)", callback_data="view_shop_cryo"),
               types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="view_shop_accel"))
 
-    elif category == 'artifacts':
+    elif category in ['weapon', 'armor', 'chip']:
         for k, v in EQUIPMENT_DB.items():
-            m.add(types.InlineKeyboardButton(f"{v['name']} ({v['price']} BC)", callback_data=f"view_shop_{k}"))
+            if v.get('slot') == category:
+                m.add(types.InlineKeyboardButton(f"{v['name']} ({v['price']} BC)", callback_data=f"view_shop_{k}"))
 
     m.add(types.InlineKeyboardButton("🔙 К КАТЕГОРИЯМ", callback_data="shop_menu"))
     return m
@@ -164,7 +176,7 @@ def raid_welcome_keyboard(cost):
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back"))
     return m
 
-def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, has_battery=False):
+def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, battery_count=0):
     m = types.InlineKeyboardMarkup()
     
     if event_type == 'combat':
@@ -175,8 +187,8 @@ def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, has_batte
     if event_type == 'locked_chest':
         m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ СУНДУК", callback_data="raid_open_chest"))
 
-    if has_battery:
-        m.add(types.InlineKeyboardButton("🔋 ИСПОЛЬЗОВАТЬ БАТАРЕЮ", callback_data="raid_use_battery"))
+    if battery_count > 0:
+        m.add(types.InlineKeyboardButton(f"🔋 ИСПОЛЬЗОВАТЬ БАТАРЕЮ (x{battery_count})", callback_data="raid_use_battery"))
             
     m.add(types.InlineKeyboardButton(f"👣 ШАГ ВГЛУБЬ (-{xp_cost} XP)", callback_data="raid_step"))
     m.add(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ", callback_data="raid_extract"))
@@ -231,8 +243,9 @@ def diary_menu():
     m.add(
         types.InlineKeyboardButton("✍️ НОВАЯ ЗАПИСЬ", callback_data="diary_new"),
         types.InlineKeyboardButton("📖 МОИ МЫСЛИ", callback_data="diary_read_0"),
-        types.InlineKeyboardButton(f"💾 АРХИВ ({ARCHIVE_COST} XP)", callback_data="diary_archive")
+        types.InlineKeyboardButton(f"💾 АРХИВ (500 XP)", callback_data="diary_archive")
     )
+    m.add(types.InlineKeyboardButton("🏆 ДОСТИЖЕНИЯ", callback_data="achievements_list"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 
@@ -242,6 +255,16 @@ def diary_read_nav(page, total_pages):
     if page > 0: btns.append(types.InlineKeyboardButton("⬅️", callback_data=f"diary_read_{page-1}"))
     btns.append(types.InlineKeyboardButton(f"{page+1} / {total_pages}", callback_data="dummy"))
     if page < total_pages - 1: btns.append(types.InlineKeyboardButton("➡️", callback_data=f"diary_read_{page+1}"))
+    m.add(*btns)
+    m.add(types.InlineKeyboardButton("🔙 В МЕНЮ ДНЕВНИКА", callback_data="diary_menu"))
+    return m
+
+def achievements_nav(page, total_pages):
+    m = types.InlineKeyboardMarkup(row_width=3)
+    btns = []
+    if page > 0: btns.append(types.InlineKeyboardButton("⬅️", callback_data=f"achievements_list_{page-1}"))
+    btns.append(types.InlineKeyboardButton(f"{page+1} / {total_pages}", callback_data="dummy"))
+    if page < total_pages - 1: btns.append(types.InlineKeyboardButton("➡️", callback_data=f"achievements_list_{page+1}"))
     m.add(*btns)
     m.add(types.InlineKeyboardButton("🔙 В МЕНЮ ДНЕВНИКА", callback_data="diary_menu"))
     return m
@@ -289,6 +312,8 @@ def admin_users_menu():
           types.InlineKeyboardButton("➖ СНЯТЬ АДМИНА", callback_data="admin_revoke_admin"))
     m.add(types.InlineKeyboardButton("💰 ВЫДАТЬ РЕСУРСЫ", callback_data="admin_give_res"),
           types.InlineKeyboardButton("🎁 ВЫДАТЬ ПРЕДМЕТ", callback_data="admin_give_item_menu"))
+    m.add(types.InlineKeyboardButton("👥 СПИСОК ИГРОКОВ", callback_data="admin_user_list"),
+          types.InlineKeyboardButton("✉️ ЛИЧНОЕ СООБЩЕНИЕ", callback_data="admin_dm_user"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 
@@ -309,8 +334,7 @@ def admin_broadcast_menu():
 
 def admin_system_menu():
     m = types.InlineKeyboardMarkup(row_width=1)
-    m.add(types.InlineKeyboardButton("📜 SQL ЗАПРОС", callback_data="admin_sql"),
-          types.InlineKeyboardButton("👥 СПИСОК ИГРОКОВ", callback_data="admin_user_list"))
+    m.add(types.InlineKeyboardButton("📜 SQL ЗАПРОС", callback_data="admin_sql"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 
