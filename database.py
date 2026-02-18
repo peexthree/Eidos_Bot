@@ -60,7 +60,8 @@ def init_db():
                     last_protocol_time BIGINT DEFAULT 0, last_signal_time BIGINT DEFAULT 0,
                     notified BOOLEAN DEFAULT TRUE, max_depth INTEGER DEFAULT 0,
                     ref_count INTEGER DEFAULT 0, know_count INTEGER DEFAULT 0, total_spent INTEGER DEFAULT 0,
-                    raid_count_today INTEGER DEFAULT 0, last_raid_date DATE DEFAULT CURRENT_DATE
+                    raid_count_today INTEGER DEFAULT 0, last_raid_date DATE DEFAULT CURRENT_DATE,
+                    is_admin BOOLEAN DEFAULT FALSE
                 );
             ''')
             try:
@@ -68,6 +69,7 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_raid_date DATE DEFAULT CURRENT_DATE")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
             except: pass
 
             cur.execute('''
@@ -491,3 +493,28 @@ def admin_add_signal_to_db(text, level=1, c_type='protocol', path='general'):
         cur.execute("INSERT INTO content (type, path, text, level) VALUES (%s, %s, %s, %s)",
                     (c_type, path, text, level))
         return True
+
+def set_user_admin(uid, status):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET is_admin = %s WHERE uid = %s", (status, uid))
+
+def get_admins():
+    with db_cursor() as cur:
+        if not cur: return []
+        cur.execute("SELECT uid FROM users WHERE is_admin = TRUE")
+        return [row[0] for row in cur.fetchall()]
+
+def is_user_admin(uid):
+    # Check env var first
+    try:
+        env_admin = os.environ.get('ADMIN_ID', '5178416366')
+        if str(uid) == str(env_admin):
+             return True
+    except: pass
+
+    with db_cursor() as cur:
+        if not cur: return False
+        cur.execute("SELECT is_admin FROM users WHERE uid = %s", (uid,))
+        res = cur.fetchone()
+        return res[0] if res else False
