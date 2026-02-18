@@ -53,7 +53,7 @@ class TestDBRefactor(unittest.TestCase):
         mock_ctx.__enter__.return_value = mock_cursor
         mock_ctx.__exit__.return_value = None
 
-        with patch('database.db_cursor', return_value=mock_ctx) as mock_db_cursor_func:
+        with patch.object(db, 'db_cursor', return_value=mock_ctx) as mock_db_cursor_func:
             result = db.get_item_count(123, 'item')
             self.assertEqual(result, 5)
             mock_db_cursor_func.assert_called_once()
