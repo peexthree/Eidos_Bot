@@ -493,7 +493,12 @@ def handle_query(call):
         elif call.data == "back":
             menu_update(call, get_menu_text(u), kb.main_menu(u), image_url=get_menu_image(u))
 
-        bot.answer_callback_query(call.id)
+        try: bot.answer_callback_query(call.id)
+        except telebot.apihelper.ApiTelegramException as e:
+            if "query is too old" in e.description or "query ID is invalid" in e.description:
+                print(f"/// SYSTEM: Skipped dead query {call.id}")
+            else:
+                print(f"/// SYSTEM ERROR: {e}")
     except Exception as e:
         print(f"/// ERR: {e}"); traceback.print_exc()
         try: bot.answer_callback_query(call.id, "⚠️ ERROR")
