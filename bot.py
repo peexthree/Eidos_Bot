@@ -87,6 +87,15 @@ def loading_effect(chat_id, message_id, final_text, final_kb):
 # 👋 СТАРТ
 # =============================================================
 
+@bot.message_handler(commands=['hack_random'])
+def hack_command(m):
+    uid = m.from_user.id
+    try:
+        msg = logic.perform_hack(uid)
+        bot.send_message(uid, msg, parse_mode='HTML')
+    except Exception as e:
+        bot.send_message(uid, f"⚠️ ERROR: {e}")
+
 @bot.message_handler(commands=['start'])
 def start_handler(m):
     uid = m.from_user.id
@@ -138,20 +147,27 @@ def handle_query(call):
                 rem = int((cd - (time.time() - u['last_protocol_time'])) / 60)
                 bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
             else:
-                bot.answer_callback_query(call.id)
-                proto = logic.get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
-                txt = proto['text'] if proto else "/// ДАННЫЕ ПОВРЕЖДЕНЫ. ПОПРОБУЙ ПОЗЖЕ."
-                xp = random.randint(15, 40)
-                db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
-                if proto: db.save_knowledge(uid, proto.get('id', 0))
+                # GLITCH CHECK (Module 2)
+                if random.random() < 0.05:
+                    glitch_xp = random.randint(50, 150)
+                    db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+glitch_xp, notified=False)
+                    final_txt = f"🌀 <b>СБОЙ РЕАЛЬНОСТИ (GLITCH):</b>\n\nВы попытались синхронизироваться, но попали в поток чистого хаоса.\n\n⚡️ +{glitch_xp} XP"
+                    threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+                else:
+                    bot.answer_callback_query(call.id)
+                    proto = logic.get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
+                    txt = proto['text'] if proto else "/// ДАННЫЕ ПОВРЕЖДЕНЫ. ПОПРОБУЙ ПОЗЖЕ."
+                    xp = random.randint(15, 40)
+                    db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
+                    if proto: db.save_knowledge(uid, proto.get('id', 0))
 
-                lvl, msg = logic.check_level_up(uid)
-                if lvl:
-                    try: bot.send_message(uid, msg, parse_mode="HTML")
-                    except: pass
+                    lvl, msg = logic.check_level_up(uid)
+                    if lvl:
+                        try: bot.send_message(uid, msg, parse_mode="HTML")
+                        except: pass
 
-                final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
-                threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+                    final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
+                    threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
 
         elif call.data == "get_signal":
             cd = COOLDOWN_SIGNAL
@@ -159,19 +175,26 @@ def handle_query(call):
                  rem = int((cd - (time.time() - u['last_signal_time'])) / 60)
                  bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
             else:
-                 bot.answer_callback_query(call.id)
-                 sig = logic.get_content_logic('signal')
-                 txt = sig['text'] if sig else "/// НЕТ СВЯЗИ."
-                 xp = 10
-                 db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+xp)
+                 # GLITCH CHECK (Module 2)
+                 if random.random() < 0.05:
+                     glitch_xp = 50
+                     db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+glitch_xp)
+                     final_txt = f"🌀 <b>СБОЙ РЕАЛЬНОСТИ (GLITCH):</b>\n\nСигнал искажен временной аномалией.\n\n⚡️ +{glitch_xp} XP"
+                     threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+                 else:
+                     bot.answer_callback_query(call.id)
+                     sig = logic.get_content_logic('signal')
+                     txt = sig['text'] if sig else "/// НЕТ СВЯЗИ."
+                     xp = 10
+                     db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+xp)
 
-                 lvl, msg = logic.check_level_up(uid)
-                 if lvl:
-                     try: bot.send_message(uid, msg, parse_mode='HTML')
-                     except: pass
+                     lvl, msg = logic.check_level_up(uid)
+                     if lvl:
+                         try: bot.send_message(uid, msg, parse_mode='HTML')
+                         except: pass
 
-                 final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
-                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+                     final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
+                     threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
 
         elif call.data == "admin_panel":
              if db.is_user_admin(uid):

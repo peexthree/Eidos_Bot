@@ -291,6 +291,28 @@ def process_raid_step(uid, answer=None):
             # --- ДАЛЬШЕ ЛОГИКА ШАГА ---
             depth = s['depth']
             
+            # --- [MODULE 2] GLITCH MECHANIC (5%) ---
+            if random.random() < 0.05 and not s.get('current_enemy_id'):
+                glitch_roll = random.random()
+                glitch_text = ""
+
+                if glitch_roll < 0.4: # Positive
+                    bonus = int(depth * 10) + 100
+                    cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s WHERE uid=%s", (bonus, uid))
+                    glitch_text = f"✨ <b>СБОЙ РЕАЛЬНОСТИ (ПОЗИТИВ):</b> Вы нашли потерянный фрагмент памяти. +{bonus} XP."
+
+                elif glitch_roll < 0.7: # Heal
+                    cur.execute("UPDATE raid_sessions SET signal=LEAST(100, signal+50) WHERE uid=%s", (uid,))
+                    glitch_text = f"❤️ <b>СБОЙ РЕАЛЬНОСТИ (ЛЕЧЕНИЕ):</b> Сигнал внезапно восстановился. +50%."
+
+                else: # Negative
+                    loss = int(depth * 5)
+                    cur.execute("UPDATE raid_sessions SET buffer_coins=GREATEST(0, buffer_coins-%s) WHERE uid=%s", (loss, uid))
+                    glitch_text = f"⚠️ <b>ГЛИТЧ (ОШИБКА):</b> Часть данных повреждена. -{loss} BC из буфера."
+
+                # We just return this as an event
+                return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", None, u, 'glitch', 0
+
             # ПРОВЕРКА БОЯ
             if s.get('current_enemy_id'):
                 vid = s['current_enemy_id']
@@ -363,8 +385,17 @@ def process_raid_step(uid, answer=None):
 
             # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
             biome = RAID_BIOMES["wasteland"]
-            if 50 <= depth < 100: biome = RAID_BIOMES["archive"]
-            elif depth >= 100: biome = RAID_BIOMES["darknet"]
+
+            # Infinite Biomes (Module 5)
+            if 50 <= depth < 100:
+                biome = RAID_BIOMES["archive"]
+            elif depth >= 100:
+                hex_code = hex(depth)[2:].upper()
+                # Procedural Description
+                adj = random.choice(["Забытый", "Мертвый", "Неоновый", "Цифровой", "Глитч", "Абстрактный", "Холодный", "Темный"])
+                noun = random.choice(["Могильник", "Поток", "Узел", "Сервер", "Кладбище", "Лабиринт", "Архив", "Бункер"])
+                desc = f"{adj} {noun}"
+                biome = {"name": f"СЕКТОР {hex_code} ({desc})", "range": (100, 9999), "dmg_mod": 2.5 + (depth * 0.01)}
 
             new_depth = depth + 1 if not is_new else depth
             diff = biome['dmg_mod']
@@ -380,7 +411,18 @@ def process_raid_step(uid, answer=None):
 
             # БОЙ
             if current_type_code == 'combat':
-                villain = db.get_random_villain(depth // 20 + 1, cursor=cur)
+                # Mob Scaling (Module 5)
+                mob_level = min(30, (depth // 20) + 1)
+                villain = db.get_random_villain(mob_level, cursor=cur)
+
+                # Dynamic Stats Scaling for Deep Levels
+                if villain and depth > 100:
+                    scale_mult = 1.0 + ((depth - 100) * 0.01)
+                    villain['hp'] = int(villain['hp'] * scale_mult)
+                    villain['atk'] = int(villain['atk'] * scale_mult)
+                    villain['xp_reward'] = int(villain['xp_reward'] * scale_mult)
+                    villain['coin_reward'] = int(villain['coin_reward'] * scale_mult)
+
                 if villain:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=%s, current_enemy_hp=%s WHERE uid=%s", 
                                (villain['id'], villain['hp'], uid))
@@ -630,7 +672,9 @@ def format_inventory(uid, category='all'):
             name = ITEMS_INFO.get(iid, {}).get('name', iid)
             qty = i['quantity']
             desc = ITEMS_INFO.get(iid, {}).get('desc', '')[:30] + "..."
-            txt += f"• <b>{name}</b> x{qty}\n  <i>{desc}</i>\n"
+
+            qty_str = f" (x{qty})" if qty > 1 else ""
+            txt += f"• <b>{name}</b>{qty_str}\n  <i>{desc}</i>\n"
     else:
         txt += "<i>Пусто...</i>\n"
 
@@ -642,16 +686,22 @@ def format_inventory(uid, category='all'):
 # =============================================================
 
 def get_content_logic(c_type, path='general', level=1, decoder=False):
+    # FORCE RANDOM PATH FOR PROTOCOLS (Module 1)
+    if c_type == 'protocol':
+        path = 'all'
+
     # 1. Try DB first
     with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
         query = "SELECT * FROM content WHERE type=%s AND level <= %s"
         params = [c_type, level]
 
-        if path != 'general':
-            query += " AND (path=%s OR path='general')"
-            params.append(path)
-        else:
-            query += " AND path='general'"
+        if path != 'all':
+            if path != 'general':
+                query += " AND (path=%s OR path='general')"
+                params.append(path)
+            else:
+                query += " AND path='general'"
+        # If 'all', we don't filter by path, so we get random path
 
         query += " ORDER BY RANDOM() LIMIT 1"
         cur.execute(query, tuple(params))
@@ -667,10 +717,11 @@ def get_content_logic(c_type, path='general', level=1, decoder=False):
 
     filtered = [c for c in pool if c['type'] == c_type]
 
-    if path == 'general':
-        filtered = [c for c in filtered if c['path'] == 'general']
-    else:
-        filtered = [c for c in filtered if c['path'] == path or c['path'] == 'general']
+    if path != 'all':
+        if path == 'general':
+            filtered = [c for c in filtered if c['path'] == 'general']
+        else:
+            filtered = [c for c in filtered if c['path'] == path or c['path'] == 'general']
 
     if filtered:
         choice = random.choice(filtered).copy()
@@ -708,13 +759,24 @@ def process_combat_action(uid, action):
 
     if action == 'attack':
         is_crit = random.random() < (stats['luck'] / 100.0)
-        dmg = int(stats['atk'] * (1.5 if is_crit else 1.0))
-        dmg = int(dmg * random.uniform(0.8, 1.2))
+        base_dmg = int(stats['atk'] * (1.5 if is_crit else 1.0))
+
+        # RNG VARIANCE (Module 2)
+        variance = random.uniform(0.8, 1.2)
+        dmg = int(base_dmg * variance)
         dmg = max(1, dmg)
 
         new_enemy_hp = enemy_hp - dmg
+
         crit_msg = " (КРИТ!)" if is_crit else ""
-        msg += f"⚔️ <b>АТАКА:</b> Вы нанесли {dmg} урона{crit_msg}.\n"
+
+        # Detailed Logs
+        if variance > 1.1:
+            msg += f"⚔️ <b>КРИТИЧЕСКИЙ УДАР!</b> Вы замахнулись на {base_dmg}, но нанесли {dmg}!{crit_msg}\n"
+        elif variance < 0.9:
+             msg += f"⚔️ <b>СКОЛЬЗЯЩИЙ УДАР...</b> Вы замахнулись на {base_dmg}, но нанесли всего {dmg}.{crit_msg}\n"
+        else:
+             msg += f"⚔️ <b>АТАКА:</b> Вы нанесли {dmg} урона{crit_msg}.\n"
 
         if new_enemy_hp <= 0:
             xp_gain = villain.get('xp_reward', 0)
@@ -798,3 +860,63 @@ def process_combat_action(uid, action):
              return 'combat', msg
 
     return res_type, msg
+
+def perform_hack(attacker_uid):
+    # 1. Get Attacker Stats
+    stats, atk_u = get_user_stats(attacker_uid)
+    if not atk_u: return "❌ Ошибка авторизации."
+
+    # Cost
+    HACK_COST_XP = 50
+    if atk_u['xp'] < HACK_COST_XP:
+        return f"🪫 Не хватает энергии. Нужно {HACK_COST_XP} XP."
+
+    # 2. Get Random Target
+    target_uid = db.get_random_user_for_hack(attacker_uid)
+    if not target_uid: return "❌ Некого взламывать."
+
+    def_stats, def_u = get_user_stats(target_uid)
+    if not def_u: return "❌ Цель потеряна."
+
+    # 3. Formula
+    # (Int + Luck) vs (Defense + Level*2)
+    # Using ATK as Int equivalent for hacking context + Luck
+    atk_score = stats['atk'] + stats['luck'] + random.randint(1, 20)
+    def_score = def_stats['def'] + (def_u['level'] * 2) + random.randint(1, 20)
+
+    # Check for Firewall (Target Item)
+    has_firewall = db.get_item_count(target_uid, 'firewall') > 0
+
+    msg = ""
+
+    if has_firewall:
+        # Consume Firewall
+        db.use_item(target_uid, 'firewall', 1)
+        # Pay Cost
+        db.update_user(attacker_uid, xp=max(0, atk_u['xp'] - HACK_COST_XP))
+        msg = f"🛡 <b>ВЗЛОМ ПРЕДОТВРАЩЕН!</b>\nУ @{def_u['username']} сработал Файрвол."
+
+    elif atk_score > def_score:
+        # Steal 5-10% coins
+        steal_perc = random.uniform(0.05, 0.10)
+        steal_amount = int(def_u['biocoin'] * steal_perc)
+        steal_amount = min(steal_amount, 5000) # Cap
+        if steal_amount < 0: steal_amount = 0
+
+        # Transaction
+        db.update_user(attacker_uid, biocoin=atk_u['biocoin'] + steal_amount, xp=atk_u['xp'] - HACK_COST_XP)
+        db.update_user(target_uid, biocoin=max(0, def_u['biocoin'] - steal_amount))
+
+        msg = (f"🔓 <b>ВЗЛОМ УСПЕШЕН!</b>\n"
+               f"Жертва: @{def_u['username']}\n"
+               f"Украдено: {steal_amount} BC")
+    else:
+        # Penalty: Lose XP
+        loss_xp = 100
+        db.update_user(attacker_uid, xp=max(0, atk_u['xp'] - HACK_COST_XP - loss_xp))
+        msg = (f"🚫 <b>ВЗЛОМ ПРОВАЛЕН!</b>\n"
+               f"Жертва: @{def_u['username']}\n"
+               f"Защита оказалась сильнее.\n"
+               f"Штраф: -{loss_xp} XP")
+
+    return msg
