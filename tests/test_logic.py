@@ -9,6 +9,9 @@ sys.modules['psycopg2.extras'] = MagicMock()
 sys.modules['telebot'] = MagicMock()
 sys.modules['flask'] = MagicMock()
 
+# Save original database module if it exists
+original_db = sys.modules.get('database')
+
 # Mock database module (logic.py imports 'database as db')
 # We need to do this before importing logic
 db_mock = MagicMock()
@@ -16,6 +19,12 @@ sys.modules['database'] = db_mock
 
 # Now import logic
 import logic
+
+# Restore original database module to avoid polluting other tests
+if original_db:
+    sys.modules['database'] = original_db
+else:
+    del sys.modules['database']
 
 class TestLogic(unittest.TestCase):
 
@@ -68,8 +77,35 @@ class TestLogic(unittest.TestCase):
         self.assertEqual(stats['income_total'], 2300)
 
     def test_draw_bar(self):
-        bar = logic.draw_bar(50, 100, 10)
-        self.assertEqual(bar, "█████░░░░░")
+        # 1. Normal Cases
+        self.assertEqual(logic.draw_bar(50, 100, 10), "█████░░░░░")
+        self.assertEqual(logic.draw_bar(0, 100, 10), "░░░░░░░░░░")
+        self.assertEqual(logic.draw_bar(100, 100, 10), "██████████")
+
+        # 2. Custom Length
+        self.assertEqual(logic.draw_bar(50, 100, 4), "██░░")
+        self.assertEqual(logic.draw_bar(25, 100, 4), "█░░░")
+
+        # 3. Boundary / Overflow / Underflow
+        self.assertEqual(logic.draw_bar(150, 100, 10), "██████████")  # Cap at max
+        self.assertEqual(logic.draw_bar(-10, 100, 10), "░░░░░░░░░░")  # Cap at min
+
+        # 4. Zero or Negative Total
+        self.assertEqual(logic.draw_bar(10, 0, 10), "░░░░░░░░░░")
+        self.assertEqual(logic.draw_bar(10, -50, 10), "░░░░░░░░░░")
+
+        # 5. Floating Point
+        self.assertEqual(logic.draw_bar(50.5, 100, 10), "█████░░░░░")
+
+        # 6. Rounding Checks
+        # 33% of 10 is 3.3 -> 3 blocks
+        self.assertEqual(logic.draw_bar(33, 100, 10), "███░░░░░░░")
+        # 99% of 10 is 9.9 -> 9 blocks (int truncation)
+        self.assertEqual(logic.draw_bar(99, 100, 10), "█████████░")
+
+        # 7. Small totals
+        self.assertEqual(logic.draw_bar(1, 1, 5), "█████")
+        self.assertEqual(logic.draw_bar(0, 1, 5), "░░░░░")
 
     @patch('logic.db.get_user')
     @patch('logic.db.update_user')
