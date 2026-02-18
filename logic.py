@@ -1,5 +1,5 @@
 import database as db
-from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_ENTRY_COSTS
+from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_ENTRY_COSTS, LEVEL_UP_MSG
 import random
 import time
 import re
@@ -435,6 +435,28 @@ def get_level_progress_stats(u):
 
     return max(0, perc), max(0, needed)
 
+def check_level_up(uid):
+    u = db.get_user(uid)
+    if not u: return None, None
+
+    current_level = u.get('level', 1)
+    xp = u.get('xp', 0)
+    new_level = current_level
+
+    while True:
+        target = LEVELS.get(new_level)
+        if target and xp >= target:
+            new_level += 1
+        else:
+            break
+
+    if new_level > current_level:
+        db.update_user(uid, level=new_level)
+        msg = LEVEL_UP_MSG.get(new_level, f"🔓 <b>LVL {new_level}</b>\nУровень повышен!")
+        return new_level, msg
+
+    return None, None
+
 def get_profile_stats(uid):
     u = db.get_user(uid)
     if not u: return None
@@ -585,8 +607,8 @@ def process_combat_action(uid, action):
         msg += f"⚔️ <b>АТАКА:</b> Вы нанесли {dmg} урона{crit_msg}.\n"
 
         if new_enemy_hp <= 0:
-            xp_gain = villain['xp']
-            coin_gain = random.randint(villain.get('min_coins', 10), villain.get('max_coins', 50))
+            xp_gain = villain.get('xp_reward', 0)
+            coin_gain = villain.get('coin_reward', 0)
 
             if u['path'] == 'money': coin_gain = int(coin_gain * 1.2)
             if u['path'] == 'tech': xp_gain = int(xp_gain * 0.9)

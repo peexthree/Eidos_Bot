@@ -139,6 +139,11 @@ def handle_query(call):
                 db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
                 if proto: db.save_knowledge(uid, 0)
 
+                lvl, msg = logic.check_level_up(uid)
+                if lvl:
+                    try: bot.send_message(uid, msg, parse_mode="HTML")
+                    except: pass
+
                 final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
 
@@ -153,6 +158,11 @@ def handle_query(call):
                  txt = sig['text'] if sig else "/// НЕТ СВЯЗИ."
                  xp = 10
                  db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+xp)
+
+                 lvl, msg = logic.check_level_up(uid)
+                 if lvl:
+                     try: bot.send_message(uid, msg, parse_mode='HTML')
+                     except: pass
 
                  final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
                  threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
@@ -340,6 +350,11 @@ def handle_query(call):
                      if res:
                          db.add_xp_to_user(uid, res[0])
                          db.update_user(uid, biocoin=u['biocoin'] + res[1])
+
+             lvl, msg = logic.check_level_up(uid)
+             if lvl:
+                 try: bot.send_message(uid, msg, parse_mode="HTML")
+                 except: pass
 
              # Process buffered items
              with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
