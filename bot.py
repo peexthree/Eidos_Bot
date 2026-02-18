@@ -1,3 +1,4 @@
+import traceback
 import telebot
 from telebot import types
 import config
@@ -280,7 +281,7 @@ def handle_query(call):
             currency = 'xp' if item in ['cryo', 'accel'] else 'biocoin'
 
             if currency == 'xp':
-                if u['xp'] >= cost:
+                if u.get('xp', 0) >= cost:
                     db.add_item(uid, item)
                     db.update_user(uid, xp=u['xp'] - cost)
                     bot.answer_callback_query(call.id, f"✅ Куплено: {item}")
@@ -494,7 +495,7 @@ def handle_query(call):
 
         bot.answer_callback_query(call.id)
     except Exception as e:
-        print(f"/// ERR: {e}")
+        print(f"/// ERR: {e}"); traceback.print_exc()
         try: bot.answer_callback_query(call.id, "⚠️ ERROR")
         except: pass
 
