@@ -154,11 +154,6 @@ def init_db():
                     xp_reward INTEGER, coin_reward INTEGER, description TEXT, UNIQUE(name)
                 );
             ''')
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS action_logs (
-                    id SERIAL PRIMARY KEY, uid BIGINT, action TEXT, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            ''')
     populate_villains()
     populate_content()
 
@@ -398,19 +393,6 @@ def get_leaderboard(limit=10):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
         cur.execute("SELECT first_name, xp, level, max_depth FROM users ORDER BY max_depth DESC, xp DESC LIMIT %s", (limit,))
-        return cur.fetchall()
-
-def log_action(uid, action, details=None):
-    try:
-        with db_session() as conn:
-             with conn.cursor() as cur:
-                 cur.execute("INSERT INTO action_logs (uid, action, details) VALUES (%s, %s, %s)", (uid, action, details))
-    except Exception as e: print(f"LOG ERROR: {e}")
-
-def get_user_logs(uid, limit=20):
-    with db_cursor(cursor_factory=RealDictCursor) as cur:
-        if not cur: return []
-        cur.execute("SELECT action, details, created_at FROM action_logs WHERE uid = %s ORDER BY created_at DESC LIMIT %s", (uid, limit))
         return cur.fetchall()
 
 def add_diary_entry(uid, text):

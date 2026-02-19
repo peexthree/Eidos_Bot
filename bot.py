@@ -12,7 +12,6 @@ import flask
 import os
 import sys
 import random
-import html
 from datetime import datetime, timedelta
 from psycopg2.extras import RealDictCursor
 
@@ -91,7 +90,6 @@ def loading_effect(chat_id, message_id, final_text, final_kb):
 @bot.message_handler(commands=['hack_random'])
 def hack_command(m):
     uid = m.from_user.id
-    db.log_action(uid, "hack_random", "/hack_random used")
     try:
         msg = logic.perform_hack(uid)
         bot.send_message(uid, msg, parse_mode='HTML')
@@ -101,7 +99,6 @@ def hack_command(m):
 @bot.message_handler(commands=['start'])
 def start_handler(m):
     uid = m.from_user.id
-    db.log_action(uid, "start", m.text)
     ref = m.text.split()[1] if len(m.text.split()) > 1 else None
     
     if not db.get_user(uid):
@@ -127,7 +124,6 @@ def start_handler(m):
 @bot.message_handler(commands=['admin'])
 def admin_command(m):
     uid = m.from_user.id
-    db.log_action(uid, "admin", "Accessed Admin Panel")
     if db.is_user_admin(uid):
         bot.send_message(uid, "⚡️ <b>GOD MODE: ACCESS GRANTED</b>", reply_markup=kb.admin_main_menu(), parse_mode="HTML")
 
@@ -138,7 +134,6 @@ def admin_command(m):
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
     uid = call.from_user.id
-    db.log_action(uid, "callback", call.data)
     u = db.get_user(uid)
     if not u:
         bot.answer_callback_query(call.id, "❌ Ошибка авторизации. Жми /start")
@@ -229,7 +224,7 @@ def handle_query(call):
         elif call.data in ["admin_grant_admin", "admin_revoke_admin", "admin_give_res",
                            "admin_broadcast", "admin_post_channel", "admin_add_riddle",
                            "admin_add_content", "admin_add_signal", "admin_sql", "admin_dm_user",
-                           "admin_reset_user", "admin_user_logs"]:
+                           "admin_reset_user"]:
              if not db.is_user_admin(uid): return
 
              state_map = {
@@ -243,8 +238,7 @@ def handle_query(call):
                  "admin_add_signal": "wait_add_signal",
                  "admin_sql": "wait_sql",
                  "admin_dm_user": "wait_dm_user_id",
-                 "admin_reset_user": "wait_reset_user_id",
-                 "admin_user_logs": "wait_log_user_id"
+                 "admin_reset_user": "wait_reset_user_id"
              }
              user_states[uid] = state_map[call.data]
              msg_map = {
@@ -258,8 +252,7 @@ def handle_query(call):
                  "admin_add_signal": "📡 <b>ENTER SIGNAL TEXT:</b>",
                  "admin_sql": "📜 <b>ENTER SQL QUERY:</b>\n⚠️ BE CAREFUL!",
                  "admin_dm_user": "🆔 <b>ENTER USER ID TO DM:</b>",
-                 "admin_reset_user": "♻️ <b>ENTER USER ID TO RESET (XP=0, LVL=1):</b>",
-                 "admin_user_logs": "🆔 <b>ВВЕДИТЕ ID ИГРОКА ДЛЯ ПРОСМОТРА ЛОГОВ:</b>"
+                 "admin_reset_user": "♻️ <b>ENTER USER ID TO RESET (XP=0, LVL=1):</b>"
              }
              menu_update(call, msg_map[call.data], kb.back_button())
 
@@ -695,8 +688,6 @@ def handle_query(call):
 @bot.message_handler(content_types=['text'])
 def text_handler(m):
     uid = m.from_user.id
-    if m.text and not m.text.startswith('/'):
-         db.log_action(uid, "text", m.text[:50])
     state = user_states.get(uid)
 
     if not state: return
@@ -729,24 +720,6 @@ def text_handler(m):
                  db.set_user_admin(tid, False)
                  bot.send_message(uid, f"✅ ADMIN REVOKED FROM {tid}")
         except: bot.send_message(uid, "❌ INVALID ID")
-        del user_states[uid]
-
-    elif state == "wait_log_user_id":
-        try:
-            tid = int(m.text)
-            logs = db.get_user_logs(tid)
-            if not logs:
-                bot.send_message(uid, "📭 <b>ЛОГИ ПУСТЫ</b>", parse_mode="HTML")
-            else:
-                msg = f"📜 <b>ЛОГИ ИГРОКА {tid}:</b>\n\n"
-                for l in logs:
-                    dt = l['created_at'].strftime('%d.%m %H:%M:%S')
-                    safe_details = html.escape(str(l.get('details', '') or ''))
-                    safe_action = html.escape(str(l['action']))
-                    msg += f"[{dt}] <b>{safe_action}</b>\n{safe_details[:100]}\n\n"
-                bot.send_message(uid, msg, parse_mode="HTML")
-        except Exception as e:
-            bot.send_message(uid, f"❌ ERROR: {e}")
         del user_states[uid]
 
     elif state == "wait_reset_user_id":
