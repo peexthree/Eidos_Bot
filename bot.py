@@ -585,6 +585,8 @@ def handle_query(call):
                  full_txt = f"{msg}\n\n{txt}"
                  consumables = get_consumables(uid)
                  image_url = extra.get('image') if extra else None
+                 # FIX: If no new image (e.g. non-combat step), reset to faction image to remove monster pic
+                 if not image_url: image_url = get_menu_image(new_u)
                  menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
 
              elif res_type == 'escaped':
@@ -592,6 +594,8 @@ def handle_query(call):
                  full_txt = f"{msg}\n\n{txt}"
                  consumables = get_consumables(uid)
                  image_url = extra.get('image') if extra else None
+                 # FIX: If no new image, reset to faction image
+                 if not image_url: image_url = get_menu_image(new_u)
                  menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
 
              elif res_type == 'death':

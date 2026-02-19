@@ -443,17 +443,28 @@ def get_user_achievements(uid):
         return [row[0] for row in cur.fetchall()]
 
 def get_random_villain(level=1, cursor=None):
-    # Find closest level match, then random among ties
-    query = "SELECT * FROM villains ORDER BY ABS(level - %s) ASC, RANDOM() LIMIT 1"
+    # Find random villain in range [level-15, level] to add variety
+    min_lvl = max(1, level - 15)
+    max_lvl = level
+    query = "SELECT * FROM villains WHERE level BETWEEN %s AND %s ORDER BY RANDOM() LIMIT 1"
+    fallback_query = "SELECT * FROM villains ORDER BY ABS(level - %s) ASC, RANDOM() LIMIT 1"
 
     if cursor:
-        cursor.execute(query, (level,))
-        return cursor.fetchone()
+        cursor.execute(query, (min_lvl, max_lvl))
+        res = cursor.fetchone()
+        if not res:
+            cursor.execute(fallback_query, (level,))
+            res = cursor.fetchone()
+        return res
 
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
-        cur.execute(query, (level,))
-        return cur.fetchone()
+        cur.execute(query, (min_lvl, max_lvl))
+        res = cur.fetchone()
+        if not res:
+            cur.execute(fallback_query, (level,))
+            res = cur.fetchone()
+        return res
 
 def update_raid_enemy(uid, enemy_id, hp):
     with db_session() as conn:
