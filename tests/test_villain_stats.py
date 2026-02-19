@@ -90,12 +90,12 @@ class TestVillainStatsFix(unittest.TestCase):
         # Assertions
         self.assertTrue(success)
 
-        # Check HP is exactly 60/60
-        self.assertIn("60/60", interface)
+        # Check HP is exactly 60 / 60 (updated format with spaces)
+        self.assertIn("60 / 60", interface)
 
         # Check Attack and Defense are displayed
-        self.assertIn(f"👹 Враг ATK: {self.mock_villain['atk']}", interface)
-        self.assertIn(f"🛡 DEF: {self.mock_villain['def']}", interface)
+        self.assertIn(f"⚔️ Атака: {self.mock_villain['atk']}", interface)
+        self.assertIn(f"🛡 Защита: {self.mock_villain['def']}", interface)
 
         # Verify get_random_villain was called
         mock_db.get_random_villain.assert_called()
