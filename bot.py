@@ -469,25 +469,29 @@ def handle_query(call):
              menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {u['xp']}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost))
 
         elif call.data == "raid_enter":
-             res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
+             res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
              if not res:
                  bot.answer_callback_query(call.id, txt, show_alert=True)
              else:
                  consumables = get_consumables(uid)
-                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
-                 menu_update(call, txt, markup)
+                 riddle_opts = extra['options'] if etype == 'riddle' and extra else []
+                 image_url = extra.get('image') if extra else None
+                 markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+                 menu_update(call, txt, markup, image_url=image_url)
 
         elif call.data == "raid_step":
-             res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
+             res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
              if not res:
                  menu_update(call, txt, kb.back_button())
              else:
                  consumables = get_consumables(uid)
-                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
-                 menu_update(call, txt, markup)
+                 riddle_opts = extra['options'] if etype == 'riddle' and extra else []
+                 image_url = extra.get('image') if extra else None
+                 markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+                 menu_update(call, txt, markup, image_url=image_url)
 
         elif call.data == "raid_open_chest":
-             res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid, answer='open_chest')
+             res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid, answer='open_chest')
              if not res:
                  if txt == "no_key":
                      bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
@@ -495,33 +499,36 @@ def handle_query(call):
                      bot.answer_callback_query(call.id, txt, show_alert=True)
              else:
                  # Success
-                 alert_txt = f"🔓 СИСТЕМА РАЗБЛОКИРОВАНА. Получено: {riddle.get('alert', '')}"
+                 alert_txt = f"🔓 СИСТЕМА РАЗБЛОКИРОВАНА. Получено: {extra.get('alert', '')}" if extra else "🔓 СИСТЕМА РАЗБЛОКИРОВАНА"
                  bot.answer_callback_query(call.id, alert_txt, show_alert=True)
                  consumables = get_consumables(uid)
+                 image_url = extra.get('image') if extra else None
                  markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
-                 menu_update(call, txt, markup)
+                 menu_update(call, txt, markup, image_url=image_url)
 
         elif call.data == "raid_use_battery":
-             res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid, answer='use_battery')
+             res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid, answer='use_battery')
              if not res:
                  bot.answer_callback_query(call.id, txt, show_alert=True)
              else:
-                 alert_txt = riddle.get('alert', 'Батарея использована')
+                 alert_txt = extra.get('alert', 'Батарея использована') if extra else 'Батарея использована'
                  bot.answer_callback_query(call.id, alert_txt, show_alert=True)
                  consumables = get_consumables(uid)
+                 image_url = extra.get('image') if extra else None
                  markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
-                 menu_update(call, txt, markup)
+                 menu_update(call, txt, markup, image_url=image_url)
 
         elif call.data == "raid_use_stimulator":
-             res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid, answer='use_stimulator')
+             res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid, answer='use_stimulator')
              if not res:
                  bot.answer_callback_query(call.id, txt, show_alert=True)
              else:
-                 alert_txt = riddle.get('alert', 'Стимулятор использован')
+                 alert_txt = extra.get('alert', 'Стимулятор использован') if extra else 'Стимулятор использован'
                  bot.answer_callback_query(call.id, alert_txt, show_alert=True)
                  consumables = get_consumables(uid)
+                 image_url = extra.get('image') if extra else None
                  markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
-                 menu_update(call, txt, markup)
+                 menu_update(call, txt, markup, image_url=image_url)
 
         elif call.data == "use_admin_key":
              bot.answer_callback_query(call.id, "🟠 КЛЮЧ АРХИТЕКТОРА:\n\nЭтот артефакт пульсирует странной энергией.\nОн не имеет видимого применения в этой версии реальности.\n\n...пока что.", show_alert=True)
@@ -564,34 +571,38 @@ def handle_query(call):
 
              if res_type == 'error':
                  bot.answer_callback_query(call.id, msg, show_alert=True)
-                 res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
+                 res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
                  if res:
                      consumables = get_consumables(uid)
-                     menu_update(call, txt, kb.raid_action_keyboard(cost, etype, consumables=consumables))
+                     image_url = extra.get('image') if extra else None
+                     menu_update(call, txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
                  else: menu_update(call, "Ошибка синхронизации.", kb.back_button())
 
              elif res_type == 'win':
                  bot.answer_callback_query(call.id, "VICTORY!")
                  # Continue after win
-                 res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
+                 res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
                  consumables = get_consumables(uid)
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables))
+                 image_url = extra.get('image') if extra else None
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
 
              elif res_type == 'escaped':
-                 res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
+                 res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
                  consumables = get_consumables(uid)
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables))
+                 image_url = extra.get('image') if extra else None
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
 
              elif res_type == 'death':
                  menu_update(call, msg, kb.back_button())
 
              elif res_type == 'combat':
-                 res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
+                 res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
                  consumables = get_consumables(uid)
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, 'combat', consumables=consumables))
+                 image_url = extra.get('image') if extra else None
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, 'combat', consumables=consumables), image_url=image_url)
 
         # --- RIDDLES ---
         elif call.data.startswith("r_check_"):
@@ -599,11 +610,13 @@ def handle_query(call):
             success, msg = logic.process_riddle_answer(uid, ans)
             bot.answer_callback_query(call.id, "Принято.")
 
-            res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
+            res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
             full_txt = f"{msg}\n\n{txt}"
             consumables = get_consumables(uid)
-            markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
-            menu_update(call, full_txt, markup)
+            riddle_opts = extra['options'] if etype == 'riddle' and extra else []
+            image_url = extra.get('image') if extra else None
+            markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+            menu_update(call, full_txt, markup, image_url=image_url)
 
         # --- 6. MISC ---
         elif call.data == "leaderboard":

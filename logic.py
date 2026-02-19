@@ -248,22 +248,14 @@ def generate_raid_report(uid, s, success=False):
         )
 
 def format_combat_screen(villain, hp, signal, stats, session):
-    sig_bar = draw_bar(signal, 100, 8)
-    hp_bar = draw_bar(hp, villain['hp'], 8)
-    win_chance = min(95, max(10, 50 + (stats['atk'] - villain['def']) * 2))
-    
     txt = (
-        f"⚠️ <b>ВНИМАНИЕ! ОБНАРУЖЕНА УГРОЗА!</b>\n\n"
-        f"👹 <b>{villain['name']}</b> (Lvl {villain['level']})\n"
-        f"❤️ HP: <code>{hp_bar}</code> {hp}/{villain['hp']}\n"
-        f"📝 <i>{villain['description']}</i>\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"📡 Твой Сигнал: <code>{sig_bar}</code> {signal}%\n"
-        f"⚔️ Твоя ATK: {stats['atk']} | 🛡 DEF: {stats['def']}\n"
-        f"👹 Враг ATK: {villain['atk']} | 🛡 DEF: {villain['def']}\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"📊 <b>ШАНС ПОБЕДЫ: ~{win_chance}%</b>\n"
-        f"💀 При побеге: 50% шанс получить удар в спину."
+        f"👹 УГРОЗА ОБНАРУЖЕНА: <b>{villain['name']}</b> (Lvl {villain['level']})\n\n"
+        f"<i>{villain['description']}</i>\n\n"
+        f"📊 <b>ХАРАКТЕРИСТИКИ:</b>\n"
+        f"❤️ HP: {hp} / {villain['hp']}\n"
+        f"⚔️ Атака: {villain['atk']}\n"
+        f"🛡 Защита: {villain['def']}\n\n"
+        f"⚠️ Оцените риски перед атакой."
     )
     return txt
 
@@ -393,7 +385,8 @@ def process_raid_step(uid, answer=None):
                 v_hp = s.get('current_enemy_hp', 10)
                 villain = db.get_villain_by_id(vid, cursor=cur)
                 if villain:
-                    return True, format_combat_screen(villain, v_hp, s['signal'], stats, s), None, u, 'combat', 0
+                    extra_data = {'image': villain.get('image')}
+                    return True, format_combat_screen(villain, v_hp, s['signal'], stats, s), extra_data, u, 'combat', 0
                 else:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
                     conn.commit()
@@ -517,7 +510,8 @@ def process_raid_step(uid, answer=None):
                     next_preview = generate_random_event_type()
                     cur.execute("UPDATE raid_sessions SET next_event_type=%s WHERE uid=%s", (next_preview, uid))
                     conn.commit()
-                    return True, format_combat_screen(villain, villain['hp'], s['signal'], stats, s), None, u, 'combat', 0
+                    extra_data = {'image': villain.get('image')}
+                    return True, format_combat_screen(villain, villain['hp'], s['signal'], stats, s), extra_data, u, 'combat', 0
 
             # СУНДУК
             elif current_type_code == 'locked_chest':
