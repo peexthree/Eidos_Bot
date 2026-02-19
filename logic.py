@@ -20,7 +20,7 @@ GAME_GUIDE_TEXTS = {
     'combat': (
         "<b>⚔️ КАК ДРАТЬСЯ?</b>\n\n"
         "В бою у тебя есть 2 пути:\n"
-        "1. <b>АТАКА:</b> Наносишь урон. Если у тебя мало здоровья (<20%), включается <b>🩸 АДРЕНАЛИН</b> (Урон x2).\n"
+        "1. <b>АТАКА:</b> Наносишь урон. Если у тебя мало здоровья (&lt;20%), включается <b>🩸 АДРЕНАЛИН</b> (Урон x2).\n"
         "2. <b>ПОБЕГ:</b> Шанс 50%. Если не повезет — получишь удар в спину.\n\n"
         "<b>💀 КАЗНЬ:</b> Если у врага меньше 10% HP, ты убиваешь его мгновенно.\n"
         "<b>🛡 ЗАЩИТА:</b> Твоя броня снижает входящий урон. Чем больше DEF, тем меньше ты получаешь."
@@ -473,12 +473,14 @@ def process_raid_step(uid, answer=None):
             # БОЙ
             if current_type_code == 'combat':
                 # Mob Scaling (Module 5)
-                mob_level = min(30, (depth // 20) + 1)
+                # Cap mob level at User Level + 5 to prevent impossible mechanical fights for low levels deep diving
+                mob_level = min(30, (depth // 20) + 1, u['level'] + 5)
                 villain = db.get_random_villain(mob_level, cursor=cur)
 
                 # Dynamic Stats Scaling for Deep Levels
                 if villain and depth > 100:
-                    scale_mult = 1.0 + ((depth - 100) * 0.01)
+                    # Reduced scaling from 1% to 0.5% per meter
+                    scale_mult = 1.0 + ((depth - 100) * 0.005)
                     villain['hp'] = int(villain['hp'] * scale_mult)
                     villain['atk'] = int(villain['atk'] * scale_mult)
                     villain['xp_reward'] = int(villain['xp_reward'] * scale_mult)
