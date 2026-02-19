@@ -3,6 +3,7 @@ from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_T
 import random
 import time
 import re
+import copy
 from datetime import datetime
 from content_presets import CONTENT_DATA
 
@@ -259,6 +260,7 @@ def format_combat_screen(villain, hp, signal, stats, session):
         f"━━━━━━━━━━━━━━\n"
         f"📡 Твой Сигнал: <code>{sig_bar}</code> {signal}%\n"
         f"⚔️ Твоя ATK: {stats['atk']} | 🛡 DEF: {stats['def']}\n"
+        f"👹 Враг ATK: {villain['atk']} | 🛡 DEF: {villain['def']}\n"
         f"━━━━━━━━━━━━━━\n"
         f"📊 <b>ШАНС ПОБЕДЫ: ~{win_chance}%</b>\n"
         f"💀 При побеге: 50% шанс получить удар в спину."
@@ -313,43 +315,6 @@ def generate_random_event_type():
     if r < 0.15: return 'combat'
     if r < 0.30: return 'locked_chest'
     return 'random'
-
-def scale_enemy_stats(villain, user_stats, u):
-    """
-    Dynamically adjusts enemy stats to be challenging but winnable based on user power.
-    Target: Fight lasts ~8-12 turns. Player survives ~6-8 hits unhealed.
-    """
-    # 1. Calculate Player Power
-    p_atk = max(5, user_stats['atk']) # Floor at 5
-    p_def = user_stats['def']
-
-    # 2. Target Enemy HP (Player Atk * 8..12)
-    target_hp = p_atk * 10
-
-    # 3. Target Enemy Atk (Player HP / 6..8) + Mitigation
-    # Player HP is Signal (100). Mitigation = Def / (Def + 100)
-    mitigation = p_def / (p_def + 100)
-    target_dmg_per_hit = 15 # 100 / 7 approx
-    # Raw Dmg needed to deal 15 dmg after mitigation:
-    # X * (1 - mit) = 15 => X = 15 / (1 - mit)
-    target_atk = int(target_dmg_per_hit / (1.0 - mitigation))
-
-    # 4. Scale existing villain stats (preserve flavor if possible)
-    # If villain is WAY too strong, nerf it.
-    if villain['hp'] > target_hp * 2:
-        villain['hp'] = int(target_hp * 1.5) # Still tough, but not 100x
-
-    if villain['atk'] > target_atk * 2:
-        villain['atk'] = int(target_atk * 1.5)
-
-    # 5. Buff if too weak (e.g. Level 30 player vs Level 1 mob)
-    if villain['hp'] < target_hp * 0.5:
-        villain['hp'] = int(target_hp * 0.8)
-
-    if villain['atk'] < target_atk * 0.5:
-        villain['atk'] = int(target_atk * 0.8)
-
-    return villain
 
 def process_raid_step(uid, answer=None):
     stats, u = get_user_stats(uid)
@@ -536,17 +501,8 @@ def process_raid_step(uid, answer=None):
                 villain = db.get_random_villain(mob_level, cursor=cur)
 
                 if villain:
-                    # Dynamic Balance (New Function)
-                    villain = scale_enemy_stats(villain, stats, u)
-
-                    # Dynamic Stats Scaling for Deep Levels
-                    if depth > 100:
-                        # Reduced scaling from 1% to 0.5% per meter
-                        scale_mult = 1.0 + ((depth - 100) * 0.005)
-                        villain['hp'] = int(villain['hp'] * scale_mult)
-                        villain['atk'] = int(villain['atk'] * scale_mult)
-                        villain['xp_reward'] = int(villain['xp_reward'] * scale_mult)
-                        villain['coin_reward'] = int(villain['coin_reward'] * scale_mult)
+                    # STRICT COPY to prevent mutation of cache/config
+                    villain = copy.deepcopy(villain)
 
                     # ELITE MOBS IMPLEMENTATION
                     is_elite = False
