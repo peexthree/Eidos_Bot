@@ -57,8 +57,8 @@ class TestLogic(unittest.TestCase):
 
         txt = logic.format_inventory(1)
         self.assertIn("РЮКЗАК", txt)
-        self.assertIn("БАТАРЕЯ", txt) # Assuming ITEMS_INFO fallback uses id if name missing or check real name
-        self.assertIn("НОЖ", txt) # Assuming EQUIPMENT_DB fallback
+        self.assertIn("ЭНЕРГО-ЯЧЕЙКА", txt) # Assuming ITEMS_INFO fallback uses id if name missing or check real name
+        self.assertIn("ТЕСАК", txt) # Assuming EQUIPMENT_DB fallback
 
     @patch('logic.db.get_user')
     def test_get_profile_stats(self, mock_get_user):

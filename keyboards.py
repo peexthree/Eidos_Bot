@@ -177,12 +177,38 @@ def raid_welcome_keyboard(cost):
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back"))
     return m
 
-def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, battery_count=0):
+def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumables={}):
     m = types.InlineKeyboardMarkup()
     
+    battery_count = consumables.get('battery', 0)
+    stimulator_count = consumables.get('neural_stimulator', 0)
+
     if event_type == 'combat':
         m.row(types.InlineKeyboardButton("⚔️ АТАКА", callback_data="combat_attack"),
               types.InlineKeyboardButton("🏃 БЕЖАТЬ", callback_data="combat_run"))
+
+        # Combat Consumables
+        emp_count = consumables.get('emp_grenade', 0)
+        stealth_count = consumables.get('stealth_spray', 0)
+        wiper_count = consumables.get('memory_wiper', 0)
+
+        combat_items = []
+        if emp_count > 0:
+            combat_items.append(types.InlineKeyboardButton(f"💣 EMP (x{emp_count})", callback_data="combat_use_emp"))
+        if stealth_count > 0:
+            combat_items.append(types.InlineKeyboardButton(f"👻 STEALTH (x{stealth_count})", callback_data="combat_use_stealth"))
+        if wiper_count > 0:
+            combat_items.append(types.InlineKeyboardButton(f"🧹 WIPER (x{wiper_count})", callback_data="combat_use_wiper"))
+
+        if combat_items:
+             m.add(*combat_items)
+
+        # Healing in combat
+        if battery_count > 0:
+            m.add(types.InlineKeyboardButton(f"🔋 БАТАРЕЯ (x{battery_count})", callback_data="raid_use_battery"))
+        if stimulator_count > 0:
+            m.add(types.InlineKeyboardButton(f"💉 СТИМУЛЯТОР (x{stimulator_count})", callback_data="raid_use_stimulator"))
+
         return m
 
     if event_type == 'locked_chest':
@@ -190,6 +216,8 @@ def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, battery_c
 
     if battery_count > 0:
         m.add(types.InlineKeyboardButton(f"🔋 ИСПОЛЬЗОВАТЬ БАТАРЕЮ (x{battery_count})", callback_data="raid_use_battery"))
+    if stimulator_count > 0:
+        m.add(types.InlineKeyboardButton(f"💉 ИСПОЛЬЗОВАТЬ СТИМУЛЯТОР (x{stimulator_count})", callback_data="raid_use_stimulator"))
             
     m.add(types.InlineKeyboardButton(f"👣 ШАГ ВГЛУБЬ (-{xp_cost} XP)", callback_data="raid_step"))
     m.add(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ", callback_data="raid_extract"))
