@@ -110,24 +110,31 @@ class TestLogic(unittest.TestCase):
     @patch('logic.db.get_user')
     @patch('logic.db.update_user')
     def test_check_level_up(self, mock_update, mock_get_user):
+        # Case 0: Level 0 -> 1 (100 XP needed)
+        mock_get_user.return_value = {'level': 0, 'xp': 100}
+        new_level, msg = logic.check_level_up(1)
+        self.assertEqual(new_level, 1)
+        mock_update.assert_called_with(1, level=1)
+
         # Case 1: No level up (xp < target)
-        # Level 1 target is 100.
-        mock_get_user.return_value = {'level': 1, 'xp': 50}
+        # Level 1 target is 500.
+        mock_get_user.return_value = {'level': 1, 'xp': 450}
         new_level, msg = logic.check_level_up(1)
         self.assertIsNone(new_level)
-        mock_update.assert_not_called()
 
         # Case 2: Level up (xp >= target)
-        mock_get_user.return_value = {'level': 1, 'xp': 150}
+        # Level 1 -> 2 (500 XP needed)
+        mock_get_user.return_value = {'level': 1, 'xp': 550}
         new_level, msg = logic.check_level_up(1)
         self.assertEqual(new_level, 2)
         mock_update.assert_called_with(1, level=2)
         self.assertIn("LVL 2", msg)
 
         # Case 3: Multiple levels (xp >= target for 2 levels)
-        # Level 1 -> 2 (100 xp needed)
-        # Level 2 -> 3 (500 xp needed)
-        mock_get_user.return_value = {'level': 1, 'xp': 600}
+        # Level 1 -> 2 (500 xp needed)
+        # Level 2 -> 3 (1500 xp needed)
+        # So if we have 1600 XP, we skip from 1 to 3
+        mock_get_user.return_value = {'level': 1, 'xp': 1600}
         new_level, msg = logic.check_level_up(1)
         self.assertEqual(new_level, 3)
         mock_update.assert_called_with(1, level=3)
