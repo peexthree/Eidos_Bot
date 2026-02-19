@@ -10,6 +10,78 @@ from content_presets import CONTENT_DATA
 # 🛠 УТИЛИТЫ И HUD
 # =============================================================
 
+GAME_GUIDE_TEXTS = {
+    'intro': (
+        "<b>👋 ЧТО ТАКОЕ ЭЙДОС?</b>\n\n"
+        "Это мир киберпанка, где ты — цифровой призрак. Твоя цель — эволюционировать из простой программы в Бога Машины.\n\n"
+        "Ты начинаешь в <b>Трущобах (0м)</b>, но чем глубже ты спускаешься в <b>Нулевой Слой</b>, тем сильнее становишься.\n"
+        "Собирай XP (Опыт) и BioCoins (Деньги), покупай импланты и оружие, чтобы выжить."
+    ),
+    'combat': (
+        "<b>⚔️ КАК ДРАТЬСЯ?</b>\n\n"
+        "В бою у тебя есть 2 пути:\n"
+        "1. <b>АТАКА:</b> Наносишь урон. Если у тебя мало здоровья (<20%), включается <b>🩸 АДРЕНАЛИН</b> (Урон x2).\n"
+        "2. <b>ПОБЕГ:</b> Шанс 50%. Если не повезет — получишь удар в спину.\n\n"
+        "<b>💀 КАЗНЬ:</b> Если у врага меньше 10% HP, ты убиваешь его мгновенно.\n"
+        "<b>🛡 ЗАЩИТА:</b> Твоя броня снижает входящий урон. Чем больше DEF, тем меньше ты получаешь."
+    ),
+    'biomes': (
+        "<b>🌍 ЗОНЫ И БИОМЫ</b>\n\n"
+        "Мир разделен на уровни глубины:\n"
+        "🏙 <b>0-50м: Трущобы.</b> Слабые враги, мало лута.\n"
+        "🏭 <b>51-150м: Промзона.</b> Опасные дроиды. (Лута больше в 1.5 раза).\n"
+        "🌃 <b>151-300м: Неон-Сити.</b> Владения корпораций. (Лута x2.5).\n"
+        "🕸 <b>301-500м: Глубокая Сеть.</b> Вирусы и глитчи. (Лута x3.5).\n"
+        "🌌 <b>501+м: ПУСТОТА.</b> Процедурный ад. (Лута x5.0+)."
+    ),
+    'stats': (
+        "<b>📊 ХАРАКТЕРИСТИКИ</b>\n\n"
+        "<b>⚔️ ATK (Атака):</b> Твой урон. Влияет на скорость убийства врагов.\n"
+        "<b>🛡 DEF (Защита):</b> Снижает урон от врагов и ловушек.\n"
+        "<b>🍀 LUCK (Удача):</b> Влияет на криты (x1.5 урона) и шанс найти <b>ЛЕГЕНДАРНЫЙ</b> предмет.\n"
+        "<b>📡 SIGNAL (Здоровье):</b> Если упадет до 0 — ты теряешь весь лут за рейд."
+    ),
+    'factions': (
+        "<b>🧬 ФРАКЦИИ (СИНЕРГИЯ)</b>\n\n"
+        "Выбирай путь с умом:\n"
+        "🤖 <b>TECH:</b> -10% урона в Промзоне (свои механизмы не бьют).\n"
+        "🏦 <b>MONEY:</b> +20% золота в Неон-Сити (ты знаешь правила рынка).\n"
+        "🧠 <b>MIND:</b> +15% уворота в Глубокой Сети (сила мысли против вирусов)."
+    )
+}
+
+def get_biome_modifiers(depth):
+    """Возвращает конфиг зоны на основе глубины."""
+    if depth <= 50:
+        return {"name": "🏙 Трущобы", "mult": 1.0, "desc": "Грязные улицы, полные отбросов."}
+    elif depth <= 150:
+        return {"name": "🏭 Промзона", "mult": 1.5, "desc": "Шум заводских механизмов."}
+    elif depth <= 300:
+        return {"name": "🌃 Неон-Сити", "mult": 2.5, "desc": "Яркие огни и тени корпораций."}
+    elif depth <= 500:
+        return {"name": "🕸 Глубокая Сеть", "mult": 3.5, "desc": "Абстрактные коридоры данных."}
+    else:
+        # Procedural
+        hex_code = hex(depth)[2:].upper()
+        adj = random.choice(["Мертвый", "Забытый", "Холодный", "Вечный", "Нулевой"])
+        noun = random.choice(["Сектор", "Кластер", "Горизонт", "Предел", "Вакуум"])
+        name = f"🌌 {adj} {noun} [{hex_code}]"
+        scale = 5.0 + ((depth - 500) * 0.01)
+        return {"name": name, "mult": scale, "desc": "Здесь кончается реальность."}
+
+def generate_loot(depth, luck):
+    """Генерирует тир лута на основе удачи."""
+    roll = random.randint(0, 100) + (luck * 0.5)
+
+    if roll >= 95:
+        return {"prefix": "🟠 [ЛЕГЕНДА]", "mult": 5.0, "icon": "🟠"}
+    elif roll >= 80:
+        return {"prefix": "🟣 [ЭПИК]", "mult": 2.5, "icon": "🟣"}
+    elif roll >= 50:
+        return {"prefix": "🔵 [РЕДКИЙ]", "mult": 1.5, "icon": "🔵"}
+    else:
+        return {"prefix": "⚪️ [ОБЫЧНЫЙ]", "mult": 1.0, "icon": "⚪️"}
+
 def parse_riddle(text):
     """
     Парсит текст загадки, извлекая ответ из скобок.
@@ -384,21 +456,10 @@ def process_raid_step(uid, answer=None):
                 u['xp'] -= step_cost
 
             # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
-            biome = RAID_BIOMES["wasteland"]
-
-            # Infinite Biomes (Module 5)
-            if 50 <= depth < 100:
-                biome = RAID_BIOMES["archive"]
-            elif depth >= 100:
-                hex_code = hex(depth)[2:].upper()
-                # Procedural Description
-                adj = random.choice(["Забытый", "Мертвый", "Неоновый", "Цифровой", "Глитч", "Абстрактный", "Холодный", "Темный"])
-                noun = random.choice(["Могильник", "Поток", "Узел", "Сервер", "Кладбище", "Лабиринт", "Архив", "Бункер"])
-                desc = f"{adj} {noun}"
-                biome = {"name": f"СЕКТОР {hex_code} ({desc})", "range": (100, 9999), "dmg_mod": 2.5 + (depth * 0.01)}
-
+            # SCALING BIOMES IMPLEMENTATION
+            biome_data = get_biome_modifiers(depth)
+            diff = biome_data.get('mult', 1.0)
             new_depth = depth + 1 if not is_new else depth
-            diff = biome['dmg_mod']
 
             # Логика типа события
             current_type_code = s.get('next_event_type', 'random')
@@ -424,8 +485,15 @@ def process_raid_step(uid, answer=None):
                     villain['coin_reward'] = int(villain['coin_reward'] * scale_mult)
 
                 if villain:
-                    cur.execute("UPDATE raid_sessions SET current_enemy_id=%s, current_enemy_hp=%s WHERE uid=%s", 
-                               (villain['id'], villain['hp'], uid))
+                    # ELITE MOBS IMPLEMENTATION
+                    is_elite = False
+                    if random.random() < 0.10: # 10% Chance
+                        is_elite = True
+                        villain['hp'] *= 2
+                        villain['name'] = f"☠️ [ЭЛИТА] {villain['name']}"
+
+                    cur.execute("UPDATE raid_sessions SET current_enemy_id=%s, current_enemy_hp=%s, is_elite=%s WHERE uid=%s",
+                               (villain['id'], villain['hp'], is_elite, uid))
                     
                     next_preview = generate_random_event_type()
                     cur.execute("UPDATE raid_sessions SET next_event_type=%s WHERE uid=%s", (next_preview, uid))
@@ -468,10 +536,13 @@ def process_raid_step(uid, answer=None):
                 msg_event = f"💥 <b>ЛОВУШКА:</b> {event['text']}\n🔻 <b>-{dmg}% Сигнала</b>"
 
             elif event['type'] == 'loot':
-                bonus_xp = int(event['val'] * diff)
-                coins = int(random.randint(5, 20))
+                # TIERED LOOT IMPLEMENTATION
+                loot_info = generate_loot(depth, stats['luck'])
+                bonus_xp = int(event['val'] * diff * loot_info['mult'])
+                coins = int(random.randint(5, 20) * loot_info['mult'])
+
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, coins, uid))
-                msg_event = f"💎 <b>НАХОДКА:</b> {event['text']}\n+{bonus_xp} XP | +{coins} BC"
+                msg_event = f"{loot_info['prefix']} <b>НАХОДКА:</b> {event['text']}\n+{bonus_xp} XP | +{coins} BC"
 
             elif event['type'] == 'heal':
                 new_sig = min(100, new_sig + 25)
@@ -536,7 +607,7 @@ def process_raid_step(uid, answer=None):
                     advice_text = f"\n\n🧩 <i>Совет: {advice}</i>"
 
             interface = (
-                f"🏝 <b>{biome['name']}</b> | <b>{new_depth}м</b>\n"
+                f"🏝 <b>{biome_data['name']}</b> | <b>{new_depth}м</b>\n"
                 f"📡 Сигнал: <code>{sig_bar}</code> {new_sig}%\n"
                 f"━━━━━━━━━━━━━━\n"
                 f"{msg_prefix}{msg_event}{advice_text}\n"
@@ -746,6 +817,14 @@ def process_combat_action(uid, action):
         db.clear_raid_enemy(uid)
         return 'error', "Враг исчез."
 
+    # ELITE STATS BUFF
+    if s.get('is_elite'):
+        villain['hp'] *= 2
+        villain['atk'] = int(villain['atk'] * 1.5)
+        villain['xp_reward'] *= 3
+        villain['coin_reward'] *= 3
+        villain['name'] = f"☠️ [ЭЛИТА] {villain['name']}"
+
     msg = ""
     res_type = 'next_turn'
 
@@ -756,33 +835,52 @@ def process_combat_action(uid, action):
     if not full_s: return 'error', "Сессия не найдена."
 
     current_signal = full_s['signal']
+    biome_data = get_biome_modifiers(full_s.get('depth', 0))
 
     if action == 'attack':
+        # ADRENALINE
+        dmg_mult = 1.0
+        if current_signal < 20:
+            dmg_mult = 2.0
+            msg += "🩸 <b>АДРЕНАЛИН:</b> Урон удвоен!\n"
+
         is_crit = random.random() < (stats['luck'] / 100.0)
-        base_dmg = int(stats['atk'] * (1.5 if is_crit else 1.0))
+        base_dmg = int(stats['atk'] * (1.5 if is_crit else 1.0) * dmg_mult)
 
         # RNG VARIANCE (Module 2)
         variance = random.uniform(0.8, 1.2)
         dmg = int(base_dmg * variance)
         dmg = max(1, dmg)
 
+        # EXECUTION
+        if enemy_hp < (villain['hp'] * 0.1):
+            dmg = 999999
+            msg += "💀 <b>КАЗНЬ:</b> Вы жестоко добиваете врага.\n"
+
         new_enemy_hp = enemy_hp - dmg
 
         crit_msg = " (КРИТ!)" if is_crit else ""
 
         # Detailed Logs
-        if variance > 1.1:
-            msg += f"⚔️ <b>КРИТИЧЕСКИЙ УДАР!</b> Вы замахнулись на {base_dmg}, но нанесли {dmg}!{crit_msg}\n"
-        elif variance < 0.9:
-             msg += f"⚔️ <b>СКОЛЬЗЯЩИЙ УДАР...</b> Вы замахнулись на {base_dmg}, но нанесли всего {dmg}.{crit_msg}\n"
-        else:
-             msg += f"⚔️ <b>АТАКА:</b> Вы нанесли {dmg} урона{crit_msg}.\n"
+        if dmg < 999999: # Don't log normal hit on execution
+            if variance > 1.1:
+                msg += f"⚔️ <b>КРИТИЧЕСКИЙ УДАР!</b> Вы замахнулись на {base_dmg}, но нанесли {dmg}!{crit_msg}\n"
+            elif variance < 0.9:
+                msg += f"⚔️ <b>СКОЛЬЗЯЩИЙ УДАР...</b> Вы замахнулись на {base_dmg}, но нанесли всего {dmg}.{crit_msg}\n"
+            else:
+                msg += f"⚔️ <b>АТАКА:</b> Вы нанесли {dmg} урона{crit_msg}.\n"
 
         if new_enemy_hp <= 0:
             xp_gain = villain.get('xp_reward', 0)
             coin_gain = villain.get('coin_reward', 0)
 
-            if u['path'] == 'money': coin_gain = int(coin_gain * 1.2)
+            # FACTION SYNERGY (MONEY)
+            if u['path'] == 'money':
+                if "Неон-Сити" in biome_data['name']:
+                    coin_gain = int(coin_gain * 1.2)
+                    msg += "🏦 <b>ЗНАНИЕ РЫНКА:</b> +20% монет в Неон-Сити.\n"
+
+            # Legacy tech penalty
             if u['path'] == 'tech': xp_gain = int(xp_gain * 0.9)
 
             db.clear_raid_enemy(uid)
@@ -796,7 +894,22 @@ def process_combat_action(uid, action):
             db.update_raid_enemy(uid, enemy_id, new_enemy_hp)
             msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n"
 
-            enemy_dmg = max(0, villain['atk'] - stats['def'])
+            # ENEMY ATTACK LOGIC
+            raw_enemy_dmg = villain['atk']
+
+            # FACTION SYNERGY (TECH)
+            if u['path'] == 'tech' and "Промзона" in biome_data['name']:
+                 raw_enemy_dmg *= 0.9
+                 msg += "🤖 <b>СВОЙ-ЧУЖОЙ:</b> -10% урона от механизмов.\n"
+
+            # MITIGATION FORMULA
+            # Def / (Def + 100)
+            mitigation = stats['def'] / (stats['def'] + 100)
+            enemy_dmg = int(raw_enemy_dmg * (1.0 - mitigation))
+
+            # CHIP DAMAGE (Min 5%)
+            min_dmg = int(raw_enemy_dmg * 0.05)
+            enemy_dmg = max(min_dmg, enemy_dmg)
 
             used_aegis = False
             if enemy_dmg > current_signal:
@@ -825,13 +938,30 @@ def process_combat_action(uid, action):
             return 'combat', msg
 
     elif action == 'run':
-        chance = 0.5 + (stats['luck'] / 200.0)
+        # FACTION SYNERGY (MIND) - Dodge in Deep Net/Void
+        bonus_dodge = 0
+        if u['path'] == 'mind' and ("Глубокая Сеть" in biome_data['name'] or "Пустота" in biome_data['name']):
+            bonus_dodge = 0.15
+
+        chance = 0.5 + (stats['luck'] / 200.0) + bonus_dodge
+
         if random.random() < chance:
              db.clear_raid_enemy(uid)
-             return 'escaped', "🏃 <b>ПОБЕГ:</b> Вы успешно скрылись в тенях."
+             extra_msg = " (Сила Мысли)" if bonus_dodge > 0 else ""
+             return 'escaped', f"🏃 <b>ПОБЕГ:</b> Вы успешно скрылись в тенях.{extra_msg}"
         else:
              msg += "🚫 <b>ПОБЕГ НЕ УДАЛСЯ.</b> Враг атакует!\n"
-             enemy_dmg = max(0, villain['atk'] - stats['def'])
+
+             raw_enemy_dmg = villain['atk']
+
+             # Apply Tech Synergy here too? Logic implies damage reduction works always.
+             if u['path'] == 'tech' and "Промзона" in biome_data['name']:
+                 raw_enemy_dmg *= 0.9
+
+             mitigation = stats['def'] / (stats['def'] + 100)
+             enemy_dmg = int(raw_enemy_dmg * (1.0 - mitigation))
+             min_dmg = int(raw_enemy_dmg * 0.05)
+             enemy_dmg = max(min_dmg, enemy_dmg)
 
              used_aegis = False
              if enemy_dmg > current_signal:

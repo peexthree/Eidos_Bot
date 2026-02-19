@@ -120,6 +120,7 @@ def init_db():
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS current_riddle_answer TEXT DEFAULT NULL")
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS next_event_type TEXT DEFAULT NULL")
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS buffer_items TEXT DEFAULT ''")
+                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS is_elite BOOLEAN DEFAULT FALSE")
             except: conn.rollback()
 
             cur.execute('''
@@ -461,7 +462,7 @@ def clear_raid_enemy(uid):
 def get_raid_session_enemy(uid):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
-        cur.execute("SELECT current_enemy_id, current_enemy_hp FROM raid_sessions WHERE uid = %s", (uid,))
+        cur.execute("SELECT current_enemy_id, current_enemy_hp, is_elite FROM raid_sessions WHERE uid = %s", (uid,))
         return cur.fetchone()
 
 def get_villain_by_id(vid, cursor=None):

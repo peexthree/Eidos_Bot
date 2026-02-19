@@ -634,11 +634,11 @@ def handle_query(call):
              menu_update(call, txt, kb.archive_nav(page, total_pages))
 
         elif call.data == "guide":
-            menu_update(call, GUIDE_PAGES.get('basics', "Error"), kb.guide_menu('basics'))
+            menu_update(call, logic.GAME_GUIDE_TEXTS.get('intro', "Error"), kb.guide_menu('intro'))
 
         elif call.data.startswith("guide_page_"):
             page = call.data.replace("guide_page_", "")
-            text = GUIDE_PAGES.get(page, "Error")
+            text = logic.GAME_GUIDE_TEXTS.get(page, "Error")
             menu_update(call, text, kb.guide_menu(page))
 
         elif call.data == "change_path_menu":
