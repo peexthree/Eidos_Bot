@@ -157,7 +157,7 @@ def handle_query(call):
                     bot.answer_callback_query(call.id)
                     proto = logic.get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
                     txt = proto['text'] if proto else "/// ДАННЫЕ ПОВРЕЖДЕНЫ. ПОПРОБУЙ ПОЗЖЕ."
-                    xp = random.randint(15, 40)
+                    xp = config.XP_GAIN
                     db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
                     if proto: db.save_knowledge(uid, proto.get('id', 0))
 
@@ -185,7 +185,7 @@ def handle_query(call):
                      bot.answer_callback_query(call.id)
                      sig = logic.get_content_logic('signal')
                      txt = sig['text'] if sig else "/// НЕТ СВЯЗИ."
-                     xp = 10
+                     xp = config.XP_SIGNAL
                      db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+xp)
 
                      lvl, msg = logic.check_level_up(uid)
@@ -223,7 +223,8 @@ def handle_query(call):
         # --- ADMIN ACTIONS (STATE SETTERS) ---
         elif call.data in ["admin_grant_admin", "admin_revoke_admin", "admin_give_res",
                            "admin_broadcast", "admin_post_channel", "admin_add_riddle",
-                           "admin_add_content", "admin_add_signal", "admin_sql", "admin_dm_user"]:
+                           "admin_add_content", "admin_add_signal", "admin_sql", "admin_dm_user",
+                           "admin_reset_user"]:
              if not db.is_user_admin(uid): return
 
              state_map = {
@@ -236,7 +237,8 @@ def handle_query(call):
                  "admin_add_content": "wait_add_protocol",
                  "admin_add_signal": "wait_add_signal",
                  "admin_sql": "wait_sql",
-                 "admin_dm_user": "wait_dm_user_id"
+                 "admin_dm_user": "wait_dm_user_id",
+                 "admin_reset_user": "wait_reset_user_id"
              }
              user_states[uid] = state_map[call.data]
              msg_map = {
@@ -249,7 +251,8 @@ def handle_query(call):
                  "admin_add_content": "💠 <b>ENTER PROTOCOL TEXT:</b>",
                  "admin_add_signal": "📡 <b>ENTER SIGNAL TEXT:</b>",
                  "admin_sql": "📜 <b>ENTER SQL QUERY:</b>\n⚠️ BE CAREFUL!",
-                 "admin_dm_user": "🆔 <b>ENTER USER ID TO DM:</b>"
+                 "admin_dm_user": "🆔 <b>ENTER USER ID TO DM:</b>",
+                 "admin_reset_user": "♻️ <b>ENTER USER ID TO RESET (XP=0, LVL=1):</b>"
              }
              menu_update(call, msg_map[call.data], kb.back_button())
 
@@ -717,6 +720,20 @@ def text_handler(m):
                  db.set_user_admin(tid, False)
                  bot.send_message(uid, f"✅ ADMIN REVOKED FROM {tid}")
         except: bot.send_message(uid, "❌ INVALID ID")
+        del user_states[uid]
+
+    elif state == "wait_reset_user_id":
+        try:
+            tid = int(m.text)
+            u = db.get_user(tid)
+            if u:
+                db.update_user(tid, xp=0, level=1)
+                bot.send_message(uid, f"✅ USER {tid} RESET TO LVL 1 / 0 XP")
+                try: bot.send_message(tid, "♻️ <b>АДМИНИСТРАТОР СБРОСИЛ ВАШ ПРОГРЕСС.</b>", parse_mode="HTML")
+                except: pass
+            else:
+                bot.send_message(uid, "❌ USER NOT FOUND")
+        except: bot.send_message(uid, "❌ INVALID ID / ERROR")
         del user_states[uid]
 
     elif state == "wait_give_res_id":

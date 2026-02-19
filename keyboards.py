@@ -319,6 +319,7 @@ def admin_users_menu():
           types.InlineKeyboardButton("🎁 ВЫДАТЬ ПРЕДМЕТ", callback_data="admin_give_item_menu"))
     m.add(types.InlineKeyboardButton("👥 СПИСОК ИГРОКОВ", callback_data="admin_user_list"),
           types.InlineKeyboardButton("✉️ ЛИЧНОЕ СООБЩЕНИЕ", callback_data="admin_dm_user"))
+    m.add(types.InlineKeyboardButton("♻️ СБРОС (Reset)", callback_data="admin_reset_user"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 

@@ -287,17 +287,20 @@ LOOT_TABLE = {
 # =============================================================================
 # 4. ИЕРАРХИЯ И ТИТУЛЫ
 # =============================================================================
-LEVELS = {}
-# Levels 1-10
-base_xp = 100
-for i in range(1, 11):
-    LEVELS[i] = base_xp
-    if i < 5: base_xp += 400 + (i*100)
-    else: base_xp = int(base_xp * 2)
+LEVELS = {
+    0: 100,      # To reach Lvl 1
+    1: 500,      # To reach Lvl 2
+    2: 1500,     # To reach Lvl 3
+    3: 3000,     # To reach Lvl 4
+    4: 5000,     # To reach Lvl 5
+    5: 10000     # To reach Lvl 6
+}
 
-# Levels 11-30 (Exponential)
-for i in range(11, 31):
-    LEVELS[i] = int(LEVELS[i-1] * 1.5)
+# Levels 6+ (Exponential Formula)
+current_xp = 10000
+for i in range(6, 31):
+    current_xp = int(current_xp * 1.5)
+    LEVELS[i] = current_xp
 
 TITLES = {
     1: "НЕОФИТ (Ты только открыл глаза. Мир кажется набором случайных цифр)", 
