@@ -36,6 +36,14 @@ user_states = {}
 # 🛠 УТИЛИТЫ UI
 # =============================================================
 
+def get_consumables(uid):
+    inv = db.get_inventory(uid)
+    cons = {}
+    for i in inv:
+        if i['item_id'] in ['battery', 'neural_stimulator', 'emp_grenade', 'stealth_spray', 'memory_wiper']:
+            cons[i['item_id']] = i['quantity']
+    return cons
+
 def get_menu_text(u):
     return random.choice(WELCOME_VARIANTS)
 
@@ -465,8 +473,8 @@ def handle_query(call):
              if not res:
                  bot.answer_callback_query(call.id, txt, show_alert=True)
              else:
-                 battery_count = db.get_item_count(uid, 'battery')
-                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
+                 consumables = get_consumables(uid)
+                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
                  menu_update(call, txt, markup)
 
         elif call.data == "raid_step":
@@ -474,8 +482,8 @@ def handle_query(call):
              if not res:
                  menu_update(call, txt, kb.back_button())
              else:
-                 battery_count = db.get_item_count(uid, 'battery')
-                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
+                 consumables = get_consumables(uid)
+                 markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
                  menu_update(call, txt, markup)
 
         elif call.data == "raid_open_chest":
@@ -489,8 +497,8 @@ def handle_query(call):
                  # Success
                  alert_txt = f"🔓 СИСТЕМА РАЗБЛОКИРОВАНА. Получено: {riddle.get('alert', '')}"
                  bot.answer_callback_query(call.id, alert_txt, show_alert=True)
-                 battery_count = db.get_item_count(uid, 'battery')
-                 markup = kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
+                 consumables = get_consumables(uid)
+                 markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
                  menu_update(call, txt, markup)
 
         elif call.data == "raid_use_battery":
@@ -500,9 +508,23 @@ def handle_query(call):
              else:
                  alert_txt = riddle.get('alert', 'Батарея использована')
                  bot.answer_callback_query(call.id, alert_txt, show_alert=True)
-                 battery_count = db.get_item_count(uid, 'battery')
-                 markup = kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
+                 consumables = get_consumables(uid)
+                 markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
                  menu_update(call, txt, markup)
+
+        elif call.data == "raid_use_stimulator":
+             res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid, answer='use_stimulator')
+             if not res:
+                 bot.answer_callback_query(call.id, txt, show_alert=True)
+             else:
+                 alert_txt = riddle.get('alert', 'Стимулятор использован')
+                 bot.answer_callback_query(call.id, alert_txt, show_alert=True)
+                 consumables = get_consumables(uid)
+                 markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
+                 menu_update(call, txt, markup)
+
+        elif call.data == "use_admin_key":
+             bot.answer_callback_query(call.id, "🟠 КЛЮЧ АРХИТЕКТОРА:\n\nЭтот артефакт пульсирует странной энергией.\nОн не имеет видимого применения в этой версии реальности.\n\n...пока что.", show_alert=True)
 
         elif call.data == "raid_extract":
              with db.db_session() as conn:
@@ -536,16 +558,16 @@ def handle_query(call):
              menu_update(call, report, kb.back_button())
 
         # --- COMBAT HANDLERS ---
-        elif call.data in ["combat_attack", "combat_run"]:
-             action = call.data.split("_")[1]
+        elif call.data in ["combat_attack", "combat_run", "combat_use_emp", "combat_use_stealth", "combat_use_wiper"]:
+             action = call.data.replace("combat_", "")
              res_type, msg = logic.process_combat_action(uid, action)
 
              if res_type == 'error':
                  bot.answer_callback_query(call.id, msg, show_alert=True)
                  res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
                  if res:
-                     battery_count = db.get_item_count(uid, 'battery')
-                     menu_update(call, txt, kb.raid_action_keyboard(cost, etype, battery_count=battery_count))
+                     consumables = get_consumables(uid)
+                     menu_update(call, txt, kb.raid_action_keyboard(cost, etype, consumables=consumables))
                  else: menu_update(call, "Ошибка синхронизации.", kb.back_button())
 
              elif res_type == 'win':
@@ -553,14 +575,14 @@ def handle_query(call):
                  # Continue after win
                  res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
-                 battery_count = db.get_item_count(uid, 'battery')
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, battery_count=battery_count))
+                 consumables = get_consumables(uid)
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables))
 
              elif res_type == 'escaped':
                  res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
-                 battery_count = db.get_item_count(uid, 'battery')
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, battery_count=battery_count))
+                 consumables = get_consumables(uid)
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables))
 
              elif res_type == 'death':
                  menu_update(call, msg, kb.back_button())
@@ -568,8 +590,8 @@ def handle_query(call):
              elif res_type == 'combat':
                  res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
-                 battery_count = db.get_item_count(uid, 'battery')
-                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, 'combat', battery_count=battery_count))
+                 consumables = get_consumables(uid)
+                 menu_update(call, full_txt, kb.raid_action_keyboard(cost, 'combat', consumables=consumables))
 
         # --- RIDDLES ---
         elif call.data.startswith("r_check_"):
@@ -579,8 +601,8 @@ def handle_query(call):
 
             res, txt, riddle, new_u, etype, cost = logic.process_raid_step(uid)
             full_txt = f"{msg}\n\n{txt}"
-            battery_count = db.get_item_count(uid, 'battery')
-            markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, battery_count=battery_count)
+            consumables = get_consumables(uid)
+            markup = kb.riddle_keyboard(riddle['options']) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
             menu_update(call, full_txt, markup)
 
         # --- 6. MISC ---

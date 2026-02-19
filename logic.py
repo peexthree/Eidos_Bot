@@ -437,15 +437,30 @@ def process_raid_step(uid, answer=None):
             if answer == 'open_chest':
                 has_abyssal = db.get_item_count(uid, 'abyssal_key', cursor=cur) > 0
                 has_master = db.get_item_count(uid, 'master_key', cursor=cur) > 0
+                has_spike = db.get_item_count(uid, 'data_spike', cursor=cur) > 0
 
-                if not (has_abyssal or has_master):
-                    return False, "🔒 <b>НУЖЕН КЛЮЧ</b>\nКупите [КЛЮЧ] или найдите [КЛЮЧ БЕЗДНЫ].", None, u, 'locked_chest', 0
+                if not (has_abyssal or has_master or has_spike):
+                    return False, "🔒 <b>НУЖЕН КЛЮЧ</b>\nКупите [КЛЮЧ], [ДАТА-ШИП] или найдите [КЛЮЧ БЕЗДНЫ].", None, u, 'locked_chest', 0
 
-                key_used = 'abyssal_key' if has_abyssal else 'master_key'
+                key_used = None
                 
-                # Удаляем ключ прямым запросом (чтобы не блокировать БД)
-                cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE uid=%s AND item_id=%s", (uid, key_used))
-                cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id=%s AND quantity <= 0", (uid, key_used))
+                # Priority: Abyssal -> Master -> Spike
+                if has_abyssal: key_used = 'abyssal_key'
+                elif has_master: key_used = 'master_key'
+                else: key_used = 'data_spike'
+
+                # Spike Logic (80% chance)
+                spike_success = True
+                if key_used == 'data_spike':
+                    if random.random() > 0.8:
+                        spike_success = False
+
+                # Consume item
+                db.use_item(uid, key_used, 1, cursor=cur)
+
+                if not spike_success:
+                    conn.commit()
+                    return False, "❌ <b>ВЗЛОМ ПРОВАЛЕН</b>\nДата-шип сломался.", None, u, 'locked_chest', 0
 
                 bonus_xp = (300 + (depth * 5)) if key_used == 'abyssal_key' else (150 + (depth * 2))
                 bonus_coins = (100 + (depth * 2)) if key_used == 'abyssal_key' else (50 + depth)
@@ -466,22 +481,28 @@ def process_raid_step(uid, answer=None):
                 # Возвращаем тип 'loot_opened' чтобы обновить кнопки
                 return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt}, u, 'loot_opened', 0
 
-            # 2.5 ДЕЙСТВИЕ: ИСПОЛЬЗОВАНИЕ БАТАРЕИ
+            # 2.5 ДЕЙСТВИЕ: ИСПОЛЬЗОВАНИЕ РАСХОДНИКОВ
             if answer == 'use_battery':
                  if db.get_item_count(uid, 'battery', cursor=cur) > 0:
                       if db.use_item(uid, 'battery', cursor=cur):
-                           # Heal
                            new_signal = min(100, s['signal'] + 30)
                            cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_signal, uid))
                            conn.commit()
-
-                           # Refresh s because signal changed
                            s['signal'] = new_signal
-
                            alert_txt = f"🔋 ЭНЕРГИЯ ВОССТАНОВЛЕНА\nСигнал: {new_signal}%"
                            return True, "ЗАРЯД ИСПОЛЬЗОВАН", {'alert': alert_txt}, u, 'battery_used', 0
-
                  return False, "❌ НЕТ БАТАРЕИ", None, u, 'battery_error', 0
+
+            if answer == 'use_stimulator':
+                 if db.get_item_count(uid, 'neural_stimulator', cursor=cur) > 0:
+                      if db.use_item(uid, 'neural_stimulator', cursor=cur):
+                           new_signal = min(100, s['signal'] + 60)
+                           cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_signal, uid))
+                           conn.commit()
+                           s['signal'] = new_signal
+                           alert_txt = f"💉 СТИМУЛЯТОР ВВЕДЕН\nСигнал: {new_signal}%"
+                           return True, "СТИМУЛЯТОР ИСПОЛЬЗОВАН", {'alert': alert_txt}, u, 'battery_used', 0
+                 return False, "❌ НЕТ СТИМУЛЯТОРА", None, u, 'battery_error', 0
 
             # 3. ЦЕНА ШАГА
             step_cost = RAID_STEP_COST + (depth // 25)
@@ -979,6 +1000,45 @@ def process_combat_action(uid, action):
 
             return 'combat', msg
 
+    elif action == 'use_emp':
+        if db.get_item_count(uid, 'emp_grenade') > 0:
+            db.use_item(uid, 'emp_grenade', 1)
+            dmg = 150
+            new_enemy_hp = enemy_hp - dmg
+            msg += f"💣 <b>EMP ЗАРЯД:</b> Нанесено 150 чистого урона!\n"
+
+            if new_enemy_hp <= 0:
+                xp_gain = villain.get('xp_reward', 0)
+                coin_gain = villain.get('coin_reward', 0)
+                db.clear_raid_enemy(uid)
+                with db.db_cursor() as cur:
+                    cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp + %s, buffer_coins = buffer_coins + %s, kills = kills + 1 WHERE uid=%s",
+                                (xp_gain, coin_gain, uid))
+                return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен взрывом.\nПолучено: +{xp_gain} XP | +{coin_gain} BC"
+            else:
+                db.update_raid_enemy(uid, enemy_id, new_enemy_hp)
+                msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n"
+        else:
+             return 'error', "Нет EMP гранаты."
+
+    elif action == 'use_stealth':
+        if db.get_item_count(uid, 'stealth_spray') > 0:
+            db.use_item(uid, 'stealth_spray', 1)
+            db.clear_raid_enemy(uid)
+            return 'escaped', "👻 <b>СТЕЛС:</b> Вы растворились в тумане. 100% побег."
+        else:
+             return 'error', "Нет спрея."
+
+    elif action == 'use_wiper':
+        if db.get_item_count(uid, 'memory_wiper') > 0:
+            db.use_item(uid, 'memory_wiper', 1)
+            db.clear_raid_enemy(uid)
+            # Wiper resets aggro, effectively ending combat but maybe keeping position?
+            # Same as escaped basically but different flavor.
+            return 'escaped', "🧹 <b>СТИРАТЕЛЬ:</b> Память врага очищена. Он забыл о вас."
+        else:
+             return 'error', "Нет стирателя памяти."
+
     elif action == 'run':
         # FACTION SYNERGY (MIND) - Dodge in Deep Net/Void
         bonus_dodge = 0
@@ -994,6 +1054,8 @@ def process_combat_action(uid, action):
         else:
              msg += "🚫 <b>ПОБЕГ НЕ УДАЛСЯ.</b> Враг атакует!\n"
 
+    # --- SHARED ENEMY TURN LOGIC (Run Fail or EMP survival) ---
+    if action in ['run', 'use_emp']: # If we are here, it means we failed run or used EMP and enemy is alive
              raw_enemy_dmg = villain['atk']
 
              # Apply Tech Synergy here too? Logic implies damage reduction works always.
