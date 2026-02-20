@@ -308,6 +308,23 @@ def generate_random_event_type():
     if r < 0.30: return 'locked_chest'
     return 'random'
 
+def generate_balanced_event_type(last_type, current_streak):
+    # Base logic
+    new_type = generate_random_event_type()
+
+    # Streak prevention
+    if current_streak >= 4 and new_type == last_type:
+        # Force switch
+        options = ['combat', 'locked_chest', 'random']
+        if last_type in options: options.remove(last_type)
+        return random.choice(options)
+
+    if current_streak >= 2 and new_type == last_type:
+        # Reduce probability (retry once)
+        new_type = generate_random_event_type()
+
+    return new_type
+
 def process_raid_step(uid, answer=None):
     stats, u = get_user_stats(uid)
     if not u: return False, "User not found", None, None, 'error', 0
@@ -345,7 +362,7 @@ def process_raid_step(uid, answer=None):
                 # Создаем сессию
                 depth = u.get('max_depth', 0)
                 first_next = generate_random_event_type()
-                cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, buffer_items, buffer_xp, buffer_coins) VALUES (%s, %s, 100, %s, 0, 0, %s, '', 0, 0)", 
+                cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, event_streak, buffer_items, buffer_xp, buffer_coins) VALUES (%s, %s, 100, %s, 0, 0, %s, 1, '', 0, 0)",
                            (uid, depth, int(time.time()), first_next))
                 
                 conn.commit() # ВАЖНО: Сохраняем вход
@@ -479,6 +496,8 @@ def process_raid_step(uid, answer=None):
 
             # Логика типа события
             current_type_code = s.get('next_event_type', 'random')
+            current_streak = s.get('event_streak', 0)
+
             if current_type_code == 'random' or not current_type_code:
                 first_next = generate_random_event_type()
                 current_type_code = first_next
@@ -529,6 +548,7 @@ def process_raid_step(uid, answer=None):
             new_sig = s['signal']
             msg_event = ""
             riddle_data = None
+            death_reason = None
 
             # ЭФФЕКТЫ СОБЫТИЙ
             if event['type'] == 'trap':
@@ -545,8 +565,16 @@ def process_raid_step(uid, answer=None):
                     dmg = 0
                     msg_prefix += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
 
+                # ONE-SHOT PROTECTION
+                elif new_sig > 90 and (new_sig - dmg <= 0):
+                     dmg = new_sig - 5
+                     msg_prefix += "⚠️ <b>СИСТЕМА СПАСЕНИЯ:</b> Критический урон снижен!\n"
+
                 new_sig = max(0, new_sig - dmg)
                 msg_event = f"💥 <b>ЛОВУШКА:</b> {event['text']}\n🔻 <b>-{dmg}% Сигнала</b>"
+
+                if new_sig <= 0:
+                    death_reason = f"ЛОВУШКА: {event['text']}"
 
             elif event['type'] == 'loot':
                 # TIERED LOOT IMPLEMENTATION
@@ -579,8 +607,10 @@ def process_raid_step(uid, answer=None):
                 event['type'] = 'riddle'
 
             # ПОДГОТОВКА СЛЕДУЮЩЕГО ШАГА
-            next_preview = generate_random_event_type()
-            cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, next_event_type=%s WHERE uid=%s", (new_depth, new_sig, next_preview, uid))
+            next_preview = generate_balanced_event_type(current_type_code, current_streak)
+            new_streak = current_streak + 1 if next_preview == current_type_code else 1
+
+            cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, next_event_type=%s, event_streak=%s WHERE uid=%s", (new_depth, new_sig, next_preview, new_streak, uid))
             
             if new_depth > u.get('max_depth', 0): 
                 cur.execute("UPDATE users SET max_depth=%s WHERE uid=%s", (new_depth, uid))
@@ -636,7 +666,11 @@ def process_raid_step(uid, answer=None):
             if new_sig <= 0:
                  cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
                  conn.commit()
-                 return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\nРесурсы утеряны.", None, u, 'death', 0
+
+                 extra_death = {}
+                 if death_reason: extra_death['death_reason'] = death_reason
+
+                 return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\nРесурсы утеряны.", extra_death, u, 'death', 0
 
             return True, interface, riddle_data, u, event['type'], next_step_cost
 
