@@ -311,11 +311,14 @@ def achievements_nav(page, total_pages):
 def guide_menu(page_key='intro'):
     m = types.InlineKeyboardMarkup(row_width=2)
 
-    m.add(types.InlineKeyboardButton("👋 ОСНОВЫ", callback_data="guide_page_intro"),
-          types.InlineKeyboardButton("⚔️ БОЙ", callback_data="guide_page_combat"))
-    m.add(types.InlineKeyboardButton("🌍 БИОМЫ", callback_data="guide_page_biomes"),
-          types.InlineKeyboardButton("📊 СТАТЫ", callback_data="guide_page_stats"))
-    m.add(types.InlineKeyboardButton("🧬 ФРАКЦИЯ", callback_data="guide_page_factions"))
+    m.add(types.InlineKeyboardButton("👋 НАЧАЛО", callback_data="guide_page_intro"),
+          types.InlineKeyboardButton("🚀 РЕЙДЫ", callback_data="guide_page_raids"))
+    m.add(types.InlineKeyboardButton("⚔️ БОЙ", callback_data="guide_page_combat"),
+          types.InlineKeyboardButton("📊 ПРОКАЧКА", callback_data="guide_page_stats"))
+    m.add(types.InlineKeyboardButton("🎒 ПРЕДМЕТЫ", callback_data="guide_page_items"),
+          types.InlineKeyboardButton("🔓 ВЗЛОМ", callback_data="guide_page_pvp"))
+    m.add(types.InlineKeyboardButton("🤝 СИНДИКАТ", callback_data="guide_page_social"),
+          types.InlineKeyboardButton("⚡️ СОВЕТЫ", callback_data="guide_page_tips"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
