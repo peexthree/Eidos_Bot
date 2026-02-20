@@ -73,7 +73,14 @@ def menu_update(call, text, markup=None, image_url=None):
                 bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="HTML")
         except: pass
 
-def loading_effect(chat_id, message_id, final_text, final_kb):
+def loading_effect(chat_id, message_id, final_text, final_kb, image_id=None):
+    if image_id:
+        try:
+            media = types.InputMediaPhoto(image_id, caption="<code>/// DOWNLOAD: ▪️▫️▫️▫️▫️ 0%</code>", parse_mode="HTML")
+            bot.edit_message_media(media=media, chat_id=chat_id, message_id=message_id)
+        except Exception as e:
+            print(f"/// LOADING EFFECT IMG ERR: {e}")
+
     steps = ["▪️▫️▫️▫️▫️ 0%", "▪️▪️▫️▫️▫️ 25%", "▪️▪️▪️▫️▫️ 50%", "▪️▪️▪️▪️▫️ 75%", "▪️▪️▪️▪️▪️ 100%"]
     try:
         for s in steps:
@@ -176,7 +183,7 @@ def handle_query(call):
                     glitch_xp = random.randint(50, 150)
                     db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+glitch_xp, notified=False)
                     final_txt = f"🌀 <b>СБОЙ РЕАЛЬНОСТИ (GLITCH):</b>\n\nВы попытались синхронизироваться, но попали в поток чистого хаоса.\n\n⚡️ +{glitch_xp} XP"
-                    threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+                    threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_protocol"])).start()
                 else:
                     bot.answer_callback_query(call.id)
                     proto = logic.get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
@@ -191,7 +198,7 @@ def handle_query(call):
                         except: pass
 
                     final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
-                    threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+                    threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_protocol"])).start()
 
         elif call.data == "get_signal":
             cd = COOLDOWN_SIGNAL
@@ -204,7 +211,7 @@ def handle_query(call):
                      glitch_xp = 50
                      db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+glitch_xp)
                      final_txt = f"🌀 <b>СБОЙ РЕАЛЬНОСТИ (GLITCH):</b>\n\nСигнал искажен временной аномалией.\n\n⚡️ +{glitch_xp} XP"
-                     threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+                     threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_signal"])).start()
                  else:
                      bot.answer_callback_query(call.id)
                      sig = logic.get_content_logic('signal')
@@ -218,11 +225,11 @@ def handle_query(call):
                          except: pass
 
                      final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
-                     threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button())).start()
+                     threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_signal"])).start()
 
         elif call.data == "admin_panel":
              if db.is_user_admin(uid):
-                 menu_update(call, "⚡️ <b>GOD MODE: MAIN TERMINAL</b>", kb.admin_main_menu())
+                 menu_update(call, "⚡️ <b>GOD MODE: MAIN TERMINAL</b>", kb.admin_main_menu(), image_url=config.MENU_IMAGES["admin_panel"])
              else:
                  bot.answer_callback_query(call.id, "❌ ACCESS DENIED")
 
@@ -378,7 +385,7 @@ def handle_query(call):
             txt = logic.format_inventory(uid, category='all')
             items = db.get_inventory(uid)
             equipped = db.get_equipped_items(uid)
-            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='all'))
+            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='all'), image_url=config.MENU_IMAGES["inventory"])
 
         elif call.data == "inv_cat_equip":
             txt = logic.format_inventory(uid, category='equip')
@@ -433,7 +440,7 @@ def handle_query(call):
 
         # --- 4. МАГАЗИН ---
         elif call.data == "shop_menu":
-            menu_update(call, "🎰 <b>ВЫБЕРИ ОТДЕЛ:</b>", kb.shop_category_menu())
+            menu_update(call, "🎰 <b>ВЫБЕРИ ОТДЕЛ:</b>", kb.shop_category_menu(), image_url=config.MENU_IMAGES["shop_menu"])
 
         elif call.data.startswith("shop_cat_"):
             cat = call.data.replace("shop_cat_", "")
@@ -466,7 +473,7 @@ def handle_query(call):
         # --- 5. РЕЙД ---
         elif call.data == "zero_layer_menu":
              cost = logic.get_raid_entry_cost(uid)
-             menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {u['xp']}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost))
+             menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {u['xp']}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost), image_url=config.MENU_IMAGES["zero_layer_menu"])
 
         elif call.data == "raid_enter":
              res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
@@ -645,16 +652,16 @@ def handle_query(call):
             for i, l in enumerate(leaders, 1):
                 icon = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else "▫️"
                 txt += f"{icon} {l['first_name']} — {l['max_depth']}м | {l['xp']} XP\n"
-            menu_update(call, txt, kb.back_button())
+            menu_update(call, txt, kb.back_button(), image_url=config.MENU_IMAGES["leaderboard"])
 
         elif call.data == "referral":
             link = f"https://t.me/{BOT_USERNAME}?start={uid}"
             txt = SYNDICATE_FULL + f"\n\n<code>{link}</code>\n\n"
             txt += logic.get_syndicate_stats(uid)
-            menu_update(call, txt, kb.back_button())
+            menu_update(call, txt, kb.back_button(), image_url=config.MENU_IMAGES["referral"])
 
         elif call.data == "diary_menu":
-            menu_update(call, "📓 <b>ЛИЧНЫЙ ДНЕВНИК</b>\nЗдесь ты можешь записывать свои мысли.", kb.diary_menu())
+            menu_update(call, "📓 <b>ЛИЧНЫЙ ДНЕВНИК</b>\nЗдесь ты можешь записывать свои мысли.", kb.diary_menu(), image_url=config.MENU_IMAGES["diary_menu"])
 
         elif call.data == "diary_new":
             user_states[uid] = "waiting_for_diary_entry"
@@ -708,7 +715,7 @@ def handle_query(call):
              menu_update(call, txt, kb.archive_nav(page, total_pages))
 
         elif call.data == "guide":
-            menu_update(call, logic.GAME_GUIDE_TEXTS.get('intro', "Error"), kb.guide_menu('intro'))
+            menu_update(call, logic.GAME_GUIDE_TEXTS.get('intro', "Error"), kb.guide_menu('intro'), image_url=config.MENU_IMAGES["guide"])
 
         elif call.data.startswith("guide_page_"):
             page = call.data.replace("guide_page_", "")

@@ -18,6 +18,19 @@ MENU_IMAGE_URL_MONEY = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/ma
 MENU_IMAGE_URL_MIND = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/mind.jpeg"
 MENU_IMAGE_URL_TECH = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/neuro.jpeg"
 
+MENU_IMAGES = {
+    "get_protocol": "AgACAgIAAyEFAATh7MR7AAMbaZiXWWBNZFSn6X6X2jOioZMcD4IAAtUZaxvxO8lIK-8ENhRiRO4BAAMCAAN5AAM6BA",
+    "get_signal": "AgACAgIAAyEFAATh7MR7AAMcaZia1meLvNIXtxC31naYVRUdU0UAAusZaxvxO8lInbWGVkVPCzMBAAMCAAN5AAM6BA",
+    "zero_layer_menu": "AgACAgIAAyEFAATh7MR7AAMdaZia3Mvn9Ei9sORXsrT7JqVdiJoAAuwZaxvxO8lIV15auH4uEggBAAMCAAN5AAM6BA",
+    "shop_menu": "AgACAgIAAyEFAATh7MR7AAMeaZia316nKfu5np_DHUysBTP3Sr8AAu0ZaxvxO8lIn6oxjBv0ffoBAAMCAAN5AAM6BA",
+    "inventory": "AgACAgIAAyEFAATh7MR7AAMfaZia6HF2HjKG5ePc8AHXDiejj7YAAu4ZaxvxO8lIeVpyAAFVrl-yAQADAgADeQADOgQ",
+    "leaderboard": "AgACAgIAAyEFAATh7MR7AAMgaZia67bwFejOVI1_f_0oGaRwRdIAAu8ZaxvxO8lIGaXlnbg6wfIBAAMCAAN5AAM6BA",
+    "referral": "AgACAgIAAyEFAATh7MR7AAMhaZia7XFH1DEcGKFicao3VG9AGrIAAvAZaxvxO8lIL4E1Iz8pCkQBAAMCAAN5AAM6BA",
+    "diary_menu": "AgACAgIAAyEFAATh7MR7AAMiaZia77GYlpexeczG3gQ_GldaPicAAvEZaxvxO8lIyNFPQ2k3xqoBAAMCAAN5AAM6BA",
+    "guide": "AgACAgIAAyEFAATh7MR7AAMjaZia8MBMuD9XL6kEynvbsw5D_dQAAvIZaxvxO8lIFOmwKmnsucEBAAMCAAN5AAM6BA",
+    "admin_panel": "AgACAgIAAyEFAATh7MR7AAMkaZia834CgWuumHCALV2OojtSdJcAAvMZaxvxO8lITSVj78T2dxIBAAMCAAN5AAM6BA"
+}
+
 # =============================================================================
 # 2. НЕЙРО-ЭКОНОМИКА (ARPG БАЛАНС)
 # =============================================================================
