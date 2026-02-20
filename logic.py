@@ -83,6 +83,12 @@ def generate_loot(depth, luck):
     else:
         return {"prefix": "⚪️ [ОБЫЧНЫЙ]", "mult": 1.0, "icon": "⚪️"}
 
+def strip_html(text):
+    """Удаляет HTML теги из текста для алерта."""
+    if not text: return ""
+    clean = re.sub(r'<[^>]+>', '', text)
+    return clean
+
 def parse_riddle(text):
     """
     Парсит текст загадки, извлекая ответ из скобок.
@@ -251,10 +257,11 @@ def format_combat_screen(villain, hp, signal, stats, session):
     txt = (
         f"👹 УГРОЗА ОБНАРУЖЕНА: <b>{villain['name']}</b> (Lvl {villain['level']})\n\n"
         f"<i>{villain['description']}</i>\n\n"
-        f"📊 <b>ХАРАКТЕРИСТИКИ:</b>\n"
+        f"📊 <b>ХАРАКТЕРИСТИКИ ВРАГА:</b>\n"
         f"❤️ HP: {hp} / {villain['hp']}\n"
-        f"⚔️ Атака: {villain['atk']}\n"
-        f"🛡 Защита: {villain['def']}\n\n"
+        f"⚔️ Атака: {villain['atk']} | 🛡 Защита: {villain['def']}\n\n"
+        f"👤 <b>ВАШИ ХАРАКТЕРИСТИКИ:</b>\n"
+        f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n\n"
         f"⚠️ Оцените риски перед атакой."
     )
     return txt
@@ -394,7 +401,7 @@ def process_raid_step(uid, answer=None):
                     glitch_text = f"⚠️ <b>ГЛИТЧ (ОШИБКА):</b> Часть данных повреждена. -{loss} BC из буфера."
 
                 # We just return this as an event
-                return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", None, u, 'glitch', 0
+                return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", {'alert': strip_html(glitch_text)}, u, 'glitch', 0
 
             # ПРОВЕРКА БОЯ
             if s.get('current_enemy_id'):
@@ -529,7 +536,10 @@ def process_raid_step(uid, answer=None):
                     next_preview = generate_random_event_type()
                     cur.execute("UPDATE raid_sessions SET next_event_type=%s WHERE uid=%s", (next_preview, uid))
                     conn.commit()
-                    extra_data = {'image': villain.get('image')}
+                    extra_data = {
+                        'image': villain.get('image'),
+                        'alert': f"⚔️ БОЙ!\n{villain['name']}"
+                    }
                     return True, format_combat_screen(villain, villain['hp'], s['signal'], stats, s), extra_data, u, 'combat', 0
 
             # СУНДУК
@@ -549,6 +559,7 @@ def process_raid_step(uid, answer=None):
             msg_event = ""
             riddle_data = None
             death_reason = None
+            alert_msg = None
 
             # ЭФФЕКТЫ СОБЫТИЙ
             if event['type'] == 'trap':
@@ -572,6 +583,7 @@ def process_raid_step(uid, answer=None):
 
                 new_sig = max(0, new_sig - dmg)
                 msg_event = f"💥 <b>ЛОВУШКА:</b> {event['text']}\n🔻 <b>-{dmg}% Сигнала</b>"
+                alert_msg = f"💥 ЛОВУШКА!\n{event['text']}\n-{dmg}% Сигнала"
 
                 if new_sig <= 0:
                     death_reason = f"ЛОВУШКА: {event['text']}"
@@ -584,10 +596,12 @@ def process_raid_step(uid, answer=None):
 
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, coins, uid))
                 msg_event = f"{loot_info['prefix']} <b>НАХОДКА:</b> {event['text']}\n+{bonus_xp} XP | +{coins} BC"
+                alert_msg = f"💎 НАХОДКА!\n{event['text']}\n+{bonus_xp} XP | +{coins} BC"
 
             elif event['type'] == 'heal':
                 new_sig = min(100, new_sig + 25)
                 msg_event = f"❤️ <b>АПТЕЧКА:</b> {event['text']}\n+25% Сигнала"
+                alert_msg = f"❤️ АПТЕЧКА!\n+25% Сигнала"
 
             else:
                 msg_event = f"👣 {event['text']}"
@@ -601,7 +615,7 @@ def process_raid_step(uid, answer=None):
 
                 options = random.sample(RIDDLE_DISTRACTORS, 2) + [button_answer]
                 random.shuffle(options)
-                riddle_data = {"question": event['text'], "correct": riddle_answer, "options": options}
+                riddle_data = {"question": event['text'], "correct": riddle_answer, "options": options, "alert": "🧩 ЗАГАДКА!"}
                 msg_event = f"🧩 <b>ЗАГАДКА:</b>\n{event['text']}"
                 cur.execute("UPDATE raid_sessions SET current_riddle_answer=%s WHERE uid=%s", (riddle_answer, uid))
                 event['type'] = 'riddle'
@@ -616,6 +630,16 @@ def process_raid_step(uid, answer=None):
                 cur.execute("UPDATE users SET max_depth=%s WHERE uid=%s", (new_depth, uid))
 
             conn.commit() # ФИКСИРУЕМ ШАГ
+
+            if riddle_data:
+                if alert_msg: riddle_data['alert'] = alert_msg # Override if needed, but riddle_data is separate
+                else: riddle_data['alert'] = "🧩 ЗАГАДКА!"
+            elif alert_msg:
+                # If not riddle (riddle_data is returned as 3rd arg), pass alert in extra?
+                # The function signature returns: True, interface, riddle_data, u, type, cost
+                # Wait, riddle_data IS the extra_data for non-combat?
+                # Let's check the return below.
+                pass
 
             # СБОРКА UI
             cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
@@ -673,7 +697,19 @@ def process_raid_step(uid, answer=None):
 
                  return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\nРесурсы утеряны.", extra_death, u, 'death', 0
 
-            return True, interface, riddle_data, u, event['type'], next_step_cost
+            # If riddle_data exists, it is passed as 3rd arg.
+            # If not, we can pass a dict with alert as 3rd arg if we want.
+            # But the caller expects riddle_data to be None or Dict.
+            # If event['type'] == 'riddle', riddle_data is populated.
+            # If not, it is None.
+
+            extra_ret = None
+            if riddle_data:
+                extra_ret = riddle_data
+            elif alert_msg:
+                extra_ret = {'alert': alert_msg}
+
+            return True, interface, extra_ret, u, event['type'], next_step_cost
 
     return False, "⚠️ СИСТЕМНАЯ ОШИБКА", None, u, 'error', 0
 
