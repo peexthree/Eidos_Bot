@@ -482,6 +482,9 @@ def handle_query(call):
         elif call.data == "raid_step":
              res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
              if not res:
+                 if etype == 'death' and extra and extra.get('death_reason'):
+                      try: bot.answer_callback_query(call.id, extra['death_reason'], show_alert=True)
+                      except: pass
                  menu_update(call, txt, kb.back_button())
              else:
                  consumables = get_consumables(uid)
