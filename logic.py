@@ -94,23 +94,34 @@ def parse_riddle(text):
     Парсит текст загадки, извлекая ответ из скобок.
     Поддерживает форматы:
     1. (Ответ: Ответ) или (Протокол: Ответ) - строгий поиск.
-    2. (Ответ) - если текст содержит 'ЗАГАДКА', ищет в конце строки.
+    2. (Ответ) - если текст содержит 'ЗАГАДКА', ищет последнее содержимое скобок.
     Возвращает (answer, clean_text). Если ответ не найден, answer=None.
     """
     if not text: return None, text
 
     # 1. Строгий поиск с префиксом
-    match = re.search(r'\s*\((?:Ответ|Протокол):\s*(.*?)\)', text, re.IGNORECASE)
+    strict_match = re.search(r'\s*\((?:Ответ|Протокол):\s*(.*?)\)', text, re.IGNORECASE)
+
+    match = strict_match
 
     # 2. Мягкий поиск (fallback), если это явно загадка
     if not match and "ЗАГАДКА" in text.upper():
-         # Ищем содержимое скобок в самом конце строки
-         match = re.search(r'\s*\(([^()]+)\)\s*$', text)
+         # Ищем содержимое скобок (берем ПОСЛЕДНЕЕ вхождение)
+         all_matches = list(re.finditer(r'\(([^()]+)\)', text))
+         if all_matches:
+             match = all_matches[-1]
 
     if match:
          answer = match.group(1).strip()
          start, end = match.span()
-         clean_text = (text[:start] + text[end:]).strip()
+
+         if strict_match:
+             # Для строгого поиска вырезаем только блок ответа, сохраняя контекст
+             clean_text = (text[:start] + text[end:]).strip()
+         else:
+             # Для мягкого поиска обрезаем текст ПО начало ответа, чтобы убрать спойлеры ("Правильно! Это...")
+             clean_text = text[:start].strip()
+
          return answer, clean_text
 
     return None, text
