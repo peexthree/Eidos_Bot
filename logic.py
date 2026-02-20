@@ -305,7 +305,7 @@ def process_riddle_answer(uid, user_answer):
 def generate_random_event_type():
     r = random.random()
     if r < 0.15: return 'combat'
-    if r < 0.30: return 'locked_chest'
+    if r < 0.20: return 'locked_chest'
     return 'random'
 
 def generate_balanced_event_type(last_type, current_streak):
@@ -639,8 +639,8 @@ def process_raid_step(uid, answer=None):
 
             # ЛОР / СОВЕТЫ
             advice_text = ""
-            # Only show advice if not in combat and not dead, 40% chance
-            if current_type_code != 'combat' and new_sig > 0 and random.random() < 0.4:
+            # Always show advice if not in combat and not dead
+            if current_type_code != 'combat' and new_sig > 0:
                 adv_level = 1
                 if new_depth >= 100: adv_level = 3
                 elif new_depth >= 50: adv_level = 2
@@ -652,6 +652,7 @@ def process_raid_step(uid, answer=None):
             interface = (
                 f"🏝 <b>{biome_data['name']}</b> | <b>{new_depth}м</b>\n"
                 f"📡 Сигнал: <code>{sig_bar}</code> {new_sig}%\n"
+                f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
                 f"━━━━━━━━━━━━━━\n"
                 f"{msg_prefix}{msg_event}{advice_text}\n"
                 f"━━━━━━━━━━━━━━\n"
