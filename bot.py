@@ -487,6 +487,13 @@ def handle_query(call):
                       except: pass
                  menu_update(call, txt, kb.back_button())
              else:
+                 if extra and extra.get('alert'):
+                      try: bot.answer_callback_query(call.id, extra['alert'], show_alert=True)
+                      except: bot.answer_callback_query(call.id)
+                 else:
+                      try: bot.answer_callback_query(call.id)
+                      except: pass
+
                  consumables = get_consumables(uid)
                  riddle_opts = extra['options'] if etype == 'riddle' and extra else []
                  image_url = extra.get('image') if extra else None
@@ -572,8 +579,14 @@ def handle_query(call):
              action = call.data.replace("combat_", "")
              res_type, msg = logic.process_combat_action(uid, action)
 
+             # Alert with combat log
+             alert_msg = logic.strip_html(msg)
+             if len(alert_msg) > 190: alert_msg = alert_msg[:190] + "..."
+             try: bot.answer_callback_query(call.id, alert_msg, show_alert=True)
+             except: pass
+
              if res_type == 'error':
-                 bot.answer_callback_query(call.id, msg, show_alert=True)
+                 # bot.answer_callback_query(call.id, msg, show_alert=True) # Already handled above
                  res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
                  if res:
                      consumables = get_consumables(uid)
@@ -582,7 +595,7 @@ def handle_query(call):
                  else: menu_update(call, "Ошибка синхронизации.", kb.back_button())
 
              elif res_type == 'win':
-                 bot.answer_callback_query(call.id, "VICTORY!")
+                 # bot.answer_callback_query(call.id, "VICTORY!") # Already handled above
                  # Continue after win
                  res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
                  full_txt = f"{msg}\n\n{txt}"
