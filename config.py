@@ -323,6 +323,40 @@ LOOT_TABLE = {
 # =============================================================================
 # 4. ИЕРАРХИЯ И ТИТУЛЫ
 # =============================================================================
+USER_AVATARS = {
+    1: "AgACAgIAAyEFAATh7MR7AAMmaZi5utk5FU1n3BcRZCsQ20QPm7sAAhEbaxvxO8lICNdJyAm3azcBAAMCAAN5AAM6BA",
+    2: "AgACAgIAAyEFAATh7MR7AAMnaZi5xuzafX9i4z-98ZeL7WVx8hUAAhIbaxvxO8lIaubtK0D-nLoBAAMCAAN5AAM6BA",
+    3: "AgACAgIAAyEFAATh7MR7AAMoaZi55X2QkL4fFerQ8YECbfIVIpEAAncVaxt7e8lIlgxqXvgULG0BAAMCAAN5AAM6BA",
+    4: "AgACAgIAAyEFAATh7MR7AAMpaZi56eaoLD7RmCN9GNsZxVny4koAAngVaxt7e8lIXCVm6rZdncwBAAMCAAN5AAM6BA",
+    5: "AgACAgIAAyEFAATh7MR7AAMqaZi57V1MBwYCvFc-Mr_zgLHFBWAAAhQbaxvxO8lI4QVSRUxkvhMBAAMCAAN5AAM6BA",
+    6: "AgACAgIAAyEFAATh7MR7AAMraZi6p6jwQGym5xuCtuk2S6dLNk4AAh4baxvxO8lI_iiKhGmNJzoBAAMCAAN5AAM6BA",
+    7: "AgACAgIAAyEFAATh7MR7AAMsaZjAYnNlb_guoHiQRQKEE34nhmkAAmMbaxvxO8lI6qseYoVt6agBAAMCAAN5AAM6BA",
+    8: "AgACAgIAAyEFAATh7MR7AAMtaZjBCLCDzgUl9oKD7drhb8PS5jAAAmYbaxvxO8lISbYuxpbnnXwBAAMCAAN5AAM6BA",
+    9: "AgACAgIAAyEFAATh7MR7AAMuaZjBcZYodiV5MqNjBJwMXwwSYpkAAm0baxvxO8lIGoThjEm1vAgBAAMCAAN5AAM6BA",
+    10: "AgACAgIAAyEFAATh7MR7AAMvaZjB0PKhdK1QUBaL1loWe-w9h9sAAnYbaxvxO8lI22jsAfJcpl0BAAMCAAN5AAM6BA",
+    11: "AgACAgIAAyEFAATh7MR7AAMwaZjCrgJlkLtUb84TnPYs-La5AwIAAoEbaxvxO8lIXczlvYJtEmsBAAMCAAN5AAM6BA",
+    12: "AgACAgIAAyEFAATh7MR7AAMxaZjC_-oxRUKMlLNqwaZWIiISQGsAAocbaxvxO8lIGY0mqo1lkHIBAAMCAAN5AAM6BA",
+    13: "AgACAgIAAyEFAATh7MR7AAMyaZjDSZWsjXPVzEIBxyv3desO5EkAAosbaxvxO8lIM9-9nsVIJR4BAAMCAAN5AAM6BA",
+    14: "AgACAgIAAyEFAATh7MR7AAMzaZjD5QL1baZux_6BZRd0cM57rcsAAo4baxvxO8lIeZfQTyFgqLMBAAMCAAN5AAM6BA",
+    15: "AgACAgIAAyEFAATh7MR7AAM0aZjEf_WckrOjyJ6ZUv1dxMazWw4AApEbaxvxO8lIZX49CjlXwOUBAAMCAAN5AAM6BA",
+    16: "AgACAgIAAyEFAATh7MR7AAM1aZjE6QFwlmqVzczVTQ0REFLEgMoAApUbaxvxO8lIPfQ3IxNt2-4BAAMCAAN5AAM6BA",
+    17: "AgACAgIAAyEFAATh7MR7AAM2aZjFNeCJj9H3OHmgQ4zYFtsGb7EAAqQbaxvxO8lIBXSoaH_FsygBAAMCAAN5AAM6BA",
+    18: "AgACAgIAAyEFAATh7MR7AAM3aZjFqP2XYSZcVtgGzDrm2RW6DAgAAqYbaxvxO8lI8w-080tG_aMBAAMCAAN5AAM6BA",
+    19: "AgACAgIAAyEFAATh7MR7AAM4aZjGDsZl_BCFJyhcSB8NB-I2Yt8AAq0baxvxO8lI6TbC1WY0_kABAAMCAAN5AAM6BA",
+    20: "AgACAgIAAyEFAATh7MR7AAM5aZjHAYjrhf-k16xh9u1thKSUr2QAArYbaxvxO8lI1tfoKGIcIg4BAAMCAAN5AAM6BA",
+    21: "AgACAgIAAyEFAATh7MR7AAM6aZjHksd5yqFjuR57dk-pE_NvcvgAArobaxvxO8lI6J0oxj00G60BAAMCAAN5AAM6BA",
+    22: "AgACAgIAAyEFAATh7MR7AAM7aZjIFyn-N5gUL_avtgABxRbcqAv9AALHG2sb8TvJSCX_qbFXjZELAQADAgADeQADOgQ",
+    23: "AgACAgIAAyEFAATh7MR7AAM8aZjIbxW416rmjpYuz7DWJf37L64AAssbaxvxO8lIZSv3z-5qK4wBAAMCAAN5AAM6BA",
+    24: "AgACAgIAAyEFAATh7MR7AAM9aZjI3YKw40rCU4rBtu-fz9afWesAAs4baxvxO8lI8r-9HoxnuUMBAAMCAAN5AAM6BA",
+    25: "AgACAgIAAyEFAATh7MR7AAM-aZjJg02FGS1niA29hhyzG_EEgLEAAtQbaxvxO8lIca8YTnNumE4BAAMCAAN5AAM6BA",
+    26: "AgACAgIAAyEFAATh7MR7AAM_aZjKDQTgeg1bbjY8XZQTcImZkEMAAtobaxvxO8lIK6K4MM1ayvQBAAMCAAN5AAM6BA",
+    27: "AgACAgIAAyEFAATh7MR7AANAaZjKYOV7d06uZIpiKUgUUjF9RTAAAtwbaxvxO8lILiMk_Wldur4BAAMCAAN5AAM6BA",
+    28: "AgACAgIAAyEFAATh7MR7AANBaZjKpZYDOMhhmxbXa-ZwPYNUmAUAAt8baxvxO8lILpw7r-DYGSEBAAMCAAN5AAM6BA",
+    29: "AgACAgIAAyEFAATh7MR7AANCaZjK7Cn1wbVgc3AAAUnq8kL9vabmAALjG2sb8TvJSM0ZOS7yCVvEAQADAgADeQADOgQ",
+    30: "AgACAgIAAyEFAATh7MR7AANDaZjLDBx64HL3A2nF3DOqRpCwOPsAAuQbaxvxO8lIRuU9FkZAhC8BAAMCAAN5AAM6BA",
+    31: "AgACAgIAAyEFAATh7MR7AANEaZjMhPcXRj_bs5drhJZ_4vZS9LcAAvsbaxvxO8lIOlGpn4LaLUEBAAMCAAN5AAM6BA"
+}
+
 LEVELS = {
     0: 100,      # To reach Lvl 1
     1: 500,      # To reach Lvl 2
@@ -368,7 +402,8 @@ TITLES = {
     27: "ФРАГМЕНТ ВСЕГО (В каждом элементе вселенной слышен отголосок твоего кода)",
     28: "НЕИЗРЕКАЕМЫЙ (Твоё имя не может быть сформировано словами)",
     29: "ЭКО РЕАЛЬНОСТИ (Ты сам — резонанс бытия, отражение зеркала, что смотрит в себя)",
-    30: "OMNI (Все и Ничто. Финал цикла и его начало)"
+    30: "OMNI (Все и Ничто. Финал цикла и его начало)",
+    31: "неофит (ты познал всё)"
 }
 
 LEVEL_UP_MSG = {
@@ -401,7 +436,8 @@ LEVEL_UP_MSG = {
     27: "✨ <b>LVL 27: ОТРАЖЕНИЕ</b>\nФрагмент Всего. Ты существуешь в каждом узле — усиливаешь союзников пассивно.",
     28: "✨ <b>LVL 28: БЕЗМОЛВИЕ</b>\nНеизрекаемый. Молча меняешь баланс, воздействуя на реальность незаметно.",
     29: "✨ <b>LVL 29: РЕЗОНАНС</b>\nЭко Реальности. Мир откликается на твоё присутствие вибрациями кода.",
-    30: "🌌 <b>LVL 30: OMNI</b>\nТы стал Всем и Ничем. Конец цикла и его новое начало. Всё — часть тебя."
+    30: "🌌 <b>LVL 30: OMNI</b>\nТы стал Всем и Ничем. Конец цикла и его новое начало. Всё — часть тебя.",
+    31: "🌌 <b>LVL 31: НЕОФИТ</b>\nТы познал всё."
 }
 
 # =============================================================================

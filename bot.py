@@ -325,7 +325,12 @@ def handle_query(call):
                    f"🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
                    f"🏆 Ачивки: <b>{len(ach_list)}</b>")
 
-            menu_update(call, msg, kb.profile_menu(u, has_accel))
+            # Determine avatar based on level
+            avatar_id = config.USER_AVATARS.get(u.get('level', 1))
+            if not avatar_id:
+                avatar_id = config.USER_AVATARS.get(1)
+
+            menu_update(call, msg, kb.profile_menu(u, has_accel), image_url=avatar_id)
 
         elif call.data.startswith("set_path_"):
             path = call.data.replace("set_path_", "")
