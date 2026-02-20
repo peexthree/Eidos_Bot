@@ -40,7 +40,7 @@ def get_consumables(uid):
     inv = db.get_inventory(uid)
     cons = {}
     for i in inv:
-        if i['item_id'] in ['battery', 'neural_stimulator', 'emp_grenade', 'stealth_spray', 'memory_wiper']:
+        if i['item_id'] in ['battery', 'neural_stimulator', 'emp_grenade', 'stealth_spray', 'memory_wiper', 'data_spike']:
             cons[i['item_id']] = i['quantity']
     return cons
 
@@ -190,7 +190,15 @@ def handle_query(call):
                     bot.answer_callback_query(call.id)
                     proto = logic.get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
                     txt = proto['text'] if proto else "/// ДАННЫЕ ПОВРЕЖДЕНЫ. ПОПРОБУЙ ПОЗЖЕ."
-                    xp = config.XP_GAIN
+
+                    # SCALING XP FORMULA (Module 1)
+                    # Base_XP * (u['level'] * 1.5) * (1 + (streak * 0.1))
+                    streak = u.get('streak', 0)
+                    level = u.get('level', 1)
+                    base_xp = config.XP_GAIN
+
+                    xp = int(base_xp * (level * 1.5) * (1 + (streak * 0.1)))
+
                     db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
                     if proto: db.save_knowledge(uid, proto.get('id', 0))
 

@@ -155,6 +155,12 @@ def shop_section_menu(category):
               types.InlineKeyboardButton(f"🔑 КЛЮЧ ({PRICES['master_key']} BC)", callback_data="view_shop_master_key"))
         m.add(types.InlineKeyboardButton(f"🔋 БАТАРЕЯ ({PRICES['battery']} BC)", callback_data="view_shop_battery"),
               types.InlineKeyboardButton(f"🛡 ЭГИДА ({PRICES['aegis']} BC)", callback_data="view_shop_aegis"))
+        m.add(types.InlineKeyboardButton(f"💉 СТИМУЛЯТОР ({PRICES['neural_stimulator']} BC)", callback_data="view_shop_neural_stimulator"),
+              types.InlineKeyboardButton(f"💣 EMP-ЗАРЯД ({PRICES['emp_grenade']} BC)", callback_data="view_shop_emp_grenade"))
+        m.add(types.InlineKeyboardButton(f"🌫 СТЕЛС-СПРЕЙ ({PRICES['stealth_spray']} BC)", callback_data="view_shop_stealth_spray"),
+              types.InlineKeyboardButton(f"🌀 СТИРАТЕЛЬ ({PRICES['memory_wiper']} BC)", callback_data="view_shop_memory_wiper"))
+        m.add(types.InlineKeyboardButton(f"🪛 ДАТА-ШИП ({PRICES['data_spike']} BC)", callback_data="view_shop_data_spike"),
+              types.InlineKeyboardButton(f"👁‍🗨 КЛЮЧ БЕЗДНЫ ({PRICES['abyssal_key']} BC)", callback_data="view_shop_abyssal_key"))
         # Special Items
         m.add(types.InlineKeyboardButton(f"❄️ КРИО ({PRICES['cryo']} XP)", callback_data="view_shop_cryo"),
               types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="view_shop_accel"))

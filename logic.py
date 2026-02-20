@@ -239,14 +239,15 @@ def generate_hud(uid, u, session_data, cursor=None):
 
     for i in inv_items:
         iid = i['item_id']
-        if iid in ['master_key', 'abyssal_key']:
+        if iid in ['master_key', 'abyssal_key', 'data_spike']:
             keys += i['quantity']
-        elif iid == 'battery':
-            consumables.append("🔋")
-        elif iid == 'neural_stimulator':
-            consumables.append("💉")
+        elif iid == 'battery': consumables.append("🔋")
+        elif iid == 'neural_stimulator': consumables.append("💉")
+        elif iid == 'emp_grenade': consumables.append("💣")
+        elif iid == 'stealth_spray': consumables.append("🌫")
+        elif iid == 'memory_wiper': consumables.append("🌀")
 
-    cons_str = "".join(consumables[:3]) # Limit display
+    cons_str = "".join(consumables[:5]) # Limit display
 
     # Format
     return (
@@ -256,17 +257,11 @@ def generate_hud(uid, u, session_data, cursor=None):
 
 def get_raid_entry_cost(uid):
     u = db.get_user(uid)
-    if not u: return RAID_ENTRY_COSTS[0]
+    if not u: return 100
 
-    today = datetime.now().date()
-    last = u.get('last_raid_date')
-
-    if not last or str(last) != str(today):
-        return RAID_ENTRY_COSTS[0]
-
-    count = u.get('raid_count_today', 0)
-    idx = min(count, len(RAID_ENTRY_COSTS) - 1)
-    return RAID_ENTRY_COSTS[idx]
+    level = u.get('level', 1)
+    # Dynamic Cost Formula: 100 + (Level * 150)
+    return 100 + (level * 150)
 
 def generate_raid_report(uid, s, success=False):
     # Time
@@ -378,9 +373,10 @@ def process_riddle_answer(uid, user_answer):
 
 def generate_random_event_type():
     r = random.random()
-    if r < 0.15: return 'combat'
-    if r < 0.20: return 'locked_chest'
-    return 'random'
+    if r < 0.15: return 'combat'        # 15% Combat
+    if r < 0.20: return 'locked_chest'  # 5% Locked Chest
+    if r < 0.50: return 'lore'          # 30% Lore Room
+    return 'random'                     # 50% Random (Traps/Loot/Riddles)
 
 def generate_balanced_event_type(last_type, current_streak):
     # Base logic
@@ -389,7 +385,7 @@ def generate_balanced_event_type(last_type, current_streak):
     # Streak prevention
     if current_streak >= 4 and new_type == last_type:
         # Force switch
-        options = ['combat', 'locked_chest', 'random']
+        options = ['combat', 'locked_chest', 'random', 'lore']
         if last_type in options: options.remove(last_type)
         return random.choice(options)
 
@@ -613,6 +609,17 @@ def process_raid_step(uid, answer=None):
             elif current_type_code == 'locked_chest':
                 event = {'type': 'locked_chest', 'text': 'Запертый контейнер.', 'val': 0}
 
+            # ПЕРЕДЫШКА (ЛОР)
+            elif current_type_code == 'lore':
+                adv_level = 1
+                if depth >= 100: adv_level = 3
+                elif depth >= 50: adv_level = 2
+
+                lore_text = db.get_random_raid_advice(adv_level, cursor=cur)
+                if not lore_text: lore_text = "Только эхо твоих шагов в пустом кластере данных..."
+
+                event = {'type': 'neutral', 'text': f"💨 <b>БЕЗОПАСНАЯ ЗОНА</b>\n\nВы переводите дух. В логах терминала осталась запись:\n<i>«{lore_text}»</i>", 'val': 0}
+
             # СЛУЧАЙНОЕ
             else:
                 cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
@@ -731,7 +738,7 @@ def process_raid_step(uid, answer=None):
             # ЛОР / СОВЕТЫ
             advice_text = ""
             # Always show advice if not in combat and not dead
-            if current_type_code != 'combat' and new_sig > 0:
+            if current_type_code != 'combat' and current_type_code != 'lore' and new_sig > 0:
                 adv_level = 1
                 if new_depth >= 100: adv_level = 3
                 elif new_depth >= 50: adv_level = 2
