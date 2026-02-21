@@ -866,6 +866,27 @@ def handle_query(call):
                 rem_mins = max(0, int((expiry - time.time()) // 60))
                 menu_update(call, f"🕶 <b>ТЕНЕВОЙ БРОКЕР</b>\nКанал закроется через {rem_mins} мин.\n\n<i>Товар нелегален. Возврату не подлежит.</i>", kb.shadow_shop_menu(items), image_url=config.MENU_IMAGES["shop_menu"])
 
+        elif call.data.startswith("view_shadow_"):
+            item_id = call.data.replace("view_shadow_", "")
+            items = logic.get_shadow_shop_items(uid)
+            target = next((i for i in items if i['item_id'] == item_id), None)
+
+            if not target:
+                bot.answer_callback_query(call.id, "❌ Товар исчез.", show_alert=True)
+                handle_query(type('obj', (object,), {'data': 'shadow_broker_menu', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+            else:
+                price = target['price']
+                currency = target['currency']
+                desc = target['desc']
+
+                # Append stats if equip
+                info = config.EQUIPMENT_DB.get(item_id)
+                if info:
+                    desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
+
+                txt = f"🕶 <b>{target['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {u['xp']} XP | {u['biocoin']} BC"
+                menu_update(call, txt, kb.shadow_item_details_keyboard(item_id, price, currency))
+
         elif call.data.startswith("buy_shadow_"):
             item_id = call.data.replace("buy_shadow_", "")
             items = logic.get_shadow_shop_items(uid)
@@ -889,6 +910,7 @@ def handle_query(call):
                 if can_buy:
                     if db.add_item(uid, item_id):
                         bot.answer_callback_query(call.id, f"✅ Куплено: {target['name']}", show_alert=True)
+                        handle_query(type('obj', (object,), {'data': 'shadow_broker_menu', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
                     else:
                         # Refund
                         if currency == 'xp': db.update_user(uid, xp=u['xp'] + price)

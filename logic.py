@@ -601,7 +601,7 @@ def process_raid_step(uid, answer=None):
             step_size = 1
             equipped_head = db.get_equipped_items(uid).get('head')
 
-            if equipped_head == 'relic_speed':
+            if equipped_head in ['relic_speed', 'shadow_reliq-speed']:
                 step_size = 2
             elif equipped_head == 'void_walker_hood' and random.random() < 0.25:
                 step_size = 2
@@ -1217,7 +1217,7 @@ def process_combat_action(uid, action):
             enemy_dmg = max(min_dmg, enemy_dmg)
 
             # --- AURA: TACTICAL HELMET (Auto Dodge) ---
-            if equipped_head == 'tactical_helmet' and random.random() < 0.10:
+            if equipped_head in ['tactical_helmet', 'Tac_visor'] and random.random() < 0.10:
                 enemy_dmg = 0
                 msg += "🪖 <b>ТАКТИКА:</b> Автоматическое уклонение!\n"
 

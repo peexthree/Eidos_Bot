@@ -440,9 +440,15 @@ def shadow_shop_menu(items):
 
     for item in items:
         price_txt = f"{item['price']} {'XP' if item['currency']=='xp' else 'BC'}"
-        m.add(types.InlineKeyboardButton(f"{item['name']} - {price_txt}", callback_data=f"buy_shadow_{item['item_id']}"))
+        m.add(types.InlineKeyboardButton(f"{item['name']} - {price_txt}", callback_data=f"view_shadow_{item['item_id']}"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m
+
+def shadow_item_details_keyboard(item_id, price, currency):
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton(f"💸 КУПИТЬ ({price} {currency.upper()})", callback_data=f"buy_shadow_{item_id}"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="shadow_broker_menu"))
     return m
 
 def decrypt_menu(status):
