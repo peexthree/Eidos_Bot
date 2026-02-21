@@ -161,8 +161,8 @@ def check_shadow_broker_trigger(uid):
     if u.get('shadow_broker_expiry', 0) > time.time():
         return False, 0
 
-    # 2% chance
-    if random.random() < 0.02:
+    # 5% chance (per TZ/README)
+    if random.random() < 0.05:
         expiry = int(time.time() + 900) # 15 mins
         db.set_shadow_broker(uid, expiry)
         return True, expiry

@@ -16,27 +16,37 @@ def get_shadow_shop_items(uid):
     # Stable random for the duration of this specific broker instance
     random.seed(expiry + uid)
 
-    # Filter for HELMETS only (slot='head')
-    helmet_pool = [k for k, v in EQUIPMENT_DB.items() if v.get('slot') == 'head']
+    # 1. Base Pool: SHADOW_BROKER_ITEMS from config
+    pool = list(SHADOW_BROKER_ITEMS)
 
-    # Ensure unique selection
-    if len(helmet_pool) > 3:
-        selected = random.sample(helmet_pool, 3)
+    # 2. Add High-Tier Equipment (Price > 20000) to mix
+    high_tier = [k for k, v in EQUIPMENT_DB.items() if v.get('price', 0) > 20000]
+    pool.extend(high_tier)
+
+    # Deduplicate
+    pool = list(set(pool))
+
+    # Select 3 random items
+    if len(pool) > 3:
+        selected = random.sample(pool, 3)
     else:
-        selected = helmet_pool
+        selected = pool
 
     shop = []
     for item_id in selected:
-        info = EQUIPMENT_DB.get(item_id)
+        info = EQUIPMENT_DB.get(item_id) or ITEMS_INFO.get(item_id)
         if not info: continue
 
-        base_price = info.get('price', 5000)
+        base_price = info.get('price', 50000)
 
-        # New Logic: Always BioCoin, Fixed Expensive Price
-        # As requested: "Just expensive prices in BioCoins".
-        # We use the base price from DB which is already set for these items.
-        curr = 'biocoin'
-        price = base_price
+        # Currency Logic: 50% chance for XP (Life), 50% for BioCoins
+        # "XP (Your Life) or Huge Sums of BioCoins"
+        if random.random() < 0.5:
+            curr = 'xp'
+            price = base_price # 1 XP = 1 BioCoin value in this context (Life is expensive)
+        else:
+            curr = 'biocoin'
+            price = base_price
 
         shop.append({
             'item_id': item_id,
