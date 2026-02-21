@@ -268,7 +268,24 @@ def menu_update(call, text, markup=None, image_url=None):
     except ApiTelegramException as e:
         if e.error_code == 403 or "blocked" in e.description:
             db.set_user_active(call.from_user.id, False)
+            return
+
         print(f"/// MENU UPDATE API ERR: {e}")
+        # Fallback for API errors (e.g. message too old, content not modified, invalid file id)
+        try:
+            if image_url:
+                bot.send_photo(call.message.chat.id, image_url, caption=text, reply_markup=markup, parse_mode="HTML")
+            else:
+                bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="HTML")
+        except ApiTelegramException as e2:
+            print(f"/// MENU UPDATE FALLBACK ERR: {e2}")
+            # Try text only if image failed
+            if image_url:
+                try:
+                    bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="HTML")
+                except: pass
+        except: pass
+
     except Exception as e:
         print(f"/// MENU UPDATE ERR: {e}")
         try:
