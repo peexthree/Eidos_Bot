@@ -207,7 +207,13 @@ def handle_query(call):
                         try: bot.send_message(uid, msg, parse_mode="HTML")
                         except: pass
 
-                    final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
+                    ach_text = ""
+                    new_achs = logic.check_achievements(uid)
+                    if new_achs:
+                        for a in new_achs:
+                            ach_text += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
+
+                    final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}\n\n⚡️ +{xp} XP{ach_text}"
                     threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_protocol"])).start()
 
         elif call.data == "get_signal":
@@ -226,7 +232,12 @@ def handle_query(call):
                      bot.answer_callback_query(call.id)
                      sig = logic.get_content_logic('signal')
                      txt = sig['text'] if sig else "/// НЕТ СВЯЗИ."
-                     xp = config.XP_SIGNAL
+
+                     # SCALING XP
+                     level = u.get('level', 1)
+                     base_xp = config.XP_SIGNAL
+                     xp = int(base_xp * (level * 1.5))
+
                      db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+xp)
 
                      lvl, msg = logic.check_level_up(uid)
@@ -234,7 +245,14 @@ def handle_query(call):
                          try: bot.send_message(uid, msg, parse_mode='HTML')
                          except: pass
 
-                     final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP"
+                     # Check achievements
+                     ach_text = ""
+                     new_achs = logic.check_achievements(uid)
+                     if new_achs:
+                        for a in new_achs:
+                            ach_text += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
+
+                     final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP{ach_text}"
                      threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_signal"])).start()
 
         elif call.data == "admin_panel":
@@ -311,27 +329,43 @@ def handle_query(call):
         elif call.data == "profile":
             stats, _ = logic.get_user_stats(uid)
             perc, xp_need = logic.get_level_progress_stats(u)
-            p_bar = kb.get_progress_bar(perc, 100)
+            p_bar = logic.draw_bar(perc, 100, 10)
             ach_list = db.get_user_achievements(uid)
             has_accel = db.get_item_count(uid, 'accel') > 0
 
             p_stats = logic.get_profile_stats(uid)
+
+            # Formatting title logic
+            full_title = TITLES.get(u['level'], 'Unknown')
+            if '(' in full_title:
+                title_name = full_title.split('(')[0].strip()
+                title_desc = full_title.split('(')[1].replace(')', '').strip()
+            else:
+                title_name = full_title
+                title_desc = "Данные отсутствуют"
+
+            school_name = SCHOOLS.get(u['path'], 'ОБЩАЯ')
+
             accel_status = ""
             if u.get('accel_exp', 0) > time.time():
                  rem_hours = int((u['accel_exp'] - time.time()) / 3600)
                  accel_status = f"\n⚡️ Ускоритель: <b>АКТИВЕН ({rem_hours}ч)</b>"
 
-            msg = (f"👤 <b>ПРОФИЛЬ: {u['first_name']}</b>\n"
-                   f"🔰 Статус: <code>{TITLES.get(u['level'], 'Unknown')}</code>\n"
-                   f"📊 LVL {u['level']} | {p_bar} ({perc}%)\n"
-                   f"📉 ДО СЛЕДУЮЩЕГО УРОВНЯ: {xp_need} XP\n\n"
-                   f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
-                   f"🏫 Школа: <code>{SCHOOLS.get(u['path'], 'Общая')}</code>\n"
-                   f"🔋 ТЕКУЩИЙ ОПЫТ: {u['xp']} | 🪙 BioCoins: {u['biocoin']}\n"
-                   f"{accel_status}\n"
-                   f"🔥 СТРИК: <b>{p_stats['streak']} дн. (+{p_stats['streak_bonus']}% к опыту)</b>\n"
-                   f"🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
-                   f"🏆 Ачивки: <b>{len(ach_list)}</b>")
+            msg = (
+                f"👤 <b>ПРОФИЛЬ: {u['username'] or u['first_name']}</b>\n"
+                f"🏫 Школа: <b>{school_name}</b>\n"
+                f"🔰 Статус: <b>{title_name}</b>\n"
+                f"<i>({title_desc})</i>\n"
+                f"📊 <b>LVL {u['level']}</b> | <code>{p_bar}</code> ({perc}%)\n"
+                f"🔋 <b>ТЕКУЩИЙ ОПЫТ:</b> {u['xp']}\n"
+                f"📉 <b>ДО СЛЕДУЮЩЕГО УРОВНЯ:</b> {xp_need} XP\n"
+                f"🔥 <b>СТРИК входов дней в игру:</b> {p_stats['streak']} (+{p_stats['streak_bonus']}% к опыту)\n\n"
+                f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n\n"
+                f"🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
+                f"🏆 Ачивки: <b>{len(ach_list)}</b>\n"
+                f"🌐 Протоколов в коллекции: <b>{u.get('know_count', 0)}</b>\n"
+                f"🪙 Кошелек: <b>{u['biocoin']} BC</b>{accel_status}"
+            )
 
             # Determine avatar based on level
             avatar_id = config.USER_AVATARS.get(u.get('level', 1))
@@ -470,7 +504,14 @@ def handle_query(call):
                 if u.get('xp', 0) >= cost:
                     db.add_item(uid, item)
                     db.update_user(uid, xp=u['xp'] - cost)
-                    bot.answer_callback_query(call.id, f"✅ Куплено: {item}", show_alert=True)
+
+                    ach_txt = ""
+                    new_achs = logic.check_achievements(uid)
+                    if new_achs:
+                        for a in new_achs:
+                            ach_txt += f"\n🏆 ДОСТИЖЕНИЕ: {a['name']}"
+
+                    bot.answer_callback_query(call.id, f"✅ Куплено: {item}\n📉 Потрачено: {cost} XP{ach_txt}", show_alert=True)
                     handle_query(type('obj', (object,), {'data': f'view_shop_{item}', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
                 else:
                     bot.answer_callback_query(call.id, "❌ Мало XP", show_alert=True)
@@ -478,7 +519,14 @@ def handle_query(call):
                 if u['biocoin'] >= cost:
                     if db.add_item(uid, item):
                         db.update_user(uid, biocoin=u['biocoin'] - cost, total_spent=u['total_spent']+cost)
-                        bot.answer_callback_query(call.id, f"✅ Куплено: {item}", show_alert=True)
+
+                        ach_txt = ""
+                        new_achs = logic.check_achievements(uid)
+                        if new_achs:
+                            for a in new_achs:
+                                ach_txt += f"\n🏆 ДОСТИЖЕНИЕ: {a['name']}"
+
+                        bot.answer_callback_query(call.id, f"✅ Куплено: {item}\n📉 Потрачено: {cost} BC 🪙{ach_txt}", show_alert=True)
                         handle_query(type('obj', (object,), {'data': f'view_shop_{item}', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
                     else:
                         bot.answer_callback_query(call.id, "🎒 Рюкзак полон!", show_alert=True)
@@ -492,10 +540,19 @@ def handle_query(call):
 
         elif call.data == "raid_enter":
              res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
-             if not res:
-                 bot.answer_callback_query(call.id, txt, show_alert=True)
-             else:
+
+             if res:
+                 entry_cost = logic.get_raid_entry_cost(uid)
+                 bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
                  consumables = get_consumables(uid)
+             else:
+                 bot.answer_callback_query(call.id, txt, show_alert=True)
+                 return # Don't update menu on error? Or do? Logic says return False with msg.
+                 # Original code called menu_update anyway?
+                 # No, original code:
+                 # if not res: answer(alert);
+                 # else: menu_update;
+                 # So I should preserve that structure.
                  riddle_opts = extra['options'] if etype == 'riddle' and extra else []
                  image_url = extra.get('image') if extra else None
                  markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
@@ -666,7 +723,10 @@ def handle_query(call):
             txt = "🏆 <b>ТОП-10 ИСКАТЕЛЕЙ</b>\n\n"
             for i, l in enumerate(leaders, 1):
                 icon = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else "▫️"
-                txt += f"{icon} {l['first_name']} — {l['max_depth']}м | {l['xp']} XP\n"
+
+                name_fmt = f"<b>{l['first_name']}</b>" if i <= 3 else l['first_name']
+
+                txt += f"{icon} {name_fmt}\n   📊 Lvl {l['level']} | 🪙 {l['biocoin']} BC | 🕳 {l['max_depth']}м\n\n"
             menu_update(call, txt, kb.back_button(), image_url=config.MENU_IMAGES["leaderboard"])
 
         elif call.data == "referral":

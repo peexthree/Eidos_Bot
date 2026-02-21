@@ -1,5 +1,5 @@
 import database as db
-from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_ENTRY_COSTS, LEVEL_UP_MSG
+from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_ENTRY_COSTS, LEVEL_UP_MSG, ACHIEVEMENTS_LIST
 import random
 import time
 import re
@@ -202,6 +202,24 @@ def get_full_archive_chunks(uid):
         chunks.append(current_chunk)
 
     return chunks
+
+def check_achievements(uid):
+    u = db.get_user(uid)
+    if not u: return []
+
+    new_achs = []
+    user_achs = db.get_user_achievements(uid)
+
+    for ach_id, data in ACHIEVEMENTS_LIST.items():
+        if ach_id in user_achs: continue
+
+        try:
+            if data['cond'](u):
+                if db.grant_achievement(uid, ach_id, data['xp']):
+                    new_achs.append(data)
+        except: pass
+
+    return new_achs
 
 def get_user_stats(uid):
     u = db.get_user(uid)
@@ -718,6 +736,16 @@ def process_raid_step(uid, answer=None):
             # СБОРКА UI
             cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
             res = cur.fetchone()
+
+            # Achievements Check
+            new_achs = check_achievements(uid)
+            if new_achs:
+                ach_txt = ""
+                for a in new_achs:
+                    ach_txt += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
+                msg_event += ach_txt
+                if alert_msg: alert_msg += ach_txt
+                else: alert_msg = "🏆 НОВОЕ ДОСТИЖЕНИЕ!" + ach_txt
             
             sig_bar = draw_bar(new_sig, 100, 8)
             

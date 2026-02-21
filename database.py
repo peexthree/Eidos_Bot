@@ -411,7 +411,7 @@ def save_knowledge(uid, content_id):
 def get_leaderboard(limit=10):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
-        cur.execute("SELECT first_name, xp, level, max_depth FROM users ORDER BY max_depth DESC, xp DESC LIMIT %s", (limit,))
+        cur.execute("SELECT first_name, xp, level, max_depth, biocoin FROM users ORDER BY max_depth DESC, xp DESC LIMIT %s", (limit,))
         return cur.fetchall()
 
 def add_diary_entry(uid, text):
