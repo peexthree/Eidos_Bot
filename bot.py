@@ -62,6 +62,7 @@ import modules.handlers.admin
 import modules.handlers.menu
 import modules.handlers.items
 import modules.handlers.gameplay
+import modules.handlers.onboarding
 
 # --- MIDDLEWARE FOR STATS TRACKING ---
 @bot.middleware_handler(update_types=['message'])
