@@ -146,7 +146,12 @@ def raid_handler(call):
          else:
              start_depth = int(val)
 
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid, start_depth=start_depth)
+         try:
+             res, txt, extra, new_u, etype, cost = process_raid_step(uid, start_depth=start_depth)
+         except Exception as e:
+             print(f"RAID START ERROR: {e}")
+             bot.answer_callback_query(call.id, "⚠️ ОШИБКА РЕЙДА. Попробуйте позже.", show_alert=True)
+             return
 
          if res:
              db.log_action(uid, 'raid_start', f"Depth: {start_depth}")
@@ -163,7 +168,12 @@ def raid_handler(call):
          menu_update(call, txt, markup, image_url=image_url)
 
     elif call.data == "raid_enter":
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid)
+         try:
+             res, txt, extra, new_u, etype, cost = process_raid_step(uid)
+         except Exception as e:
+             print(f"RAID ENTER ERROR: {e}")
+             bot.answer_callback_query(call.id, "⚠️ ОШИБКА ВХОДА. Попробуйте позже.", show_alert=True)
+             return
 
          if res:
              entry_cost = get_raid_entry_cost(uid)

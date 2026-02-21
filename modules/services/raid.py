@@ -423,6 +423,10 @@ def process_raid_step(uid, answer=None, start_depth=None):
                         'alert': f"⚔️ БОЙ!\n{villain['name']}"
                     }
                     return True, format_combat_screen(villain, villain['hp'], s['signal'], stats, s), extra_data, u, 'combat', 0
+                else:
+                    cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
+                    conn.commit()
+                    event = {'type': 'neutral', 'text': 'Враг скрылся в тенях.', 'val': 0}
 
             # СУНДУК
             elif current_type_code == 'locked_chest':
