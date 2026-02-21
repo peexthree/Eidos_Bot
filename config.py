@@ -81,7 +81,8 @@ PRICES = {
     "void_walker_hood": 18000,
     "architect_mask": 25000,
     "relic_vampire": 50000,
-    "relic_speed": 75000
+    "relic_speed": 75000,
+    "purification_sync": 50000
 }
 
 # =============================================================================

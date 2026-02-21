@@ -4,10 +4,10 @@ import config
 from config import TITLES, SCHOOLS, SCHOOLS_INFO, PATH_CHANGE_COST, ACHIEVEMENTS_LIST
 import keyboards as kb
 from modules.services.utils import menu_update, get_menu_text, get_menu_image, GAME_GUIDE_TEXTS, draw_bar
-from modules.services.user import get_user_stats, get_level_progress_stats, get_profile_stats, get_syndicate_stats
+from modules.services.user import get_user_stats, get_level_progress_stats, get_profile_stats, get_syndicate_stats, perform_hard_reset
 import time
 
-@bot.callback_query_handler(func=lambda call: call.data == "profile" or call.data.startswith("set_path_") or call.data.startswith("confirm_path_") or call.data == "change_path_menu" or call.data == "use_accelerator")
+@bot.callback_query_handler(func=lambda call: call.data == "profile" or call.data.startswith("set_path_") or call.data.startswith("confirm_path_") or call.data == "change_path_menu" or call.data == "use_accelerator" or call.data == "activate_purification")
 def profile_handler(call):
     uid = call.from_user.id
     u = db.get_user(uid)
@@ -19,6 +19,7 @@ def profile_handler(call):
         p_bar = draw_bar(perc, 100, 10)
         ach_list = db.get_user_achievements(uid)
         has_accel = db.get_item_count(uid, 'accel') > 0
+        has_purification = db.get_item_count(uid, 'purification_sync') > 0
 
         p_stats = get_profile_stats(uid)
 
@@ -59,7 +60,15 @@ def profile_handler(call):
         if not avatar_id:
             avatar_id = config.USER_AVATARS.get(1)
 
-        menu_update(call, msg, kb.profile_menu(u, has_accel), image_url=avatar_id)
+        menu_update(call, msg, kb.profile_menu(u, has_accel, has_purification), image_url=avatar_id)
+
+    elif call.data == "activate_purification":
+        if perform_hard_reset(uid):
+             bot.answer_callback_query(call.id, "♻️ ПРОФИЛЬ СБРОШЕН", show_alert=True)
+             u = db.get_user(uid)
+             menu_update(call, get_menu_text(u), kb.main_menu(u), image_url=get_menu_image(u))
+        else:
+             bot.answer_callback_query(call.id, "❌ ОШИБКА", show_alert=True)
 
     elif call.data.startswith("set_path_"):
         path = call.data.replace("set_path_", "")

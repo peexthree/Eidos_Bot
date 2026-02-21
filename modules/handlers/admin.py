@@ -80,6 +80,28 @@ def admin_callbacks(call):
          if not db.is_user_admin(uid): return
          menu_update(call, "🎁 <b>SELECT ITEM:</b>", kb.admin_item_select())
 
+    elif call.data == "admin_summon_broker":
+         if not db.is_user_admin(uid): return
+         db.update_user(uid, shadow_broker_expiry=int(time.time() + 900))
+         bot.answer_callback_query(call.id, "✅ БРОКЕР ПРИЗВАН (15 мин)", show_alert=True)
+         # Refresh main menu if possible, but admin is deep in menu.
+         # Just alert is enough.
+
+    elif call.data == "admin_fix_inventory":
+         if not db.is_user_admin(uid): return
+         items = db.get_inventory(uid)
+         menu_update(call, "🗑 <b>ЧИСТКА ИНВЕНТАРЯ</b>\nНажми, чтобы удалить навсегда.", kb.admin_inventory_keyboard(items))
+
+    elif call.data.startswith("admin_del_"):
+         if not db.is_user_admin(uid): return
+         item_id = call.data.replace("admin_del_", "")
+         db.admin_force_delete_item(uid, item_id)
+         bot.answer_callback_query(call.id, f"✅ {item_id} УДАЛЕН")
+
+         # Refresh list
+         items = db.get_inventory(uid)
+         menu_update(call, "🗑 <b>ЧИСТКА ИНВЕНТАРЯ</b>\nНажми, чтобы удалить навсегда.", kb.admin_inventory_keyboard(items))
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("adm_give_"))
 def admin_give_item(call):
      uid = call.from_user.id

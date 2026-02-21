@@ -66,6 +66,12 @@ def admin_exec_query(query, params=None):
     except Exception as e:
         return f"ERROR: {e}"
 
+def admin_force_delete_item(uid, item_id):
+    with db_cursor() as cur:
+        if not cur: return False
+        cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
+        return cur.rowcount > 0
+
 def init_db():
     with db_session() as conn:
         if not conn: return
