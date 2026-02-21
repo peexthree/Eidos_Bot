@@ -11,7 +11,7 @@ from modules.services.content import get_decryption_status
 import time
 from telebot import types
 
-@bot.callback_query_handler(func=lambda call: call.data == "shop_menu" or call.data.startswith("shop_cat_") or call.data.startswith("buy_") or call.data.startswith("view_shop_") or call.data == "shop_gacha_menu")
+@bot.callback_query_handler(func=lambda call: call.data == "shop_menu" or call.data.startswith("shop_cat_") or (call.data.startswith("buy_") and not call.data.startswith("buy_shadow_")) or call.data.startswith("view_shop_") or call.data == "shop_gacha_menu")
 def shop_handler(call):
     uid = call.from_user.id
     u = db.get_user(uid)

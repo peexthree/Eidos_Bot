@@ -58,7 +58,10 @@ def get_level_progress_stats(u):
     xp = u.get("xp", 0)
 
     target = LEVELS.get(level, 999999)
-    prev_target = LEVELS.get(level - 1, 0)
+    if level == 1:
+        prev_target = 0
+    else:
+        prev_target = LEVELS.get(level - 1, 0)
 
     needed = target - xp
     total = target - prev_target

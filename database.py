@@ -522,6 +522,8 @@ def save_knowledge(uid, content_id):
         if not cur: return
         cur.execute("INSERT INTO user_knowledge (uid, content_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, content_id))
         cur.execute("INSERT INTO unlocked_protocols (uid, protocol_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, content_id))
+        if cur.rowcount > 0:
+            cur.execute("UPDATE users SET know_count = know_count + 1 WHERE uid = %s", (uid,))
 
 def get_leaderboard(limit=10):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
