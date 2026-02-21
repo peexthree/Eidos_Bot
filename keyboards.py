@@ -529,3 +529,24 @@ def anomaly_keyboard():
           types.InlineKeyboardButton("🎒 СТАВКА: 50% ЛУТА", callback_data="anomaly_bet_buffer"))
     m.add(types.InlineKeyboardButton("🏃 УЙТИ", callback_data="raid_step"))
     return m
+
+# =============================================================
+# 🧩 ONBOARDING / СБОРКА
+# =============================================================
+
+def onboarding_phase2_keyboard():
+    m = types.InlineKeyboardMarkup(row_width=2)
+    m.add(types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="onboarding_signal"),
+          types.InlineKeyboardButton("💠 СИНХРОН", callback_data="onboarding_synch"))
+    return m
+
+def onboarding_phase3_keyboard():
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton("✅ Я ПОНЯЛ", callback_data="onboarding_understood"))
+    return m
+
+def onboarding_exam_keyboard():
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton("⚔️ ПРОЙТИ ИСПЫТАНИЕ", callback_data="onboarding_start_exam"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m

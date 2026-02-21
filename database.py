@@ -118,6 +118,11 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS found_devtrace BOOLEAN DEFAULT FALSE")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS night_visits INTEGER DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS clicks INTEGER DEFAULT 0")
+                # Onboarding & Quarantine
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_stage INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_start_time BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_quarantined BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quarantine_end_time BIGINT DEFAULT 0")
             except: pass
 
             cur.execute('''
@@ -860,9 +865,22 @@ def hard_reset_user(uid):
                 anomaly_buff_type = NULL
                 WHERE uid = %s
             """, (uid,))
-            # Note: We keep achievements and referrals usually, but prompt said "Full Reset".
-            # "Reset level to 1, xp to 0, full clean of inventory and equipment".
-            # It didn't explicitly say delete achievements, but usually hard reset implies it.
-            # However, keeping achievements (badges) might be nice.
-            # I will follow strict instructions: "Reset level to 1, xp to 0, full clean inventory and equipment".
-            # I'll keep achievements as "legacy" markers if not specified to delete.
+
+def set_onboarding_stage(uid, stage):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET onboarding_stage = %s WHERE uid = %s", (stage, uid))
+
+def quarantine_user(uid, duration_hours=24):
+    hard_reset_user(uid)
+    end_time = int(time.time() + (duration_hours * 3600))
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users SET
+                is_quarantined = TRUE,
+                quarantine_end_time = %s,
+                onboarding_stage = 0,
+                onboarding_start_time = 0
+                WHERE uid = %s
+            """, (end_time, uid))
