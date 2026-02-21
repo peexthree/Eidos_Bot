@@ -1,6 +1,56 @@
 import time
+from datetime import date
 import database as db
 from config import LEVELS, LEVEL_UP_MSG, ACHIEVEMENTS_LIST, ITEMS_INFO
+
+def check_daily_streak(uid):
+    u = db.get_user(uid)
+    if not u: return
+
+    last_active = u.get('last_active')
+    # Ensure date object
+    if not last_active:
+        db.update_user(uid, last_active=date.today())
+        return
+
+    today = date.today()
+
+    if last_active == today:
+        return
+
+    delta = (today - last_active).days
+
+    if delta == 1:
+        # Streak continues
+        new_streak = u.get('streak', 0) + 1
+        db.update_user(uid, streak=new_streak, last_active=today)
+
+    elif delta > 1:
+        # Streak broken
+        cryo_count = db.get_item_count(uid, 'cryo')
+        if cryo_count > 0:
+            db.use_item(uid, 'cryo', 1)
+            db.update_user(uid, last_active=today)
+            db.log_action(uid, 'streak_saved', f"Cryo used. Streak: {u.get('streak')}")
+            try:
+                from modules.bot_instance import bot
+                bot.send_message(uid, "❄️ <b>КРИО-СТАЗИС ОТКЛЮЧЕН</b>\n\nВаш стрик сохранен благодаря капсуле.", parse_mode="HTML")
+            except: pass
+        else:
+            # Penalty
+            current_streak = u.get('streak', 1)
+            current_xp = u.get('xp', 0)
+
+            penalty_xp = int(current_xp * 0.1)
+            new_xp = max(0, current_xp - penalty_xp)
+
+            db.update_user(uid, streak=1, xp=new_xp, last_active=today)
+            db.log_action(uid, 'streak_lost', f"Lost {penalty_xp} XP. Old streak: {current_streak}")
+
+            try:
+                from modules.bot_instance import bot
+                bot.send_message(uid, f"📉 <b>НЕЙРОННЫЙ РАСПАД</b>\n\nВы отсутствовали {delta} дн.\n• Стрик сброшен.\n• Потеряно: {penalty_xp} XP.\n\n<i>Купите КРИО-капсулу, чтобы избежать этого.</i>", parse_mode="HTML")
+            except: pass
 
 def get_level_progress_stats(u):
     if not u: return 0, 0

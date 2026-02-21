@@ -5,7 +5,7 @@ from config import COOLDOWN_ACCEL, COOLDOWN_BASE, COOLDOWN_SIGNAL
 import keyboards as kb
 from modules.services.utils import menu_update, loading_effect, get_consumables, strip_html, get_menu_image, get_menu_text
 from modules.services.content import get_content_logic, check_shadow_broker_trigger, start_decryption, claim_decrypted_cache, get_decryption_status
-from modules.services.user import get_user_stats, check_level_up, check_achievements
+from modules.services.user import get_user_stats, check_level_up, check_achievements, check_daily_streak
 from modules.services.raid import process_raid_step, get_raid_entry_cost, process_riddle_answer, process_anomaly_bet, generate_raid_report
 from modules.services.combat import process_combat_action
 import time
@@ -16,6 +16,7 @@ from telebot import types
 # Helper for Shadow Broker (Middleware-ish)
 def check_sb(call):
     uid = call.from_user.id
+    check_daily_streak(uid)
     sb_triggered, sb_expiry = check_shadow_broker_trigger(uid)
     if sb_triggered:
         try: bot.answer_callback_query(call.id, "🕶 ГЛИТЧ: Теневой Брокер вышел на связь!", show_alert=True)

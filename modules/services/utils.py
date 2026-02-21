@@ -2,6 +2,7 @@ import re
 import random
 import time
 from telebot import types
+from telebot.apihelper import ApiTelegramException
 import config
 from config import WELCOME_VARIANTS, MENU_IMAGE_URL, MENU_IMAGE_URL_MONEY, MENU_IMAGE_URL_MIND, MENU_IMAGE_URL_TECH, INVENTORY_LIMIT
 import database as db
@@ -264,6 +265,10 @@ def menu_update(call, text, markup=None, image_url=None):
                  bot.edit_message_caption(caption=text, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode="HTML")
             else:
                  bot.edit_message_text(text=text, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    except ApiTelegramException as e:
+        if e.error_code == 403 or "blocked" in e.description:
+            db.set_user_active(call.from_user.id, False)
+        print(f"/// MENU UPDATE API ERR: {e}")
     except Exception as e:
         print(f"/// MENU UPDATE ERR: {e}")
         try:
@@ -271,6 +276,9 @@ def menu_update(call, text, markup=None, image_url=None):
                 bot.send_photo(call.message.chat.id, image_url, caption=text, reply_markup=markup, parse_mode="HTML")
             else:
                 bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="HTML")
+        except ApiTelegramException as e:
+             if e.error_code == 403 or "blocked" in e.description:
+                db.set_user_active(call.from_user.id, False)
         except: pass
 
 def loading_effect(chat_id, message_id, final_text, final_kb, image_id=None):
@@ -278,6 +286,10 @@ def loading_effect(chat_id, message_id, final_text, final_kb, image_id=None):
         try:
             media = types.InputMediaPhoto(image_id, caption="<code>/// DOWNLOAD: ▪️▫️▫️▫️▫️ 0%</code>", parse_mode="HTML")
             bot.edit_message_media(media=media, chat_id=chat_id, message_id=message_id)
+        except ApiTelegramException as e:
+             if e.error_code == 403 or "blocked" in e.description:
+                 db.set_user_active(chat_id, False)
+                 return # Stop if blocked
         except Exception as e:
             print(f"/// LOADING EFFECT IMG ERR: {e}")
 
@@ -295,6 +307,10 @@ def loading_effect(chat_id, message_id, final_text, final_kb, image_id=None):
              bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=final_text, reply_markup=final_kb, parse_mode="HTML")
         except:
              bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=final_text, reply_markup=final_kb, parse_mode="HTML")
+    except ApiTelegramException as e:
+         if e.error_code == 403 or "blocked" in e.description:
+             db.set_user_active(chat_id, False)
+             return
     except:
         try:
             bot.send_message(chat_id, final_text, reply_markup=final_kb, parse_mode="HTML")

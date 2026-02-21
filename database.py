@@ -1,5 +1,6 @@
 import os
 import psycopg2
+from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 import time
@@ -11,18 +12,39 @@ from content_presets import CONTENT_DATA
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
+# Global Connection Pool
+pg_pool = None
+
+def init_pool():
+    global pg_pool
+    if not pg_pool:
+        try:
+            pg_pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=20,
+                dsn=DATABASE_URL,
+                sslmode='require'
+            )
+            print("/// DB POOL INITIALIZED")
+        except Exception as e:
+            print(f"/// DB POOL INIT ERROR: {e}")
+
 @contextmanager
 def db_session():
+    if not pg_pool:
+        init_pool()
+
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        conn = pg_pool.getconn()
         yield conn
         conn.commit()
     except Exception as e:
         if conn: conn.rollback()
         print(f"/// DB ERROR: {e}")
     finally:
-        if conn: conn.close()
+        if conn:
+            pg_pool.putconn(conn)
 
 @contextmanager
 def db_cursor(cursor_factory=None):
@@ -76,6 +98,7 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_broker_expiry BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_expiry BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_type TEXT DEFAULT NULL")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
             except: pass
 
             cur.execute('''
@@ -204,8 +227,46 @@ def init_db():
                 cur.execute("ALTER TABLE villains ADD COLUMN IF NOT EXISTS image TEXT")
             except: pass
 
+            # --- BOT STATES (FSM) ---
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS bot_states (
+                    uid BIGINT PRIMARY KEY,
+                    state TEXT,
+                    data TEXT
+                );
+            ''')
+
     populate_villains()
     populate_content()
+
+# --- STATE MANAGEMENT ---
+def set_state(uid, state, data=None):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO bot_states (uid, state, data) VALUES (%s, %s, %s)
+                ON CONFLICT (uid) DO UPDATE SET state = EXCLUDED.state, data = EXCLUDED.data
+            """, (uid, state, data))
+
+def get_state(uid):
+    with db_cursor() as cur:
+        if not cur: return None
+        cur.execute("SELECT state, data FROM bot_states WHERE uid = %s", (uid,))
+        res = cur.fetchone()
+        if res:
+            # If data is present, maybe return tuple?
+            # Original code used 'state' string often containing data like "wait_give_item_id|item_id"
+            # We will stick to returning just state string for compatibility if data is None,
+            # or maybe the stored state string itself if logic expects it.
+            # In admin.py logic: state = user_states.get(uid).
+            # So get_state should return the state string.
+            return res[0]
+        return None
+
+def delete_state(uid):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM bot_states WHERE uid = %s", (uid,))
 
 def populate_villains():
     VILLAINS_DATA = [
@@ -274,6 +335,9 @@ def update_user(uid, **kwargs):
     with db_session() as conn:
         with conn.cursor() as cur:
             cur.execute(f"UPDATE users SET {set_clause} WHERE uid = %s", values)
+
+def set_user_active(uid, status):
+    update_user(uid, is_active=status)
 
 def add_xp_to_user(uid, amount):
     with db_session() as conn:

@@ -5,6 +5,7 @@ from config import REFERRAL_BONUS
 import keyboards as kb
 from modules.services.combat import perform_hack
 from modules.services.utils import get_menu_text, get_menu_image
+from modules.services.user import check_daily_streak
 
 @bot.message_handler(commands=['hack_random'])
 def hack_command(m):
@@ -38,6 +39,7 @@ def start_handler(m):
                "🤖 <b>ТЕХНО:</b> +10 Удачи.")
         bot.send_message(uid, msg, reply_markup=kb.path_selection_keyboard(), parse_mode="HTML")
     else:
+        check_daily_streak(uid)
         u = db.get_user(uid)
         bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
 
