@@ -560,10 +560,11 @@ def handle_query(call):
                  # if not res: answer(alert);
                  # else: menu_update;
                  # So I should preserve that structure.
-                 riddle_opts = extra['options'] if etype == 'riddle' and extra else []
-                 image_url = extra.get('image') if extra else None
-                 markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
-                 menu_update(call, txt, markup, image_url=image_url)
+
+             riddle_opts = extra['options'] if etype == 'riddle' and extra else []
+             image_url = extra.get('image') if extra else None
+             markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+             menu_update(call, txt, markup, image_url=image_url)
 
         elif call.data == "raid_step":
              res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
