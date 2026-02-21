@@ -127,6 +127,8 @@ def raid_handler(call):
 
     if call.data == "zero_layer_menu":
          cost = get_raid_entry_cost(uid)
+         try: bot.answer_callback_query(call.id)
+         except: pass
          menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {u['xp']}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost), image_url=config.MENU_IMAGES["zero_layer_menu"])
 
     elif call.data == "raid_select_depth":
