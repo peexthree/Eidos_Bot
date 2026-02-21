@@ -1,5 +1,5 @@
 import database as db
-from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_ENTRY_COSTS, LEVEL_UP_MSG, ACHIEVEMENTS_LIST
+from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_ENTRY_COSTS, LEVEL_UP_MSG, ACHIEVEMENTS_LIST, EQUIPMENT_DB
 import random
 import time
 import re
@@ -1566,8 +1566,11 @@ def get_shadow_shop_items(uid):
 
         base_price = info.get('price', 1000)
 
-        # 50% chance for XP price, 50% for Discounted Coins
-        if random.random() < 0.5:
+        # Force Coins for expensive items (> 20000) - FIX for Helmets selling for XP
+        if base_price > 20000:
+             curr = 'biocoin'
+             price = int(base_price * 0.8) # Less discount for high tier (20%)
+        elif random.random() < 0.5:
             curr = 'xp'
             # XP Price Logic: Value roughly similar but XP isfarmable.
             # Let's set XP price = Coin Price * 2
@@ -1586,6 +1589,54 @@ def get_shadow_shop_items(uid):
 
     random.seed() # Reset seed
     return shop
+
+def check_legacy_items(uid):
+    """Проверяет наличие устаревших предметов для конвертации."""
+    legacy_ids = ['shadow_reliq-speed', 'shadow_relic_speed', 'Tac_visor']
+    with db.db_cursor() as cur:
+        if not cur: return False
+        cur.execute("SELECT 1 FROM inventory WHERE uid=%s AND item_id = ANY(%s) LIMIT 1", (uid, legacy_ids))
+        return cur.fetchone() is not None
+
+def convert_legacy_items(uid):
+    """Конвертирует устаревшие предметы в актуальные."""
+    conversions = {
+        'shadow_reliq-speed': 'relic_speed',
+        'shadow_relic_speed': 'relic_speed',
+        'Tac_visor': 'tactical_helmet'
+    }
+
+    msg = ""
+    # Используем db_session для атомарности
+    with db.db_session() as conn:
+        with conn.cursor() as cur:
+            for old_id, new_id in conversions.items():
+                cur.execute("SELECT quantity, durability FROM inventory WHERE uid=%s AND item_id=%s", (uid, old_id))
+                res = cur.fetchone()
+                if res:
+                    qty, dur = res
+                    # Добавляем новый предмет (суммируем количество если есть)
+                    # Используем dur от старого предмета или стандартный от нового?
+                    # Лучше взять стандартный, так как это 'восстановление'. Но для честности можно оставить старый.
+                    # Но так как dur у нас обычно 100... пусть будет стандартный (через INSERT conflict).
+                    # Внимание: если предмет уже есть, мы просто добавляем количество, игнорируя прочность (она усредняется или берется max в другой логике? В add_item мы не меняем dur).
+                    # Здесь мы делаем прямой SQL.
+
+                    cur.execute("""
+                        INSERT INTO inventory (uid, item_id, quantity, durability)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (uid, item_id)
+                        DO UPDATE SET quantity = inventory.quantity + %s
+                    """, (uid, new_id, qty, dur, qty))
+
+                    # Удаляем старый
+                    cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id=%s", (uid, old_id))
+
+                    old_name = EQUIPMENT_DB.get(old_id, {}).get('name', old_id)
+                    new_name = EQUIPMENT_DB.get(new_id, {}).get('name', new_id)
+                    msg += f"✅ {old_name} -> {new_name} (x{qty})\n"
+
+    return msg if msg else "Нет предметов для конвертации."
 
 def process_anomaly_bet(uid, bet_type):
     with db.db_session() as conn:
