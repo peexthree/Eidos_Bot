@@ -188,13 +188,25 @@ def social_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "guide" or call.data.startswith("guide_page_"))
 def guide_handler(call):
+    uid = call.from_user.id
+    u = db.get_user(uid)
+    markup = None
+
     if call.data == "guide":
-        menu_update(call, GAME_GUIDE_TEXTS.get('intro', "Error"), kb.guide_menu('intro'), image_url=config.MENU_IMAGES["guide"])
+        markup = kb.guide_menu('intro')
+        if u and u.get('onboarding_stage', 0) == 4:
+             markup.add(types.InlineKeyboardButton("⚔️ ПРОЙТИ ИСПЫТАНИЕ", callback_data="onboarding_start_exam"))
+
+        menu_update(call, GAME_GUIDE_TEXTS.get('intro', "Error"), markup, image_url=config.MENU_IMAGES["guide"])
 
     elif call.data.startswith("guide_page_"):
         page = call.data.replace("guide_page_", "")
         text = GAME_GUIDE_TEXTS.get(page, "Error")
-        menu_update(call, text, kb.guide_menu(page))
+        markup = kb.guide_menu(page)
+        if u and u.get('onboarding_stage', 0) == 4:
+             markup.add(types.InlineKeyboardButton("⚔️ ПРОЙТИ ИСПЫТАНИЕ", callback_data="onboarding_start_exam"))
+
+        menu_update(call, text, markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("diary_"))
 def diary_handler(call):
@@ -225,7 +237,13 @@ def diary_handler(call):
                 dt = e['created_at'].strftime('%d.%m %H:%M')
                 txt += f"📅 <b>{dt}</b>\n{e['entry']}\n\n"
 
-            menu_update(call, txt, kb.diary_read_nav(page, total_pages))
+            # ONBOARDING PHASE 3
+            markup = kb.diary_read_nav(page, total_pages)
+            u = db.get_user(uid)
+            if u and u.get('onboarding_stage', 0) == 3:
+                markup.add(types.InlineKeyboardButton("✅ Я ПОНЯЛ", callback_data="onboarding_understood"))
+
+            menu_update(call, txt, markup)
 
 @bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "waiting_for_diary_entry", content_types=['text'])
 def diary_text_handler(m):
