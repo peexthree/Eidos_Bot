@@ -55,7 +55,7 @@ def admin_callbacks(call):
     elif call.data in ["admin_grant_admin", "admin_revoke_admin", "admin_give_res",
                        "admin_broadcast", "admin_post_channel", "admin_add_riddle",
                        "admin_add_content", "admin_add_signal", "admin_sql", "admin_dm_user",
-                       "admin_reset_user"]:
+                       "admin_reset_user", "admin_delete_user"]:
          if not db.is_user_admin(uid): return
 
          state_map = {
@@ -69,7 +69,8 @@ def admin_callbacks(call):
              "admin_add_signal": "wait_add_signal",
              "admin_sql": "wait_sql",
              "admin_dm_user": "wait_dm_user_id",
-             "admin_reset_user": "wait_reset_user_id"
+             "admin_reset_user": "wait_reset_user_id",
+             "admin_delete_user": "wait_delete_user_id"
          }
          db.set_state(uid, state_map[call.data])
          msg_map = {
@@ -83,7 +84,8 @@ def admin_callbacks(call):
              "admin_add_signal": "📡 <b>ENTER SIGNAL TEXT:</b>",
              "admin_sql": "📜 <b>ENTER SQL QUERY:</b>\n⚠️ BE CAREFUL!",
              "admin_dm_user": "🆔 <b>ENTER USER ID TO DM:</b>",
-             "admin_reset_user": "♻️ <b>ENTER USER ID TO RESET (XP=0, LVL=1):</b>"
+             "admin_reset_user": "♻️ <b>ENTER USER ID TO RESET (XP=0, LVL=1):</b>",
+             "admin_delete_user": "🗑 <b>ENTER USER ID TO PERMANENTLY DELETE:</b>\n⚠️ This action cannot be undone."
          }
          menu_update(call, msg_map[call.data], kb.back_button())
 
@@ -165,6 +167,20 @@ def admin_text_handler(m):
                 bot.send_message(uid, f"✅ USER {tid} RESET TO LVL 1 / 0 XP")
                 try: bot.send_message(tid, "♻️ <b>АДМИНИСТРАТОР СБРОСИЛ ВАШ ПРОГРЕСС.</b>", parse_mode="HTML")
                 except: pass
+            else:
+                bot.send_message(uid, "❌ USER NOT FOUND")
+        except: bot.send_message(uid, "❌ INVALID ID / ERROR")
+        db.delete_state(uid)
+
+    elif state == "wait_delete_user_id":
+        try:
+            tid = int(m.text)
+            u = db.get_user(tid)
+            if u:
+                if db.delete_user_fully(tid):
+                    bot.send_message(uid, f"✅ USER {tid} PERMANENTLY DELETED")
+                else:
+                    bot.send_message(uid, "❌ ERROR DELETING USER")
             else:
                 bot.send_message(uid, "❌ USER NOT FOUND")
         except: bot.send_message(uid, "❌ INVALID ID / ERROR")

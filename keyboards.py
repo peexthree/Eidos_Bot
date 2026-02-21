@@ -23,6 +23,11 @@ def main_menu(u):
     uid = u['uid']
     m = types.InlineKeyboardMarkup(row_width=2)
     
+    # --- PHASE 1 RESTRICTION ---
+    if u.get('onboarding_stage', 0) == 1:
+        m.add(types.InlineKeyboardButton(f"👤 ПРОФИЛЬ", callback_data="profile"))
+        return m
+
     # 1. Энергия
     m.add(types.InlineKeyboardButton("💠 СИНХРОН", callback_data="get_protocol"),
           types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal"))
@@ -376,7 +381,7 @@ def achievements_nav(page, total_pages):
     m.add(types.InlineKeyboardButton("🔙 В МЕНЮ ДНЕВНИКА", callback_data="diary_menu"))
     return m
 
-def guide_menu(page_key='intro'):
+def guide_menu(page_key='intro', u=None):
     m = types.InlineKeyboardMarkup(row_width=2)
 
     m.add(types.InlineKeyboardButton("👋 НАЧАЛО", callback_data="guide_page_intro"),
@@ -388,7 +393,17 @@ def guide_menu(page_key='intro'):
     m.add(types.InlineKeyboardButton("🤝 СИНДИКАТ", callback_data="guide_page_social"),
           types.InlineKeyboardButton("⚡️ СОВЕТЫ", callback_data="guide_page_tips"))
 
-    m.add(types.InlineKeyboardButton("🧠 QUIZ (ВИКТОРИНА)", callback_data="start_quiz"))
+    # Check quiz availability (Hardcoded count for now, needs sync with handler)
+    # Questions are: q1, q2, q3, q4
+    if u:
+        history = u.get('quiz_history', '') or ''
+        answered_count = history.count(',') # Simple counting, imperfect but fast
+        if "q1" in history and "q2" in history and "q3" in history and "q4" in history:
+            pass # All done
+        else:
+            m.add(types.InlineKeyboardButton("🧠 QUIZ (ВИКТОРИНА)", callback_data="start_quiz"))
+    else:
+        m.add(types.InlineKeyboardButton("🧠 QUIZ (ВИКТОРИНА)", callback_data="start_quiz"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
@@ -437,7 +452,8 @@ def admin_users_menu():
           types.InlineKeyboardButton("🎁 ВЫДАТЬ ПРЕДМЕТ", callback_data="admin_give_item_menu"))
     m.add(types.InlineKeyboardButton("👥 СПИСОК ИГРОКОВ", callback_data="admin_user_list"),
           types.InlineKeyboardButton("✉️ ЛИЧНОЕ СООБЩЕНИЕ", callback_data="admin_dm_user"))
-    m.add(types.InlineKeyboardButton("♻️ СБРОС (Reset)", callback_data="admin_reset_user"))
+    m.add(types.InlineKeyboardButton("♻️ СБРОС (Reset)", callback_data="admin_reset_user"),
+          types.InlineKeyboardButton("🗑 УДАЛИТЬ (Hard Delete)", callback_data="admin_delete_user"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 
