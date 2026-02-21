@@ -213,6 +213,10 @@ def raid_entry_choice(max_depth):
          m.add(types.InlineKeyboardButton("🌃 НЕОН-СИТИ (150м)", callback_data="raid_start_depth_150"))
     if max_depth >= 500:
          m.add(types.InlineKeyboardButton("🕸 ГЛУБОКАЯ СЕТЬ (300м)", callback_data="raid_start_depth_300"))
+    if max_depth >= 800:
+         m.add(types.InlineKeyboardButton("🌌 ПУСТОТА (500м)", callback_data="raid_start_depth_500"))
+    if max_depth >= 1500:
+         m.add(types.InlineKeyboardButton("👁‍🗨 ЯДРО (1000м)", callback_data="raid_start_depth_1000"))
 
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="zero_layer_menu"))
     return m
@@ -444,6 +448,10 @@ def item_details_keyboard(item_id, is_owned=True, is_equipped=False):
              m.add(types.InlineKeyboardButton("🛡 НАДЕТЬ", callback_data=f"equip_{item_id}"))
         elif item_id == 'admin_key':
              m.add(types.InlineKeyboardButton("🔴 ИСПОЛЬЗОВАТЬ", callback_data="use_admin_key"))
+        elif item_id == 'accel':
+             m.add(types.InlineKeyboardButton("⚡️ ИСПОЛЬЗОВАТЬ", callback_data="use_accelerator"))
+        elif item_id == 'encrypted_cache':
+             m.add(types.InlineKeyboardButton("🔐 ДЕШИФРАТОР", callback_data="decrypt_menu"))
 
     m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"dismantle_{item_id}"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="inventory"))

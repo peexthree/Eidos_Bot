@@ -1,5 +1,5 @@
 import database as db
-from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_ENTRY_COSTS, LEVEL_UP_MSG, ACHIEVEMENTS_LIST, EQUIPMENT_DB
+from config import LEVELS, RAID_STEP_COST, RAID_BIOMES, RAID_FLAVOR_TEXT, LOOT_TABLE, INVENTORY_LIMIT, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_ENTRY_COSTS, LEVEL_UP_MSG, ACHIEVEMENTS_LIST, EQUIPMENT_DB, SHADOW_BROKER_ITEMS
 import random
 import time
 import re
@@ -146,7 +146,9 @@ def generate_loot(depth, luck):
     """Генерирует тир лута на основе удачи."""
     roll = random.randint(0, 100) + (luck * 0.5)
 
-    if roll >= 95:
+    if roll >= 98:
+        return {"prefix": "🔴 [МИФ]", "mult": 10.0, "icon": "🔴"}
+    elif roll >= 95:
         return {"prefix": "🟠 [ЛЕГЕНДА]", "mult": 5.0, "icon": "🟠"}
     elif roll >= 80:
         return {"prefix": "🟣 [ЭПИК]", "mult": 2.5, "icon": "🟣"}
@@ -553,19 +555,23 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     # Дроп предмета
                     loot_item_txt = ""
                     if random.random() < 0.30: # 30% шанс на предмет
-                         # GENERATE WEIGHTED LOOT
-                         pool_common = [k for k,v in EQUIPMENT_DB.items() if v.get('price', 0) < 500] + ['battery', 'compass']
-                         pool_rare = [k for k,v in EQUIPMENT_DB.items() if 500 <= v.get('price', 0) < 2000] + ['neural_stimulator', 'emp_grenade']
-                         pool_epic = [k for k,v in EQUIPMENT_DB.items() if 2000 <= v.get('price', 0) < 10000] + ['stealth_spray', 'abyssal_key']
-                         pool_leg = [k for k,v in EQUIPMENT_DB.items() if v.get('price', 0) >= 10000]
+                         # GENERATE WEIGHTED LOOT (IMPROVED)
+                         pool_common = [k for k,v in ITEMS_INFO.items() if v.get('price', 0) < 500]
+                         pool_rare = [k for k,v in ITEMS_INFO.items() if 500 <= v.get('price', 0) < 2000]
+                         pool_epic = [k for k,v in ITEMS_INFO.items() if 2000 <= v.get('price', 0) < 10000]
+                         pool_leg = [k for k,v in ITEMS_INFO.items() if v.get('price', 0) >= 10000]
+
+                         # Ensure some items are present
+                         if not pool_common: pool_common = ['battery', 'compass', 'rusty_knife']
+                         if not pool_rare: pool_rare = ['neural_stimulator', 'emp_grenade', 'master_key']
 
                          roll_tier = random.random()
                          l_item = None
 
                          if roll_tier < 0.60: l_item = random.choice(pool_common) if pool_common else None
                          elif roll_tier < 0.90: l_item = random.choice(pool_rare) if pool_rare else None
-                         elif roll_tier < 0.99: l_item = random.choice(pool_epic) if pool_epic else None
-                         else: l_item = random.choice(pool_leg) if pool_leg else None # 1% Legendary
+                         elif roll_tier < 0.98: l_item = random.choice(pool_epic) if pool_epic else None
+                         else: l_item = random.choice(pool_leg) if pool_leg else None # 2% Legendary/Mythic
 
                          if l_item:
                              cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
@@ -734,7 +740,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                         base_dmg = max(0, base_dmg - 5)
 
                     dmg = max(5, base_dmg - stats['def'])
-                
+
                     # Проверка Эгиды (Прямой SQL для скорости)
                     has_aegis = False
                     cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id='aegis'", (uid,))
@@ -756,14 +762,6 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                     if new_sig <= 0:
                         death_reason = f"ЛОВУШКА: {event['text']}"
-                        # Log Death
-                        broadcast = handle_death_log(uid, depth, u['level'], u['username'], res['buffer_coins'])
-                        if broadcast:
-                            pass # Returned in extra_data via death_reason? No, death_reason is text.
-                            # I'll append broadcast to death_reason or handle via extra data?
-                            # process_raid_step returns (..., extra_data, ...)
-                            # extra_data is {'death_reason': ...}
-                            # I can add 'broadcast': ...
 
                 elif event['type'] == 'loot':
                     # TIERED LOOT IMPLEMENTATION
@@ -907,8 +905,9 @@ def process_raid_step(uid, answer=None, start_depth=None):
                      extra_death = {}
                      if death_reason: extra_death['death_reason'] = death_reason
 
-                     # Broadcast Check
-                     broadcast = handle_death_log(uid, depth, u['level'], u['username'], res['buffer_coins'])
+                     # Broadcast Check - FIXED BUG (Used s instead of res)
+                     buf_coins = s.get('buffer_coins', 0) if s else 0
+                     broadcast = handle_death_log(uid, depth, u['level'], u['username'], buf_coins)
                      if broadcast: extra_death['broadcast'] = broadcast
 
                      return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\nРесурсы утеряны.", extra_death, u, 'death', 0
@@ -1536,7 +1535,9 @@ def claim_decrypted_cache(uid):
     roll = random.random()
     drop_item = None
 
-    if roll < 0.05: # 5% Legendary
+    if roll < 0.01: # 1% Mythic/Relic (Same pool as Leg for now, but rarest)
+        if pool_leg: drop_item = random.choice(pool_leg) # Could filter for highest price
+    elif roll < 0.05: # 5% Legendary
         if pool_leg: drop_item = random.choice(pool_leg)
     elif roll < 0.25: # 20% Epic
         if pool_epic: drop_item = random.choice(pool_epic)
@@ -1591,15 +1592,15 @@ def get_shadow_shop_items(uid):
     if expiry < time.time():
         return []
 
-    # Stable random for the duration of this specific broker instance
-    random.seed(expiry + uid)
+    # Use separate Random instance to avoid global state issues
+    rng = random.Random(expiry + uid)
 
     import config
     pool = config.SHADOW_BROKER_ITEMS[:]
 
     # Ensure unique selection
     if len(pool) > 3:
-        selected = random.sample(pool, 3)
+        selected = rng.sample(pool, 3)
     else:
         selected = pool
 
@@ -1616,7 +1617,7 @@ def get_shadow_shop_items(uid):
              price = int(base_price * 0.8) # Less discount for high tier (20%)
         else:
             # 50% chance for XP price
-            if random.random() < 0.5:
+            if rng.random() < 0.5:
                 curr = 'xp'
                 # XP Price Logic: Value roughly similar but XP isfarmable.
                 # Let's set XP price = Coin Price * 1.5
@@ -1633,7 +1634,6 @@ def get_shadow_shop_items(uid):
             'desc': info.get('desc', '')
         })
 
-    random.seed() # Reset seed
     return shop
 
 def check_legacy_items(uid):

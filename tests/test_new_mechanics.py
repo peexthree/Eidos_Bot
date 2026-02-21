@@ -25,10 +25,17 @@ class TestNewMechanics(unittest.TestCase):
         self.assertGreater(logic.get_biome_modifiers(600)['mult'], 5.0)
 
     def test_loot_tiers(self):
-        # Test Legendary (Roll 100 + Luck)
+        # Test Mythical (Roll 100 + Luck)
         # 100 luck * 0.5 = 50. Roll 50 => 100 total.
         with patch('random.randint', return_value=50):
             loot = logic.generate_loot(1, 100)
+            self.assertEqual(loot['prefix'], "🔴 [МИФ]")
+            self.assertEqual(loot['mult'], 10.0)
+
+        # Test Legendary (Roll 95)
+        # Luck 0. Roll 95.
+        with patch('random.randint', return_value=95):
+            loot = logic.generate_loot(1, 0)
             self.assertEqual(loot['prefix'], "🟠 [ЛЕГЕНДА]")
             self.assertEqual(loot['mult'], 5.0)
 

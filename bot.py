@@ -490,16 +490,23 @@ def handle_query(call):
         elif call.data.startswith("dismantle_"):
             item_id = call.data.replace("dismantle_", "")
 
-            # Check if equipped
+            # Smart Dismantle Check
             equipped = db.get_equipped_items(uid)
-            if item_id in equipped.values():
-                 bot.answer_callback_query(call.id, "❌ Нельзя разобрать надетый предмет!", show_alert=True)
+            equipped_count = list(equipped.values()).count(item_id)
+            total_count = db.get_item_count(uid, item_id)
+
+            if total_count <= equipped_count:
+                 bot.answer_callback_query(call.id, "❌ Нельзя разобрать надетый предмет (нет запасных)!", show_alert=True)
                  return
 
             info = ITEMS_INFO.get(item_id)
             price = 0
             if info:
                 price = info.get('price') or PRICES.get(item_id, 0)
+
+            # Fallback for Shadow/Config items if not in PRICES directly
+            if price == 0 and item_id in EQUIPMENT_DB:
+                price = EQUIPMENT_DB[item_id].get('price', 0)
 
             if price > 0:
                 scrap_val = int(price * 0.1)
