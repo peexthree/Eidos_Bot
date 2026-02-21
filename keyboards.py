@@ -18,6 +18,8 @@ def get_progress_bar(current, total, length=10):
 # =============================================================
 
 def main_menu(u):
+    import time
+    import database as db
     uid = u['uid']
     m = types.InlineKeyboardMarkup(row_width=2)
     
@@ -48,6 +50,18 @@ def main_menu(u):
     # 5. Знания & Гайды
     m.add(types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_menu"),
           types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide"))
+
+    # --- DYNAMIC BUTTONS ---
+    if u.get('shadow_broker_expiry', 0) > time.time():
+        m.add(types.InlineKeyboardButton("🕶 ТЕНЕВОЙ БРОКЕР", callback_data="shadow_broker_menu"))
+
+    # Check for cache (active or in inventory)
+    has_cache_active = u.get('encrypted_cache_unlock_time', 0) > 0
+    has_cache_item = db.get_item_count(uid, 'encrypted_cache') > 0
+
+    if has_cache_active or has_cache_item:
+        status_icon = "🔓" if (has_cache_active and time.time() >= u['encrypted_cache_unlock_time']) else "🔐"
+        m.add(types.InlineKeyboardButton(f"{status_icon} ДЕШИФРАТОР", callback_data="decrypt_menu"))
 
     if u.get('is_admin') or str(uid) == str(config.ADMIN_ID):
         m.add(types.InlineKeyboardButton("⚡️ GOD MODE ⚡️", callback_data="admin_panel"))
@@ -219,6 +233,13 @@ def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumabl
 
     if event_type == 'locked_chest':
         m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ СУНДУК", callback_data="raid_open_chest"))
+
+    if event_type == 'found_body':
+        m.add(types.InlineKeyboardButton("💀 ОБЫСКАТЬ ТЕЛО", callback_data="raid_claim_body"))
+
+    if event_type == 'anomaly_terminal':
+        m.add(types.InlineKeyboardButton("🩸 СТАВКА: 30% HP", callback_data="anomaly_bet_hp"),
+              types.InlineKeyboardButton("🎒 СТАВКА: 50% ЛУТА", callback_data="anomaly_bet_buffer"))
 
     if battery_count > 0:
         m.add(types.InlineKeyboardButton(f"🔋 ИСПОЛЬЗОВАТЬ БАТАРЕЮ (x{battery_count})", callback_data="raid_use_battery"))
@@ -412,4 +433,32 @@ def shop_item_details_keyboard(item_id, price, currency):
     m = types.InlineKeyboardMarkup(row_width=1)
     m.add(types.InlineKeyboardButton(f"💸 КУПИТЬ ({price} {currency.upper()})", callback_data=f"buy_{item_id}"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="shop_menu"))
+    return m
+
+def shadow_shop_menu(items):
+    m = types.InlineKeyboardMarkup(row_width=1)
+
+    for item in items:
+        price_txt = f"{item['price']} {'XP' if item['currency']=='xp' else 'BC'}"
+        m.add(types.InlineKeyboardButton(f"{item['name']} - {price_txt}", callback_data=f"buy_shadow_{item['item_id']}"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m
+
+def decrypt_menu(status):
+    m = types.InlineKeyboardMarkup(row_width=1)
+
+    if status == "ready_to_start":
+        m.add(types.InlineKeyboardButton("🔐 НАЧАТЬ РАСШИФРОВКУ", callback_data="decrypt_start"))
+    elif status == "ready_to_claim":
+        m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ КОНТЕЙНЕР", callback_data="decrypt_claim"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m
+
+def anomaly_keyboard():
+    m = types.InlineKeyboardMarkup(row_width=2)
+    m.add(types.InlineKeyboardButton("🩸 СТАВКА: 30% HP", callback_data="anomaly_bet_hp"),
+          types.InlineKeyboardButton("🎒 СТАВКА: 50% ЛУТА", callback_data="anomaly_bet_buffer"))
+    m.add(types.InlineKeyboardButton("🏃 УЙТИ", callback_data="raid_step"))
     return m

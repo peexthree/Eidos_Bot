@@ -173,6 +173,13 @@ def handle_query(call):
         return
 
     try:
+        # --- GLOBAL HANDLERS (Middleware) ---
+        # 1. Shadow Broker Trigger (2% chance on any interaction)
+        sb_triggered, sb_expiry = logic.check_shadow_broker_trigger(uid)
+        if sb_triggered:
+            try: bot.answer_callback_query(call.id, "🕶 ГЛИТЧ: Теневой Брокер вышел на связь!", show_alert=True)
+            except: pass
+
         # --- 1. ЭНЕРГИЯ И СИНХРОН ---
         if call.data == "get_protocol":
             cd = COOLDOWN_ACCEL if u['accel_exp'] > time.time() else COOLDOWN_BASE
@@ -656,7 +663,7 @@ def handle_query(call):
         # --- COMBAT HANDLERS ---
         elif call.data in ["combat_attack", "combat_run", "combat_use_emp", "combat_use_stealth", "combat_use_wiper"]:
              action = call.data.replace("combat_", "")
-             res_type, msg = logic.process_combat_action(uid, action)
+             res_type, msg, extra = logic.process_combat_action(uid, action)
 
              # Alert with combat log
              alert_msg = logic.strip_html(msg)
@@ -694,6 +701,29 @@ def handle_query(call):
                  menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
 
              elif res_type == 'death':
+                 # Check for Broadcast (Global Obituary)
+                 if extra and extra.get('broadcast'):
+                     # Send to user as alert
+                     try: bot.answer_callback_query(call.id, "💀 СИСТЕМНЫЙ НЕКРОЛОГ", show_alert=True)
+                     except: pass
+
+                     # 1. Send to Channel
+                     if config.CHANNEL_ID:
+                         try: bot.send_message(config.CHANNEL_ID, extra['broadcast'], parse_mode="HTML")
+                         except: pass
+
+                     # 2. Broadcast to recent active users (Limit 20)
+                     try:
+                         with db.db_cursor() as cur:
+                             cur.execute("SELECT uid FROM users WHERE uid != %s AND last_active >= CURRENT_DATE - 1 LIMIT 20", (uid,))
+                             for row in cur.fetchall():
+                                 try:
+                                     bot.send_message(row[0], extra['broadcast'], parse_mode="HTML")
+                                     time.sleep(0.05)
+                                 except: pass
+                     except Exception as e:
+                         print(f"Broadcast error: {e}")
+
                  menu_update(call, msg, kb.back_button())
 
              elif res_type == 'combat':
@@ -824,6 +854,98 @@ def handle_query(call):
                 desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
             txt = f"🎰 <b>{info['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {u['xp']} XP | {u['biocoin']} BC"
             menu_update(call, txt, kb.shop_item_details_keyboard(item_id, price, currency))
+        # --- SHADOW BROKER ---
+        elif call.data == "shadow_broker_menu":
+            items = logic.get_shadow_shop_items(uid)
+            if not items:
+                bot.answer_callback_query(call.id, "🕶 Канал закрыт...", show_alert=True)
+                handle_query(type('obj', (object,), {'data': 'back', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+            else:
+                expiry = u.get('shadow_broker_expiry', 0)
+                rem_mins = max(0, int((expiry - time.time()) // 60))
+                menu_update(call, f"🕶 <b>ТЕНЕВОЙ БРОКЕР</b>\nКанал закроется через {rem_mins} мин.\n\n<i>Товар нелегален. Возврату не подлежит.</i>", kb.shadow_shop_menu(items), image_url=config.MENU_IMAGES["shop_menu"])
+
+        elif call.data.startswith("buy_shadow_"):
+            item_id = call.data.replace("buy_shadow_", "")
+            items = logic.get_shadow_shop_items(uid)
+            target = next((i for i in items if i['item_id'] == item_id), None)
+
+            if not target:
+                bot.answer_callback_query(call.id, "❌ Товар исчез.", show_alert=True)
+                handle_query(type('obj', (object,), {'data': 'shadow_broker_menu', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+            else:
+                price = target['price']
+                currency = target['currency']
+
+                can_buy = False
+                if currency == 'xp' and u['xp'] >= price:
+                    db.update_user(uid, xp=u['xp'] - price)
+                    can_buy = True
+                elif currency == 'biocoin' and u['biocoin'] >= price:
+                    db.update_user(uid, biocoin=u['biocoin'] - price)
+                    can_buy = True
+
+                if can_buy:
+                    if db.add_item(uid, item_id):
+                        bot.answer_callback_query(call.id, f"✅ Куплено: {target['name']}", show_alert=True)
+                    else:
+                        # Refund
+                        if currency == 'xp': db.update_user(uid, xp=u['xp'] + price)
+                        else: db.update_user(uid, biocoin=u['biocoin'] + price)
+                        bot.answer_callback_query(call.id, "🎒 Рюкзак полон!", show_alert=True)
+                else:
+                    bot.answer_callback_query(call.id, "❌ Недостаточно средств", show_alert=True)
+
+        # --- DECRYPTION ---
+        elif call.data == "decrypt_menu":
+            status, txt = logic.get_decryption_status(uid)
+            menu_update(call, f"🔐 <b>ДЕШИФРАТОР</b>\n\n{txt}", kb.decrypt_menu(status))
+
+        elif call.data == "decrypt_start":
+            res, msg = logic.start_decryption(uid)
+            bot.answer_callback_query(call.id, msg, show_alert=True)
+            handle_query(type('obj', (object,), {'data': 'decrypt_menu', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+
+        elif call.data == "decrypt_claim":
+            res, msg = logic.claim_decrypted_cache(uid)
+            if res:
+                menu_update(call, msg, kb.back_button())
+            else:
+                bot.answer_callback_query(call.id, msg, show_alert=True)
+
+        # --- ANOMALY & SCAVENGING ---
+        elif call.data.startswith("anomaly_bet_"):
+            bet_type = call.data.replace("anomaly_bet_", "")
+            res, msg, extra = logic.process_anomaly_bet(uid, bet_type)
+
+            if not res: # Death
+                if extra and extra.get('death_reason'):
+                     menu_update(call, msg, kb.back_button())
+                else:
+                     bot.answer_callback_query(call.id, msg, show_alert=True)
+            else:
+                alert = extra.get('alert') if extra else ""
+                try: bot.answer_callback_query(call.id, alert, show_alert=True)
+                except: pass
+
+                # Show result and continue raid
+                res_raid, txt, extra_raid, new_u, etype, cost = logic.process_raid_step(uid)
+                full_txt = f"{msg}\n\n{txt}"
+                consumables = get_consumables(uid)
+                image_url = extra_raid.get('image') if extra_raid else None
+                menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
+
+        elif call.data == "raid_claim_body":
+             res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid, answer='claim_body')
+             if res:
+                 alert = extra.get('alert') if extra else "Забрано"
+                 bot.answer_callback_query(call.id, alert, show_alert=True)
+                 consumables = get_consumables(uid)
+                 image_url = extra.get('image') if extra else None
+                 menu_update(call, txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
+             else:
+                 bot.answer_callback_query(call.id, txt, show_alert=True)
+
         elif call.data == "back":
             menu_update(call, get_menu_text(u), kb.main_menu(u), image_url=get_menu_image(u))
 

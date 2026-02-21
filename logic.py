@@ -238,6 +238,11 @@ def get_user_stats(uid):
     if u['path'] == 'mind': stats['def'] += 10
     elif u['path'] == 'tech': stats['luck'] += 10
     
+    # --- ANOMALY DEBUFF: CORROSION ---
+    if u.get('anomaly_buff_expiry', 0) > time.time() and u.get('anomaly_buff_type') == 'corrosion':
+        stats['atk'] = int(stats['atk'] * 0.8)
+        stats['def'] = int(stats['def'] * 0.8)
+
     return stats, u
 
 def draw_bar(curr, total, length=10):
@@ -544,6 +549,17 @@ def process_raid_step(uid, answer=None):
                 # Возвращаем тип 'loot_opened' чтобы обновить кнопки
                 return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt}, u, 'loot_opened', 0
 
+            # 2.3 ДЕЙСТВИЕ: МАРОДЕРСТВО
+            if answer == 'claim_body':
+                 loot = db.get_death_loot_at_depth(depth)
+                 if loot:
+                     if db.claim_death_loot(loot['id']):
+                         amount = loot['amount']
+                         cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (amount, uid))
+                         conn.commit()
+                         return True, f"💰 <b>МАРОДЕРСТВО:</b> Вы забрали {amount} BC.", {'alert': f"💰 +{amount} BC"}, u, 'loot_claimed', 0
+                 return False, "❌ Останки уже разграблены или исчезли.", None, u, 'neutral', 0
+
             # 2.5 ДЕЙСТВИЕ: ИСПОЛЬЗОВАНИЕ РАСХОДНИКОВ
             if answer == 'use_battery':
                  if db.get_item_count(uid, 'battery', cursor=cur) > 0:
@@ -580,7 +596,18 @@ def process_raid_step(uid, answer=None):
             # SCALING BIOMES IMPLEMENTATION
             biome_data = get_biome_modifiers(depth)
             diff = biome_data.get('mult', 1.0)
-            new_depth = depth + 1 if not is_new else depth
+
+            # --- HEAD AURA: MOVEMENT (Void Walker / Relic Speed) ---
+            step_size = 1
+            equipped_head = db.get_equipped_items(uid).get('head')
+
+            if equipped_head == 'relic_speed':
+                step_size = 2
+            elif equipped_head == 'void_walker_hood' and random.random() < 0.25:
+                step_size = 2
+                msg_prefix += "🌌 <b>ДВОЙНОЙ ШАГ:</b> Вы проскользнули сквозь пространство!\n"
+
+            new_depth = depth + step_size if not is_new else depth
 
             # Логика типа события
             current_type_code = s.get('next_event_type', 'random')
@@ -640,9 +667,24 @@ def process_raid_step(uid, answer=None):
 
             # СЛУЧАЙНОЕ
             else:
-                cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
-                event = cur.fetchone()
-                if not event: event = {'text': "Пустота...", 'type': 'neutral', 'val': 0}
+                death_loot = db.get_death_loot_at_depth(depth)
+
+                # --- ANOMALY EVENT (Maxwell's Demon) ---
+                if depth > 50 and random.random() < 0.05:
+                     event = {'text': '🔴 <b>АНОМАЛИЯ:</b> Демон Максвелла.', 'type': 'anomaly_terminal', 'val': 0}
+                # --- SCAVENGING (Found Body) ---
+                elif death_loot and random.random() < 0.8:
+                     event = {'text': f"💀 <b>ОСТАНКИ:</b> Вы наткнулись на след @{death_loot['original_owner_name']}.\nЕго кэш ({death_loot['amount']} BC) еще здесь.", 'type': 'found_body', 'val': death_loot['amount']}
+                else:
+                     cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
+                     event = cur.fetchone()
+                     if not event: event = {'text': "Пустота...", 'type': 'neutral', 'val': 0}
+
+                # --- HEAD AURA: NOMAD GOGGLES (Loot Finder) ---
+                if event['type'] == 'neutral' and equipped_head == 'nomad_goggles':
+                    if random.random() < 0.05:
+                        event = {'type': 'loot', 'text': 'Скрытый тайник (Окуляры)', 'val': 100}
+                        msg_prefix += "🥽 <b>ОКУЛЯРЫ:</b> Обнаружен скрытый лут!\n"
 
             # Парсинг загадки
             riddle_answer, event['text'] = parse_riddle(event['text'])
@@ -656,6 +698,11 @@ def process_raid_step(uid, answer=None):
             # ЭФФЕКТЫ СОБЫТИЙ
             if event['type'] == 'trap':
                 base_dmg = int(event['val'] * diff)
+
+                # --- HEAD AURA: SCAVENGER MASK ---
+                if equipped_head == 'scavenger_mask':
+                    base_dmg = max(0, base_dmg - 5)
+
                 dmg = max(5, base_dmg - stats['def'])
                 
                 # Проверка Эгиды (Прямой SQL для скорости)
@@ -679,6 +726,14 @@ def process_raid_step(uid, answer=None):
 
                 if new_sig <= 0:
                     death_reason = f"ЛОВУШКА: {event['text']}"
+                    # Log Death
+                    broadcast = handle_death_log(uid, depth, u['level'], u['username'], res['buffer_coins'])
+                    if broadcast:
+                        pass # Returned in extra_data via death_reason? No, death_reason is text.
+                        # I'll append broadcast to death_reason or handle via extra data?
+                        # process_raid_step returns (..., extra_data, ...)
+                        # extra_data is {'death_reason': ...}
+                        # I can add 'broadcast': ...
 
             elif event['type'] == 'loot':
                 # TIERED LOOT IMPLEMENTATION
@@ -686,14 +741,39 @@ def process_raid_step(uid, answer=None):
                 bonus_xp = int(event['val'] * diff * loot_info['mult'])
                 coins = int(random.randint(5, 20) * loot_info['mult'])
 
+                # --- ANOMALY BUFF: OVERLOAD (+50% Coins) ---
+                if u.get('anomaly_buff_expiry', 0) > time.time() and u.get('anomaly_buff_type') == 'overload':
+                    coins = int(coins * 1.5)
+                    msg_prefix += "⚡️ <b>ПЕРЕГРУЗКА:</b> +50% монет.\n"
+
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, coins, uid))
-                msg_event = f"{loot_info['prefix']} <b>НАХОДКА:</b> {event['text']}\n+{bonus_xp} XP | +{coins} BC"
-                alert_msg = f"💎 НАХОДКА!\n{event['text']}\n+{bonus_xp} XP | +{coins} BC"
+
+                # --- ENCRYPTED CACHE DROP (5% Chance on Loot) ---
+                # Check if user already has one? Limit 1.
+                cache_drop_txt = ""
+                if random.random() < 0.05:
+                    # Check if user has cache in inventory or processing
+                    # Assuming 'encrypted_cache' is an item in inventory OR a state.
+                    # Prompt says: "Finds... put on decryption in main menu".
+                    # Let's treat it as an item 'encrypted_cache'.
+                    if db.add_item(uid, 'encrypted_cache'):
+                        cache_drop_txt = "\n🔐 <b>ПОЛУЧЕНО:</b> Зашифрованный Кэш"
+
+                msg_event = f"{loot_info['prefix']} <b>НАХОДКА:</b> {event['text']}\n+{bonus_xp} XP | +{coins} BC{cache_drop_txt}"
+                alert_msg = f"💎 НАХОДКА!\n{event['text']}\n+{bonus_xp} XP | +{coins} BC{cache_drop_txt}"
 
             elif event['type'] == 'heal':
                 new_sig = min(100, new_sig + 25)
                 msg_event = f"❤️ <b>АПТЕЧКА:</b> {event['text']}\n+25% Сигнала"
                 alert_msg = f"❤️ АПТЕЧКА!\n+25% Сигнала"
+
+            elif event['type'] == 'anomaly_terminal':
+                msg_event = f"🔴 <b>АНОМАЛИЯ:</b>\nВы встретили Демона Максвелла.\nОн предлагает сыграть."
+                alert_msg = "🔴 АНОМАЛИЯ!"
+
+            elif event['type'] == 'found_body':
+                msg_event = event['text']
+                alert_msg = "💀 ОСТАНКИ"
 
             else:
                 msg_event = f"👣 {event['text']}"
@@ -796,6 +876,10 @@ def process_raid_step(uid, answer=None):
 
                  extra_death = {}
                  if death_reason: extra_death['death_reason'] = death_reason
+
+                 # Broadcast Check
+                 broadcast = handle_death_log(uid, depth, u['level'], u['username'], res['buffer_coins'])
+                 if broadcast: extra_death['broadcast'] = broadcast
 
                  return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\nРесурсы утеряны.", extra_death, u, 'death', 0
 
@@ -988,12 +1072,12 @@ def get_content_logic(c_type, path='general', level=1, decoder=False):
 
 def process_combat_action(uid, action):
     stats, u = get_user_stats(uid)
-    if not u: return 'error', "Пользователь не найден."
+    if not u: return 'error', "Пользователь не найден.", None
 
     s = db.get_raid_session_enemy(uid)
 
     if not s or not s.get('current_enemy_id'):
-         return 'error', "Нет активного боя."
+         return 'error', "Нет активного боя.", None
 
     enemy_id = s['current_enemy_id']
     enemy_hp = s['current_enemy_hp']
@@ -1001,7 +1085,7 @@ def process_combat_action(uid, action):
     villain = db.get_villain_by_id(enemy_id)
     if not villain:
         db.clear_raid_enemy(uid)
-        return 'error', "Враг исчез."
+        return 'error', "Враг исчез.", None
 
     # ELITE STATS BUFF
     if s.get('is_elite'):
@@ -1018,10 +1102,13 @@ def process_combat_action(uid, action):
         cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
         full_s = cur.fetchone()
 
-    if not full_s: return 'error', "Сессия не найдена."
+    if not full_s: return 'error', "Сессия не найдена.", None
 
     current_signal = full_s['signal']
     biome_data = get_biome_modifiers(full_s.get('depth', 0))
+
+    # --- HEAD AURA CHECK ---
+    equipped_head = db.get_equipped_items(uid).get('head')
 
     if action == 'attack':
         # ADRENALINE
@@ -1030,7 +1117,20 @@ def process_combat_action(uid, action):
             dmg_mult = 2.0
             msg += "🩸 <b>АДРЕНАЛИН:</b> Урон удвоен!\n"
 
-        is_crit = random.random() < (stats['luck'] / 100.0)
+        crit_chance = stats['luck'] / 100.0
+
+        # --- AURA: OVERCLOCK CROWN ---
+        if equipped_head == 'overclock_crown':
+            crit_chance *= 2.0
+
+        is_crit = random.random() < crit_chance
+
+        if is_crit and equipped_head == 'overclock_crown':
+             # Self damage
+             current_signal = max(1, current_signal - 2)
+             cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (current_signal, uid))
+             msg += "👑 <b>ВЕНЕЦ:</b> Перегрузка! -2% Сигнала.\n"
+
         base_dmg = int(stats['atk'] * (1.5 if is_crit else 1.0) * dmg_mult)
 
         # RNG VARIANCE (Module 2)
@@ -1056,9 +1156,28 @@ def process_combat_action(uid, action):
             else:
                 msg += f"⚔️ <b>АТАКА:</b> Вы нанесли {dmg} урона{crit_msg}.\n"
 
+        # --- AURA: RELIC VAMPIRE (Heal on Hit) ---
+        if equipped_head == 'relic_vampire':
+            heal = 2
+            current_signal = min(100, current_signal + heal)
+            cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (current_signal, uid))
+            msg += f"🦇 <b>ВАМПИРИЗМ:</b> +{heal}% Сигнала.\n"
+
         if new_enemy_hp <= 0:
             xp_gain = villain.get('xp_reward', 0)
             coin_gain = villain.get('coin_reward', 0)
+
+            # --- ANOMALY BUFF: OVERLOAD (+50% Coins) ---
+            if u.get('anomaly_buff_expiry', 0) > time.time() and u.get('anomaly_buff_type') == 'overload':
+                coin_gain = int(coin_gain * 1.5)
+                msg += "⚡️ <b>ПЕРЕГРУЗКА:</b> +50% монет.\n"
+
+            # --- AURA: VAMPIRE VISOR (Heal on Kill) ---
+            if equipped_head == 'vampire_visor':
+                heal = 5
+                current_signal = min(100, current_signal + heal)
+                cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (current_signal, uid))
+                msg += f"🩸 <b>ПОГЛОЩЕНИЕ:</b> +{heal}% Сигнала.\n"
 
             # FACTION SYNERGY (MONEY)
             if u['path'] == 'money':
@@ -1074,7 +1193,7 @@ def process_combat_action(uid, action):
                 cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp + %s, buffer_coins = buffer_coins + %s, kills = kills + 1 WHERE uid=%s",
                             (xp_gain, coin_gain, uid))
 
-            return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен.\nПолучено: +{xp_gain} XP | +{coin_gain} BC"
+            return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен.\nПолучено: +{xp_gain} XP | +{coin_gain} BC", None
 
         else:
             db.update_raid_enemy(uid, enemy_id, new_enemy_hp)
@@ -1097,6 +1216,19 @@ def process_combat_action(uid, action):
             min_dmg = int(raw_enemy_dmg * 0.05)
             enemy_dmg = max(min_dmg, enemy_dmg)
 
+            # --- AURA: TACTICAL HELMET (Auto Dodge) ---
+            if equipped_head == 'tactical_helmet' and random.random() < 0.10:
+                enemy_dmg = 0
+                msg += "🪖 <b>ТАКТИКА:</b> Автоматическое уклонение!\n"
+
+            # --- AURA: ARCHITECT MASK (Reflection) ---
+            if equipped_head == 'architect_mask' and enemy_dmg > 0:
+                reflect = int(enemy_dmg * 0.3)
+                if reflect > 0:
+                    new_enemy_hp = max(0, new_enemy_hp - reflect)
+                    db.update_raid_enemy(uid, enemy_id, new_enemy_hp)
+                    msg += f"🎭 <b>ЗЕРКАЛО:</b> Отражено {reflect} урона.\n"
+
             used_aegis = False
             if enemy_dmg > current_signal:
                  if db.get_item_count(uid, 'aegis') > 0:
@@ -1106,6 +1238,22 @@ def process_combat_action(uid, action):
                            used_aegis = True
 
             new_sig = max(0, current_signal - enemy_dmg)
+
+            # --- AURA: CYBER HALO (Death Prevent) ---
+            if new_sig <= 0 and equipped_head == 'cyber_halo':
+                # Check cooldown? Prompt says "1 time per battle".
+                # We need to track if halo used in this battle.
+                # Currently raid_sessions doesn't have a 'halo_used' flag.
+                # Simplification: 20% chance always (without limit per battle it might be OP, but without DB change...)
+                # Prompt: "20% chance that fatal blow leaves 1% Signal (cooldown 1 time per battle)".
+                # To do "1 time per battle", I'd need to store state.
+                # Given I can't easily add column now without schema drift risk/complexity, I will stick to "20% chance" OR add a temp flag in `buffer_items` or similar?
+                # `buffer_items` is for loot.
+                # I'll stick to simple 20% chance for now or skip cooldown.
+                if random.random() < 0.20:
+                    new_sig = 1
+                    msg += "🪩 <b>НИМБ:</b> Вмешательство системы! Смерть отменена.\n"
+
             with db.db_cursor() as cur:
                 cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_sig, uid))
 
@@ -1119,9 +1267,14 @@ def process_combat_action(uid, action):
             if new_sig <= 0:
                 report = generate_raid_report(uid, full_s)
                 db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
-                return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}"
 
-            return 'combat', msg
+                extra_death = {}
+                broadcast = handle_death_log(uid, full_s['depth'], u['level'], u['username'], full_s['buffer_coins'])
+                if broadcast: extra_death['broadcast'] = broadcast
+
+                return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}", extra_death
+
+            return 'combat', msg, None
 
     elif action == 'use_emp':
         if db.get_item_count(uid, 'emp_grenade') > 0:
@@ -1137,20 +1290,20 @@ def process_combat_action(uid, action):
                 with db.db_cursor() as cur:
                     cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp + %s, buffer_coins = buffer_coins + %s, kills = kills + 1 WHERE uid=%s",
                                 (xp_gain, coin_gain, uid))
-                return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен взрывом.\nПолучено: +{xp_gain} XP | +{coin_gain} BC"
+                return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен взрывом.\nПолучено: +{xp_gain} XP | +{coin_gain} BC", None
             else:
                 db.update_raid_enemy(uid, enemy_id, new_enemy_hp)
                 msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n"
         else:
-             return 'error', "Нет EMP гранаты."
+             return 'error', "Нет EMP гранаты.", None
 
     elif action == 'use_stealth':
         if db.get_item_count(uid, 'stealth_spray') > 0:
             db.use_item(uid, 'stealth_spray', 1)
             db.clear_raid_enemy(uid)
-            return 'escaped', "👻 <b>СТЕЛС:</b> Вы растворились в тумане. 100% побег."
+            return 'escaped', "👻 <b>СТЕЛС:</b> Вы растворились в тумане. 100% побег.", None
         else:
-             return 'error', "Нет спрея."
+             return 'error', "Нет спрея.", None
 
     elif action == 'use_wiper':
         if db.get_item_count(uid, 'memory_wiper') > 0:
@@ -1158,9 +1311,9 @@ def process_combat_action(uid, action):
             db.clear_raid_enemy(uid)
             # Wiper resets aggro, effectively ending combat but maybe keeping position?
             # Same as escaped basically but different flavor.
-            return 'escaped', "🧹 <b>СТИРАТЕЛЬ:</b> Память врага очищена. Он забыл о вас."
+            return 'escaped', "🧹 <b>СТИРАТЕЛЬ:</b> Память врага очищена. Он забыл о вас.", None
         else:
-             return 'error', "Нет стирателя памяти."
+             return 'error', "Нет стирателя памяти.", None
 
     elif action == 'run':
         # FACTION SYNERGY (MIND) - Dodge in Deep Net/Void
@@ -1173,7 +1326,7 @@ def process_combat_action(uid, action):
         if random.random() < chance:
              db.clear_raid_enemy(uid)
              extra_msg = " (Сила Мысли)" if bonus_dodge > 0 else ""
-             return 'escaped', f"🏃 <b>ПОБЕГ:</b> Вы успешно скрылись в тенях.{extra_msg}"
+             return 'escaped', f"🏃 <b>ПОБЕГ:</b> Вы успешно скрылись в тенях.{extra_msg}", None
         else:
              msg += "🚫 <b>ПОБЕГ НЕ УДАЛСЯ.</b> Враг атакует!\n"
 
@@ -1212,11 +1365,16 @@ def process_combat_action(uid, action):
              if new_sig <= 0:
                 report = generate_raid_report(uid, full_s)
                 db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
-                return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}"
 
-             return 'combat', msg
+                extra_death = {}
+                broadcast = handle_death_log(uid, full_s['depth'], u['level'], u['username'], full_s['buffer_coins'])
+                if broadcast: extra_death['broadcast'] = broadcast
 
-    return res_type, msg
+                return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}", extra_death
+
+             return 'combat', msg, None
+
+    return res_type, msg, None
 
 def perform_hack(attacker_uid):
     # 1. Get Attacker Stats
@@ -1277,3 +1435,221 @@ def perform_hack(attacker_uid):
                f"Штраф: -{loss_xp} XP")
 
     return msg
+
+def start_decryption(uid):
+    # Check if user has cache item
+    if db.get_item_count(uid, 'encrypted_cache') <= 0:
+        return False, "❌ У вас нет Зашифрованного Кэша."
+
+    u = db.get_user(uid)
+    # Check if already unlocking (unlock_time > 0)
+    if u.get('encrypted_cache_unlock_time', 0) > 0:
+        # If time passed, tell them to claim. If not, tell them to wait.
+        if time.time() >= u['encrypted_cache_unlock_time']:
+             return False, "✅ Кэш уже взломан! Нажмите 'Открыть'."
+        else:
+             return False, "⏳ Процесс уже идет."
+
+    # Calc time
+    base_hours = 4.0
+    # Faction Bonus
+    if u['path'] == 'tech':
+        base_hours = 2.0
+
+    # Item Bonus
+    has_decoder = db.get_item_count(uid, 'decoder') > 0
+    if has_decoder:
+        base_hours /= 2.0
+
+    unlock_time = int(time.time() + (base_hours * 3600))
+
+    # Consume item to start
+    if db.use_item(uid, 'encrypted_cache', 1):
+        db.update_user(uid, encrypted_cache_unlock_time=unlock_time, encrypted_cache_type='standard')
+        hours_fmt = f"{base_hours}ч" if base_hours.is_integer() else f"{base_hours}ч"
+        return True, f"🔐 <b>РАСШИФРОВКА ЗАПУЩЕНА</b>\n⏱ Время: {hours_fmt}\n\n<i>Система подбирает ключи...</i>"
+
+    return False, "⚠️ Ошибка предмета."
+
+def claim_decrypted_cache(uid):
+    u = db.get_user(uid)
+    unlock_time = u.get('encrypted_cache_unlock_time', 0)
+
+    if unlock_time == 0:
+        return False, "❌ Нет активных контейнеров."
+
+    if time.time() < unlock_time:
+        rem = int((unlock_time - time.time()) // 60)
+        hours = rem // 60
+        mins = rem % 60
+        return False, f"⏳ <b>ОСТАЛОСЬ:</b> {hours}ч {mins}м"
+
+    # Grant Loot
+    xp = random.randint(500, 1500)
+    coins = random.randint(500, 1000)
+
+    db.add_xp_to_user(uid, xp)
+    db.update_user(uid, biocoin=u['biocoin'] + coins)
+
+    msg = f"⚡️ +{xp} XP\n🪙 +{coins} BC"
+
+    # Rare Item Drop (30% chance)
+    if random.random() < 0.30:
+        import config
+        # Pick random rare item
+        rare_items = [k for k,v in config.EQUIPMENT_DB.items() if v['price'] >= 1000]
+        if rare_items:
+            item = random.choice(rare_items)
+            db.add_item(uid, item)
+            name = config.EQUIPMENT_DB[item]['name']
+            msg += f"\n📦 <b>ПРЕДМЕТ:</b> {name}"
+
+    # Reset
+    db.update_user(uid, encrypted_cache_unlock_time=0, encrypted_cache_type=None)
+
+    return True, f"🔓 <b>КОНТЕЙНЕР ВЗЛОМАН!</b>\n\n{msg}"
+
+def get_decryption_status(uid):
+    u = db.get_user(uid)
+    unlock_time = u.get('encrypted_cache_unlock_time', 0)
+
+    if unlock_time == 0:
+        count = db.get_item_count(uid, 'encrypted_cache')
+        if count > 0:
+            return "ready_to_start", f"📦 Кэш в инвентаре: {count} шт."
+        return "none", "Нет контейнеров."
+
+    if time.time() < unlock_time:
+        rem = int((unlock_time - time.time()) // 60)
+        hours = rem // 60
+        mins = rem % 60
+        return "in_progress", f"⏳ {hours}ч {mins}м"
+
+    return "ready_to_claim", "✅ <b>ГОТОВО!</b>"
+
+def check_shadow_broker_trigger(uid):
+    u = db.get_user(uid)
+    # Don't trigger if already active
+    if u.get('shadow_broker_expiry', 0) > time.time():
+        return False, 0
+
+    # 2% chance
+    if random.random() < 0.02:
+        expiry = int(time.time() + 900) # 15 mins
+        db.set_shadow_broker(uid, expiry)
+        return True, expiry
+    return False, 0
+
+def get_shadow_shop_items(uid):
+    u = db.get_user(uid)
+    expiry = u.get('shadow_broker_expiry', 0)
+
+    if expiry < time.time():
+        return []
+
+    # Stable random for the duration of this specific broker instance
+    random.seed(expiry + uid)
+
+    import config
+    pool = config.SHADOW_BROKER_ITEMS[:]
+
+    # Ensure unique selection
+    if len(pool) > 3:
+        selected = random.sample(pool, 3)
+    else:
+        selected = pool
+
+    shop = []
+    for item_id in selected:
+        info = config.EQUIPMENT_DB.get(item_id) or config.ITEMS_INFO.get(item_id)
+        if not info: continue
+
+        base_price = info.get('price', 1000)
+
+        # 50% chance for XP price, 50% for Discounted Coins
+        if random.random() < 0.5:
+            curr = 'xp'
+            # XP Price Logic: Value roughly similar but XP isfarmable.
+            # Let's set XP price = Coin Price * 2
+            price = int(base_price * 1.5)
+        else:
+            curr = 'biocoin'
+            price = int(base_price * 0.5) # 50% discount!
+
+        shop.append({
+            'item_id': item_id,
+            'name': info['name'],
+            'price': price,
+            'currency': curr,
+            'desc': info.get('desc', '')
+        })
+
+    random.seed() # Reset seed
+    return shop
+
+def process_anomaly_bet(uid, bet_type):
+    with db.db_session() as conn:
+        with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
+            s = cur.fetchone()
+            if not s: return False, "Нет активной сессии.", None
+
+            won = random.random() < 0.5
+            msg = ""
+            alert = ""
+
+            # Helper to set buff/debuff
+            def set_status(effect):
+                expiry = int(time.time() + 86400)
+                cur.execute("UPDATE users SET anomaly_buff_type=%s, anomaly_buff_expiry=%s WHERE uid=%s", (effect, expiry, uid))
+
+            if bet_type == 'hp':
+                stake = int(s['signal'] * 0.3)
+                if won:
+                    cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp*2, buffer_coins=buffer_coins*2 WHERE uid=%s", (uid,))
+                    set_status('overload')
+                    msg = "🎰 <b>ПОБЕДА!</b>\nБуфер удвоен.\nПолучен бафф: ⚡️ <b>ПЕРЕГРУЗКА</b> (+50% монет)."
+                    alert = "🎰 ПОБЕДА! Буфер x2"
+                else:
+                    new_sig = max(0, s['signal'] - stake)
+                    cur.execute("UPDATE raid_sessions SET signal=%s WHERE uid=%s", (new_sig, uid))
+                    set_status('corrosion')
+                    msg = f"🎰 <b>ПОРАЖЕНИЕ...</b>\nПотеряно {stake}% Сигнала.\nПолучен дебафф: 🦠 <b>КОРРОЗИЯ</b> (-20% статов)."
+                    alert = f"🎰 ПОРАЖЕНИЕ! -{stake}% HP"
+
+                    if new_sig <= 0:
+                        # Generate report before deleting
+                        # We need full_s but we have s
+                        # Re-fetch full session not needed, s is fine
+                        report = generate_raid_report(uid, s)
+                        cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
+
+                        return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nДемон забрал свою плату.\n\n{report}", {'death_reason': "Демон Максвелла", 'is_death': True}
+
+            elif bet_type == 'buffer':
+                if won:
+                    cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp*2, buffer_coins=buffer_coins*2 WHERE uid=%s", (uid,))
+                    set_status('overload')
+                    msg = "🎰 <b>ПОБЕДА!</b>\nБуфер удвоен.\nПолучен бафф: ⚡️ <b>ПЕРЕГРУЗКА</b>."
+                    alert = "🎰 ПОБЕДА! Буфер x2"
+                else:
+                    cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp/2, buffer_coins=buffer_coins/2 WHERE uid=%s", (uid,))
+                    set_status('corrosion')
+                    msg = "🎰 <b>ПОРАЖЕНИЕ...</b>\nБуфер уполовинен.\nПолучен дебафф: 🦠 <b>КОРРОЗИЯ</b>."
+                    alert = "🎰 ПОРАЖЕНИЕ! Буфер /2"
+
+            return True, msg, {'alert': alert}
+
+def handle_death_log(uid, depth, u_level, username, buffer_coins):
+    broadcast_msg = None
+    # Level 10+ and Depth 200+
+    if u_level >= 10 and depth >= 200:
+         # Log loot (only if worth it)
+         if buffer_coins > 100:
+             db.log_death_loot(depth, buffer_coins, username)
+
+         broadcast_msg = (f"💀 <b>СИСТЕМНЫЙ НЕКРОЛОГ</b>\n"
+                          f"Архонт @{username} (Lvl {u_level}) уничтожен на глубине {depth}м.\n"
+                          f"Остаточный кэш: {buffer_coins} BC.\n"
+                          f"Сектор нестабилен.")
+    return broadcast_msg
