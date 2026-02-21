@@ -520,8 +520,20 @@ def save_knowledge(uid, content_id):
 def get_leaderboard(limit=10):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
-        cur.execute("SELECT first_name, xp, level, max_depth, biocoin FROM users ORDER BY max_depth DESC, xp DESC LIMIT %s", (limit,))
+        cur.execute("SELECT uid, first_name, xp, level, max_depth, biocoin, path FROM users ORDER BY max_depth DESC, xp DESC LIMIT %s", (limit,))
         return cur.fetchall()
+
+def get_user_rank(uid):
+    with db_cursor() as cur:
+        if not cur: return 0
+        # Rank based on (max_depth, xp)
+        cur.execute("""
+            SELECT COUNT(*) + 1
+            FROM users
+            WHERE (max_depth, xp) > (SELECT max_depth, xp FROM users WHERE uid = %s)
+        """, (uid,))
+        res = cur.fetchone()
+        return res[0] if res else 0
 
 def add_diary_entry(uid, text):
     with db_cursor() as cur:
