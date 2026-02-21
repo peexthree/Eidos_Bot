@@ -20,6 +20,12 @@ def check_daily_streak(uid):
 
     delta = (today - last_active).days
 
+    # --- NIGHT VISITS (03:00 - 05:00) ---
+    import datetime
+    now_hour = datetime.datetime.now().hour
+    if 3 <= now_hour < 5:
+        db.increment_user_stat(uid, 'night_visits')
+
     if delta == 1:
         # Streak continues
         new_streak = u.get('streak', 0) + 1

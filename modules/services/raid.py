@@ -212,6 +212,10 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 if start_depth is not None:
                      depth = start_depth
 
+                # --- STAT: FOUND ZERO ---
+                if depth == 0:
+                    db.set_user_stat(uid, 'found_zero', True)
+
                 first_next = generate_random_event_type()
                 cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, event_streak, buffer_items, buffer_xp, buffer_coins) VALUES (%s, %s, 100, %s, 0, 0, %s, 1, '', 0, 0)",
                            (uid, depth, int(time.time()), first_next))
@@ -245,6 +249,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     glitch_text = f"⚠️ <b>ГЛИТЧ (ОШИБКА):</b> Часть данных повреждена. -{loss} BC из буфера."
 
                 # We just return this as an event
+                db.set_user_stat(uid, 'is_glitched', True)
                 return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", {'alert': strip_html(glitch_text)}, u, 'glitch', 0
 
             # ПРОВЕРКА БОЯ
@@ -432,7 +437,13 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 lore_text = db.get_random_raid_advice(adv_level, cursor=cur)
                 if not lore_text: lore_text = "Только эхо твоих шагов в пустом кластере данных..."
 
-                event = {'type': 'neutral', 'text': f"💨 <b>БЕЗОПАСНАЯ ЗОНА</b>\n\nВы переводите дух. В логах терминала осталась запись:\n<i>«{lore_text}»</i>", 'val': 0}
+                # --- STAT: FOUND DEVTRACE (1% Chance) ---
+                extra_lore = ""
+                if random.random() < 0.01:
+                    extra_lore = "\n\n👁 <i>Вы видите странный комментарий в коде: 'peexthree was here'.</i>"
+                    db.set_user_stat(uid, 'found_devtrace', True)
+
+                event = {'type': 'neutral', 'text': f"💨 <b>БЕЗОПАСНАЯ ЗОНА</b>\n\nВы переводите дух. В логах терминала осталась запись:\n<i>«{lore_text}»</i>{extra_lore}", 'val': 0}
 
             # СЛУЧАЙНОЕ
             else:
@@ -658,6 +669,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                  # Broadcast Check
                  broadcast = handle_death_log(uid, depth, u['level'], u['username'], s['buffer_coins'])
                  if broadcast: extra_death['broadcast'] = broadcast
+
+                 db.increment_user_stat(uid, 'raids_done')
 
                  return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n\n{report}", extra_death, u, 'death', 0
 

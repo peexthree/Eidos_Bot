@@ -388,6 +388,8 @@ def guide_menu(page_key='intro'):
     m.add(types.InlineKeyboardButton("🤝 СИНДИКАТ", callback_data="guide_page_social"),
           types.InlineKeyboardButton("⚡️ СОВЕТЫ", callback_data="guide_page_tips"))
 
+    m.add(types.InlineKeyboardButton("🧠 QUIZ (ВИКТОРИНА)", callback_data="start_quiz"))
+
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 

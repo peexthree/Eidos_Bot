@@ -6,6 +6,8 @@ import keyboards as kb
 from modules.services.utils import menu_update, get_menu_text, get_menu_image, GAME_GUIDE_TEXTS, draw_bar
 from modules.services.user import get_user_stats, get_level_progress_stats, get_profile_stats, get_syndicate_stats, perform_hard_reset
 import time
+import random
+from telebot import types
 
 @bot.callback_query_handler(func=lambda call: call.data == "profile" or call.data.startswith("set_path_") or call.data.startswith("confirm_path_") or call.data == "change_path_menu" or call.data == "use_accelerator" or call.data == "activate_purification")
 def profile_handler(call):
@@ -177,7 +179,12 @@ def social_handler(call):
         link = f"https://t.me/{config.BOT_USERNAME}?start={uid}"
         txt = config.SYNDICATE_FULL + f"\n\n<code>{link}</code>\n\n"
         txt += get_syndicate_stats(uid)
-        menu_update(call, txt, kb.back_button(), image_url=config.MENU_IMAGES["referral"])
+
+        m = types.InlineKeyboardMarkup()
+        m.add(types.InlineKeyboardButton("👍 ОТПРАВИТЬ СИГНАЛ (LIKE)", callback_data="send_like"))
+        m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+
+        menu_update(call, txt, m, image_url=config.MENU_IMAGES["referral"])
 
 @bot.callback_query_handler(func=lambda call: call.data == "guide" or call.data.startswith("guide_page_"))
 def guide_handler(call):
@@ -259,6 +266,60 @@ def archive_handler(call):
                  txt += f"{icon} <b>ЗАПИСЬ</b> (Lvl {p['level']})\n{p['text']}\n\n"
 
          menu_update(call, txt, kb.archive_nav(page, total_pages))
+
+@bot.callback_query_handler(func=lambda call: call.data == "start_quiz" or call.data.startswith("quiz_ans_"))
+def quiz_handler(call):
+    uid = call.from_user.id
+
+    if call.data == "start_quiz":
+        # Random Question
+        questions = [
+            {"q": "Как называется нулевой слой?", "a": ["Zero Layer", "Net", "Void"], "c": "Zero Layer"},
+            {"q": "Кто такой Демон Максвелла?", "a": ["Вирус", "Аномалия", "Босс"], "c": "Аномалия"},
+            {"q": "Максимальная глубина?", "a": ["Нет", "1000", "9999"], "c": "Нет"},
+            {"q": "Валюта сети?", "a": ["Bit", "BioCoin", "Credits"], "c": "BioCoin"}
+        ]
+        q = random.choice(questions)
+
+        m = types.InlineKeyboardMarkup()
+        opts = q['a']
+        random.shuffle(opts)
+        for o in opts:
+            m.add(types.InlineKeyboardButton(o, callback_data=f"quiz_ans_{o}|{q['c']}"))
+        m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="guide"))
+
+        menu_update(call, f"🧠 <b>ВИКТОРИНА</b>\n\n{q['q']}", m)
+
+    elif call.data.startswith("quiz_ans_"):
+        data = call.data.replace("quiz_ans_", "")
+        try:
+            ans, correct = data.split("|")
+        except:
+            ans, correct = "error", "error"
+
+        if ans == correct:
+            db.increment_user_stat(uid, 'quiz_wins')
+            db.add_xp_to_user(uid, 100)
+            bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP", show_alert=True)
+        else:
+            bot.answer_callback_query(call.id, "❌ ОШИБКА", show_alert=True)
+
+        # Return to guide
+        call.data = "guide"
+        guide_handler(call)
+
+@bot.callback_query_handler(func=lambda call: call.data == "send_like")
+def like_handler(call):
+    uid = call.from_user.id
+    target = db.get_random_user_for_hack(uid) # Re-use this function to get random ID
+
+    if target:
+        db.increment_user_stat(target, 'likes')
+        # Reward sender slightly
+        db.add_xp_to_user(uid, 10)
+        bot.answer_callback_query(call.id, "👍 Сигнал отправлен случайному агенту. (+10 XP)", show_alert=True)
+    else:
+        bot.answer_callback_query(call.id, "📡 Никого нет в сети.", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "back")
 def back_handler(call):

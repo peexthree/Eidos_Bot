@@ -105,6 +105,19 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_expiry BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_type TEXT DEFAULT NULL")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
+                # New Stats for Achievements
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS raids_done INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS perfect_raids INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_wins INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS messages INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS likes INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS purchases INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS found_zero BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_glitched BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS found_devtrace BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS night_visits INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS clicks INTEGER DEFAULT 0")
             except: pass
 
             cur.execute('''
@@ -356,6 +369,26 @@ def add_xp_to_user(uid, amount):
                 profit = int(amount * 0.1)
                 if profit > 0:
                     cur.execute("UPDATE users SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
+
+def increment_user_stat(uid, stat, amount=1):
+    # Safe allow-list for stats
+    ALLOWED_STATS = ['kills', 'raids_done', 'perfect_raids', 'quiz_wins', 'messages', 'likes', 'purchases', 'night_visits', 'clicks']
+    if stat not in ALLOWED_STATS: return False
+
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE users SET {stat} = {stat} + %s WHERE uid = %s", (amount, uid))
+            return cur.rowcount > 0
+
+def set_user_stat(uid, stat, value):
+    # Safe allow-list for boolean flags
+    ALLOWED_STATS = ['found_zero', 'is_glitched', 'found_devtrace']
+    if stat not in ALLOWED_STATS: return False
+
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE users SET {stat} = %s WHERE uid = %s", (value, uid))
+            return cur.rowcount > 0
 
 def reset_daily_stats(uid):
     with db_session() as conn:
