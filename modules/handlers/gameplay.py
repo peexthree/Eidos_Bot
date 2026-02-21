@@ -28,6 +28,11 @@ def protocol_handler(call):
     u = db.get_user(uid)
     check_sb(call)
 
+    # --- PHASE 1 RESTRICTION ---
+    if u.get('onboarding_stage', 0) == 1:
+        bot.answer_callback_query(call.id, "⛔️ ДОСТУП ЗАБЛОКИРОВАН. ЗАВЕРШИТЕ ИНИЦИАЛИЗАЦИЮ.", show_alert=True)
+        return
+
     if call.data == "get_protocol":
         cd = COOLDOWN_ACCEL if u['accel_exp'] > time.time() else COOLDOWN_BASE
         if time.time() - u['last_protocol_time'] < cd:
@@ -114,6 +119,11 @@ def raid_handler(call):
     uid = call.from_user.id
     u = db.get_user(uid)
     check_sb(call)
+
+    # --- PHASE 1 RESTRICTION ---
+    if u.get('onboarding_stage', 0) == 1:
+        bot.answer_callback_query(call.id, "⛔️ ДОСТУП ЗАБЛОКИРОВАН. ЗАВЕРШИТЕ ИНИЦИАЛИЗАЦИЮ.", show_alert=True)
+        return
 
     if call.data == "zero_layer_menu":
          cost = get_raid_entry_cost(uid)

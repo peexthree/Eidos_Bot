@@ -36,14 +36,17 @@ def db_session():
 
     conn = None
     try:
-        conn = pg_pool.getconn()
-        yield conn
-        conn.commit()
+        if pg_pool:
+            conn = pg_pool.getconn()
+            yield conn
+            conn.commit()
+        else:
+            yield None
     except Exception as e:
         if conn: conn.rollback()
         print(f"/// DB ERROR: {e}")
     finally:
-        if conn:
+        if conn and pg_pool:
             pg_pool.putconn(conn)
 
 @contextmanager
@@ -123,6 +126,7 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_start_time BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_quarantined BOOLEAN DEFAULT FALSE")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quarantine_end_time BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_history TEXT DEFAULT ''")
             except: pass
 
             cur.execute('''
@@ -884,3 +888,25 @@ def quarantine_user(uid, duration_hours=24):
                 onboarding_start_time = 0
                 WHERE uid = %s
             """, (end_time, uid))
+
+def add_quiz_history(uid, question_id):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET quiz_history = quiz_history || %s || ',' WHERE uid = %s", (str(question_id), uid))
+
+def delete_user_fully(uid):
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # Delete from all tables where uid is a foreign key or primary key
+                tables = [
+                    "inventory", "user_equipment", "raid_sessions", "bot_states",
+                    "achievements", "diary", "history", "logs", "user_knowledge",
+                    "unlocked_protocols", "users"
+                ]
+                for table in tables:
+                    cur.execute(f"DELETE FROM {table} WHERE uid = %s", (uid,))
+        return True
+    except Exception as e:
+        print(f"Delete Error: {e}")
+        return False

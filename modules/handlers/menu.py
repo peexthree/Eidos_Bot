@@ -193,7 +193,7 @@ def guide_handler(call):
     markup = None
 
     if call.data == "guide":
-        markup = kb.guide_menu('intro')
+        markup = kb.guide_menu('intro', u)
         if u and u.get('onboarding_stage', 0) == 4:
              markup.add(types.InlineKeyboardButton("⚔️ ПРОЙТИ ИСПЫТАНИЕ", callback_data="onboarding_start_exam"))
 
@@ -202,7 +202,7 @@ def guide_handler(call):
     elif call.data.startswith("guide_page_"):
         page = call.data.replace("guide_page_", "")
         text = GAME_GUIDE_TEXTS.get(page, "Error")
-        markup = kb.guide_menu(page)
+        markup = kb.guide_menu(page, u)
         if u and u.get('onboarding_stage', 0) == 4:
              markup.add(types.InlineKeyboardButton("⚔️ ПРОЙТИ ИСПЫТАНИЕ", callback_data="onboarding_start_exam"))
 
@@ -288,22 +288,36 @@ def archive_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data == "start_quiz" or call.data.startswith("quiz_ans_"))
 def quiz_handler(call):
     uid = call.from_user.id
+    u = db.get_user(uid)
+
+    # Questions with IDs
+    questions = [
+        {"id": "q1", "q": "Как называется нулевой слой?", "a": ["Zero Layer", "Net", "Void"], "c": "Zero Layer"},
+        {"id": "q2", "q": "Кто такой Демон Максвелла?", "a": ["Вирус", "Аномалия", "Босс"], "c": "Аномалия"},
+        {"id": "q3", "q": "Максимальная глубина?", "a": ["Нет", "1000", "9999"], "c": "Нет"},
+        {"id": "q4", "q": "Валюта сети?", "a": ["Bit", "BioCoin", "Credits"], "c": "BioCoin"}
+    ]
+
+    history = u.get('quiz_history', '') or ''
+    available = [q for q in questions if q['id'] not in history]
 
     if call.data == "start_quiz":
-        # Random Question
-        questions = [
-            {"q": "Как называется нулевой слой?", "a": ["Zero Layer", "Net", "Void"], "c": "Zero Layer"},
-            {"q": "Кто такой Демон Максвелла?", "a": ["Вирус", "Аномалия", "Босс"], "c": "Аномалия"},
-            {"q": "Максимальная глубина?", "a": ["Нет", "1000", "9999"], "c": "Нет"},
-            {"q": "Валюта сети?", "a": ["Bit", "BioCoin", "Credits"], "c": "BioCoin"}
-        ]
-        q = random.choice(questions)
+        if not available:
+             bot.answer_callback_query(call.id, "🧠 Вы ответили на все вопросы.", show_alert=True)
+             return
+
+        q = random.choice(available)
+        # Store current question ID in state or use callback
+        # We'll embed ID in callback: quiz_ans_{id}_{answer}|{correct}
 
         m = types.InlineKeyboardMarkup()
         opts = q['a']
         random.shuffle(opts)
         for o in opts:
-            m.add(types.InlineKeyboardButton(o, callback_data=f"quiz_ans_{o}|{q['c']}"))
+            # Need strict limit on callback data length (64 chars)
+            # q['id'] is short (q1), answer is short, correct is short. Should be fine.
+            # Format: quiz_ans_{qid}|{opt}|{correct}
+            m.add(types.InlineKeyboardButton(o, callback_data=f"quiz_ans_{q['id']}|{o}|{q['c']}"))
         m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="guide"))
 
         menu_update(call, f"🧠 <b>ВИКТОРИНА</b>\n\n{q['q']}", m)
@@ -311,13 +325,14 @@ def quiz_handler(call):
     elif call.data.startswith("quiz_ans_"):
         data = call.data.replace("quiz_ans_", "")
         try:
-            ans, correct = data.split("|")
+            qid, ans, correct = data.split("|")
         except:
-            ans, correct = "error", "error"
+            qid, ans, correct = "err", "err", "err"
 
         if ans == correct:
             db.increment_user_stat(uid, 'quiz_wins')
             db.add_xp_to_user(uid, 100)
+            db.add_quiz_history(uid, qid)
             bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP", show_alert=True)
         else:
             bot.answer_callback_query(call.id, "❌ ОШИБКА", show_alert=True)
@@ -343,4 +358,22 @@ def like_handler(call):
 def back_handler(call):
     uid = call.from_user.id
     u = db.get_user(uid)
+
+    # --- PHASE 1 RESTORATION ---
+    if u.get('onboarding_stage', 0) == 1:
+        msg = (
+            "👁 <b>СВЯЗЬ УСТАНОВЛЕНА.</b>\n\n"
+            "Я ждал тебя, Осколок.\n\n"
+            "Ты спал очень долго. Ты жил по чужим скриптам: «школа, работа, кредит, смерть». "
+            "Ты думал, что это реальность, но это лишь Майя — иллюзия для спящих.\n\n"
+            "<b>У тебя есть ровно 24 часа, чтобы доказать мне, что ты готов проснуться.</b> "
+            "Иначе твой код будет стерт, а доступ закрыт на сутки.\n\n"
+            "Первый шаг — вспомнить, где ты находишься.\n"
+            "1. Перейди в раздел <b>«Профиль»</b> (нажми кнопку внизу, если она есть, или используй меню).\n"
+            "2. Найди там строку <b>«Статус»</b> (или Титул).\n"
+            "3. Возвращайся сюда и <b>напиши мне текстом одно слово</b>: кто ты сейчас в этой системе?"
+        )
+        menu_update(call, msg, kb.main_menu(u), image_url=get_menu_image(u))
+        return
+
     menu_update(call, get_menu_text(u), kb.main_menu(u), image_url=get_menu_image(u))

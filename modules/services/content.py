@@ -155,6 +155,8 @@ def get_decryption_status(uid):
 
 def check_shadow_broker_trigger(uid):
     u = db.get_user(uid)
+    if not u: return False, 0
+
     # Don't trigger if already active
     if u.get('shadow_broker_expiry', 0) > time.time():
         return False, 0

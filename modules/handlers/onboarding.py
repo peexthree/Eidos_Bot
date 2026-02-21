@@ -38,6 +38,11 @@ def neophyte_handler(m):
         bot.send_message(uid, msg, reply_markup=kb.onboarding_phase2_keyboard(), parse_mode="HTML")
     except: pass
 
+@bot.message_handler(func=lambda m: db.get_user(m.from_user.id) and db.get_user(m.from_user.id).get('onboarding_stage', 0) == 1 and m.text.lower().strip() != "неофит", content_types=['text'])
+def phase1_wrong_text_handler(m):
+    uid = m.from_user.id
+    bot.send_message(uid, "Ты не видишь очевидного. Твой статус в Профиле. Прочти его и вернись.", parse_mode="HTML")
+
 # =============================================================
 # 🌌 ФАЗА 2: АНТИ-ПУСТОЕ (МЫСЛИ)
 # =============================================================
