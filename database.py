@@ -71,7 +71,22 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_cache_unlock_time BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_cache_type TEXT DEFAULT NULL")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_broker_expiry BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_expiry BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_type TEXT DEFAULT NULL")
             except: pass
+
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS death_loot (
+                    id SERIAL PRIMARY KEY,
+                    depth INTEGER,
+                    amount INTEGER,
+                    created_at BIGINT,
+                    original_owner_name TEXT
+                );
+            ''')
 
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS inventory (
@@ -617,3 +632,29 @@ def get_random_user_for_hack(exclude_uid):
         cur.execute("SELECT uid FROM users WHERE uid != %s ORDER BY RANDOM() LIMIT 1", (exclude_uid,))
         res = cur.fetchone()
         return res[0] if res else None
+
+def get_death_loot_at_depth(depth):
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return None
+        cur.execute("SELECT * FROM death_loot WHERE depth = %s ORDER BY created_at DESC LIMIT 1", (depth,))
+        return cur.fetchone()
+
+def claim_death_loot(loot_id):
+    with db_cursor() as cur:
+        if not cur: return False
+        cur.execute("DELETE FROM death_loot WHERE id = %s", (loot_id,))
+        return cur.rowcount > 0
+
+def log_death_loot(depth, amount, owner_name):
+    with db_cursor() as cur:
+        if not cur: return
+        cur.execute("INSERT INTO death_loot (depth, amount, created_at, original_owner_name) VALUES (%s, %s, %s, %s)",
+                    (depth, amount, int(time.time()), owner_name))
+
+def get_shadow_broker_status(uid):
+    u = get_user(uid)
+    if not u: return 0
+    return u.get('shadow_broker_expiry', 0)
+
+def set_shadow_broker(uid, expiry):
+    update_user(uid, shadow_broker_expiry=expiry)
