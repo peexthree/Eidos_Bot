@@ -646,6 +646,7 @@ def claim_death_loot(loot_id):
         return cur.rowcount > 0
 
 def log_death_loot(depth, amount, owner_name):
+    print(f"/// DEATH LOG: {owner_name} at {depth}m with {amount} BC")
     with db_cursor() as cur:
         if not cur: return
         cur.execute("INSERT INTO death_loot (depth, amount, created_at, original_owner_name) VALUES (%s, %s, %s, %s)",

@@ -200,6 +200,23 @@ def raid_welcome_keyboard(cost):
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back"))
     return m
 
+def raid_entry_choice(max_depth):
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton(f"▶️ ПРОДОЛЖИТЬ ({max_depth}м)", callback_data=f"raid_start_depth_{max_depth}"))
+
+    # Checkpoints
+    if max_depth >= 50:
+         m.add(types.InlineKeyboardButton("🏙 ТРУЩОБЫ (0м)", callback_data="raid_start_depth_0"))
+    if max_depth >= 150:
+         m.add(types.InlineKeyboardButton("🏭 ПРОМЗОНА (50м)", callback_data="raid_start_depth_50"))
+    if max_depth >= 300:
+         m.add(types.InlineKeyboardButton("🌃 НЕОН-СИТИ (150м)", callback_data="raid_start_depth_150"))
+    if max_depth >= 500:
+         m.add(types.InlineKeyboardButton("🕸 ГЛУБОКАЯ СЕТЬ (300м)", callback_data="raid_start_depth_300"))
+
+    m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="zero_layer_menu"))
+    return m
+
 def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumables={}):
     m = types.InlineKeyboardMarkup()
     

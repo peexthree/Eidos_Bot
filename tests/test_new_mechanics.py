@@ -62,7 +62,7 @@ class TestNewMechanics(unittest.TestCase):
         mock_cur.fetchone.return_value = {'uid': 1, 'depth': 10, 'signal': 100}
 
         # Action
-        res_type, msg = logic.process_combat_action(1, 'attack')
+        res_type, msg, extra = logic.process_combat_action(1, 'attack')
 
         self.assertEqual(res_type, 'win')
         self.assertIn("КАЗНЬ", msg)
@@ -85,7 +85,7 @@ class TestNewMechanics(unittest.TestCase):
 
         # Mock random to avoid crit variance
         with patch('random.random', return_value=0.5), patch('random.uniform', return_value=1.0):
-            res_type, msg = logic.process_combat_action(1, 'attack')
+            res_type, msg, extra = logic.process_combat_action(1, 'attack')
 
         self.assertIn("АДРЕНАЛИН", msg)
 
@@ -111,7 +111,7 @@ class TestNewMechanics(unittest.TestCase):
         mock_s.return_value['current_enemy_hp'] = 1 # One shot range
 
         with patch('random.random', return_value=0.5):
-            res_type, msg = logic.process_combat_action(1, 'attack')
+            res_type, msg, extra = logic.process_combat_action(1, 'attack')
 
         # Check if villain dict was modified in place (buffed)
         self.assertIn("[ЭЛИТА]", villain_data['name'])

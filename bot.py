@@ -489,9 +489,19 @@ def handle_query(call):
 
         elif call.data.startswith("dismantle_"):
             item_id = call.data.replace("dismantle_", "")
-            info = EQUIPMENT_DB.get(item_id)
+
+            # Check if equipped
+            equipped = db.get_equipped_items(uid)
+            if item_id in equipped.values():
+                 bot.answer_callback_query(call.id, "❌ Нельзя разобрать надетый предмет!", show_alert=True)
+                 return
+
+            info = ITEMS_INFO.get(item_id)
+            price = 0
             if info:
-                price = info.get('price', 0)
+                price = info.get('price') or PRICES.get(item_id, 0)
+
+            if price > 0:
                 scrap_val = int(price * 0.1)
                 if db.use_item(uid, item_id, 1):
                     db.update_user(uid, biocoin=u['biocoin'] + scrap_val)
@@ -502,7 +512,7 @@ def handle_query(call):
                     equipped = db.get_equipped_items(uid)
                     menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", kb.inventory_menu(items, equipped, dismantle_mode=True))
             else:
-                 bot.answer_callback_query(call.id, "❌ Эту вещь нельзя разобрать.")
+                 bot.answer_callback_query(call.id, "❌ Эту вещь нельзя разобрать (нет цены).", show_alert=True)
 
         # --- 4. МАГАЗИН ---
         elif call.data == "shop_menu":
@@ -556,33 +566,54 @@ def handle_query(call):
              menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {u['xp']}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost), image_url=config.MENU_IMAGES["zero_layer_menu"])
 
         elif call.data == "raid_enter":
+             # Checkpoints logic
+             if u.get('max_depth', 0) >= 50:
+                 menu_update(call, "🚀 <b>ВЫБЕРИТЕ ТОЧКУ ВХОДА:</b>", kb.raid_entry_choice(u['max_depth']))
+                 return
+
+             # Default entry (Max Depth)
              res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
 
              if res:
                  entry_cost = logic.get_raid_entry_cost(uid)
                  bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
                  consumables = get_consumables(uid)
+
+                 riddle_opts = extra['options'] if etype == 'riddle' and extra else []
+                 image_url = extra.get('image') if extra else None
+                 markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+                 menu_update(call, txt, markup, image_url=image_url)
              else:
                  bot.answer_callback_query(call.id, txt, show_alert=True)
-                 return # Don't update menu on error? Or do? Logic says return False with msg.
-                 # Original code called menu_update anyway?
-                 # No, original code:
-                 # if not res: answer(alert);
-                 # else: menu_update;
-                 # So I should preserve that structure.
 
-             riddle_opts = extra['options'] if etype == 'riddle' and extra else []
-             image_url = extra.get('image') if extra else None
-             markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
-             menu_update(call, txt, markup, image_url=image_url)
+        elif call.data.startswith("raid_start_depth_"):
+             start_depth = int(call.data.replace("raid_start_depth_", ""))
+             res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid, start_depth=start_depth)
+
+             if res:
+                 entry_cost = logic.get_raid_entry_cost(uid)
+                 bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
+                 consumables = get_consumables(uid)
+
+                 riddle_opts = extra['options'] if etype == 'riddle' and extra else []
+                 image_url = extra.get('image') if extra else None
+                 markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+                 menu_update(call, txt, markup, image_url=image_url)
+             else:
+                 bot.answer_callback_query(call.id, txt, show_alert=True)
 
         elif call.data == "raid_step":
              res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
              if not res:
-                 if etype == 'death' and extra and extra.get('death_reason'):
-                      try: bot.answer_callback_query(call.id, extra['death_reason'], show_alert=True)
-                      except: pass
-                 menu_update(call, txt, kb.back_button())
+                 if etype == 'death':
+                      if extra and extra.get('death_reason'):
+                           try: bot.answer_callback_query(call.id, extra['death_reason'], show_alert=True)
+                           except: pass
+                      # Force image update to clear monster pic
+                      image_url = get_menu_image(new_u or u)
+                      menu_update(call, txt, kb.back_button(), image_url=image_url)
+                 else:
+                      menu_update(call, txt, kb.back_button())
              else:
                  if extra and extra.get('alert'):
                       try: bot.answer_callback_query(call.id, extra['alert'], show_alert=True)
@@ -927,7 +958,8 @@ def handle_query(call):
                         else: db.update_user(uid, biocoin=u['biocoin'] + price)
                         bot.answer_callback_query(call.id, "🎒 Рюкзак полон!", show_alert=True)
                 else:
-                    bot.answer_callback_query(call.id, "❌ Недостаточно средств", show_alert=True)
+                    msg_err = f"❌ Недостаточно {currency.upper()}\nНужно: {price}"
+                    bot.answer_callback_query(call.id, msg_err, show_alert=True)
 
         # --- DECRYPTION ---
         elif call.data == "decrypt_menu":
