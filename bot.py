@@ -489,18 +489,30 @@ def handle_query(call):
 
         elif call.data.startswith("dismantle_"):
             item_id = call.data.replace("dismantle_", "")
-            info = EQUIPMENT_DB.get(item_id)
+            info = EQUIPMENT_DB.get(item_id) or ITEMS_INFO.get(item_id)
             if info:
-                price = info.get('price', 0)
+                # If item is in ITEMS_INFO but not EQUIPMENT_DB, check if it has a price
+                # Shadow Items might be in ITEMS_INFO but act like equipment?
+                # config.py merges them: **{k: {**v, 'type': 'equip'} for k, v in EQUIPMENT_DB.items()}
+                # But ITEMS_INFO contains consumables too.
+                # Shadow items like 'abyssal_key' are in ITEMS_INFO with no price listed in PRICES?
+                # PRICES has 'abyssal_key': 500.
+                price = PRICES.get(item_id, info.get('price', 0))
                 scrap_val = int(price * 0.1)
-                if db.use_item(uid, item_id, 1):
+
+                if scrap_val <= 0:
+                    bot.answer_callback_query(call.id, "❌ Эту вещь нельзя разобрать (Цена 0).")
+                elif db.use_item(uid, item_id, 1):
                     db.update_user(uid, biocoin=u['biocoin'] + scrap_val)
                     bot.answer_callback_query(call.id, f"♻️ Разобрано: +{scrap_val} BC")
                     # Refresh
                     txt = logic.format_inventory(uid)
                     items = db.get_inventory(uid)
                     equipped = db.get_equipped_items(uid)
-                    menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", kb.inventory_menu(items, equipped, dismantle_mode=True))
+                    has_legacy = logic.check_legacy_items(uid)
+                    menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", kb.inventory_menu(items, equipped, dismantle_mode=True, has_legacy=has_legacy))
+                else:
+                    bot.answer_callback_query(call.id, "❌ Ошибка предмета.")
             else:
                  bot.answer_callback_query(call.id, "❌ Эту вещь нельзя разобрать.")
 
@@ -555,7 +567,30 @@ def handle_query(call):
              cost = logic.get_raid_entry_cost(uid)
              menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {u['xp']}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost), image_url=config.MENU_IMAGES["zero_layer_menu"])
 
+        elif call.data == "raid_select_depth":
+             cost = logic.get_raid_entry_cost(uid)
+             max_depth = u.get('max_depth', 0)
+             menu_update(call, f"🚀 <b>ТОЧКА ВХОДА</b>\n\nВыберите глубину погружения.\nСтоимость: {cost} XP", kb.raid_depth_selection_menu(max_depth, cost))
+
+        elif call.data.startswith("raid_start_"):
+             start_depth = int(call.data.replace("raid_start_", ""))
+             res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid, start_depth=start_depth)
+
+             if res:
+                 entry_cost = logic.get_raid_entry_cost(uid)
+                 bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
+                 consumables = get_consumables(uid)
+             else:
+                 bot.answer_callback_query(call.id, txt, show_alert=True)
+                 return
+
+             riddle_opts = extra['options'] if etype == 'riddle' and extra else []
+             image_url = extra.get('image') if extra else None
+             markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+             menu_update(call, txt, markup, image_url=image_url)
+
         elif call.data == "raid_enter":
+             # Legacy or Default entry (Max Depth)
              res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid)
 
              if res:
@@ -564,12 +599,7 @@ def handle_query(call):
                  consumables = get_consumables(uid)
              else:
                  bot.answer_callback_query(call.id, txt, show_alert=True)
-                 return # Don't update menu on error? Or do? Logic says return False with msg.
-                 # Original code called menu_update anyway?
-                 # No, original code:
-                 # if not res: answer(alert);
-                 # else: menu_update;
-                 # So I should preserve that structure.
+                 return
 
              riddle_opts = extra['options'] if etype == 'riddle' and extra else []
              image_url = extra.get('image') if extra else None
@@ -927,7 +957,9 @@ def handle_query(call):
                         else: db.update_user(uid, biocoin=u['biocoin'] + price)
                         bot.answer_callback_query(call.id, "🎒 Рюкзак полон!", show_alert=True)
                 else:
-                    bot.answer_callback_query(call.id, "❌ Недостаточно средств", show_alert=True)
+                    curr_label = "XP" if currency == 'xp' else "BC"
+                    user_bal = u['xp'] if currency == 'xp' else u['biocoin']
+                    bot.answer_callback_query(call.id, f"❌ Недостаточно средств\nНужно: {price} {curr_label}\nУ вас: {user_bal}", show_alert=True)
 
         # --- DECRYPTION ---
         elif call.data == "decrypt_menu":
