@@ -41,6 +41,7 @@ def shop_handler(call):
             if u.get('xp', 0) >= cost:
                 db.add_item(uid, item)
                 db.update_user(uid, xp=u['xp'] - cost)
+                db.increment_user_stat(uid, 'purchases')
 
                 ach_txt = ""
                 new_achs = check_achievements(uid)
@@ -58,6 +59,7 @@ def shop_handler(call):
             if u['biocoin'] >= cost:
                 if db.add_item(uid, item):
                     db.update_user(uid, biocoin=u['biocoin'] - cost, total_spent=u['total_spent']+cost)
+                    db.increment_user_stat(uid, 'purchases')
 
                     ach_txt = ""
                     new_achs = check_achievements(uid)
@@ -152,6 +154,7 @@ def shadow_shop_handler(call):
             if can_buy:
                 if db.add_item(uid, item_id):
                     db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Price: {price} {currency}")
+                    db.increment_user_stat(uid, 'purchases')
                     bot.answer_callback_query(call.id, f"✅ Куплено: {target['name']}", show_alert=True)
                     call.data = "shadow_broker_menu"
                     shadow_shop_handler(call)

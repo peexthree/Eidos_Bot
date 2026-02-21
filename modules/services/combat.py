@@ -127,6 +127,8 @@ def process_combat_action(uid, action):
                 cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp + %s, buffer_coins = buffer_coins + %s, kills = kills + 1 WHERE uid=%s",
                             (xp_gain, coin_gain, uid))
 
+            db.increment_user_stat(uid, 'kills')
+
             return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен.\nПолучено: +{xp_gain} XP | +{coin_gain} BC", None
 
         else:
@@ -218,6 +220,9 @@ def process_combat_action(uid, action):
                 with db.db_cursor() as cur:
                     cur.execute("UPDATE raid_sessions SET buffer_xp = buffer_xp + %s, buffer_coins = buffer_coins + %s, kills = kills + 1 WHERE uid=%s",
                                 (xp_gain, coin_gain, uid))
+
+                db.increment_user_stat(uid, 'kills')
+
                 return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен взрывом.\nПолучено: +{xp_gain} XP | +{coin_gain} BC", None
             else:
                 db.update_raid_enemy(uid, enemy_id, new_enemy_hp)

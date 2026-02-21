@@ -16,6 +16,21 @@ import modules.handlers.menu
 import modules.handlers.items
 import modules.handlers.gameplay
 
+# --- MIDDLEWARE FOR STATS TRACKING ---
+@bot.middleware_handler(update_types=['message'])
+def stats_message_middleware(bot_instance, message):
+    try:
+        uid = message.from_user.id
+        db.increment_user_stat(uid, 'messages')
+    except: pass
+
+@bot.middleware_handler(update_types=['callback_query'])
+def stats_callback_middleware(bot_instance, call):
+    try:
+        uid = call.from_user.id
+        db.increment_user_stat(uid, 'clicks')
+    except: pass
+
 @app.route('/health', methods=['GET'])
 def health_check():
     return 'ALIVE', 200

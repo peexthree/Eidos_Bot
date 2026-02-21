@@ -260,6 +260,12 @@ def raid_handler(call):
               s = cur.fetchone()
 
          report = generate_raid_report(uid, s, success=True)
+
+         # --- STATS: RAID DONE & PERFECT ---
+         db.increment_user_stat(uid, 'raids_done')
+         if s['signal'] >= 100:
+             db.increment_user_stat(uid, 'perfect_raids')
+
          db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
          menu_update(call, report, kb.back_button())
 
