@@ -748,15 +748,19 @@ def handle_query(call):
                      try: bot.answer_callback_query(call.id, "💀 СИСТЕМНЫЙ НЕКРОЛОГ", show_alert=True)
                      except: pass
 
-                     # 1. Send to Channel
-                     if config.CHANNEL_ID:
-                         try: bot.send_message(config.CHANNEL_ID, extra['broadcast'], parse_mode="HTML")
-                         except: pass
-
-                     # 2. Broadcast to recent active users (Limit 20)
+                     # Broadcast to recent active users (Limit 50)
+                     # Targeting users who raided today/yesterday OR synced protocol in last 24h
                      try:
+                         active_threshold = int(time.time() - 86400)
                          with db.db_cursor() as cur:
-                             cur.execute("SELECT uid FROM users WHERE uid != %s AND last_active >= CURRENT_DATE - 1 LIMIT 20", (uid,))
+                             cur.execute("""
+                                 SELECT uid FROM users
+                                 WHERE uid != %s
+                                 AND (last_raid_date >= CURRENT_DATE - 1 OR last_protocol_time >= %s)
+                                 ORDER BY last_raid_date DESC
+                                 LIMIT 50
+                             """, (uid, active_threshold))
+
                              for row in cur.fetchall():
                                  try:
                                      bot.send_message(row[0], extra['broadcast'], parse_mode="HTML")
