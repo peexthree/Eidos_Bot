@@ -297,7 +297,7 @@ def use_item(uid, item_id, qty=1, cursor=None):
 
         if quantity is not None and quantity <= 0:
             cursor.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
-        return True
+        return res is not None
 
     with db_cursor() as cur:
         if not cur: return False
@@ -305,7 +305,7 @@ def use_item(uid, item_id, qty=1, cursor=None):
         res = cur.fetchone()
         if res and res[0] <= 0:
             cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
-        return True
+        return res is not None
 
 def decrease_durability(uid, item_id, amount=1):
     with db_cursor() as cur:

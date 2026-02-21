@@ -25,7 +25,8 @@ GAME_GUIDE_TEXTS = {
         "• <b>🚀 РЕЙД (Нулевой Слой):</b> Опасная экспедиция за лутом. Требует энергии.\n"
         "• <b>👤 ПРОФИЛЬ:</b> Статистика, Уровень, Атака/Защита/Удача.\n"
         "• <b>🎒 ИНВЕНТАРЬ:</b> Предметы и экипировка.\n"
-        "• <b>🎰 МАГАЗИН:</b> Покупка снаряжения за Монеты и Опыт."
+        "• <b>🎰 МАГАЗИН:</b> Покупка снаряжения за Монеты и Опыт.\n"
+        "• <b>🔐 ДЕШИФРАТОР:</b> Взлом найденных в рейде зашифрованных кэшей."
     ),
     'raids': (
         "<b>🚀 МЕХАНИКА РЕЙДОВ (Нулевой Слой)</b>\n\n"
@@ -40,7 +41,28 @@ GAME_GUIDE_TEXTS = {
         "Каждый шаг стоит <b>Энергии (XP)</b>. Если XP кончится — придется выходить.\n\n"
         "<b>💀 СМЕРТЬ И ЭВАКУАЦИЯ:</b>\n"
         "Твое здоровье — это <b>Сигнал (100%)</b>. Если он упадет до 0%, ты умрешь и <b>ПОТЕРЯЕШЬ ВЕСЬ ЛУТ</b> (кроме опыта за убийства).\n"
-        "Чтобы сохранить добычу, нажми <b>ЭВАКУАЦИЯ</b> в любой безопасный момент."
+        "Чтобы сохранить добычу, нажми <b>ЭВАКУАЦИЯ</b> в любой безопасный момент.\n\n"
+        "<b>👹 АНОМАЛИИ:</b>\n"
+        "Глубоко в сети обитает Демон Максвелла. Он предлагает рискованные пари на HP или Лут. Победа удваивает ресурсы, поражение вешает дебафф 'Коррозия'."
+    ),
+    'shadow_broker': (
+        "<b>🕶 ТЕНЕВОЙ БРОКЕР</b>\n\n"
+        "Легендарный торговец черного рынка. Его магазин появляется случайно (2% шанс при любом действии) и существует всего 15 минут.\n\n"
+        "<b>ТОВАРЫ:</b>\n"
+        "• <b>Реликвии:</b> Мощнейшее оружие и броня в игре.\n"
+        "• <b>Читы:</b> Ключи Бездны, God-чипы, Артефакты.\n"
+        "• <b>Валюта:</b> Принимает и BioCoins, и чистый Опыт (XP).\n\n"
+        "<i>Совет: Всегда держи запас валюты на случай встречи.</i>"
+    ),
+    'decryption': (
+        "<b>🔐 ДЕШИФРАТОР КЭШЕЙ</b>\n\n"
+        "В Рейдах можно найти 'Зашифрованный Кэш'. Это контейнер с высшей защитой.\n\n"
+        "<b>КАК ОТКРЫТЬ:</b>\n"
+        "1. Зайди в меню 'Дешифратор' (появится кнопка в Главном Меню).\n"
+        "2. Запусти процесс взлома. Это занимает 4 часа.\n"
+        "3. Фракция 'Техно' и предмет 'Дешифратор' ускоряют процесс.\n\n"
+        "<b>НАГРАДА:</b>\n"
+        "Внутри лежат тысячи монет, опыт и с шансом 30% — редкое, легендарное или даже мифическое снаряжение."
     ),
     'combat': (
         "<b>⚔️ БОЕВАЯ СИСТЕМА</b>\n\n"
@@ -138,6 +160,23 @@ def generate_loot(depth, luck):
         return {"prefix": "🔵 [РЕДКИЙ]", "mult": 1.5, "icon": "🔵"}
     else:
         return {"prefix": "⚪️ [ОБЫЧНЫЙ]", "mult": 1.0, "icon": "⚪️"}
+
+def get_chest_drops(depth, luck):
+    pool = ['battery', 'compass', 'rusty_knife', 'hoodie', 'ram_chip']
+
+    # Depth scaling
+    if depth > 50:
+        pool.extend(['crowbar', 'leather_jacket', 'cpu_booster', 'neural_stimulator'])
+    if depth > 150:
+        pool.extend(['shock_baton', 'kevlar_vest', 'glitch_filter', 'emp_grenade', 'stealth_spray', 'data_spike'])
+    if depth > 300:
+        pool.extend(['cyber_katana', 'tactical_suit', 'ai_core', 'memory_wiper', 'abyssal_key'])
+
+    # Luck roll for rare
+    if random.randint(0, 100) + (luck * 0.5) > 90:
+        pool.extend(['laser_pistol', 'nano_suit', 'backup_drive', 'nomad_goggles'])
+
+    return random.choice(pool)
 
 def strip_html(text):
     """Удаляет HTML теги из текста для алерта."""
@@ -418,7 +457,7 @@ def generate_balanced_event_type(last_type, current_streak):
 
     return new_type
 
-def process_raid_step(uid, answer=None):
+def process_raid_step(uid, answer=None, start_depth=None):
     stats, u = get_user_stats(uid)
     if not u: return False, "User not found", None, None, 'error', 0
     
@@ -454,6 +493,9 @@ def process_raid_step(uid, answer=None):
 
                 # Создаем сессию
                 depth = u.get('max_depth', 0)
+                if start_depth is not None:
+                     depth = start_depth
+
                 first_next = generate_random_event_type()
                 cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, event_streak, buffer_items, buffer_xp, buffer_coins) VALUES (%s, %s, 100, %s, 0, 0, %s, 1, '', 0, 0)",
                            (uid, depth, int(time.time()), first_next))
@@ -536,8 +578,7 @@ def process_raid_step(uid, answer=None):
                 # Дроп предмета
                 loot_item_txt = ""
                 if random.random() < 0.30: # 30% шанс на предмет
-                     drops = ['battery', 'compass', 'rusty_knife']
-                     l_item = random.choice(drops)
+                     l_item = get_chest_drops(depth, stats['luck'])
                      cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
                      loot_item_txt = f"\n📦 Предмет: {ITEMS_INFO.get(l_item, {}).get('name')}"
 
@@ -871,6 +912,7 @@ def process_raid_step(uid, answer=None):
             
             # СМЕРТЬ
             if new_sig <= 0:
+                 report = generate_raid_report(uid, s)
                  cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
                  conn.commit()
 
@@ -881,7 +923,7 @@ def process_raid_step(uid, answer=None):
                  broadcast = handle_death_log(uid, depth, u['level'], u['username'], res['buffer_coins'])
                  if broadcast: extra_death['broadcast'] = broadcast
 
-                 return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\nРесурсы утеряны.", extra_death, u, 'death', 0
+                 return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n\n{report}", extra_death, u, 'death', 0
 
             # If riddle_data exists, it is passed as 3rd arg.
             # If not, we can pass a dict with alert as 3rd arg if we want.
@@ -1493,16 +1535,29 @@ def claim_decrypted_cache(uid):
 
     msg = f"⚡️ +{xp} XP\n🪙 +{coins} BC"
 
-    # Rare Item Drop (30% chance)
+    # Rare Item Drop (30% chance) - TIERED SYSTEM
     if random.random() < 0.30:
         import config
-        # Pick random rare item
-        rare_items = [k for k,v in config.EQUIPMENT_DB.items() if v['price'] >= 1000]
-        if rare_items:
-            item = random.choice(rare_items)
+        candidates = []
+        roll = random.random()
+
+        if roll < 0.05: # Legendary/Mythical (5% of 30% ~ 1.5%)
+             candidates = [k for k,v in config.EQUIPMENT_DB.items() if v['price'] >= 10000]
+        elif roll < 0.25: # Epic (20%)
+             candidates = [k for k,v in config.EQUIPMENT_DB.items() if v['price'] >= 4000 and v['price'] < 10000]
+        else: # Rare (75%)
+             candidates = [k for k,v in config.EQUIPMENT_DB.items() if v['price'] >= 1000 and v['price'] < 4000]
+
+        # Fallback if empty (e.g. config changes)
+        if not candidates:
+             candidates = [k for k,v in config.EQUIPMENT_DB.items() if v['price'] >= 1000]
+
+        if candidates:
+            item = random.choice(candidates)
             db.add_item(uid, item)
             name = config.EQUIPMENT_DB[item]['name']
-            msg += f"\n📦 <b>ПРЕДМЕТ:</b> {name}"
+            tier_icon = "🟠" if roll < 0.05 else "🟣" if roll < 0.25 else "🔵"
+            msg += f"\n📦 <b>ПРЕДМЕТ:</b> {tier_icon} {name}"
 
     # Reset
     db.update_user(uid, encrypted_cache_unlock_time=0, encrypted_cache_type=None)
@@ -1693,14 +1748,14 @@ def process_anomaly_bet(uid, bet_type):
 
 def handle_death_log(uid, depth, u_level, username, buffer_coins):
     broadcast_msg = None
-    # Level 10+ and Depth 200+
-    if u_level >= 10 and depth >= 200:
+    # Level 5+ and Depth 50+ (Lowered for visibility)
+    if u_level >= 5 and depth >= 50:
          # Log loot (only if worth it)
-         if buffer_coins > 100:
+         if buffer_coins > 10:
              db.log_death_loot(depth, buffer_coins, username)
 
          broadcast_msg = (f"💀 <b>СИСТЕМНЫЙ НЕКРОЛОГ</b>\n"
-                          f"Архонт @{username} (Lvl {u_level}) уничтожен на глубине {depth}м.\n"
+                          f"Искатель @{username} (Lvl {u_level}) уничтожен на глубине {depth}м.\n"
                           f"Остаточный кэш: {buffer_coins} BC.\n"
                           f"Сектор нестабилен.")
     return broadcast_msg

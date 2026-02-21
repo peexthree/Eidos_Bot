@@ -196,8 +196,37 @@ def shop_section_menu(category):
 
 def raid_welcome_keyboard(cost):
     m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(types.InlineKeyboardButton(f"🚀 ВОЙТИ (-{cost} XP)", callback_data="raid_enter"))
+    m.add(types.InlineKeyboardButton(f"🚀 ВЫБРАТЬ ТОЧКУ ВХОДА", callback_data="raid_select_depth"))
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="back"))
+    return m
+
+def raid_depth_selection_menu(max_depth, cost):
+    m = types.InlineKeyboardMarkup(row_width=2)
+
+    # 0m
+    m.add(types.InlineKeyboardButton(f"🏙 0м (Начало) - {cost} XP", callback_data="raid_start_0"))
+
+    # 50m
+    if max_depth >= 50:
+        m.add(types.InlineKeyboardButton(f"🏭 50м (Промзона) - {cost} XP", callback_data="raid_start_50"))
+
+    # 150m
+    if max_depth >= 150:
+        m.add(types.InlineKeyboardButton(f"🌃 150м (Неон-Сити) - {cost} XP", callback_data="raid_start_150"))
+
+    # 300m
+    if max_depth >= 300:
+        m.add(types.InlineKeyboardButton(f"🕸 300м (Глубокая Сеть) - {cost} XP", callback_data="raid_start_300"))
+
+    # 500m
+    if max_depth >= 500:
+        m.add(types.InlineKeyboardButton(f"🌌 500м (ПУСТОТА) - {cost} XP", callback_data="raid_start_500"))
+
+    # Max Depth
+    if max_depth > 0:
+        m.add(types.InlineKeyboardButton(f"🕳 {max_depth}м (Рекорд) - {cost} XP", callback_data=f"raid_start_{max_depth}"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="zero_layer_menu"))
     return m
 
 def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumables={}):
