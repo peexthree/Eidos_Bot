@@ -72,7 +72,7 @@ def main_menu(u):
 # 👤 ПРОФИЛЬ
 # =============================================================
 
-def profile_menu(u, has_accel=False):
+def profile_menu(u, has_accel=False, has_purification=False):
     m = types.InlineKeyboardMarkup(row_width=1)
     
     # Фракция
@@ -82,6 +82,10 @@ def profile_menu(u, has_accel=False):
     # Ускоритель
     if has_accel:
         m.add(types.InlineKeyboardButton("⚡️ АКТИВИРОВАТЬ УСКОРИТЕЛЬ", callback_data="use_accelerator"))
+
+    # Очищение (Hard Reset)
+    if has_purification:
+        m.add(types.InlineKeyboardButton("🔮 АКТИВИРОВАТЬ ОЧИЩЕНИЕ", callback_data="activate_purification"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
@@ -188,6 +192,7 @@ def shop_section_menu(category):
         # Special Items
         m.add(types.InlineKeyboardButton(f"❄️ КРИО ({PRICES['cryo']} XP)", callback_data="view_shop_cryo"),
               types.InlineKeyboardButton(f"⚡️ УСКОРИТЕЛЬ ({PRICES['accel']} XP)", callback_data="view_shop_accel"))
+        m.add(types.InlineKeyboardButton(f"♻️ СИНХРОН ОЧИЩЕНИЯ ({PRICES['purification_sync']} BC)", callback_data="view_shop_purification_sync"))
 
     elif category in ['weapon', 'armor', 'chip']:
         for k, v in EQUIPMENT_DB.items():
@@ -401,8 +406,25 @@ def admin_main_menu():
           types.InlineKeyboardButton("📝 КОНТЕНТ", callback_data="admin_menu_content"))
     m.add(types.InlineKeyboardButton("📢 РАССЫЛКА", callback_data="admin_menu_broadcast"),
           types.InlineKeyboardButton("⚙️ СИСТЕМА", callback_data="admin_menu_system"))
+    m.add(types.InlineKeyboardButton("🕶 ВЫЗВАТЬ БРОКЕРА", callback_data="admin_summon_broker"),
+          types.InlineKeyboardButton("🗑 ЧИСТКА ИНВЕНТАРЯ", callback_data="admin_fix_inventory"))
     m.add(types.InlineKeyboardButton("📚 СПРАВКА", callback_data="admin_guide"))
     m.add(types.InlineKeyboardButton("🔙 ВЫХОД", callback_data="back"))
+    return m
+
+def admin_inventory_keyboard(items):
+    m = types.InlineKeyboardMarkup(row_width=1)
+    if not items:
+        m.add(types.InlineKeyboardButton("✅ ИНВЕНТАРЬ ПУСТ", callback_data="dummy"))
+
+    for i in items:
+        item_id = i['item_id']
+        qty = i['quantity']
+        # If item_id is too long, truncate? Usually IDs are short.
+        # But let's keep it simple.
+        m.add(types.InlineKeyboardButton(f"🗑 DELETE: {item_id} (x{qty})", callback_data=f"admin_del_{item_id}"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
 
 def admin_users_menu():

@@ -16,31 +16,27 @@ def get_shadow_shop_items(uid):
     # Stable random for the duration of this specific broker instance
     random.seed(expiry + uid)
 
-    pool = SHADOW_BROKER_ITEMS[:]
+    # Filter for HELMETS only (slot='head')
+    helmet_pool = [k for k, v in EQUIPMENT_DB.items() if v.get('slot') == 'head']
 
     # Ensure unique selection
-    if len(pool) > 3:
-        selected = random.sample(pool, 3)
+    if len(helmet_pool) > 3:
+        selected = random.sample(helmet_pool, 3)
     else:
-        selected = pool
+        selected = helmet_pool
 
     shop = []
     for item_id in selected:
-        info = EQUIPMENT_DB.get(item_id) or ITEMS_INFO.get(item_id)
+        info = EQUIPMENT_DB.get(item_id)
         if not info: continue
 
-        base_price = info.get('price', 1000)
+        base_price = info.get('price', 5000)
 
-        # Strict Pricing Logic
-        if base_price > 20000:
-             curr = 'biocoin'
-             price = base_price # No discount for high tier
-        elif random.random() < 0.5:
-            curr = 'xp'
-            price = int(base_price * 2.0) # XP is cheaper, so cost is higher
-        else:
-            curr = 'biocoin'
-            price = base_price # Standard price
+        # New Logic: Always BioCoin, Fixed Expensive Price
+        # As requested: "Just expensive prices in BioCoins".
+        # We use the base price from DB which is already set for these items.
+        curr = 'biocoin'
+        price = base_price
 
         shop.append({
             'item_id': item_id,
