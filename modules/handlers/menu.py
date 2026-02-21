@@ -132,13 +132,36 @@ def social_handler(call):
 
     if call.data == "leaderboard":
         leaders = db.get_leaderboard()
-        txt = "🏆 <b>ТОП-10 ИСКАТЕЛЕЙ</b>\n\n"
+        user_rank = db.get_user_rank(uid)
+
+        txt = "💠 <b>NEURAL NET LINK ESTABLISHED...</b>\n"
+        txt += "🏆 <b>GLOBAL LEADERBOARD [TOP 10]</b>\n\n"
+
         for i, l in enumerate(leaders, 1):
-            icon = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else "▫️"
+            # Icons
+            rank_icon = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"<b>{i}.</b>"
+            path_icon = "🏦" if l['path'] == 'money' else "🧠" if l['path'] == 'mind' else "🤖" if l['path'] == 'tech' else "⚪️"
 
-            name_fmt = f"<b>{l['first_name']}</b>" if i <= 3 else l['first_name']
+            # Name & Title
+            name = l['first_name']
+            if i <= 3:
+                full_title = TITLES.get(l['level'], 'Unknown')
+                title_name = full_title.split('(')[0].strip() if '(' in full_title else full_title
+                header = f"{rank_icon} <b>{name}</b> [{title_name}]"
+                stats = f"   └ {path_icon} 🕳 <b>{l['max_depth']}m</b> | 🪙 {l['biocoin']}"
+                txt += f"{header}\n{stats}\n\n"
+            else:
+                # Monospace for lower ranks
+                txt += f"<code>{i:<2} {name[:10]:<10} | Lvl {l['level']:<2} | {l['max_depth']}m</code>\n"
 
-            txt += f"{icon} {name_fmt}\n   📊 Lvl {l['level']} | 🪙 {l['biocoin']} BC | 🕳 {l['max_depth']}м\n\n"
+        # User's own status footer
+        txt += "\n━━━━━━━━━━━━━━━━━━━\n"
+        if user_rank > 10:
+             txt += f"👤 <b>YOUR RANK: #{user_rank}</b>\n"
+             txt += f"   └ 📊 Lvl {u['level']} | 🕳 {u['max_depth']}m | 🪙 {u['biocoin']}\n"
+        else:
+             txt += f"👤 <b>YOU ARE IN TOP 10! (#{user_rank})</b>\n"
+
         menu_update(call, txt, kb.back_button(), image_url=config.MENU_IMAGES["leaderboard"])
 
     elif call.data == "referral":
