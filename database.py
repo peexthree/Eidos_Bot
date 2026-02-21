@@ -36,14 +36,17 @@ def db_session():
 
     conn = None
     try:
-        conn = pg_pool.getconn()
-        yield conn
-        conn.commit()
+        if pg_pool:
+            conn = pg_pool.getconn()
+            yield conn
+            conn.commit()
+        else:
+            yield None
     except Exception as e:
         if conn: conn.rollback()
         print(f"/// DB ERROR: {e}")
     finally:
-        if conn:
+        if conn and pg_pool:
             pg_pool.putconn(conn)
 
 @contextmanager

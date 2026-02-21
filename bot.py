@@ -97,25 +97,28 @@ def index():
     return "Eidos SQL Interface is Operational", 200
 
 def system_startup():
-    with app.app_context():
-        time.sleep(2)
-        print("/// SYSTEM STARTUP INITIATED...")
-        db.init_db()
+    try:
+        with app.app_context():
+            time.sleep(2)
+            print("/// SYSTEM STARTUP INITIATED...")
+            db.init_db()
 
-        # Sync Admin from Config
-        try:
-            db.set_user_admin(config.ADMIN_ID, True)
-            print(f"/// ADMIN SYNC: {config.ADMIN_ID} rights granted.")
-        except Exception as e:
-            print(f"/// ADMIN SYNC ERROR: {e}")
-
-        if WEBHOOK_URL:
+            # Sync Admin from Config
             try:
-                bot.remove_webhook()
-                bot.set_webhook(url=WEBHOOK_URL + "/webhook")
-                print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+                db.set_user_admin(config.ADMIN_ID, True)
+                print(f"/// ADMIN SYNC: {config.ADMIN_ID} rights granted.")
             except Exception as e:
-                print(f"/// WEBHOOK ERROR: {e}")
+                print(f"/// ADMIN SYNC ERROR: {e}")
+
+            if WEBHOOK_URL:
+                try:
+                    bot.remove_webhook()
+                    bot.set_webhook(url=WEBHOOK_URL + "/webhook")
+                    print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+                except Exception as e:
+                    print(f"/// WEBHOOK ERROR: {e}")
+    except Exception as e:
+        print(f"/// SYSTEM STARTUP FATAL ERROR: {e}")
 
 threading.Thread(target=system_startup, daemon=True).start()
 
