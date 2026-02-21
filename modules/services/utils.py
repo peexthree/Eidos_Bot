@@ -401,3 +401,35 @@ def handle_death_log(uid, depth, u_level, username, buffer_coins):
                           f"Остаточный кэш: {buffer_coins} BC.\n"
                           f"Сектор нестабилен.")
     return broadcast_msg
+
+def split_long_message(text, chunk_size=4000):
+    """
+    Splits a long string into chunks of at most chunk_size characters.
+    Tries to split at double newlines (\\n\\n) to preserve block formatting.
+    """
+    if len(text) <= chunk_size:
+        return [text]
+
+    parts = text.split("\n\n")
+    # If the text ends with \n\n, split returns an empty string at the end.
+    # We remove it to avoid creating an artificial last chunk.
+    if parts and not parts[-1]:
+        parts.pop()
+
+    chunks = []
+    current_chunk = ""
+
+    for part in parts:
+        block = part + "\n\n"
+
+        if len(current_chunk) + len(block) > chunk_size:
+            if current_chunk:
+                chunks.append(current_chunk)
+            current_chunk = block
+        else:
+            current_chunk += block
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks

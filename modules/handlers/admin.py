@@ -2,7 +2,7 @@ from modules.bot_instance import bot
 import database as db
 import config
 import keyboards as kb
-from modules.services.utils import menu_update
+from modules.services.utils import menu_update, split_long_message
 import time
 
 @bot.message_handler(commands=['admin'])
@@ -38,7 +38,18 @@ def admin_callbacks(call):
     elif call.data == "admin_user_list":
          if not db.is_user_admin(uid): return
          report = db.admin_get_users_dossier()
-         menu_update(call, report, kb.back_button())
+
+         if len(report) > 1000:
+             chunks = split_long_message(report)
+             for chunk in chunks:
+                 try:
+                     bot.send_message(uid, chunk, parse_mode="HTML")
+                 except Exception as e:
+                     bot.send_message(uid, f"❌ ERROR SENDING PART: {e}")
+
+             menu_update(call, "✅ <b>Список пользователей отправлен в чат.</b>", kb.back_button())
+         else:
+             menu_update(call, report, kb.back_button())
 
     # --- ADMIN ACTIONS (STATE SETTERS) ---
     elif call.data in ["admin_grant_admin", "admin_revoke_admin", "admin_give_res",
