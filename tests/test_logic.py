@@ -8,11 +8,11 @@ sys.modules['psycopg2.extras'] = MagicMock()
 
 import unittest
 from unittest.mock import patch
-import logic
+from modules.services import user as logic
 import config
 
 class TestLogic(unittest.TestCase):
-    @patch('logic.db')
+    @patch('modules.services.user.db')
     def test_check_achievements(self, mock_db):
         # Setup
         uid = 123
@@ -34,7 +34,7 @@ class TestLogic(unittest.TestCase):
         self.assertIn("🩸 ПЕРВАЯ КРОВЬ", ach_names)   # first_blood
         self.assertIn("👣 ПЕРВЫЕ ШАГИ", ach_names)    # first_steps
 
-    @patch('logic.db')
+    @patch('modules.services.user.db')
     def test_check_achievements_already_owned(self, mock_db):
         uid = 123
         mock_db.get_user.return_value = {'level': 5}
