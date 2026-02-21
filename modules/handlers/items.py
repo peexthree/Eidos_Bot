@@ -5,13 +5,13 @@ from config import PRICES, EQUIPMENT_DB, ITEMS_INFO, TITLES, SCHOOLS
 import keyboards as kb
 from modules.services.utils import menu_update, get_menu_text, get_menu_image, get_consumables
 from modules.services.inventory import format_inventory, check_legacy_items, convert_legacy_items
-from modules.services.shop import get_shadow_shop_items
+from modules.services.shop import get_shadow_shop_items, process_gacha_purchase
 from modules.services.user import check_achievements, perform_hard_reset
 from modules.services.content import get_decryption_status
 import time
 from telebot import types
 
-@bot.callback_query_handler(func=lambda call: call.data == "shop_menu" or call.data.startswith("shop_cat_") or call.data.startswith("buy_") or call.data.startswith("view_shop_"))
+@bot.callback_query_handler(func=lambda call: call.data == "shop_menu" or call.data.startswith("shop_cat_") or call.data.startswith("buy_") or call.data.startswith("view_shop_") or call.data == "shop_gacha_menu")
 def shop_handler(call):
     uid = call.from_user.id
     u = db.get_user(uid)
@@ -23,6 +23,14 @@ def shop_handler(call):
     elif call.data.startswith("shop_cat_"):
         cat = call.data.replace("shop_cat_", "")
         menu_update(call, f"🎰 <b>ОТДЕЛ: {cat.upper()}</b>", kb.shop_section_menu(cat))
+
+    elif call.data == "shop_gacha_menu":
+        menu_update(call, "🎁 <b>СИСТЕМА ЛУТБОКСОВ</b>\n\nЦена: 1000 BC.\n\nШансы:\n• 80% - Мусор (XP)\n• 15% - Расходники\n• 5% - 🧩 ФРАГМЕНТ (Легендарный)", kb.gacha_menu())
+
+    elif call.data == "buy_gacha":
+        success, msg = process_gacha_purchase(uid)
+        bot.answer_callback_query(call.id, msg.split('\n')[0], show_alert=True)
+        menu_update(call, f"🎁 <b>СИСТЕМА ЛУТБОКСОВ</b>\n\n{msg}", kb.gacha_menu())
 
     elif call.data.startswith("buy_"):
         item = call.data.replace("buy_", "")

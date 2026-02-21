@@ -4,6 +4,8 @@ import database as db
 import config
 from config import SHADOW_BROKER_ITEMS, EQUIPMENT_DB, ITEMS_INFO
 
+GACHA_PRICE = 1000
+
 def get_shadow_shop_items(uid):
     u = db.get_user(uid)
     expiry = u.get('shadow_broker_expiry', 0)
@@ -50,3 +52,43 @@ def get_shadow_shop_items(uid):
 
     random.seed() # Reset seed
     return shop
+
+def process_gacha_purchase(uid):
+    u = db.get_user(uid)
+    if not u or u['biocoin'] < GACHA_PRICE:
+        return False, "❌ Недостаточно BioCoins!"
+
+    # Deduct
+    db.update_user(uid, biocoin=u['biocoin'] - GACHA_PRICE, total_spent=u['total_spent'] + GACHA_PRICE)
+
+    roll = random.random()
+    reward = ""
+    item_id = ""
+
+    if roll < 0.05:
+        # 5% - Fragment
+        item_id = "fragment"
+        reward = "🧩 ФРАГМЕНТ ДАННЫХ (Легендарный)"
+    elif roll < 0.20:
+         # 15% - Good Consumable
+         item_id = random.choice(['neural_stimulator', 'emp_grenade', 'stealth_spray', 'abyssal_key'])
+         reward = ITEMS_INFO[item_id]['name']
+    elif roll < 0.40:
+         # 20% - Standard Consumable
+         item_id = random.choice(['battery', 'compass', 'master_key'])
+         reward = ITEMS_INFO[item_id]['name']
+    else:
+         # 60% - Trash (XP consolation)
+         scrap = random.randint(10, 50)
+         db.add_xp_to_user(uid, scrap)
+         return True, f"📂 <b>ПУСТО...</b>\n\nВнутри только мусорный код.\nВы извлекли {scrap} XP."
+
+    if item_id:
+        if db.add_item(uid, item_id):
+             return True, f"🎁 <b>УСПЕХ!</b>\n\nВы получили: <b>{reward}</b>"
+        else:
+             # Inventory full - refund
+             db.update_user(uid, biocoin=u['biocoin'] + GACHA_PRICE)
+             return False, "🎒 Рюкзак полон! Средства возвращены."
+
+    return False, "Error"

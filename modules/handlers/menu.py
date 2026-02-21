@@ -1,4 +1,4 @@
-from modules.bot_instance import bot, user_states
+from modules.bot_instance import bot
 import database as db
 import config
 from config import TITLES, SCHOOLS, SCHOOLS_INFO, PATH_CHANGE_COST, ACHIEVEMENTS_LIST
@@ -165,7 +165,7 @@ def diary_handler(call):
         menu_update(call, "📓 <b>ЛИЧНЫЙ ДНЕВНИК</b>\nЗдесь ты можешь записывать свои мысли.", kb.diary_menu(), image_url=config.MENU_IMAGES["diary_menu"])
 
     elif call.data == "diary_new":
-        user_states[uid] = "waiting_for_diary_entry"
+        db.set_state(uid, "waiting_for_diary_entry")
         menu_update(call, "✍️ <b>НОВАЯ ЗАПИСЬ</b>\n\nНапиши свои мысли в чат. Я сохраню их в архиве.", kb.back_button())
 
     elif call.data.startswith("diary_read_"):
@@ -188,11 +188,11 @@ def diary_handler(call):
 
             menu_update(call, txt, kb.diary_read_nav(page, total_pages))
 
-@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "waiting_for_diary_entry", content_types=['text'])
+@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "waiting_for_diary_entry", content_types=['text'])
 def diary_text_handler(m):
     uid = m.from_user.id
     db.add_diary_entry(uid, m.text)
-    del user_states[uid]
+    db.delete_state(uid)
     bot.send_message(uid, "✅ <b>ЗАПИСЬ СОХРАНЕНА.</b>", parse_mode="HTML")
     bot.send_message(uid, "📓 ДНЕВНИК", reply_markup=kb.diary_menu())
 

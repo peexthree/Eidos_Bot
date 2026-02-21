@@ -157,11 +157,18 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='all', has_le
 
 def shop_category_menu():
     m = types.InlineKeyboardMarkup(row_width=2)
+    m.add(types.InlineKeyboardButton("🎁 ЛУТБОКС (GACHA)", callback_data="shop_gacha_menu"))
     m.add(types.InlineKeyboardButton("⚔️ ОРУЖИЕ", callback_data="shop_cat_weapon"),
           types.InlineKeyboardButton("👕 БРОНЯ", callback_data="shop_cat_armor"))
     m.add(types.InlineKeyboardButton("💾 ЧИПЫ", callback_data="shop_cat_chip"),
           types.InlineKeyboardButton("📦 РАСХОДНИКИ", callback_data="shop_cat_consumables"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m
+
+def gacha_menu():
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton(f"🎁 ОТКРЫТЬ (1000 BC)", callback_data="buy_gacha"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="shop_menu"))
     return m
 
 def shop_section_menu(category):

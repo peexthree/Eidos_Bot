@@ -17,6 +17,3 @@ WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
-
-# Global user states dictionary to be shared across handlers
-user_states = {}
