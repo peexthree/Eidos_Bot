@@ -90,7 +90,7 @@ def profile_menu(u, has_accel=False):
 # 🎒 ИНВЕНТАРЬ (RPG UI)
 # =============================================================
 
-def inventory_menu(items, equipped, dismantle_mode=False, category='all'):
+def inventory_menu(items, equipped, dismantle_mode=False, category='all', has_legacy=False):
     m = types.InlineKeyboardMarkup(row_width=3)
     
     # Tabs
@@ -101,6 +101,9 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='all'):
     mode_btn = "♻️ РЕЖИМ РАЗБОРА: ВКЛ" if dismantle_mode else "♻️ РАЗОБРАТЬ ВЕЩИ (10%)"
     mode_cb = "inv_mode_normal" if dismantle_mode else "inv_mode_dismantle"
     m.add(types.InlineKeyboardButton(mode_btn, callback_data=mode_cb))
+
+    if has_legacy:
+        m.add(types.InlineKeyboardButton("♻️ ПРЕОБРАЗОВАТЕЛЬ", callback_data="convert_legacy"))
 
     if (category == 'all' or category == 'equip') and equipped:
         m.add(types.InlineKeyboardButton("─── 🛡 НАДЕТО ───", callback_data="dummy"))

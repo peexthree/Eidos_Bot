@@ -441,27 +441,37 @@ def handle_query(call):
             txt = logic.format_inventory(uid, category='all')
             items = db.get_inventory(uid)
             equipped = db.get_equipped_items(uid)
-            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='all'), image_url=config.MENU_IMAGES["inventory"])
+            has_legacy = logic.check_legacy_items(uid)
+            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='all', has_legacy=has_legacy), image_url=config.MENU_IMAGES["inventory"])
 
         elif call.data == "inv_cat_equip":
             txt = logic.format_inventory(uid, category='equip')
             items = db.get_inventory(uid)
             equipped = db.get_equipped_items(uid)
-            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip'))
+            has_legacy = logic.check_legacy_items(uid)
+            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy))
 
         elif call.data == "inv_cat_consumable":
             txt = logic.format_inventory(uid, category='consumable')
             items = db.get_inventory(uid)
             equipped = db.get_equipped_items(uid)
-            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='consumable'))
+            has_legacy = logic.check_legacy_items(uid)
+            menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='consumable', has_legacy=has_legacy))
         
         elif call.data == "inv_mode_dismantle":
             txt = logic.format_inventory(uid)
             items = db.get_inventory(uid)
             equipped = db.get_equipped_items(uid)
-            menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", kb.inventory_menu(items, equipped, dismantle_mode=True))
+            has_legacy = logic.check_legacy_items(uid)
+            menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", kb.inventory_menu(items, equipped, dismantle_mode=True, has_legacy=has_legacy))
 
         elif call.data == "inv_mode_normal":
+            handle_query(type('obj', (object,), {'data': 'inventory', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+
+        elif call.data == "convert_legacy":
+            msg = logic.convert_legacy_items(uid)
+            bot.answer_callback_query(call.id, "✅ КОНВЕРТАЦИЯ ЗАВЕРШЕНА", show_alert=True)
+            bot.send_message(uid, f"♻️ <b>ОТЧЕТ О КОНВЕРТАЦИИ:</b>\n\n{msg}", parse_mode="HTML")
             handle_query(type('obj', (object,), {'data': 'inventory', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
 
         elif call.data.startswith("equip_"):
