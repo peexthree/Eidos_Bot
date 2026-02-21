@@ -51,7 +51,7 @@ def profile_handler(call):
             f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n\n"
             f"🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
             f"🏆 Ачивки: <b>{len(ach_list)}</b>\n"
-            f"🌐 Протоколов в коллекции: <b>{u.get('know_count', 0)}</b>\n"
+            f"🌐 Протоколов в коллекции: <b>{db.get_archived_protocols_count(uid)} ({config.TOTAL_PROTOCOLS})</b>\n"
             f"🪙 Кошелек: <b>{u['biocoin']} BC</b>{accel_status}"
         )
 
