@@ -203,24 +203,21 @@ def raid_welcome_keyboard(cost):
 def raid_depth_selection_menu(max_depth, cost):
     m = types.InlineKeyboardMarkup(row_width=2)
 
-    # 0m
+    # Standard Points
     m.add(types.InlineKeyboardButton(f"🏙 0м (Начало) - {cost} XP", callback_data="raid_start_0"))
 
-    # 50m
-    if max_depth >= 50:
-        m.add(types.InlineKeyboardButton(f"🏭 50м (Промзона) - {cost} XP", callback_data="raid_start_50"))
-
-    # 150m
-    if max_depth >= 150:
-        m.add(types.InlineKeyboardButton(f"🌃 150м (Неон-Сити) - {cost} XP", callback_data="raid_start_150"))
-
-    # 300m
+    # Biome Ranges
     if max_depth >= 300:
-        m.add(types.InlineKeyboardButton(f"🕸 300м (Глубокая Сеть) - {cost} XP", callback_data="raid_start_300"))
+        m.add(types.InlineKeyboardButton(f"🏭 0-300м (Микс) - {cost} XP", callback_data="raid_start_range_0_300"))
 
-    # 500m
-    if max_depth >= 500:
-        m.add(types.InlineKeyboardButton(f"🌌 500м (ПУСТОТА) - {cost} XP", callback_data="raid_start_500"))
+    if max_depth >= 600:
+        m.add(types.InlineKeyboardButton(f"🕸 300-600м (Глубина) - {cost} XP", callback_data="raid_start_range_300_600"))
+
+    # Specific Checkpoints
+    if max_depth >= 50: m.add(types.InlineKeyboardButton(f"🏭 50м - {cost} XP", callback_data="raid_start_50"))
+    if max_depth >= 150: m.add(types.InlineKeyboardButton(f"🌃 150м - {cost} XP", callback_data="raid_start_150"))
+    if max_depth >= 300: m.add(types.InlineKeyboardButton(f"🕸 300м - {cost} XP", callback_data="raid_start_300"))
+    if max_depth >= 500: m.add(types.InlineKeyboardButton(f"🌌 500м - {cost} XP", callback_data="raid_start_500"))
 
     # Max Depth
     if max_depth > 0:
@@ -454,8 +451,9 @@ def item_details_keyboard(item_id, is_owned=True, is_equipped=False):
         # Check if equippable
         if item_id in EQUIPMENT_DB:
              m.add(types.InlineKeyboardButton("🛡 НАДЕТЬ", callback_data=f"equip_{item_id}"))
-        elif item_id == 'admin_key':
-             m.add(types.InlineKeyboardButton("🔴 ИСПОЛЬЗОВАТЬ", callback_data="use_admin_key"))
+        else:
+             # Consumables / Misc
+             m.add(types.InlineKeyboardButton("⚡️ ИСПОЛЬЗОВАТЬ", callback_data=f"use_item_{item_id}"))
 
     m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"dismantle_{item_id}"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="inventory"))

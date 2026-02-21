@@ -89,6 +89,36 @@ def init_db():
             ''')
 
             cur.execute('''
+                CREATE TABLE IF NOT EXISTS raid_graves (
+                    id SERIAL PRIMARY KEY,
+                    depth INTEGER,
+                    loot_json TEXT,
+                    owner_name TEXT,
+                    message TEXT,
+                    created_at BIGINT
+                );
+            ''')
+
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS logs (
+                    id SERIAL PRIMARY KEY,
+                    uid BIGINT,
+                    action TEXT,
+                    details TEXT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ''')
+
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS history (
+                    id SERIAL PRIMARY KEY,
+                    uid BIGINT,
+                    archived_data_json TEXT,
+                    reset_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ''')
+
+            cur.execute('''
                 CREATE TABLE IF NOT EXISTS inventory (
                     uid BIGINT, item_id TEXT, quantity INTEGER DEFAULT 1, durability INTEGER DEFAULT 100,
                     PRIMARY KEY(uid, item_id)
@@ -658,3 +688,64 @@ def get_shadow_broker_status(uid):
 
 def set_shadow_broker(uid, expiry):
     update_user(uid, shadow_broker_expiry=expiry)
+
+def log_action(uid, action, details):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO logs (uid, action, details) VALUES (%s, %s, %s)", (uid, action, details))
+
+def save_raid_grave(depth, loot_json, owner_name, message=""):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO raid_graves (depth, loot_json, owner_name, message, created_at) VALUES (%s, %s, %s, %s, %s)",
+                        (depth, loot_json, owner_name, message, int(time.time())))
+
+def get_random_grave(depth):
+    # Find a grave within reasonable depth range (+- 50m)
+    min_d = max(0, depth - 50)
+    max_d = depth + 50
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return None
+        cur.execute("SELECT * FROM raid_graves WHERE depth BETWEEN %s AND %s ORDER BY RANDOM() LIMIT 1", (min_d, max_d))
+        return cur.fetchone()
+
+def delete_grave(grave_id):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM raid_graves WHERE id = %s", (grave_id,))
+            return cur.rowcount > 0
+
+def save_history(uid, data_json):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO history (uid, archived_data_json) VALUES (%s, %s)", (uid, data_json))
+
+def hard_reset_user(uid):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            # Clear Inventory
+            cur.execute("DELETE FROM inventory WHERE uid = %s", (uid,))
+            # Clear Equipment
+            cur.execute("DELETE FROM user_equipment WHERE uid = %s", (uid,))
+            # Clear Raid Sessions
+            cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
+            # Reset User Stats
+            cur.execute("""
+                UPDATE users SET
+                xp = 0, level = 1, biocoin = 0,
+                streak = 1, max_depth = 0,
+                raid_count_today = 0,
+                path = 'general',
+                encrypted_cache_unlock_time = 0,
+                encrypted_cache_type = NULL,
+                shadow_broker_expiry = 0,
+                anomaly_buff_expiry = 0,
+                anomaly_buff_type = NULL
+                WHERE uid = %s
+            """, (uid,))
+            # Note: We keep achievements and referrals usually, but prompt said "Full Reset".
+            # "Reset level to 1, xp to 0, full clean of inventory and equipment".
+            # It didn't explicitly say delete achievements, but usually hard reset implies it.
+            # However, keeping achievements (badges) might be nice.
+            # I will follow strict instructions: "Reset level to 1, xp to 0, full clean inventory and equipment".
+            # I'll keep achievements as "legacy" markers if not specified to delete.
