@@ -103,7 +103,7 @@ def shadow_shop_handler(call):
         else:
             expiry = u.get('shadow_broker_expiry', 0)
             rem_mins = max(0, int((expiry - time.time()) // 60))
-            menu_update(call, f"🕶 <b>ТЕНЕВОЙ БРОКЕР</b>\nКанал закроется через {rem_mins} мин.\n\n<i>Товар нелегален. Возврату не подлежит.</i>", kb.shadow_shop_menu(items), image_url=config.MENU_IMAGES["shop_menu"])
+            menu_update(call, f"🕶 <b>ТЕНЕВОЙ БРОКЕР</b>\nКанал закроется через {rem_mins} мин.\n\n<i>Товар нелегален. Возврату не подлежит.</i>", kb.shadow_shop_menu(items), image_url=config.MENU_IMAGES["shadow_shop_menu"])
 
     elif call.data.startswith("view_shadow_"):
         item_id = call.data.replace("view_shadow_", "")
