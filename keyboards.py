@@ -81,8 +81,8 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='all'):
     
     # Tabs
     m.add(types.InlineKeyboardButton(f"{'✅' if category=='all' else ''} ВСЕ", callback_data="inventory"),
-          types.InlineKeyboardButton(f"{'✅' if category=='equip' else ''} ЭКИП", callback_data="inv_cat_equip"),
-          types.InlineKeyboardButton(f"{'✅' if category=='consumable' else ''} РАСХОД", callback_data="inv_cat_consumable"))
+          types.InlineKeyboardButton(f"{'✅' if category=='equip' else ''} СНАРЯЖЕНИЕ", callback_data="inv_cat_equip"),
+          types.InlineKeyboardButton(f"{'✅' if category=='consumable' else ''} РАСХОДНИКИ", callback_data="inv_cat_consumable"))
 
     mode_btn = "♻️ РЕЖИМ РАЗБОРА: ВКЛ" if dismantle_mode else "♻️ РАЗОБРАТЬ ВЕЩИ (10%)"
     mode_cb = "inv_mode_normal" if dismantle_mode else "inv_mode_dismantle"
