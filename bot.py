@@ -10,17 +10,34 @@ import database as db
 from modules.bot_instance import bot, app, TOKEN, WEBHOOK_URL
 
 # --- QUARANTINE & ONBOARDING MIDDLEWARE ---
-def check_quarantine(uid):
+QUARANTINE_CACHE = {}
+
+def check_quarantine(user):
+    # SIMPLE CHECK: Skip DB for bots or system messages
+    if not user or user.is_bot: return False
+
+    uid = user.id
+
+    # CACHE CHECK
+    if uid in QUARANTINE_CACHE:
+        is_q, expiry = QUARANTINE_CACHE[uid]
+        if time.time() < expiry:
+            return is_q
+
     u = db.get_user(uid)
-    if not u: return False
+    if not u:
+        QUARANTINE_CACHE[uid] = (False, time.time() + 60)
+        return False
 
     # 1. Check if already quarantined
     if u.get('is_quarantined'):
         if time.time() < u.get('quarantine_end_time', 0):
+            QUARANTINE_CACHE[uid] = (True, time.time() + 60)
             return True
         else:
             # Quarantine expired
             db.update_user(uid, is_quarantined=False)
+            QUARANTINE_CACHE[uid] = (False, time.time() + 60)
             return False
 
     # 2. Check Sleep Timer (Only for Levels < 2 and active onboarding)
@@ -31,11 +48,13 @@ def check_quarantine(uid):
             elapsed = time.time() - start_time
             if elapsed > 86400: # 24 hours
                  db.quarantine_user(uid)
+                 QUARANTINE_CACHE[uid] = (True, time.time() + 60)
                  return True
 
+    QUARANTINE_CACHE[uid] = (False, time.time() + 60)
     return False
 
-@bot.message_handler(func=lambda m: check_quarantine(m.from_user.id))
+@bot.message_handler(func=lambda m: check_quarantine(m.from_user))
 def quarantine_message_handler(m):
     u = db.get_user(m.from_user.id)
     rem_time = int((u['quarantine_end_time'] - time.time()) / 3600)
@@ -50,7 +69,7 @@ def quarantine_message_handler(m):
         bot.send_message(m.chat.id, msg, parse_mode="HTML")
     except: pass
 
-@bot.callback_query_handler(func=lambda c: check_quarantine(c.from_user.id))
+@bot.callback_query_handler(func=lambda c: check_quarantine(c.from_user))
 def quarantine_callback_handler(c):
     try:
         bot.answer_callback_query(c.id, "⛔️ ТЫ СПИШЬ. ДОСТУП ЗАПРЕЩЕН.", show_alert=True)
@@ -100,7 +119,7 @@ def index():
 def system_startup():
     try:
         with app.app_context():
-            time.sleep(2)
+            # time.sleep(2)  # Removed for faster startup on Render
             print("/// SYSTEM STARTUP INITIATED...")
             db.init_db()
 
