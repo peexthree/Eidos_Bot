@@ -25,17 +25,25 @@ class TestNewMechanics(unittest.TestCase):
         self.assertGreater(logic.get_biome_modifiers(600)['mult'], 5.0)
 
     def test_loot_tiers(self):
-        # Test Legendary (Roll 100 + Luck)
-        # 100 luck * 0.5 = 50. Roll 50 => 100 total.
-        with patch('random.randint', return_value=50):
-            loot = logic.generate_loot(1, 100)
+        # 98+ = Cursed
+        # 93+ = Legend
+
+        with patch('logic.random.uniform') as mock_uniform:
+            # Test Legend (Roll 95)
+            mock_uniform.return_value = 95
+            loot = logic.generate_loot(1, 0)
             self.assertEqual(loot['prefix'], "🟠 [ЛЕГЕНДА]")
             self.assertEqual(loot['mult'], 5.0)
 
-        # Test Common (Low roll)
-        with patch('random.randint', return_value=10):
+            # Test Common (Low roll)
+            mock_uniform.return_value = 10
             loot = logic.generate_loot(1, 0)
-            self.assertEqual(loot['prefix'], "⚪️ [ОБЫЧНЫЙ]")
+            self.assertEqual(loot['prefix'], "⚪️ [ОБЫЧНОЕ]")
+
+            # Test Cursed (99)
+            mock_uniform.return_value = 99
+            loot = logic.generate_loot(1, 0)
+            self.assertEqual(loot['prefix'], "🔴 [ПРОКЛЯТОЕ]")
 
     @patch('logic.db.get_user')
     @patch('logic.db.get_raid_session_enemy')
@@ -62,7 +70,7 @@ class TestNewMechanics(unittest.TestCase):
         mock_cur.fetchone.return_value = {'uid': 1, 'depth': 10, 'signal': 100}
 
         # Action
-        res_type, msg = logic.process_combat_action(1, 'attack')
+        res_type, msg, extra = logic.process_combat_action(1, 'attack')
 
         self.assertEqual(res_type, 'win')
         self.assertIn("КАЗНЬ", msg)
@@ -85,7 +93,7 @@ class TestNewMechanics(unittest.TestCase):
 
         # Mock random to avoid crit variance
         with patch('random.random', return_value=0.5), patch('random.uniform', return_value=1.0):
-            res_type, msg = logic.process_combat_action(1, 'attack')
+            res_type, msg, extra = logic.process_combat_action(1, 'attack')
 
         self.assertIn("АДРЕНАЛИН", msg)
 
@@ -111,7 +119,7 @@ class TestNewMechanics(unittest.TestCase):
         mock_s.return_value['current_enemy_hp'] = 1 # One shot range
 
         with patch('random.random', return_value=0.5):
-            res_type, msg = logic.process_combat_action(1, 'attack')
+            res_type, msg, extra = logic.process_combat_action(1, 'attack')
 
         # Check if villain dict was modified in place (buffed)
         self.assertIn("[ЭЛИТА]", villain_data['name'])

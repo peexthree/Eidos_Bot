@@ -122,6 +122,7 @@ def start_handler(m):
         username = m.from_user.username or "Anon"
         first_name = m.from_user.first_name or "User"
         db.add_user(uid, username, first_name, ref)
+        db.log_action(uid, 'register', f"User {username} joined via {ref}")
         if ref:
              db.add_xp_to_user(int(ref), REFERRAL_BONUS)
              try: bot.send_message(int(ref), f"👤 <b>НОВЫЙ АГЕНТ:</b> {first_name}\n+{REFERRAL_BONUS} XP")
@@ -487,8 +488,62 @@ def handle_query(call):
                 bot.answer_callback_query(call.id, "📦 Снято.")
                 handle_query(type('obj', (object,), {'data': 'inventory', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
 
+        elif call.data.startswith("use_item_"):
+            item_id = call.data.replace("use_item_", "")
+
+            if item_id == 'purification_sync':
+                kb_confirm = types.InlineKeyboardMarkup()
+                kb_confirm.add(types.InlineKeyboardButton("⚠️ ПОДТВЕРДИТЬ СБРОС", callback_data="confirm_hard_reset"))
+                kb_confirm.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="inventory"))
+                menu_update(call, "⚠️ <b>ВНИМАНИЕ: ПРОТОКОЛ ОЧИЩЕНИЯ</b>\n\nВы собираетесь стереть свою личность.\n• Уровень -> 1\n• XP -> 0\n• Инвентарь -> Удален\n\nЭто действие необратимо (но будет сохранено в истории).", kb_confirm)
+                return
+
+            elif item_id == 'encrypted_cache':
+                handle_query(type('obj', (object,), {'data': 'decrypt_menu', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+                return
+
+            elif item_id == 'accel':
+                if db.get_item_count(uid, 'accel') > 0:
+                    db.update_user(uid, accel_exp=int(time.time() + 86400))
+                    db.use_item(uid, 'accel')
+                    bot.answer_callback_query(call.id, "⚡️ УСКОРИТЕЛЬ АКТИВИРОВАН!", show_alert=True)
+                    handle_query(type('obj', (object,), {'data': 'inventory', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
+                return
+
+            elif item_id in ['battery', 'neural_stimulator', 'emp_grenade', 'stealth_spray', 'memory_wiper']:
+                bot.answer_callback_query(call.id, "❌ Используйте это внутри Рейда.", show_alert=True)
+                return
+
+            else:
+                bot.answer_callback_query(call.id, "❌ Этот предмет нельзя использовать здесь.", show_alert=True)
+                return
+
+        elif call.data == "confirm_hard_reset":
+            if db.get_item_count(uid, 'purification_sync') > 0:
+                if logic.perform_hard_reset(uid):
+                    bot.answer_callback_query(call.id, "♻️ ЛИЧНОСТЬ СТЕРТА.", show_alert=True)
+                    # Restart flow manually
+                    bot.send_message(uid, f"/// EIDOS v8.0 REBOOTING...\nID: {uid}\n\nСистема перезагружена.", parse_mode="HTML")
+                    msg = ("🧬 <b>ВЫБОР ПУТИ (БЕСПЛАТНО)</b>\n\n"
+                           "Ты должен выбрать свою специализацию, чтобы выжить.\n\n"
+                           "🏦 <b>МАТЕРИЯ:</b> +20% Монет в Рейдах.\n"
+                           "🧠 <b>РАЗУМ:</b> +10 Защиты.\n"
+                           "🤖 <b>ТЕХНО:</b> +10 Удачи.")
+                    bot.send_message(uid, msg, reply_markup=kb.path_selection_keyboard(), parse_mode="HTML")
+                else:
+                    bot.answer_callback_query(call.id, "❌ Ошибка сброса.", show_alert=True)
+            else:
+                bot.answer_callback_query(call.id, "❌ Нет предмета.", show_alert=True)
+
         elif call.data.startswith("dismantle_"):
             item_id = call.data.replace("dismantle_", "")
+
+            # Equipped check
+            equipped = db.get_equipped_items(uid)
+            if item_id in equipped.values():
+                bot.answer_callback_query(call.id, "❌ Нельзя разобрать надетое снаряжение! Снимите его.", show_alert=True)
+                return
+
             info = EQUIPMENT_DB.get(item_id) or ITEMS_INFO.get(item_id)
             if info:
                 # If item is in ITEMS_INFO but not EQUIPMENT_DB, check if it has a price
@@ -573,10 +628,23 @@ def handle_query(call):
              menu_update(call, f"🚀 <b>ТОЧКА ВХОДА</b>\n\nВыберите глубину погружения.\nСтоимость: {cost} XP", kb.raid_depth_selection_menu(max_depth, cost))
 
         elif call.data.startswith("raid_start_"):
-             start_depth = int(call.data.replace("raid_start_", ""))
+             val = call.data.replace("raid_start_", "")
+             start_depth = 0
+
+             if "range_" in val:
+                 parts = val.replace("range_", "").split("_")
+                 min_d = int(parts[0])
+                 max_d = int(parts[1])
+                 # Logic: Pick a random depth but align to 10s? Or just random.
+                 # Random is fine.
+                 start_depth = random.randint(min_d, max_d)
+             else:
+                 start_depth = int(val)
+
              res, txt, extra, new_u, etype, cost = logic.process_raid_step(uid, start_depth=start_depth)
 
              if res:
+                 db.log_action(uid, 'raid_start', f"Depth: {start_depth}")
                  entry_cost = logic.get_raid_entry_cost(uid)
                  bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
                  consumables = get_consumables(uid)
@@ -678,6 +746,7 @@ def handle_query(call):
                      if res:
                          db.add_xp_to_user(uid, res[0])
                          db.update_user(uid, biocoin=u['biocoin'] + res[1])
+                         db.log_action(uid, 'raid_extract', f"XP: {res[0]}, Coins: {res[1]}")
 
              lvl, msg = logic.check_level_up(uid)
              if lvl:
@@ -953,6 +1022,7 @@ def handle_query(call):
 
                 if can_buy:
                     if db.add_item(uid, item_id):
+                        db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Price: {price} {currency}")
                         bot.answer_callback_query(call.id, f"✅ Куплено: {target['name']}", show_alert=True)
                         handle_query(type('obj', (object,), {'data': 'shadow_broker_menu', 'message': call.message, 'from_user': call.from_user, 'id': call.id}))
                     else:

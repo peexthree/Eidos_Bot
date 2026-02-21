@@ -46,23 +46,37 @@ GAME_GUIDE_TEXTS = {
         "Глубоко в сети обитает Демон Максвелла. Он предлагает рискованные пари на HP или Лут. Победа удваивает ресурсы, поражение вешает дебафф 'Коррозия'."
     ),
     'shadow_broker': (
-        "<b>🕶 ТЕНЕВОЙ БРОКЕР</b>\n\n"
-        "Легендарный торговец черного рынка. Его магазин появляется случайно (2% шанс при любом действии) и существует всего 15 минут.\n\n"
-        "<b>ТОВАРЫ:</b>\n"
-        "• <b>Реликвии:</b> Мощнейшее оружие и броня в игре.\n"
-        "• <b>Читы:</b> Ключи Бездны, God-чипы, Артефакты.\n"
-        "• <b>Валюта:</b> Принимает и BioCoins, и чистый Опыт (XP).\n\n"
-        "<i>Совет: Всегда держи запас валюты на случай встречи.</i>"
+        "<b>🕶 ТЕНЕВОЙ БРОКЕР (ЧЕРНЫЙ РЫНОК ДАННЫХ)</b>\n\n"
+        "[ЛОР]: <i>«Есть данные, которые Система стирает. А есть те, кто их восстанавливает.»</i>\n"
+        "Теневой Брокер — это не личность, а анонимный протокол обмена запрещенными артефактами. Он появляется в разрывах соединения (2% шанс при любом действии) и существует ровно до тех пор, пока его не засекли сканеры (15 минут).\n\n"
+        "<b>АСCОРТИМЕНТ:</b>\n"
+        "Здесь продается то, что нарушает законы физики симуляции:\n"
+        "• <b>Реликвии Первой Волны:</b> Оружие Архитекторов.\n"
+        "• <b>Глитч-Артефакты:</b> Предметы с красным кодом редкости.\n"
+        "• <b>Запретные Чипы:</b> Модули, дающие бессмертие или ломающие правила.\n\n"
+        "<b>ЦЕНА:</b>\n"
+        "Брокер не верит в кредиты. За лучшие товары он требует <b>Чистый Опыт (XP)</b> — саму суть вашей личности, или огромные суммы BioCoin."
     ),
     'decryption': (
-        "<b>🔐 ДЕШИФРАТОР КЭШЕЙ</b>\n\n"
-        "В Рейдах можно найти 'Зашифрованный Кэш'. Это контейнер с высшей защитой.\n\n"
-        "<b>КАК ОТКРЫТЬ:</b>\n"
-        "1. Зайди в меню 'Дешифратор' (появится кнопка в Главном Меню).\n"
-        "2. Запусти процесс взлома. Это занимает 4 часа.\n"
-        "3. Фракция 'Техно' и предмет 'Дешифратор' ускоряют процесс.\n\n"
+        "<b>🔐 КВАНТОВЫЙ ДЕШИФРАТОР</b>\n\n"
+        "[ЛОР]: <i>«Любой замок — это просто уравнение, которое еще не решили.»</i>\n"
+        "Зашифрованные Кэши — это «черные ящики» удаленных пользователей. В них хранится самое ценное, что успел накопить Искатель перед окончательной дефрагментацией.\n\n"
+        "<b>ПРОЦЕСС ВЗЛОМА:</b>\n"
+        "Замки используют полиморфное шифрование. Чтобы открыть кэш, твоему интерфейсу нужно время на перебор миллиардов комбинаций (брутфорс).\n"
+        "• <b>Базовое время:</b> 4 часа.\n"
+        "• <b>Ускорение:</b> Фракция [ТЕХНО] или модуль [ДЕШИФРАТОР] сокращают время вдвое.\n\n"
         "<b>НАГРАДА:</b>\n"
-        "Внутри лежат тысячи монет, опыт и с шансом 30% — редкое, легендарное или даже мифическое снаряжение."
+        "Внутри всегда лежит валюта и опыт. Но с шансом 30% там можно найти экипировку Мифического (🟣) или Легендарного (🟠) уровня."
+    ),
+    'maxwell': (
+        "<b>👹 ДЕМОН МАКСВЕЛЛА (СОРТИРОВЩИК ЭНТРОПИИ)</b>\n\n"
+        "[ЛОР]: <i>«Порядок рождается из Хаоса. Я — тот, кто держит дверь.»</i>\n"
+        "Древняя ИИ-сущность, обитающая на глубине ниже 50 метров. Он контролирует потоки данных между слоями реальности.\n\n"
+        "<b>СДЕЛКА С ДЕМОНОМ:</b>\n"
+        "Если ты встретишь его, он предложит сыграть в вероятность.\n"
+        "• <b>Ставка HP:</b> Ты рискуешь жизнью ради удвоения награды.\n"
+        "• <b>Ставка Лута:</b> Ты рискуешь всем, что нашел, ради усиления.\n\n"
+        "Победа дает бафф <b>[ПЕРЕГРУЗКА]</b>. Поражение вешает проклятие <b>[КОРРОЗИЯ]</b>."
     ),
     'combat': (
         "<b>⚔️ БОЕВАЯ СИСТЕМА</b>\n\n"
@@ -149,17 +163,33 @@ def get_biome_modifiers(depth):
         return {"name": name, "mult": scale, "desc": "Здесь кончается реальность."}
 
 def generate_loot(depth, luck):
-    """Генерирует тир лута на основе удачи."""
-    roll = random.randint(0, 100) + (luck * 0.5)
+    """Генерирует тир лута на основе удачи (Новая система редкости)."""
+    # Base roll 0-100
+    roll = random.uniform(0, 100)
 
-    if roll >= 95:
+    # Luck modifier (slightly shifts probabilities)
+    # e.g. 10 luck -> +2 to roll? No, let's just use weights.
+
+    # Thresholds (cumulative):
+    # Cursed (Red): 2% -> 98-100
+    # Legendary (Orange): 5% -> 93-98
+    # Mythical (Purple): 9% -> 84-93
+    # Rare (Blue): 20% -> 64-84
+    # Common (White): 65% -> 0-64
+
+    # Luck adjustment: Every 10 luck adds 1% to roll
+    roll += (luck * 0.1)
+
+    if roll >= 98:
+        return {"prefix": "🔴 [ПРОКЛЯТОЕ]", "mult": 10.0, "icon": "🔴"}
+    elif roll >= 93:
         return {"prefix": "🟠 [ЛЕГЕНДА]", "mult": 5.0, "icon": "🟠"}
-    elif roll >= 80:
-        return {"prefix": "🟣 [ЭПИК]", "mult": 2.5, "icon": "🟣"}
-    elif roll >= 50:
-        return {"prefix": "🔵 [РЕДКИЙ]", "mult": 1.5, "icon": "🔵"}
+    elif roll >= 84:
+        return {"prefix": "🟣 [МИФ]", "mult": 2.5, "icon": "🟣"}
+    elif roll >= 64:
+        return {"prefix": "🔵 [РЕДКОЕ]", "mult": 1.5, "icon": "🔵"}
     else:
-        return {"prefix": "⚪️ [ОБЫЧНЫЙ]", "mult": 1.0, "icon": "⚪️"}
+        return {"prefix": "⚪️ [ОБЫЧНОЕ]", "mult": 1.0, "icon": "⚪️"}
 
 def get_chest_drops(depth, luck):
     pool = ['battery', 'compass', 'rusty_knife', 'hoodie', 'ram_chip']
@@ -592,13 +622,24 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             # 2.3 ДЕЙСТВИЕ: МАРОДЕРСТВО
             if answer == 'claim_body':
-                 loot = db.get_death_loot_at_depth(depth)
-                 if loot:
-                     if db.claim_death_loot(loot['id']):
-                         amount = loot['amount']
-                         cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (amount, uid))
+                 grave = db.get_random_grave(depth)
+                 if grave:
+                     if db.delete_grave(grave['id']):
+                         import json
+                         try:
+                             loot = json.loads(grave['loot_json'])
+                             coins = loot.get('coins', 0)
+                             items_str = loot.get('items', '')
+                         except:
+                             coins = 0
+                             items_str = ""
+
+                         cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (coins, uid))
+                         if items_str:
+                             cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (items_str, uid))
+
                          conn.commit()
-                         return True, f"💰 <b>МАРОДЕРСТВО:</b> Вы забрали {amount} BC.", {'alert': f"💰 +{amount} BC"}, u, 'loot_claimed', 0
+                         return True, f"💰 <b>МАРОДЕРСТВО:</b> Вы забрали {coins} BC и снаряжение.", {'alert': f"💰 +{coins} BC"}, u, 'loot_claimed', 0
                  return False, "❌ Останки уже разграблены или исчезли.", None, u, 'neutral', 0
 
             # 2.5 ДЕЙСТВИЕ: ИСПОЛЬЗОВАНИЕ РАСХОДНИКОВ
@@ -708,14 +749,22 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             # СЛУЧАЙНОЕ
             else:
-                death_loot = db.get_death_loot_at_depth(depth)
+                # Use new grave system
+                grave = db.get_random_grave(depth)
 
                 # --- ANOMALY EVENT (Maxwell's Demon) ---
                 if depth > 50 and random.random() < 0.05:
                      event = {'text': '🔴 <b>АНОМАЛИЯ:</b> Демон Максвелла.', 'type': 'anomaly_terminal', 'val': 0}
                 # --- SCAVENGING (Found Body) ---
-                elif death_loot and random.random() < 0.8:
-                     event = {'text': f"💀 <b>ОСТАНКИ:</b> Вы наткнулись на след @{death_loot['original_owner_name']}.\nЕго кэш ({death_loot['amount']} BC) еще здесь.", 'type': 'found_body', 'val': death_loot['amount']}
+                elif grave and random.random() < 0.3: # 30% chance if grave exists
+                     # Load loot to show value?
+                     import json
+                     try:
+                         loot = json.loads(grave['loot_json'])
+                         coins = loot.get('coins', 0)
+                     except: coins = 0
+
+                     event = {'text': f"💀 <b>ОСТАНКИ:</b> Вы наткнулись на след @{grave['owner_name']}.\nТруп еще теплый...", 'type': 'found_body', 'val': grave['id']} # Pass ID as val
                 else:
                      cur.execute("SELECT text, type, val FROM raid_content ORDER BY RANDOM() LIMIT 1")
                      event = cur.fetchone()
@@ -914,13 +963,21 @@ def process_raid_step(uid, answer=None, start_depth=None):
             if new_sig <= 0:
                  report = generate_raid_report(uid, s)
                  cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
+
+                 # Save Grave (Loot)
+                 import json
+                 grave_loot = {'coins': s['buffer_coins'], 'items': s.get('buffer_items', '')}
+                 if s['buffer_coins'] > 0 or s.get('buffer_items'):
+                     db.save_raid_grave(depth, json.dumps(grave_loot), u['username'] or "Unknown")
+
+                 db.log_action(uid, 'death', f"Depth: {depth}, Reason: {death_reason}")
                  conn.commit()
 
                  extra_death = {}
                  if death_reason: extra_death['death_reason'] = death_reason
 
                  # Broadcast Check
-                 broadcast = handle_death_log(uid, depth, u['level'], u['username'], res['buffer_coins'])
+                 broadcast = handle_death_log(uid, depth, u['level'], u['username'], s['buffer_coins'])
                  if broadcast: extra_death['broadcast'] = broadcast
 
                  return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n\n{report}", extra_death, u, 'death', 0
@@ -1621,18 +1678,16 @@ def get_shadow_shop_items(uid):
 
         base_price = info.get('price', 1000)
 
-        # Force Coins for expensive items (> 20000) - FIX for Helmets selling for XP
+        # Strict Pricing Logic
         if base_price > 20000:
              curr = 'biocoin'
-             price = int(base_price * 0.8) # Less discount for high tier (20%)
+             price = base_price # No discount for high tier
         elif random.random() < 0.5:
             curr = 'xp'
-            # XP Price Logic: Value roughly similar but XP isfarmable.
-            # Let's set XP price = Coin Price * 2
-            price = int(base_price * 1.5)
+            price = int(base_price * 2.0) # XP is cheaper, so cost is higher
         else:
             curr = 'biocoin'
-            price = int(base_price * 0.5) # 50% discount!
+            price = base_price # Standard price
 
         shop.append({
             'item_id': item_id,
@@ -1759,3 +1814,29 @@ def handle_death_log(uid, depth, u_level, username, buffer_coins):
                           f"Остаточный кэш: {buffer_coins} BC.\n"
                           f"Сектор нестабилен.")
     return broadcast_msg
+
+def perform_hard_reset(uid):
+    u = db.get_user(uid)
+    if not u: return False
+
+    # Archive Data
+    import json
+    inv = db.get_inventory(uid)
+    eq = db.get_equipped_items(uid)
+    ach = db.get_user_achievements(uid)
+
+    archive = {
+        'user': u,
+        'inventory': inv,
+        'equipment': eq,
+        'achievements': ach
+    }
+
+    try:
+        db.save_history(uid, json.dumps(archive, default=str))
+        db.hard_reset_user(uid)
+        db.log_action(uid, 'hard_reset', 'User initiated purification sync')
+        return True
+    except Exception as e:
+        print(f"Hard Reset Error: {e}")
+        return False
