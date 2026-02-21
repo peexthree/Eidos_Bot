@@ -8,7 +8,8 @@ from config import RAID_STEP_COST, ITEMS_INFO, RIDDLE_DISTRACTORS
 from modules.services.user import get_user_stats, check_achievements
 from modules.services.utils import (
     get_biome_modifiers, generate_hud, strip_html, parse_riddle,
-    format_combat_screen, generate_raid_report, handle_death_log
+    format_combat_screen, generate_raid_report, handle_death_log,
+    draw_bar
 )
 
 def get_raid_entry_cost(uid):
@@ -360,6 +361,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 u['xp'] -= step_cost
 
             # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
+            msg_prefix = ""
+
             # SCALING BIOMES IMPLEMENTATION
             biome_data = get_biome_modifiers(depth)
             diff = biome_data.get('mult', 1.0)
@@ -385,7 +388,6 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 current_type_code = first_next
 
             event = None
-            msg_prefix = ""
 
             # БОЙ
             if current_type_code == 'combat':
