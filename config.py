@@ -96,6 +96,17 @@ ITEM_IMAGES = {
     "fragment": "AgACAgIAAyEFAATh7MR7AAOGaZpe6Ejkvq2Ja3UrVd2hKdEcbnMAAoYRaxtY9NlIaswytRpljt4BAAMCAAN5AAM6BA"
 }
 
+RAID_EVENT_IMAGES = {
+    "riddle": "AgACAgIAAyEFAATh7MR7AAOMaZplE9yRGp0OQ7wrI08MXvVstDIAApQRaxtY9NlIuWaeLR2EvfcBAAMCAAN5AAM6BA",
+    "remains": "AgACAgIAAyEFAATh7MR7AAOLaZplEvzNEMCrtEsHBPXeNOJWPQYAApMRaxtY9NlIerWDJ64TzH8BAAMCAAN5AAM6BA",
+    "anomaly": "AgACAgIAAyEFAATh7MR7AAOKaZplD8R7FJvcfqyVaO5YER3k744AApIRaxtY9NlI1ToSm575A-gBAAMCAAN5AAM6BA",
+    "trap": "AgACAgIAAyEFAATh7MR7AAOJaZplDMtrnHjusNp5OsUs3yL91Z0AApERaxtY9NlIK-ZbCj50RtQBAAMCAAN5AAM6BA",
+    "chest": "AgACAgIAAxkBAAIJ0mmaZYMBFJvBddCi_pRyj2aPC7joAAJpFmsbeDnQSGpWGk1JE0a5AQADAgADeQADOgQ",
+    "safe_zone": "AgACAgIAAyEFAATh7MR7AAOHaZpk-8Gm-LfUWWaZfQlUwHLyRQUAAo8RaxtY9NlIzkh5EGccQjQBAAMCAAN5AAM6BA",
+    "death": "AgACAgIAAyEFAATh7MR7AAOOaZpmfNxjkDgJWDigNCEAAcNZozHhAAKXEWsbWPTZSJyxYsvMVo52AQADAgADeQADOgQ",
+    "glitch": "AgACAgIAAyEFAATh7MR7AAOPaZpmfiE9oMG9bAHzOeS_LRjBfb4AApgRaxtY9NlIW1IUbTg7iwEBAAMCAAN5AAM6BA"
+}
+
 # =============================================================================
 # 2. НЕЙРО-ЭКОНОМИКА (ARPG БАЛАНС)
 # =============================================================================
