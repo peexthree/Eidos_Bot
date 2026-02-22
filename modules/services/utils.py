@@ -225,31 +225,12 @@ def generate_hud(uid, u, session_data, cursor=None):
         f"⚡ XP: {u['xp']} | 🪙 BC: {u['biocoin']}"
     )
 
-def format_combat_screen(villain, hp, signal, stats, session):
+def format_combat_screen(villain, hp, signal, stats, session, win_chance=None):
     # Scanner Logic
-    uid = session.get('uid')
     scanner_txt = "⚠️ Оцените риски перед атакой."
 
-    if uid and db.get_item_count(uid, 'tactical_scanner') > 0:
-        # Calculate Odds
-        player_dmg = max(1, stats['atk'] - villain['def'])
-        enemy_dmg = max(1, villain['atk'] - stats['def'])
-
-        rounds_to_kill = hp / player_dmg
-        rounds_to_die = signal / enemy_dmg
-
-        win_chance = 0
-        if rounds_to_die <= 0: win_chance = 0
-        elif rounds_to_kill <= 0: win_chance = 100
-        else:
-            ratio = rounds_to_die / rounds_to_kill
-            win_chance = min(99, int(ratio * 50))
-            if win_chance > 100: win_chance = 99
-
+    if win_chance is not None:
         scanner_txt = f"📊 <b>ШАНС ПОБЕДЫ: ~{win_chance}%</b> (Сканер активен)"
-        # Drain durability (10% chance to consume durability per turn)
-        if random.random() < 0.1:
-             db.decrease_durability(uid, 'tactical_scanner', 1)
 
     txt = (
         f"👹 УГРОЗА ОБНАРУЖЕНА: <b>{villain['name']}</b> (Lvl {villain['level']})\n\n"

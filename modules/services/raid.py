@@ -259,9 +259,42 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 villain = db.get_villain_by_id(vid, cursor=cur)
                 if villain:
                     biome_data = get_biome_modifiers(depth)
+
+                    # TACTICAL SCANNER LOGIC
+                    win_chance = None
+                    cur.execute("SELECT quantity, durability FROM inventory WHERE uid=%s AND item_id='tactical_scanner'", (uid,))
+                    scanner_res = cur.fetchone()
+
+                    if scanner_res and scanner_res['quantity'] > 0:
+                        player_dmg = max(1, stats['atk'] - villain['def'])
+                        enemy_dmg = max(1, villain['atk'] - stats['def'])
+
+                        rounds_to_kill = v_hp / player_dmg
+                        rounds_to_die = s['signal'] / enemy_dmg
+
+                        chance_val = 0
+                        if rounds_to_die <= 0: chance_val = 0
+                        elif rounds_to_kill <= 0: chance_val = 100
+                        else:
+                            ratio = rounds_to_die / rounds_to_kill
+                            chance_val = min(99, int(ratio * 50))
+                            if chance_val > 100: chance_val = 99
+                        win_chance = chance_val
+
+                        # Durability Decay (10% chance)
+                        if random.random() < 0.1:
+                            new_dur = scanner_res['durability'] - 1
+                            if new_dur <= 0:
+                                if scanner_res['quantity'] > 1:
+                                    cur.execute("UPDATE inventory SET quantity = quantity - 1, durability = 20 WHERE uid=%s AND item_id='tactical_scanner'", (uid,))
+                                else:
+                                    cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id='tactical_scanner'", (uid,))
+                            else:
+                                cur.execute("UPDATE inventory SET durability = %s WHERE uid=%s AND item_id='tactical_scanner'", (new_dur, uid))
+
                     header = f"🏝 <b>{biome_data['name']}</b> | <b>{depth}м</b>\n"
                     extra_data = {'image': villain.get('image')}
-                    return True, header + format_combat_screen(villain, v_hp, s['signal'], stats, s), extra_data, u, 'combat', 0
+                    return True, header + format_combat_screen(villain, v_hp, s['signal'], stats, s, win_chance=win_chance), extra_data, u, 'combat', 0
                 else:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
                     conn.commit()
@@ -420,12 +453,45 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     next_preview = generate_random_event_type()
                     cur.execute("UPDATE raid_sessions SET next_event_type=%s WHERE uid=%s", (next_preview, uid))
                     conn.commit()
+
+                    # TACTICAL SCANNER LOGIC
+                    win_chance = None
+                    cur.execute("SELECT quantity, durability FROM inventory WHERE uid=%s AND item_id='tactical_scanner'", (uid,))
+                    scanner_res = cur.fetchone()
+
+                    if scanner_res and scanner_res['quantity'] > 0:
+                        player_dmg = max(1, stats['atk'] - villain['def'])
+                        enemy_dmg = max(1, villain['atk'] - stats['def'])
+
+                        rounds_to_kill = villain['hp'] / player_dmg
+                        rounds_to_die = s['signal'] / enemy_dmg
+
+                        chance_val = 0
+                        if rounds_to_die <= 0: chance_val = 0
+                        elif rounds_to_kill <= 0: chance_val = 100
+                        else:
+                            ratio = rounds_to_die / rounds_to_kill
+                            chance_val = min(99, int(ratio * 50))
+                            if chance_val > 100: chance_val = 99
+                        win_chance = chance_val
+
+                        # Durability Decay (10% chance)
+                        if random.random() < 0.1:
+                            new_dur = scanner_res['durability'] - 1
+                            if new_dur <= 0:
+                                if scanner_res['quantity'] > 1:
+                                    cur.execute("UPDATE inventory SET quantity = quantity - 1, durability = 20 WHERE uid=%s AND item_id='tactical_scanner'", (uid,))
+                                else:
+                                    cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id='tactical_scanner'", (uid,))
+                            else:
+                                cur.execute("UPDATE inventory SET durability = %s WHERE uid=%s AND item_id='tactical_scanner'", (new_dur, uid))
+
                     extra_data = {
                         'image': villain.get('image'),
                         'alert': f"⚔️ БОЙ!\n{villain['name']}"
                     }
                     header = f"🏝 <b>{biome_data['name']}</b> | <b>{new_depth}м</b>\n"
-                    return True, header + format_combat_screen(villain, villain['hp'], s['signal'], stats, s), extra_data, u, 'combat', 0
+                    return True, header + format_combat_screen(villain, villain['hp'], s['signal'], stats, s, win_chance=win_chance), extra_data, u, 'combat', 0
                 else:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
                     conn.commit()
