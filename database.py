@@ -23,7 +23,8 @@ def init_pool():
                 minconn=1,
                 maxconn=20,
                 dsn=DATABASE_URL,
-                sslmode='require'
+                sslmode='require',
+                options='-c lock_timeout=10000'
             )
             print("/// DB POOL INITIALIZED")
         except Exception as e:
@@ -76,9 +77,11 @@ def admin_force_delete_item(uid, item_id):
         return cur.rowcount > 0
 
 def init_db():
+    print("/// DEBUG: init_db started")
     with db_session() as conn:
         if not conn: return
         with conn.cursor() as cur:
+            print("/// DEBUG: creating users table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     uid BIGINT PRIMARY KEY,
@@ -97,6 +100,7 @@ def init_db():
                 );
             ''')
             try:
+                print("/// DEBUG: migrating users columns")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS raid_count_today INTEGER DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_raid_date DATE DEFAULT CURRENT_DATE")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT TRUE")
@@ -131,6 +135,7 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_history TEXT DEFAULT ''")
             except: pass
 
+            print("/// DEBUG: creating death_loot table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS death_loot (
                     id SERIAL PRIMARY KEY,
@@ -141,6 +146,7 @@ def init_db():
                 );
             ''')
 
+            print("/// DEBUG: creating raid_graves table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS raid_graves (
                     id SERIAL PRIMARY KEY,
@@ -152,6 +158,7 @@ def init_db():
                 );
             ''')
 
+            print("/// DEBUG: creating logs table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS logs (
                     id SERIAL PRIMARY KEY,
@@ -162,6 +169,7 @@ def init_db():
                 );
             ''')
 
+            print("/// DEBUG: creating pvp_logs table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS pvp_logs (
                     id SERIAL PRIMARY KEY,
@@ -175,6 +183,7 @@ def init_db():
                 );
             ''')
 
+            print("/// DEBUG: creating history table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS history (
                     id SERIAL PRIMARY KEY,
@@ -184,6 +193,7 @@ def init_db():
                 );
             ''')
 
+            print("/// DEBUG: creating inventory table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS inventory (
                     uid BIGINT, item_id TEXT, quantity INTEGER DEFAULT 1, durability INTEGER DEFAULT 100,
@@ -191,6 +201,7 @@ def init_db():
                 );
             ''')
             try:
+                print("/// DEBUG: migrating inventory constraint")
                 cur.execute("SELECT 1 FROM pg_constraint WHERE conname = 'inventory_uid_item_id_key'")
                 if not cur.fetchone():
                     cur.execute("""
@@ -205,18 +216,21 @@ def init_db():
                     conn.commit()
             except: conn.rollback()
 
+            print("/// DEBUG: creating content table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS content (
                     id SERIAL PRIMARY KEY, type TEXT, path TEXT DEFAULT 'general', level INTEGER DEFAULT 1, text TEXT UNIQUE
                 );
             ''')
 
+            print("/// DEBUG: creating raid_content table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS raid_content (
                     id SERIAL PRIMARY KEY, text TEXT, type TEXT DEFAULT 'neutral', val INTEGER DEFAULT 0
                 );
             ''')
 
+            print("/// DEBUG: creating raid_sessions table")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS raid_sessions (
                     uid BIGINT PRIMARY KEY, depth INTEGER DEFAULT 0, signal INTEGER DEFAULT 100,
@@ -235,6 +249,7 @@ def init_db():
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS is_elite BOOLEAN DEFAULT FALSE")
             except: conn.rollback()
 
+            print("/// DEBUG: creating remaining tables (user_knowledge...)")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS user_knowledge (
                     uid BIGINT, content_id INTEGER, PRIMARY KEY(uid, content_id)
@@ -279,8 +294,11 @@ def init_db():
                 );
             ''')
 
+    print("/// DEBUG: populating villains")
     populate_villains()
+    print("/// DEBUG: populating content")
     populate_content()
+    print("/// DEBUG: init_db finished")
 
 # --- STATE MANAGEMENT ---
 def set_state(uid, state, data=None):
