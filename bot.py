@@ -12,6 +12,9 @@ from modules.bot_instance import bot, app, TOKEN, WEBHOOK_URL
 # --- QUARANTINE & ONBOARDING MIDDLEWARE ---
 QUARANTINE_CACHE = {}
 
+# Initialization Flag
+DB_READY = threading.Event()
+
 def check_quarantine(user):
     # SIMPLE CHECK: Skip DB for bots or system messages
     if not user or user.is_bot: return False
@@ -145,10 +148,20 @@ def system_startup():
                     print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
                 except Exception as e:
                     print(f"/// WEBHOOK ERROR: {e}")
+
+            # Signal DB is ready
+            DB_READY.set()
+            print("/// DB_READY SIGNAL SET")
+
     except Exception as e:
         print(f"/// SYSTEM STARTUP FATAL ERROR: {e}")
 
 def notification_loop():
+    # Wait for DB to be initialized
+    if not DB_READY.wait(timeout=300): # Wait up to 5 mins
+        print("/// NOTIFICATION LOOP TIMEOUT: DB NOT READY")
+        return
+
     while True:
         try:
             with db.db_session() as conn:
