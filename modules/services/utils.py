@@ -90,7 +90,8 @@ GAME_GUIDE_TEXTS = {
         "<b>🎒 РАСХОДНИКИ В БОЮ:</b>\n"
         "• <b>💣 EMP-граната:</b> Наносит 150 чистого урона.\n"
         "• <b>👻 Стелс-спрей:</b> 100% шанс побега.\n"
-        "• <b>🧹 Стиратель памяти:</b> Сбрасывает бой.\n\n"
+        "• <b>🧹 Стиратель памяти:</b> Сбрасывает бой.\n"
+        "• <b>📡 Тактический Сканер:</b> Показывает шанс победы.\n\n"
         "<b>🛡 ЗАЩИТА:</b> Твоя DEF снижает входящий урон."
     ),
     'stats': (
@@ -114,6 +115,7 @@ GAME_GUIDE_TEXTS = {
         "• <b>🔋 Батарея:</b> Лечит +30% Сигнала.\n"
         "• <b>💉 Нейро-стимулятор:</b> Лечит +60% Сигнала.\n"
         "• <b>🧭 Компас:</b> Показывает тип следующей комнаты.\n"
+        "• <b>📡 Тактический Сканер:</b> Предсказывает исход боя.\n"
         "• <b>🗝 Ключи:</b> Нужны для сундуков (Магнитная отмычка, Ключ Бездны).\n"
         "• <b>💾 Дата-шип:</b> 80% шанс взломать сундук без ключа."
     ),
@@ -224,6 +226,31 @@ def generate_hud(uid, u, session_data, cursor=None):
     )
 
 def format_combat_screen(villain, hp, signal, stats, session):
+    # Scanner Logic
+    uid = session.get('uid')
+    scanner_txt = "⚠️ Оцените риски перед атакой."
+
+    if uid and db.get_item_count(uid, 'tactical_scanner') > 0:
+        # Calculate Odds
+        player_dmg = max(1, stats['atk'] - villain['def'])
+        enemy_dmg = max(1, villain['atk'] - stats['def'])
+
+        rounds_to_kill = hp / player_dmg
+        rounds_to_die = signal / enemy_dmg
+
+        win_chance = 0
+        if rounds_to_die <= 0: win_chance = 0
+        elif rounds_to_kill <= 0: win_chance = 100
+        else:
+            ratio = rounds_to_die / rounds_to_kill
+            win_chance = min(99, int(ratio * 50))
+            if win_chance > 100: win_chance = 99
+
+        scanner_txt = f"📊 <b>ШАНС ПОБЕДЫ: ~{win_chance}%</b> (Сканер активен)"
+        # Drain durability (10% chance to consume durability per turn)
+        if random.random() < 0.1:
+             db.decrease_durability(uid, 'tactical_scanner', 1)
+
     txt = (
         f"👹 УГРОЗА ОБНАРУЖЕНА: <b>{villain['name']}</b> (Lvl {villain['level']})\n\n"
         f"<i>{villain['description']}</i>\n\n"
@@ -231,8 +258,9 @@ def format_combat_screen(villain, hp, signal, stats, session):
         f"❤️ HP: {hp} / {villain['hp']}\n"
         f"⚔️ Атака: {villain['atk']} | 🛡 Защита: {villain['def']}\n\n"
         f"👤 <b>ВАШИ ХАРАКТЕРИСТИКИ:</b>\n"
+        f"📡 Сигнал: {signal}%\n"
         f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n\n"
-        f"⚠️ Оцените риски перед атакой."
+        f"{scanner_txt}"
     )
     return txt
 

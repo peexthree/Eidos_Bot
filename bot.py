@@ -124,6 +124,13 @@ def system_startup():
             print("/// SYSTEM STARTUP INITIATED...")
             db.init_db()
 
+            # FIX: Broken Riddle
+            try:
+                db.admin_exec_query("UPDATE raid_content SET text = 'Я даю тебе то, что ты боишься потерять... (Ответ: Жизнь)' WHERE text LIKE '%я даю тебе то%' AND text NOT LIKE '%(Ответ:%'")
+                print("/// RIDDLE FIX APPLIED")
+            except Exception as e:
+                print(f"/// RIDDLE FIX ERR: {e}")
+
             # Sync Admin from Config
             try:
                 db.set_user_admin(config.ADMIN_ID, True)
@@ -141,7 +148,45 @@ def system_startup():
     except Exception as e:
         print(f"/// SYSTEM STARTUP FATAL ERROR: {e}")
 
+def notification_loop():
+    while True:
+        try:
+            with db.db_session() as conn:
+                with conn.cursor() as cur:
+                    now = int(time.time())
+                    # Check Protocol Cooldowns
+                    cur.execute("""
+                        SELECT uid FROM users
+                        WHERE last_protocol_time > 0
+                        AND (last_protocol_time + 1800) < %s
+                        AND notified = FALSE
+                        AND is_active = TRUE
+                        LIMIT 50
+                    """, (now,))
+                    users = cur.fetchall()
+
+                    for row in users:
+                        uid = row[0]
+                        try:
+                            bot.send_message(uid, "🔄 <b>СИНХРОНИЗАЦИЯ ГОТОВА</b>\nНовые знания ждут тебя.", parse_mode="HTML")
+                            # Update immediately to prevent duplicate sends if loop crashes or slow
+                            with db.db_session() as conn2:
+                                with conn2.cursor() as cur2:
+                                    cur2.execute("UPDATE users SET notified = TRUE WHERE uid = %s", (uid,))
+                            time.sleep(0.2)
+                        except Exception as e:
+                            print(f"Notify Error {uid}: {e}")
+                            if "forbidden" in str(e).lower() or "blocked" in str(e).lower():
+                                with db.db_session() as conn3:
+                                    with conn3.cursor() as cur3:
+                                        cur3.execute("UPDATE users SET is_active = FALSE WHERE uid = %s", (uid,))
+        except Exception as e:
+            print(f"/// NOTIFICATION LOOP ERROR: {e}")
+
+        time.sleep(60)
+
 threading.Thread(target=system_startup, daemon=True).start()
+threading.Thread(target=notification_loop, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))

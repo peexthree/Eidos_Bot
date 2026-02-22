@@ -258,8 +258,10 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 v_hp = s.get('current_enemy_hp', 10)
                 villain = db.get_villain_by_id(vid, cursor=cur)
                 if villain:
+                    biome_data = get_biome_modifiers(depth)
+                    header = f"🏝 <b>{biome_data['name']}</b> | <b>{depth}м</b>\n"
                     extra_data = {'image': villain.get('image')}
-                    return True, format_combat_screen(villain, v_hp, s['signal'], stats, s), extra_data, u, 'combat', 0
+                    return True, header + format_combat_screen(villain, v_hp, s['signal'], stats, s), extra_data, u, 'combat', 0
                 else:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
                     conn.commit()
@@ -422,7 +424,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                         'image': villain.get('image'),
                         'alert': f"⚔️ БОЙ!\n{villain['name']}"
                     }
-                    return True, format_combat_screen(villain, villain['hp'], s['signal'], stats, s), extra_data, u, 'combat', 0
+                    header = f"🏝 <b>{biome_data['name']}</b> | <b>{new_depth}м</b>\n"
+                    return True, header + format_combat_screen(villain, villain['hp'], s['signal'], stats, s), extra_data, u, 'combat', 0
                 else:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
                     conn.commit()
