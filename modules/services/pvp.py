@@ -15,7 +15,7 @@ def find_target(attacker_uid):
         target = db.get_user(target_uid)
         if not target: continue
 
-        if target.get('level', 1) <= 3: continue
+        if target.get('level', 1) <= config.QUARANTINE_LEVEL: continue
         if db.check_pvp_cooldown(attacker_uid, target_uid): continue
         if target.get('is_quarantined'): continue
 
@@ -74,6 +74,8 @@ def perform_hack(attacker_uid, target_uid, method='normal', revenge_amount=0):
         cost_xp = config.PVP_STEALTH_COST
     elif method == 'revenge':
         cost_xp = 50
+    elif method == 'normal':
+        cost_xp = config.PVP_DIRTY_COST
 
     if attacker['xp'] < cost_xp:
         return {'success': False, 'msg': f"Not enough XP (Need {cost_xp})"}
@@ -149,6 +151,7 @@ def perform_hack(attacker_uid, target_uid, method='normal', revenge_amount=0):
                         cur.execute("UPDATE users SET xp = GREATEST(0, xp - %s) WHERE uid = %s", (steal_xp, attacker_uid))
                         cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (steal_xp, target_uid))
                         lost_xp = steal_xp
+                        db.use_item(target_uid, 'ice_trap', 1, cursor=cur)
 
                 # Logging
                 if not is_success and method == 'stealth':

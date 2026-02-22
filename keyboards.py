@@ -37,7 +37,7 @@ def main_menu(u):
     m.add(types.InlineKeyboardButton("─── 🌑 НУЛЕВОЙ СЛОЙ ───", callback_data="zero_layer_menu"))
 
     # PVP
-    if u['level'] > 3:
+    if u['level'] > config.QUARANTINE_LEVEL:
         m.add(types.InlineKeyboardButton("🌐 СЕТЕВАЯ ВОЙНА", callback_data="pvp_menu"))
     
     # 3. Персонаж
@@ -586,7 +586,7 @@ def pvp_menu():
 
 def pvp_target_menu(target_uid):
     m = types.InlineKeyboardMarkup(row_width=1)
-    m.add(types.InlineKeyboardButton("💥 ВЗЛОМАТЬ (Normal)", callback_data=f"pvp_attack_normal_{target_uid}"))
+    m.add(types.InlineKeyboardButton(f"💥 ГРЯЗНЫЙ ВЗЛОМ ({config.PVP_DIRTY_COST} XP)", callback_data=f"pvp_attack_normal_{target_uid}"))
     m.add(types.InlineKeyboardButton(f"👻 СКРЫТЫЙ ВЗЛОМ ({config.PVP_STEALTH_COST} XP)", callback_data=f"pvp_attack_stealth_{target_uid}"))
     m.add(types.InlineKeyboardButton(f"🔄 СБРОСИТЬ ({config.PVP_RESET_COST} XP)", callback_data="pvp_search"))
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="pvp_menu"))

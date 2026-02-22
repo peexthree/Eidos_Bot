@@ -13,6 +13,10 @@ def pvp_action_handler(call):
     u = db.get_user(uid)
     if not u: return
 
+    if u['level'] <= config.QUARANTINE_LEVEL:
+        bot.answer_callback_query(call.id, "⛔️ КАРАНТИННАЯ ЗОНА (LVL <= 5)", show_alert=True)
+        return
+
     if call.data == "pvp_menu":
         menu_update(call, "🌐 <b>СЕТЕВАЯ ВОЙНА</b>\n\nПодключаюсь к даркнету...", kb.pvp_menu(), image_url=config.MENU_IMAGES["pvp_menu"])
 
@@ -131,16 +135,15 @@ def send_pvp_notification(target_uid, attacker_uid, res, is_revenge=False):
     Sends a notification to the victim.
     """
     try:
-        attacker_name = "НЕИЗВЕСТНЫЙ"
+        attacker_name = "НЕИЗВЕСТНЫЙ ПРИЗРАК"
         if not res['anonymous']:
              au = db.get_user(attacker_uid)
              if au: attacker_name = f"@{au['username']}" if au['username'] else au['first_name']
 
         if res['success']:
             msg = (
-                f"🚨 <b>КРИТИЧЕСКАЯ УГРОЗА!</b>\n\n"
-                f"Ваша система взломана агентом <b>{attacker_name}</b>.\n"
-                f"💸 Украдено: <b>{res['stolen']} BC</b>."
+                f"🚨 <b>ВАША СИСТЕМА ВЗЛОМАНА.</b>\n\n"
+                f"Агент <b>{attacker_name}</b> украл <b>{res['stolen']} BC</b>."
             )
 
             markup = None
