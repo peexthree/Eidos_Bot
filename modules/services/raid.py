@@ -309,7 +309,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 alert_txt = f"🔓 УСПЕХ!\nXP: +{bonus_xp}\nCoins: +{bonus_coins}{loot_item_txt}"
 
                 # Возвращаем тип 'loot_opened' чтобы обновить кнопки
-                return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt}, u, 'loot_opened', 0
+                return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt, 'image': RAID_EVENT_IMAGES.get('chest_opened')}, u, 'loot_opened', 0
 
             # 2.3 ДЕЙСТВИЕ: МАРОДЕРСТВО
             if answer == 'claim_body':
@@ -700,6 +700,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
             elif event['type'] == 'trap': img_key = 'trap'
             elif event['type'] == 'locked_chest': img_key = 'chest'
             elif event['type'] == 'neutral' and "БЕЗОПАСНАЯ ЗОНА" in event.get('text', ''): img_key = 'safe_zone'
+            elif event['type'] == 'loot': img_key = 'loot'
 
             if img_key and img_key in RAID_EVENT_IMAGES:
                 extra_ret['image'] = RAID_EVENT_IMAGES[img_key]

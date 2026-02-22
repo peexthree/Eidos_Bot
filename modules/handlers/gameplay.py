@@ -289,7 +289,7 @@ def raid_handler(call):
              db.increment_user_stat(uid, 'perfect_raids')
 
          db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
-         menu_update(call, report, kb.back_button())
+         menu_update(call, report, kb.back_button(), image_url=config.RAID_EVENT_IMAGES.get('evacuation'))
 
     elif call.data == "raid_claim_body":
          res, txt, extra, new_u, etype, cost = process_raid_step(uid, answer='claim_body')
