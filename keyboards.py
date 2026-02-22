@@ -1,4 +1,5 @@
 from telebot import types
+import time
 import config
 from config import LEVELS, PRICES, EQUIPMENT_DB, SLOTS, SCHOOLS, ARCHIVE_COST, GUIDE_PAGES
 
@@ -34,6 +35,10 @@ def main_menu(u):
     
     # 2. Рейд
     m.add(types.InlineKeyboardButton("─── 🌑 НУЛЕВОЙ СЛОЙ ───", callback_data="zero_layer_menu"))
+
+    # PVP
+    if u['level'] > 3:
+        m.add(types.InlineKeyboardButton("🌐 СЕТЕВАЯ ВОЙНА", callback_data="pvp_menu"))
     
     # 3. Персонаж
     current_lvl = u['level']
@@ -565,4 +570,55 @@ def onboarding_exam_keyboard():
     m = types.InlineKeyboardMarkup(row_width=1)
     m.add(types.InlineKeyboardButton("⚔️ ПРОЙТИ ИСПЫТАНИЕ", callback_data="onboarding_start_exam"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m
+
+# =============================================================
+# 🌐 PVP (СЕТЕВАЯ ВОЙНА)
+# =============================================================
+
+def pvp_menu():
+    m = types.InlineKeyboardMarkup(row_width=2)
+    m.add(types.InlineKeyboardButton(f"🔍 ИСКАТЬ ЦЕЛЬ ({config.PVP_FIND_COST} XP)", callback_data="pvp_search"),
+          types.InlineKeyboardButton("🩸 ВЕНДЕТТА", callback_data="pvp_vendetta"))
+    m.add(types.InlineKeyboardButton("🛡 ЗАЩИТА (SHOP)", callback_data="pvp_defense_shop"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
+    return m
+
+def pvp_target_menu(target_uid):
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton("💥 ВЗЛОМАТЬ (Normal)", callback_data=f"pvp_attack_normal_{target_uid}"))
+    m.add(types.InlineKeyboardButton(f"👻 СКРЫТЫЙ ВЗЛОМ ({config.PVP_STEALTH_COST} XP)", callback_data=f"pvp_attack_stealth_{target_uid}"))
+    m.add(types.InlineKeyboardButton(f"🔄 СБРОСИТЬ ({config.PVP_RESET_COST} XP)", callback_data="pvp_search"))
+    m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="pvp_menu"))
+    return m
+
+def pvp_vendetta_menu(attackers):
+    m = types.InlineKeyboardMarkup(row_width=1)
+    if not attackers:
+        m.add(types.InlineKeyboardButton("✅ СПИСОК ПУСТ", callback_data="dummy"))
+    else:
+        for a in attackers:
+            # a is a dict from get_pvp_history
+            log_id = a['id']
+            name = a['username'] or a['first_name'] or "Unknown"
+            lvl = a.get('level', 1)
+            time_ago = int((time.time() - a['timestamp']) / 3600)
+            btn_text = f"🩸 {name} (Lvl {lvl}) - {time_ago}ч назад"
+            m.add(types.InlineKeyboardButton(btn_text, callback_data=f"pvp_revenge_confirm_{log_id}"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
+    return m
+
+def pvp_revenge_confirm(log_id, name):
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton(f"🩸 ОТОМСТИТЬ {name} (-50 XP)", callback_data=f"pvp_revenge_exec_{log_id}"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_vendetta"))
+    return m
+
+def pvp_defense_shop():
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton(f"🛡 ФАЙРВОЛ ({config.PRICES['firewall']} BC)", callback_data="buy_firewall"))
+    m.add(types.InlineKeyboardButton(f"🪤 ICE-ЛОВУШКА ({config.PRICES['ice_trap']} BC)", callback_data="buy_ice_trap"))
+    m.add(types.InlineKeyboardButton(f"🕶 ПРОКСИ ({config.PRICES['proxy_server']} XP)", callback_data="buy_proxy_server"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
     return m

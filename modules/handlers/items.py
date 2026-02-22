@@ -35,7 +35,7 @@ def shop_handler(call):
     elif call.data.startswith("buy_"):
         item = call.data.replace("buy_", "")
         cost = PRICES.get(item, EQUIPMENT_DB.get(item, {}).get('price', 9999))
-        currency = 'xp' if item in ['cryo', 'accel'] else 'biocoin'
+        currency = 'xp' if item in ['cryo', 'accel', 'proxy_server'] else 'biocoin'
 
         if currency == 'xp':
             if u.get('xp', 0) >= cost:
@@ -79,7 +79,7 @@ def shop_handler(call):
     elif call.data.startswith("view_shop_"):
         item_id = call.data.replace("view_shop_", "")
         price = PRICES.get(item_id, EQUIPMENT_DB.get(item_id, {}).get('price', 9999))
-        currency = 'xp' if item_id in ['cryo', 'accel'] else 'biocoin'
+        currency = 'xp' if item_id in ['cryo', 'accel', 'proxy_server'] else 'biocoin'
         info = ITEMS_INFO.get(item_id)
         if not info:
              if item_id == 'cryo': info = {'name': '❄️ КРИО-КАПСУЛА', 'desc': 'Позволяет сохранять стрик даже если пропустил день.', 'type': 'misc'}
@@ -261,6 +261,15 @@ def item_action_handler(call):
                 db.update_user(uid, accel_exp=int(time.time() + 86400))
                 db.use_item(uid, 'accel')
                 bot.answer_callback_query(call.id, "⚡️ УСКОРИТЕЛЬ АКТИВИРОВАН!", show_alert=True)
+                call.data = "inventory"
+                inventory_handler(call)
+            return
+
+        elif item_id == 'proxy_server':
+            if db.get_item_count(uid, 'proxy_server') > 0:
+                db.update_user(uid, proxy_expiry=int(time.time() + 86400))
+                db.use_item(uid, 'proxy_server')
+                bot.answer_callback_query(call.id, "🕶 ПРОКСИ АКТИВИРОВАН (24ч)", show_alert=True)
                 call.data = "inventory"
                 inventory_handler(call)
             return
