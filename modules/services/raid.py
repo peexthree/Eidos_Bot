@@ -4,7 +4,7 @@ import copy
 import re
 from datetime import datetime
 import database as db
-from config import RAID_STEP_COST, ITEMS_INFO, RIDDLE_DISTRACTORS
+from config import RAID_STEP_COST, ITEMS_INFO, RIDDLE_DISTRACTORS, RAID_EVENT_IMAGES
 from modules.services.user import get_user_stats, check_achievements
 from modules.services.utils import (
     get_biome_modifiers, generate_hud, strip_html, parse_riddle,
@@ -250,7 +250,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                 # We just return this as an event
                 cur.execute("UPDATE users SET is_glitched = TRUE WHERE uid = %s", (uid,))
-                return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", {'alert': strip_html(glitch_text)}, u, 'glitch', 0
+                return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", {'alert': strip_html(glitch_text), 'image': RAID_EVENT_IMAGES.get('glitch')}, u, 'glitch', 0
 
             # ПРОВЕРКА БОЯ
             if s.get('current_enemy_id'):
@@ -669,6 +669,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                  extra_death = {}
                  if death_reason: extra_death['death_reason'] = death_reason
+                 if 'death' in RAID_EVENT_IMAGES:
+                     extra_death['image'] = RAID_EVENT_IMAGES['death']
 
                  # Broadcast Check
                  broadcast = handle_death_log(uid, depth, u['level'], u['username'], s['buffer_coins'])
@@ -684,11 +686,25 @@ def process_raid_step(uid, answer=None, start_depth=None):
             # If event['type'] == 'riddle', riddle_data is populated.
             # If not, it is None.
 
-            extra_ret = None
+            extra_ret = {}
             if riddle_data:
-                extra_ret = riddle_data
-            elif alert_msg:
-                extra_ret = {'alert': alert_msg}
+                extra_ret.update(riddle_data)
+            if alert_msg and 'alert' not in extra_ret:
+                extra_ret['alert'] = alert_msg
+
+            # Image Logic
+            img_key = None
+            if event['type'] == 'riddle': img_key = 'riddle'
+            elif event['type'] == 'found_body': img_key = 'remains'
+            elif event['type'] == 'anomaly_terminal': img_key = 'anomaly'
+            elif event['type'] == 'trap': img_key = 'trap'
+            elif event['type'] == 'locked_chest': img_key = 'chest'
+            elif event['type'] == 'neutral' and "БЕЗОПАСНАЯ ЗОНА" in event.get('text', ''): img_key = 'safe_zone'
+
+            if img_key and img_key in RAID_EVENT_IMAGES:
+                extra_ret['image'] = RAID_EVENT_IMAGES[img_key]
+
+            if not extra_ret: extra_ret = None
 
             return True, interface, extra_ret, u, event['type'], next_step_cost
 
