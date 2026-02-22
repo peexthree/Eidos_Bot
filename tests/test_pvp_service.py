@@ -17,11 +17,13 @@ class TestPVPService(unittest.TestCase):
 
         # Setup default config
         mock_config.PVP_STEALTH_COST = 150
+        mock_config.PVP_DIRTY_COST = 50
+        mock_config.QUARANTINE_LEVEL = 5
 
     def test_find_target_success(self):
         mock_db.get_random_user_for_hack.return_value = 200
         mock_db.get_user.side_effect = lambda uid: {
-            'uid': uid, 'level': 5, 'biocoin': 1000,
+            'uid': uid, 'level': 6, 'biocoin': 1000,
             'is_quarantined': False, 'username': 'Target', 'path': 'tech'
         } if uid == 200 else {'uid': 100, 'level': 10, 'path': 'mind'}
 
