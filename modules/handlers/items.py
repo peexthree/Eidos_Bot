@@ -1,7 +1,7 @@
 from modules.bot_instance import bot
 import database as db
 import config
-from config import PRICES, EQUIPMENT_DB, ITEMS_INFO, TITLES, SCHOOLS
+from config import PRICES, EQUIPMENT_DB, ITEMS_INFO, TITLES, SCHOOLS, ITEM_IMAGES
 import keyboards as kb
 from modules.services.utils import menu_update, get_menu_text, get_menu_image, get_consumables
 from modules.services.inventory import format_inventory, check_legacy_items, convert_legacy_items
@@ -89,7 +89,8 @@ def shop_handler(call):
         if info.get('type') == 'equip':
             desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
         txt = f"🎰 <b>{info['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {u['xp']} XP | {u['biocoin']} BC"
-        menu_update(call, txt, kb.shop_item_details_keyboard(item_id, price, currency))
+        image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["shop_menu"]
+        menu_update(call, txt, kb.shop_item_details_keyboard(item_id, price, currency), image_url=image)
 
 @bot.callback_query_handler(func=lambda call: call.data == "shadow_broker_menu" or call.data.startswith("view_shadow_") or call.data.startswith("buy_shadow_"))
 def shadow_shop_handler(call):
@@ -128,7 +129,8 @@ def shadow_shop_handler(call):
                 desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
 
             txt = f"🕶 <b>{target['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {u['xp']} XP | {u['biocoin']} BC"
-            menu_update(call, txt, kb.shadow_item_details_keyboard(item_id, price, currency))
+            image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["shadow_shop_menu"]
+            menu_update(call, txt, kb.shadow_item_details_keyboard(item_id, price, currency), image_url=image)
 
     elif call.data.startswith("buy_shadow_"):
         item_id = call.data.replace("buy_shadow_", "")
@@ -239,7 +241,8 @@ def item_action_handler(call):
             if info.get('type') == 'equip':
                 desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
             is_equipped = item_id in db.get_equipped_items(uid).values()
-            menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped))
+            image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["inventory"]
+            menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped), image_url=image)
 
     elif call.data.startswith("use_item_"):
         item_id = call.data.replace("use_item_", "")
