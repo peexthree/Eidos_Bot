@@ -29,7 +29,8 @@ MENU_IMAGES = {
     "referral": "AgACAgIAAyEFAATh7MR7AAMhaZia7XFH1DEcGKFicao3VG9AGrIAAvAZaxvxO8lIL4E1Iz8pCkQBAAMCAAN5AAM6BA",
     "diary_menu": "AgACAgIAAyEFAATh7MR7AAMiaZia77GYlpexeczG3gQ_GldaPicAAvEZaxvxO8lIyNFPQ2k3xqoBAAMCAAN5AAM6BA",
     "guide": "AgACAgIAAyEFAATh7MR7AAMjaZia8MBMuD9XL6kEynvbsw5D_dQAAvIZaxvxO8lIFOmwKmnsucEBAAMCAAN5AAM6BA",
-    "admin_panel": "AgACAgIAAyEFAATh7MR7AAMkaZia834CgWuumHCALV2OojtSdJcAAvMZaxvxO8lITSVj78T2dxIBAAMCAAN5AAM6BA"
+    "admin_panel": "AgACAgIAAyEFAATh7MR7AAMkaZia834CgWuumHCALV2OojtSdJcAAvMZaxvxO8lITSVj78T2dxIBAAMCAAN5AAM6BA",
+    "pvp_menu": "AgACAgIAAyEFAATh7MR7AANKaZpNXxQ04fY5LOi_8OhKaY8l-3QAAisRaxtY9NlI1M0RzvtStkIBAAMCAAN5AAM6BA"
 }
 
 # =============================================================================

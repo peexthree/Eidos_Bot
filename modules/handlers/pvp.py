@@ -14,7 +14,7 @@ def pvp_action_handler(call):
     if not u: return
 
     if call.data == "pvp_menu":
-        menu_update(call, "🌐 <b>СЕТЕВАЯ ВОЙНА</b>\n\nПодключаюсь к даркнету...", kb.pvp_menu())
+        menu_update(call, "🌐 <b>СЕТЕВАЯ ВОЙНА</b>\n\nПодключаюсь к даркнету...", kb.pvp_menu(), image_url=config.MENU_IMAGES["pvp_menu"])
 
     elif call.data == "pvp_search":
         _handle_search(call, uid, u, config.PVP_FIND_COST)
