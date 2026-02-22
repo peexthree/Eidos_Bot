@@ -600,21 +600,49 @@ def save_knowledge(uid, content_id):
         if cur.rowcount > 0:
             cur.execute("UPDATE users SET know_count = know_count + 1 WHERE uid = %s", (uid,))
 
-def get_leaderboard(limit=10):
+def get_leaderboard(limit=10, sort_by='xp'):
+    order_clause = "xp DESC, level DESC, uid ASC"
+    if sort_by == 'depth':
+        order_clause = "max_depth DESC, xp DESC, uid ASC"
+    elif sort_by == 'biocoin':
+        order_clause = "biocoin DESC, xp DESC, uid ASC"
+
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
-        cur.execute("SELECT uid, first_name, xp, level, max_depth, biocoin, path FROM users ORDER BY max_depth DESC, xp DESC LIMIT %s", (limit,))
+        # Using format string for ORDER BY is necessary as it cannot be parameterized directly.
+        # sort_by is controlled by code logic, not user input directly (enum-like), so it's safe-ish.
+        query = f"SELECT uid, first_name, username, xp, level, max_depth, biocoin, path FROM users ORDER BY {order_clause} LIMIT %s"
+        cur.execute(query, (limit,))
         return cur.fetchall()
 
-def get_user_rank(uid):
-    with db_cursor() as cur:
-        if not cur: return 0
-        # Rank based on (max_depth, xp)
-        cur.execute("""
+def get_user_rank(uid, sort_by='xp'):
+    # Determine the comparison logic based on sort_by
+    # Tuples (primary, secondary) used for strict ranking
+    if sort_by == 'depth':
+        # Rank by (max_depth, xp)
+        query = """
             SELECT COUNT(*) + 1
             FROM users
             WHERE (max_depth, xp) > (SELECT max_depth, xp FROM users WHERE uid = %s)
-        """, (uid,))
+        """
+    elif sort_by == 'biocoin':
+        # Rank by (biocoin, xp)
+        query = """
+            SELECT COUNT(*) + 1
+            FROM users
+            WHERE (biocoin, xp) > (SELECT biocoin, xp FROM users WHERE uid = %s)
+        """
+    else:
+        # Default: Rank by (xp, level)
+        query = """
+            SELECT COUNT(*) + 1
+            FROM users
+            WHERE (xp, level) > (SELECT xp, level FROM users WHERE uid = %s)
+        """
+
+    with db_cursor() as cur:
+        if not cur: return 0
+        cur.execute(query, (uid,))
         res = cur.fetchone()
         return res[0] if res else 0
 

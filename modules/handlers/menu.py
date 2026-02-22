@@ -136,44 +136,84 @@ def achievements_handler(call):
 
          menu_update(call, txt, kb.achievements_nav(page, total_pages))
 
-@bot.callback_query_handler(func=lambda call: call.data == "leaderboard" or call.data == "referral")
+def format_leaderboard_text(leaders, user_rank, u, sort_by):
+    # Header
+    title = "🏆 ЗАЛ СЛАВЫ: АБСОЛЮТ"
+    if sort_by == 'depth': title = "🕳 ЗАЛ СЛАВЫ: БЕЗДНА"
+    elif sort_by == 'biocoin': title = "🩸 ЗАЛ СЛАВЫ: СИНДИКАТ"
+
+    txt = f"💠 <b>NEURAL NET LINK ESTABLISHED...</b>\n{title}\n\n"
+
+    for i, l in enumerate(leaders, 1):
+        # Medals
+        rank_icon = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"<b>{i}.</b>"
+
+        # Faction
+        path_icon = "🏦" if l['path'] == 'money' else "🧠" if l['path'] == 'mind' else "🤖" if l['path'] == 'tech' else "⚪️"
+
+        # Name
+        name = l['first_name'] or "Unknown"
+        # Sanitize name
+        name = name.replace("<", "&lt;").replace(">", "&gt;")
+
+        # Stats based on sort
+        if sort_by == 'xp':
+            val = f"{l['xp']:,} XP"
+            detail = f"Lvl {l['level']}"
+        elif sort_by == 'depth':
+            val = f"{l['max_depth']}m"
+            detail = f"{l['xp']:,} XP"
+        else: # biocoin
+            val = f"{l['biocoin']:,} BC"
+            detail = f"Lvl {l['level']}"
+
+        if i <= 3:
+            username = l.get('username')
+            display_name = f"@{username}" if username else l['first_name']
+            header = f"{rank_icon} [{detail}] {display_name} <i>({path_icon})</i> — <b>{val}</b>"
+            txt += f"{header}\n"
+        else:
+            txt += f"<code>{i:<2} {name[:10]:<10} | {detail} | {val}</code>\n"
+
+    # Footer (Mirror)
+    txt += "\n━━━━━━━━━━━━━━━━━━━\n"
+
+    my_val = ""
+    if sort_by == 'xp': my_val = f"{u['xp']:,} XP"
+    elif sort_by == 'depth': my_val = f"{u['max_depth']}m"
+    else: my_val = f"{u['biocoin']:,} BC"
+
+    txt += f"🎯 <b>Твой ранг: #{user_rank}</b>\n"
+    txt += f"📊 <b>Твой результат: {my_val}</b>\n"
+
+    # Flavor Text
+    flavor = "📉 Система считает тебя статистической погрешностью. Работай."
+    if user_rank == 1: flavor = "👑 Ты — Архитектор этой реальности."
+    elif user_rank <= 3: flavor = "🔥 Ты дышишь в спину легендам."
+    elif user_rank <= 10: flavor = "⚡️ Элита сети. Твое имя знают."
+    elif user_rank <= 50: flavor = "👀 Система наблюдает за тобой."
+
+    txt += f"{flavor}"
+
+    return txt
+
+@bot.callback_query_handler(func=lambda call: call.data == "leaderboard" or call.data.startswith("lb_") or call.data == "referral")
 def social_handler(call):
     uid = call.from_user.id
     u = db.get_user(uid)
 
-    if call.data == "leaderboard":
-        leaders = db.get_leaderboard()
-        user_rank = db.get_user_rank(uid)
+    if call.data == "leaderboard" or call.data.startswith("lb_"):
+        # Determine sort mode
+        sort_by = 'xp'
+        if call.data == 'lb_depth': sort_by = 'depth'
+        elif call.data == 'lb_biocoin': sort_by = 'biocoin'
 
-        txt = "💠 <b>NEURAL NET LINK ESTABLISHED...</b>\n"
-        txt += "🏆 <b>GLOBAL LEADERBOARD [TOP 10]</b>\n\n"
+        leaders = db.get_leaderboard(limit=10, sort_by=sort_by)
+        user_rank = db.get_user_rank(uid, sort_by=sort_by)
 
-        for i, l in enumerate(leaders, 1):
-            # Icons
-            rank_icon = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"<b>{i}.</b>"
-            path_icon = "🏦" if l['path'] == 'money' else "🧠" if l['path'] == 'mind' else "🤖" if l['path'] == 'tech' else "⚪️"
+        txt = format_leaderboard_text(leaders, user_rank, u, sort_by)
 
-            # Name & Title
-            name = l['first_name']
-            if i <= 3:
-                full_title = TITLES.get(l['level'], 'Unknown')
-                title_name = full_title.split('(')[0].strip() if '(' in full_title else full_title
-                header = f"{rank_icon} <b>{name}</b> [{title_name}]"
-                stats = f"   └ {path_icon} 🕳 <b>{l['max_depth']}m</b> | 🪙 {l['biocoin']}"
-                txt += f"{header}\n{stats}\n\n"
-            else:
-                # Monospace for lower ranks
-                txt += f"<code>{i:<2} {name[:10]:<10} | Lvl {l['level']:<2} | {l['max_depth']}m</code>\n"
-
-        # User's own status footer
-        txt += "\n━━━━━━━━━━━━━━━━━━━\n"
-        if user_rank > 10:
-             txt += f"👤 <b>YOUR RANK: #{user_rank}</b>\n"
-             txt += f"   └ 📊 Lvl {u['level']} | 🕳 {u['max_depth']}m | 🪙 {u['biocoin']}\n"
-        else:
-             txt += f"👤 <b>YOU ARE IN TOP 10! (#{user_rank})</b>\n"
-
-        menu_update(call, txt, kb.back_button(), image_url=config.MENU_IMAGES["leaderboard"])
+        menu_update(call, txt, kb.leaderboard_menu(current_sort=sort_by), image_url=config.MENU_IMAGES["leaderboard"])
 
     elif call.data == "referral":
         link = f"https://t.me/{config.BOT_USERNAME}?start={uid}"
