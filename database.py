@@ -107,6 +107,7 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_broker_expiry BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_expiry BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_type TEXT DEFAULT NULL")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS proxy_expiry BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
                 # New Stats for Achievements
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0")
@@ -157,6 +158,19 @@ def init_db():
                     action TEXT,
                     details TEXT,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ''')
+
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS pvp_logs (
+                    id SERIAL PRIMARY KEY,
+                    attacker_uid BIGINT,
+                    target_uid BIGINT,
+                    stolen_coins INTEGER,
+                    success BOOLEAN,
+                    timestamp BIGINT,
+                    is_revenged BOOLEAN DEFAULT FALSE,
+                    is_anonymous BOOLEAN DEFAULT FALSE
                 );
             ''')
 
@@ -910,3 +924,63 @@ def delete_user_fully(uid):
     except Exception as e:
         print(f"Delete Error: {e}")
         return False
+
+# --- PVP HELPERS ---
+
+def add_pvp_log(attacker_uid, target_uid, stolen_coins, success, is_revenged=False, is_anonymous=False):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO pvp_logs (attacker_uid, target_uid, stolen_coins, success, timestamp, is_revenged, is_anonymous)
+                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """, (attacker_uid, target_uid, stolen_coins, success, int(time.time()), is_revenged, is_anonymous))
+            return cur.fetchone()[0]
+
+def get_pvp_history(uid, limit=10):
+    """
+    Returns list of attacks AGAINST this user (Vendetta list).
+    Only returns successful attacks that haven't been revenged yet?
+    Or all attacks?
+    Prompt: "VENDETTA — List of those who hacked you in last 24h."
+    """
+    cutoff = int(time.time()) - 86400 # 24h
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return []
+        cur.execute("""
+            SELECT p.*, u.username, u.first_name, u.level
+            FROM pvp_logs p
+            JOIN users u ON p.attacker_uid = u.uid
+            WHERE p.target_uid = %s
+              AND p.timestamp > %s
+              AND p.success = TRUE
+              AND p.is_revenged = FALSE
+              AND p.is_anonymous = FALSE
+            ORDER BY p.timestamp DESC
+            LIMIT %s
+        """, (uid, cutoff, limit))
+        return cur.fetchall()
+
+def check_pvp_cooldown(attacker_uid, target_uid, duration=43200):
+    """
+    Checks if attacker has attacked target within duration (12h).
+    Returns True if ON COOLDOWN (cannot attack).
+    """
+    cutoff = int(time.time()) - duration
+    with db_cursor() as cur:
+        if not cur: return False
+        cur.execute("""
+            SELECT 1 FROM pvp_logs
+            WHERE attacker_uid = %s AND target_uid = %s AND timestamp > %s
+        """, (attacker_uid, target_uid, cutoff))
+        return cur.fetchone() is not None
+
+def get_revenge_target(log_id):
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return None
+        cur.execute("SELECT * FROM pvp_logs WHERE id = %s", (log_id,))
+        return cur.fetchone()
+
+def mark_log_revenged(log_id):
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE pvp_logs SET is_revenged = TRUE WHERE id = %s", (log_id,))
