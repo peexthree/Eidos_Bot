@@ -126,6 +126,7 @@ def system_startup():
             # time.sleep(2)  # Removed for faster startup on Render
             print("/// SYSTEM STARTUP INITIATED...")
             db.init_db()
+            print("/// DB INIT COMPLETE")
 
             # FIX: Broken Riddle
             try:
