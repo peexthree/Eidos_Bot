@@ -444,17 +444,33 @@ def reset_daily_stats(uid):
         with conn.cursor() as cur:
             cur.execute("UPDATE users SET raid_count_today = 0, last_raid_date = CURRENT_DATE WHERE uid = %s", (uid,))
 
-def add_item(uid, item_id, qty=1):
-    with db_cursor() as cur:
-        if not cur: return False
-        cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
-        if cur.fetchone()[0] >= INVENTORY_LIMIT: return False
+def add_item(uid, item_id, qty=1, cursor=None):
+    def _add_logic(cur):
+        # 1. Check if item already exists (for stacking)
+        cur.execute("SELECT 1 FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
+        exists = cur.fetchone()
+
+        if not exists:
+            # 2. Check limit only for new items
+            cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
+            res = cur.fetchone()
+            count = res[0] if res else 0
+            if count >= INVENTORY_LIMIT:
+                return False
+
         durability = ITEMS_INFO.get(item_id, {}).get('durability', 100)
         cur.execute("""
             INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, %s, %s)
             ON CONFLICT (uid, item_id) DO UPDATE SET quantity = inventory.quantity + %s
         """, (uid, item_id, qty, durability, qty))
         return True
+
+    if cursor:
+        return _add_logic(cursor)
+
+    with db_cursor() as cur:
+        if not cur: return False
+        return _add_logic(cur)
 
 def get_inventory(uid, cursor=None):
     query = "SELECT * FROM inventory WHERE quantity > 0 AND uid = %s"
