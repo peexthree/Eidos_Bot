@@ -179,6 +179,7 @@ def pvp_buy_handler(call):
             pvp_shop_handler(call)
     else:
         # SHOW INFO
+        image_url = None
         if is_hardware:
             from config import ITEMS_INFO, PRICES
             info = ITEMS_INFO.get(sid, {})
@@ -191,6 +192,8 @@ def pvp_buy_handler(call):
             icon = "🛠"
             pwr = "N/A"
             type_str = "HARDWARE"
+
+            image_url = config.ITEM_IMAGES.get(sid)
 
         else:
             # Software
@@ -209,6 +212,8 @@ def pvp_buy_handler(call):
             pwr = info['power']
             type_str = info['type'].upper()
 
+            image_url = config.ITEM_IMAGES.get(sid)
+
         msg = (
             f"💾 <b>{name}</b>\n"
             f"Тип: {type_str} {icon}\n"
@@ -216,7 +221,7 @@ def pvp_buy_handler(call):
             f"Описание: {desc}\n\n"
             f"Цена: <b>{cost} {currency}</b>"
         )
-        menu_update(call, msg, kb.pvp_shop_confirm(sid, is_hardware=is_hardware))
+        menu_update(call, msg, kb.pvp_shop_confirm(sid, is_hardware=is_hardware), image_url=image_url)
 
 # =============================================================================
 # 4. ATTACK FLOW
