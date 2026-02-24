@@ -30,8 +30,13 @@ def main_menu(u):
         return m
 
     # 1. Энергия
-    m.add(types.InlineKeyboardButton("💠 СИНХРОН", callback_data="get_protocol"),
-          types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal"))
+    eq_items = db.get_equipped_items(uid)
+    if eq_items.get('head') == 'crown_paranoia':
+        m.add(types.InlineKeyboardButton("🚫 СИНХРОН (BLOCKED)", callback_data="dummy"),
+              types.InlineKeyboardButton("🚫 СИГНАЛ (BLOCKED)", callback_data="dummy"))
+    else:
+        m.add(types.InlineKeyboardButton("💠 СИНХРОН", callback_data="get_protocol"),
+              types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal"))
     
     # 2. Рейд
     m.add(types.InlineKeyboardButton("─── 🌑 НУЛЕВОЙ СЛОЙ ───", callback_data="zero_layer_menu"))
@@ -250,7 +255,7 @@ def raid_depth_selection_menu(max_depth, cost):
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="zero_layer_menu"))
     return m
 
-def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumables={}):
+def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumables={}, has_data_spike=False):
     m = types.InlineKeyboardMarkup()
     
     battery_count = consumables.get('battery', 0)
@@ -286,6 +291,13 @@ def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumabl
 
     if event_type == 'locked_chest':
         m.add(types.InlineKeyboardButton("🔓 ОТКРЫТЬ СУНДУК", callback_data="raid_open_chest"))
+        if has_data_spike:
+            m.add(types.InlineKeyboardButton("🪛 ВЗЛОМ (ДАТА-ШИП)", callback_data="raid_hack_chest"))
+
+    if event_type == 'cursed_chest':
+        m.add(types.InlineKeyboardButton("👁‍🗨 ОТКРЫТЬ (КЛЮЧ БЕЗДНЫ)", callback_data="raid_open_chest"))
+        if has_data_spike:
+            m.add(types.InlineKeyboardButton("🪛 ВЗЛОМ (ДАТА-ШИП 50%)", callback_data="raid_hack_chest"))
 
     if event_type == 'found_body':
         m.add(types.InlineKeyboardButton("💀 ОБЫСКАТЬ ТЕЛО", callback_data="raid_claim_body"))

@@ -247,6 +247,7 @@ def init_db():
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS event_streak INTEGER DEFAULT 0")
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS buffer_items TEXT DEFAULT ''")
                 cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS is_elite BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS mechanic_data TEXT DEFAULT '{}'")
             except: conn.rollback()
 
             print("/// DEBUG: creating remaining tables (user_knowledge...)")

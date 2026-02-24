@@ -166,7 +166,8 @@ def raid_handler(call):
 
          riddle_opts = extra['options'] if etype == 'riddle' and extra else []
          image_url = extra.get('image') if extra else None
-         markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+         has_spike = extra.get('has_data_spike', False) if extra else False
+         markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
          menu_update(call, txt, markup, image_url=image_url)
 
     elif call.data == "raid_enter":
@@ -187,7 +188,8 @@ def raid_handler(call):
 
          riddle_opts = extra['options'] if etype == 'riddle' and extra else []
          image_url = extra.get('image') if extra else None
-         markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+         has_spike = extra.get('has_data_spike', False) if extra else False
+         markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
          menu_update(call, txt, markup, image_url=image_url)
 
     elif call.data == "raid_step":
@@ -208,7 +210,8 @@ def raid_handler(call):
              consumables = get_consumables(uid)
              riddle_opts = extra['options'] if etype == 'riddle' and extra else []
              image_url = extra.get('image') if extra else None
-             markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
+             has_spike = extra.get('has_data_spike', False) if extra else False
+             markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
              menu_update(call, txt, markup, image_url=image_url)
 
     elif call.data == "raid_open_chest":
@@ -223,7 +226,26 @@ def raid_handler(call):
              bot.answer_callback_query(call.id, alert_txt, show_alert=True)
              consumables = get_consumables(uid)
              image_url = extra.get('image') if extra else None
-             markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
+             has_spike = extra.get('has_data_spike', False) if extra else False
+             markup = kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
+             menu_update(call, txt, markup, image_url=image_url)
+
+    elif call.data == "raid_hack_chest":
+         res, txt, extra, new_u, etype, cost = process_raid_step(uid, answer='hack_chest')
+         if not res:
+             bot.answer_callback_query(call.id, txt, show_alert=True)
+             # Refresh menu to show failure state if needed, or just alert
+             # If failure means "chest remains locked", we should refresh the keyboard probably?
+             # But usually process_raid_step returns False only for errors or hard blocks.
+             # If hack fails, process_raid_step should return True with "Hack Failed" text and next state?
+             # Let's assume process_raid_step handles it. If False, it's an error.
+         else:
+             alert_txt = extra.get('alert', 'Взлом завершен') if extra else 'Взлом завершен'
+             bot.answer_callback_query(call.id, alert_txt, show_alert=True)
+             consumables = get_consumables(uid)
+             image_url = extra.get('image') if extra else None
+             has_spike = extra.get('has_data_spike', False) if extra else False
+             markup = kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
              menu_update(call, txt, markup, image_url=image_url)
 
     elif call.data == "raid_use_battery":

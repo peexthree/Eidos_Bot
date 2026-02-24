@@ -85,6 +85,11 @@ def perform_hack(attacker_uid, target_uid, method='normal', revenge_amount=0):
         if db.check_pvp_cooldown(attacker_uid, target_uid):
             return {'success': False, 'msg': "Target on cooldown (12h)"}
 
+    # CROWN OF PARANOIA (Target) - Immune to PvP
+    target_head = db.get_equipped_items(target_uid).get('head')
+    if target_head == 'crown_paranoia':
+        return {'success': False, 'msg': "🛡 TARGET IS UNTOUCHABLE (Paranoia Crown)"}
+
     # 3. Anonymity Check
     is_anonymous = False
     if attacker.get('proxy_expiry', 0) > time.time():
@@ -92,6 +97,12 @@ def perform_hack(attacker_uid, target_uid, method='normal', revenge_amount=0):
 
     # 4. Calculate Outcome
     chance = calculate_hack_chance(attacker_uid, target_uid)
+
+    # JUDAS SHELL (Target) - Def = 0 (effectively increases hack chance significantly)
+    target_armor = db.get_equipped_items(target_uid).get('armor')
+    if target_armor == 'judas_shell':
+        chance = 99 # Guaranteed mostly
+
     roll = random.randint(1, 100)
     is_success = roll <= chance
 
@@ -131,8 +142,13 @@ def perform_hack(attacker_uid, target_uid, method='normal', revenge_amount=0):
                     else:
                         # Standard Steal
                         percent = random.uniform(0.05, 0.10)
+
+                        # JUDAS SHELL (Target) - Double Steal
+                        if target_armor == 'judas_shell':
+                            percent *= 2.0
+
                         amount = int(target_bal * percent)
-                        amount = min(amount, 5000)
+                        amount = min(amount, 5000 * (2 if target_armor == 'judas_shell' else 1))
 
                     # Prevent negative
                     amount = max(0, amount)
