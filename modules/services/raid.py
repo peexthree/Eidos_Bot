@@ -483,8 +483,11 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                 alert_txt = f"🔓 УСПЕХ!\nXP: +{bonus_xp}\nCoins: +{bonus_coins}{loot_item_txt}"
 
+                # Determine image based on chest type
+                img_key = 'cursed_chest_opened' if is_cursed else 'chest_opened'
+
                 # Возвращаем тип 'loot_opened' чтобы обновить кнопки
-                return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt, 'image': RAID_EVENT_IMAGES.get('chest_opened')}, u, 'loot_opened', 0
+                return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt, 'image': RAID_EVENT_IMAGES.get(img_key)}, u, 'loot_opened', 0
 
             # 2.3 ДЕЙСТВИЕ: МАРОДЕРСТВО
             if answer == 'claim_body':
