@@ -999,7 +999,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
             # Special case for cursed chest image
             if event['type'] == 'cursed_chest':
                 # Explicitly use the image requested by user for compliance
-                extra_ret['image'] = "AgACAgIAAyEFAATh7MR7AAOXaZtdX-HmNHBDJve48wwy6h0te2gAArMTaxtY9OFIchMB7mz9pmMBAAMCAAN5AAM6BA"
+                extra_ret['image'] = RAID_EVENT_IMAGES.get('cursed_chest_opened')
 
                 # Pass data spike status specifically for chest logic
                 has_spike = db.get_item_count(uid, 'data_spike', cursor=cur) > 0
