@@ -417,3 +417,44 @@ def back_handler(call):
         return
 
     menu_update(call, get_menu_text(u), kb.main_menu(u), image_url=get_menu_image(u))
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "feedback_menu")
+def feedback_init_handler(call):
+    uid = call.from_user.id
+    db.set_state(uid, "waiting_for_feedback")
+    msg = (
+        "✉️ <b>ОБРАТНАЯ СВЯЗЬ</b>\n\n"
+        "Опиши найденный баг или предложение по улучшению.\n"
+        "Я передам сообщение Создателю.\n\n"
+        "<i>Напиши текст и отправь в чат.</i>"
+    )
+    menu_update(call, msg, kb.back_button())
+
+@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "waiting_for_feedback", content_types=['text'])
+def feedback_process_handler(m):
+    uid = m.from_user.id
+    text = m.text
+    u = db.get_user(uid)
+    username = u.get('username', 'NoUsername')
+    first_name = u.get('first_name', 'Unknown')
+
+    # Send to Admin
+    admin_msg = (
+        f"📩 <b>FEEDBACK RECEIVED</b>\n"
+        f"From: {first_name} (@{username}) [ID: {uid}]\n\n"
+        f"{text}"
+    )
+    try:
+        bot.send_message(config.ADMIN_ID, admin_msg, parse_mode="HTML")
+    except Exception as e:
+        print(f"Feedback Error: {e}")
+
+    db.delete_state(uid)
+    bot.send_message(uid, "✅ <b>СООБЩЕНИЕ ОТПРАВЛЕНО.</b>\nСпасибо за вклад в развитие Системы.", parse_mode="HTML")
+
+    # Return to menu
+    try:
+        bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
+    except:
+        bot.send_message(uid, get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")

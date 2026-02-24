@@ -61,6 +61,8 @@ def main_menu(u):
     m.add(types.InlineKeyboardButton("📓 ДНЕВНИК", callback_data="diary_menu"),
           types.InlineKeyboardButton("📚 ГАЙД", callback_data="guide"))
 
+    m.add(types.InlineKeyboardButton("✉️ ОБРАТНАЯ СВЯЗЬ", callback_data="feedback_menu"))
+
     # --- DYNAMIC BUTTONS ---
     if u.get('shadow_broker_expiry', 0) > time.time():
         m.add(types.InlineKeyboardButton("🕶 ТЕНЕВОЙ БРОКЕР", callback_data="shadow_broker_menu"))
@@ -104,12 +106,11 @@ def profile_menu(u, has_accel=False, has_purification=False):
 # 🎒 ИНВЕНТАРЬ (RPG UI)
 # =============================================================
 
-def inventory_menu(items, equipped, dismantle_mode=False, category='all', has_legacy=False):
-    m = types.InlineKeyboardMarkup(row_width=3)
+def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=False):
+    m = types.InlineKeyboardMarkup(row_width=2)
     
-    # Tabs
-    m.add(types.InlineKeyboardButton(f"{'✅' if category=='all' else ''} ВСЕ", callback_data="inventory"),
-          types.InlineKeyboardButton(f"{'✅' if category=='equip' else ''} СНАРЯЖЕНИЕ", callback_data="inv_cat_equip"),
+    # Tabs (Removed "ALL")
+    m.add(types.InlineKeyboardButton(f"{'✅' if category=='equip' else ''} СНАРЯЖЕНИЕ", callback_data="inv_cat_equip"),
           types.InlineKeyboardButton(f"{'✅' if category=='consumable' else ''} РАСХОДНИКИ", callback_data="inv_cat_consumable"))
 
     mode_btn = "♻️ РЕЖИМ РАЗБОРА: ВКЛ" if dismantle_mode else "♻️ РАЗОБРАТЬ ВЕЩИ (10%)"
@@ -119,12 +120,11 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='all', has_le
     if has_legacy:
         m.add(types.InlineKeyboardButton("♻️ ПРЕОБРАЗОВАТЕЛЬ", callback_data="convert_legacy"))
 
-    if (category == 'all' or category == 'equip') and equipped:
+    if (category == 'equip') and equipped:
         m.add(types.InlineKeyboardButton("─── 🛡 НАДЕТО ───", callback_data="dummy"))
         for slot, item_id in equipped.items():
             name = EQUIPMENT_DB.get(item_id, {}).get('name', '???')
             if dismantle_mode:
-                 # Нельзя разбирать надетое
                  pass
             else:
                  m.add(types.InlineKeyboardButton(f"⬇️ {SLOTS.get(slot, slot)}: {name}", callback_data=f"view_item_{item_id}"))
@@ -132,6 +132,7 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='all', has_le
     # Filter items
     filtered = []
     if items:
+        # 'all' removed from logic mostly, but keep for safety if passed
         if category == 'all': filtered = items
         elif category == 'equip': filtered = [i for i in items if i['item_id'] in EQUIPMENT_DB]
         elif category == 'consumable': filtered = [i for i in items if i['item_id'] not in EQUIPMENT_DB]
@@ -142,25 +143,25 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='all', has_le
             item_id = i['item_id']
             qty = i['quantity']
 
+            # Fetch nice name from config
+            if item_id in EQUIPMENT_DB:
+                name = EQUIPMENT_DB[item_id]['name']
+            else:
+                # Try ITEMS_INFO, fallback to item_id
+                info = config.ITEMS_INFO.get(item_id, {})
+                name = info.get('name', item_id)
+
             if dismantle_mode:
                 # Кнопка разбора
-                m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ: {item_id} (x{qty})", callback_data=f"dismantle_{item_id}"))
+                m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ: {name} (x{qty})", callback_data=f"dismantle_{item_id}"))
             else:
                 if item_id in EQUIPMENT_DB:
-                    name = EQUIPMENT_DB[item_id]['name']
                     m.add(types.InlineKeyboardButton(f"⬆️ {name} (x{qty})", callback_data=f"view_item_{item_id}"))
                 elif item_id == 'admin_key':
-                    m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: GLITCH KEY (x{qty})", callback_data="use_admin_key"))
+                    m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: {name} (x{qty})", callback_data="use_admin_key"))
                 else:
-                    name = item_id
-                    if item_id == 'compass': name = '🧭 КОМПАС'
-                    elif item_id == 'battery': name = '🔋 БАТАРЕЯ'
-                    elif item_id == 'master_key': name = '🔑 КЛЮЧ'
-                    elif item_id == 'aegis': name = '🛡 ЭГИДА'
-                    elif item_id == 'cryo': name = '❄️ КРИО'
-                    elif item_id == 'accel': name = '⚡️ УСКОРИТЕЛЬ'
-
-                    m.add(types.InlineKeyboardButton(f"📦 {name} (x{qty})", callback_data=f"view_item_{item_id}"))
+                    # Clean button without extra icon prefix if name has it
+                    m.add(types.InlineKeyboardButton(f"{name} (x{qty})", callback_data=f"view_item_{item_id}"))
             
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m

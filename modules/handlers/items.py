@@ -175,11 +175,11 @@ def inventory_handler(call):
     uid = call.from_user.id
 
     if call.data == "inventory":
-        txt = format_inventory(uid, category='all')
+        txt = format_inventory(uid, category='equip')
         items = db.get_inventory(uid)
         equipped = db.get_equipped_items(uid)
         has_legacy = check_legacy_items(uid)
-        menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='all', has_legacy=has_legacy), image_url=config.MENU_IMAGES["inventory"])
+        menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy), image_url=config.MENU_IMAGES["inventory"])
 
     elif call.data == "inv_cat_equip":
         txt = format_inventory(uid, category='equip')
