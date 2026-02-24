@@ -902,7 +902,7 @@ def get_villain_by_id(vid, cursor=None):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
         cur.execute("SELECT * FROM villains WHERE id = %s", (vid,))
-        return cursor.fetchone()
+        return cur.fetchone()
 
 def admin_add_content(c_type, text):
     with db_cursor() as cur:
