@@ -86,8 +86,102 @@ def get_all_tables():
         cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         return [row[0] for row in cur.fetchall()]
 
+def fix_column_types():
+    """
+    Fixes column types in the 'players' table that might have been incorrectly imported as TEXT/VARCHAR.
+    This is common when migrating databases via CSV/Export-Import.
+    """
+    COLUMNS_TO_FIX = {
+        'xp': ('INTEGER', '0'),
+        'biocoin': ('INTEGER', '0'),
+        'level': ('INTEGER', '1'),
+        'streak': ('INTEGER', '1'),
+        'last_active': ('DATE', 'CURRENT_DATE'),
+        'cryo': ('INTEGER', '0'),
+        'accel': ('INTEGER', '0'),
+        'decoder': ('INTEGER', '0'),
+        'accel_exp': ('BIGINT', '0'),
+        'ref_profit_xp': ('INTEGER', '0'),
+        'ref_profit_coins': ('INTEGER', '0'),
+        'last_protocol_time': ('BIGINT', '0'),
+        'last_signal_time': ('BIGINT', '0'),
+        'notified': ('BOOLEAN', 'TRUE'),
+        'max_depth': ('INTEGER', '0'),
+        'ref_count': ('INTEGER', '0'),
+        'know_count': ('INTEGER', '0'),
+        'total_spent': ('INTEGER', '0'),
+        'raid_count_today': ('INTEGER', '0'),
+        'last_raid_date': ('DATE', 'CURRENT_DATE'),
+        'is_admin': ('BOOLEAN', 'FALSE'),
+        'encrypted_cache_unlock_time': ('BIGINT', '0'),
+        'shadow_broker_expiry': ('BIGINT', '0'),
+        'anomaly_buff_expiry': ('BIGINT', '0'),
+        'proxy_expiry': ('BIGINT', '0'),
+        'is_active': ('BOOLEAN', 'TRUE'),
+        'kills': ('INTEGER', '0'),
+        'raids_done': ('INTEGER', '0'),
+        'perfect_raids': ('INTEGER', '0'),
+        'quiz_wins': ('INTEGER', '0'),
+        'messages': ('INTEGER', '0'),
+        'likes': ('INTEGER', '0'),
+        'purchases': ('INTEGER', '0'),
+        'found_zero': ('BOOLEAN', 'FALSE'),
+        'is_glitched': ('BOOLEAN', 'FALSE'),
+        'found_devtrace': ('BOOLEAN', 'FALSE'),
+        'night_visits': ('INTEGER', '0'),
+        'clicks': ('INTEGER', '0'),
+        'onboarding_stage': ('INTEGER', '0'),
+        'onboarding_start_time': ('BIGINT', '0'),
+        'is_quarantined': ('BOOLEAN', 'FALSE'),
+        'quarantine_end_time': ('BIGINT', '0'),
+        'deck_level': ('INTEGER', '1'),
+        'shield_until': ('BIGINT', '0'),
+        'last_hack_target': ('BIGINT', '0'),
+    }
+
+    print("/// DEBUG: Checking column types for players table...")
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            # Check if table exists first
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='players'")
+            if not cur.fetchone():
+                return
+
+            cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'players'")
+            current_types = {row[0]: row[1].lower() for row in cur.fetchall()}
+
+            for col, (target_type, default_val) in COLUMNS_TO_FIX.items():
+                if col in current_types:
+                    curr = current_types[col]
+                    target = target_type.lower()
+
+                    # Detect need for fix: present as text/varchar but target is int/bool/date
+                    needs_fix = False
+                    if ('text' in curr or 'char' in curr) and ('int' in target or 'bool' in target or 'date' in target):
+                        needs_fix = True
+
+                    if needs_fix:
+                        print(f"/// FIX: Converting {col} from {curr} to {target}...")
+                        try:
+                            # Using clause to handle empty strings/nulls
+                            using_clause = f"USING (NULLIF({col}, '')::{target_type})"
+
+                            stmt = f"ALTER TABLE players ALTER COLUMN {col} TYPE {target_type} {using_clause}, ALTER COLUMN {col} SET DEFAULT {default_val}"
+                            cur.execute(stmt)
+                            conn.commit()
+                        except Exception as e:
+                            print(f"/// FIX ERROR for {col}: {e}")
+                            conn.rollback()
+
 def init_db():
     print("/// DEBUG: init_db started")
+
+    # Run the fix for column types before creating/altering other things
+    try:
+        fix_column_types()
+    except Exception as e:
+        print(f"/// FIX COLUMN TYPES ERROR: {e}")
+
     with db_session() as conn:
         if not conn: return
         with conn.cursor() as cur:
@@ -249,7 +343,7 @@ def init_db():
                         )
                     ''')
                     # 3. Copy data and EXPAND stacks
-                    # Using generate_series to unroll quantity into individual rows with quantity 1
+                    # Using generate_series to unroll into individual rows
                     cur.execute("""
                         INSERT INTO inventory (uid, item_id, quantity, durability)
                         SELECT uid, item_id, 1, durability
