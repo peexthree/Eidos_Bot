@@ -47,35 +47,43 @@ def pvp_menu_handler(call):
 
     menu_update(call, msg, kb.pvp_menu(), image_url=config.MENU_IMAGES["pvp_menu"])
 
-@bot.callback_query_handler(func=lambda call: call.data == "pvp_inventory")
+@bot.callback_query_handler(func=lambda call: call.data == "pvp_inventory" or call.data.startswith("pvp_hw_") or call.data.startswith("pvp_dismantle_"))
 def pvp_inventory_handler(call):
     uid = call.from_user.id
+
+    # Handle Actions first
+    if call.data.startswith("pvp_hw_equip_"):
+        item_id = call.data.replace("pvp_hw_equip_", "")
+        pvp.toggle_hardware(uid, item_id)
+        bot.answer_callback_query(call.id, "⚡️ АКТИВИРОВАНО")
+
+    elif call.data.startswith("pvp_hw_unequip_"):
+        item_id = call.data.replace("pvp_hw_unequip_", "")
+        pvp.toggle_hardware(uid, item_id)
+        bot.answer_callback_query(call.id, "🛑 ОТКЛЮЧЕНО")
+
+    elif call.data.startswith("pvp_dismantle_"):
+        item_id = call.data.replace("pvp_dismantle_", "")
+        # Check if equipped in deck?
+        deck = pvp.get_deck(uid)
+        if item_id in deck['config'].values():
+            bot.answer_callback_query(call.id, "❌ Нельзя разобрать (установлено в деку)!", show_alert=True)
+            return
+
+        success, msg = pvp.dismantle_pvp_item(uid, item_id)
+        bot.answer_callback_query(call.id, msg, show_alert=True)
+
+    # Render Menu
     items = pvp.get_software_inventory(uid)
+    active_hw = pvp.get_active_hardware(uid)
 
-    # Get equipped items
-    deck = pvp.get_deck(uid)
-    equipped_ids = list(deck['config'].values()) if deck else []
+    txt = (
+        "🎒 <b>ИНВЕНТАРЬ СЕТЕВОЙ ВОЙНЫ</b>\n\n"
+        "Управляйте своим софтом и железом.\n"
+        "<i>Зеленый индикатор — активный модуль защиты.</i>"
+    )
 
-    txt = "🎒 <b>ИНВЕНТАРЬ СЕТЕВОЙ ВОЙНЫ</b>\n\n"
-    if not items:
-        txt += "Пусто."
-    else:
-        for i in items:
-            cat = "💾" if i.get('category') == 'software' else "🛠"
-
-            status = ""
-            if i['id'] in equipped_ids:
-                status = " ✅ (Установлено)"
-
-            txt += f"{cat} <b>{i['name']}</b> (x{i['quantity']}){status}\n"
-            if i.get('durability'):
-                txt += f"   Состояние: {i['durability']}\n"
-            txt += f"   <i>{i['desc']}</i>\n\n"
-
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
-
-    menu_update(call, txt, markup)
+    menu_update(call, txt, kb.pvp_inventory_menu(items, active_hw))
 
 # =============================================================================
 # 2. DEFENSE CONFIGURATION (DECK)
