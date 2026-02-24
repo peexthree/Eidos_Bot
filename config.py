@@ -175,9 +175,6 @@ SOFTWARE_DB = {
     }
 }
 
-# Integrate Software into Main Items DB for compatibility
-ITEMS_INFO.update(SOFTWARE_DB)
-
 DECK_UPGRADES = {
     1: {"slots": 1, "cost": 0},
     2: {"slots": 2, "cost": 500},
@@ -702,6 +699,9 @@ ITEMS_INFO = {
     # Авто-генерация описаний для экипировки
     **{k: {**v, 'type': 'equip'} for k, v in EQUIPMENT_DB.items()}
 }
+
+# Integrate Software into Main Items DB for compatibility
+ITEMS_INFO.update(SOFTWARE_DB)
 
 CURSED_CHEST_DROPS = [
     "credit_slicer", "banhammer_shard", "grandfather_paradox", "empath_whip", "cache_wiper",
