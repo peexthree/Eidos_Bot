@@ -1,7 +1,7 @@
 from telebot import types
 import time
 import config
-from config import LEVELS, PRICES, EQUIPMENT_DB, SLOTS, SCHOOLS, ARCHIVE_COST, GUIDE_PAGES
+from config import LEVELS, PRICES, EQUIPMENT_DB, SLOTS, SCHOOLS, ARCHIVE_COST, GUIDE_PAGES, CURSED_CHEST_DROPS
 
 # =============================================================
 # ⚙️ ГЕНЕРАТОРЫ UI
@@ -213,7 +213,7 @@ def shop_section_menu(category):
 
     elif category in ['weapon', 'armor', 'chip']:
         for k, v in EQUIPMENT_DB.items():
-            if v.get('slot') == category:
+            if v.get('slot') == category and k not in CURSED_CHEST_DROPS:
                 m.add(types.InlineKeyboardButton(f"{v['name']} ({v['price']} BC)", callback_data=f"view_shop_{k}"))
 
     m.add(types.InlineKeyboardButton("🔙 К КАТЕГОРИЯМ", callback_data="shop_menu"))
