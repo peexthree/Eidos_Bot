@@ -40,9 +40,9 @@ def pvp_menu_handler(call):
     msg = (
         f"💀 <b>СЕТЕВЫЕ ВОЙНЫ (v2.0)</b>\n\n"
         f"💽 <b>Кибер-Дека (Lvl {deck['level']})</b>\n"
-        f"├ Баланс: <code>{u.get('data_balance', 0)} DATA</code>\n"
+        f"├ Баланс: <code>{u.get('biocoin', 0)} BC</code>\n"
         f"└ Конфиг: {slots_str}\n\n"
-        f"Цель: Взлом узлов, кража BioCoins, добыча DATA."
+        f"Цель: Взлом узлов, кража BioCoins, майнинг."
     )
 
     menu_update(call, msg, kb.pvp_menu(), image_url=config.MENU_IMAGES["pvp_menu"])
@@ -111,7 +111,7 @@ def pvp_shop_handler(call):
     u = db.get_user(uid)
     msg = (
         f"🏪 <b>МАГАЗИН СОФТА</b>\n"
-        f"Баланс: <code>{u.get('data_balance', 0)} DATA</code>\n\n"
+        f"Баланс: <code>{u.get('biocoin', 0)} BC</code>\n\n"
         f"Покупайте программы для атаки и защиты."
     )
     menu_update(call, msg, kb.pvp_shop_menu())
@@ -135,7 +135,7 @@ def pvp_buy_handler(call):
             f"Тип: {info['type'].upper()} {info['icon']}\n"
             f"Мощь: {info['power']}\n"
             f"Описание: {info['desc']}\n\n"
-            f"Цена: <b>{info['cost']} DATA</b>"
+            f"Цена: <b>{info['cost']} BC</b>"
         )
         menu_update(call, msg, kb.pvp_shop_confirm(sid))
 
@@ -308,11 +308,10 @@ def pvp_execute_handler(call):
 
     header = "✅ <b>СИСТЕМА ВЗЛОМАНА!</b>" if res['success'] else "❌ <b>ОТКАЗ В ДОСТУПЕ</b>"
 
-    rewards = ""
     if res['success']:
         rewards = (
             f"💰 Украдено: <b>{res['stolen']} BC</b>\n"
-            f"💾 Скачано: <b>{res['data']} DATA</b>"
+            f"⛏ Майнинг: <b>{res['reward']} BC</b>"
         )
     else:
         lost_xp_txt = f"\n⚡️ Потеряно: {res.get('lost_xp', 0)} XP" if res.get('lost_xp') else ""

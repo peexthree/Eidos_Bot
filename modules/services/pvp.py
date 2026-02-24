@@ -83,7 +83,7 @@ def set_slot(uid, slot_id, software_id):
 
 def upgrade_deck(uid):
     """
-    Upgrades deck level using DATA currency.
+    Upgrades deck level using BioCoins.
     """
     user = db.get_user(uid)
     current_level = user.get('deck_level', 1)
@@ -98,10 +98,10 @@ def upgrade_deck(uid):
     try:
         with db.db_session() as conn:
             with conn.cursor() as cur:
-                # Deduct DATA safely
-                cur.execute("UPDATE users SET data_balance = data_balance - %s WHERE uid = %s AND data_balance >= %s", (cost, uid, cost))
+                # Deduct BioCoins safely
+                cur.execute("UPDATE users SET biocoin = biocoin - %s WHERE uid = %s AND biocoin >= %s", (cost, uid, cost))
                 if cur.rowcount == 0:
-                    return False, f"❌ Не хватает DATA ({cost} нужно)."
+                    return False, f"❌ Не хватает BioCoins ({cost} нужно)."
 
                 # Upgrade Level
                 cur.execute("UPDATE users SET deck_level = %s WHERE uid = %s", (next_level, uid))
@@ -109,26 +109,45 @@ def upgrade_deck(uid):
     except Exception as e:
         return False, f"Error: {e}"
 
-def buy_software(uid, software_id):
+def buy_software(uid, software_id, is_hardware=False):
     """
-    Purchases software using DATA currency.
+    Purchases software/hardware using BioCoins (or XP for Proxy).
     """
-    soft = config.SOFTWARE_DB.get(software_id)
-    if not soft: return False, "Программа не найдена."
-
-    cost = soft['cost']
+    if is_hardware:
+        from config import ITEMS_INFO, PRICES
+        if software_id not in ITEMS_INFO: return False, "Товар не найден."
+        info = ITEMS_INFO[software_id]
+        cost = PRICES.get(software_id, 0)
+        currency = 'xp' if software_id == 'proxy_server' else 'biocoin'
+    else:
+        soft = config.SOFTWARE_DB.get(software_id)
+        if not soft: return False, "Программа не найдена."
+        cost = soft['cost']
+        currency = 'biocoin'
+        info = soft
 
     try:
         with db.db_session() as conn:
             with conn.cursor() as cur:
-                # Deduct DATA safely
-                cur.execute("UPDATE users SET data_balance = data_balance - %s WHERE uid = %s AND data_balance >= %s", (cost, uid, cost))
-                if cur.rowcount == 0:
-                    return False, f"❌ Не хватает DATA ({cost} нужно)."
+                if currency == 'biocoin':
+                    cur.execute("UPDATE users SET biocoin = biocoin - %s WHERE uid = %s AND biocoin >= %s", (cost, uid, cost))
+                else:
+                    cur.execute("UPDATE users SET xp = xp - %s WHERE uid = %s AND xp >= %s", (cost, uid, cost))
 
-                # Add Item
-                db.add_item(uid, software_id)
-        return True, f"💾 Программа {soft['name']} приобретена!"
+                if cur.rowcount == 0:
+                    return False, f"❌ Не хватает средств ({cost} {currency.upper()} нужно)."
+
+                # Special logic for Proxy
+                if software_id == 'proxy_server':
+                    expiry = int(time.time() + 86400) # 24h
+                    cur.execute("UPDATE users SET proxy_expiry = %s WHERE uid = %s", (expiry, uid))
+                    msg = "🕶 Прокси активирован на 24 часа."
+                else:
+                    # Add Item
+                    db.add_item(uid, software_id)
+                    msg = f"💾 {info['name']} приобретен!"
+
+        return True, msg
     except Exception as e:
         return False, f"Error: {e}"
 
@@ -273,15 +292,36 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
     if not attacker or not target:
         return {'success': False, 'msg': "Error loading users"}
 
+    # 1. Check for Hardware Defense (Firewall)
+    blocked_by_fw = False
+    with db.db_cursor() as cur:
+        fw_count = db.get_item_count(target_uid, 'firewall', cursor=cur)
+        if fw_count > 0:
+            db.use_item(target_uid, 'firewall', 1, cursor=cur)
+            blocked_by_fw = True
+
+    if blocked_by_fw:
+        return {
+            'success': False,
+            'log': [],
+            'stolen': 0,
+            'reward': 0,
+            'target_name': target.get('username') or "Unknown",
+            'log_id': None,
+            'lost_xp': 0,
+            'blocked': True
+        }
+
+    # 2. Battle
     target_deck_data = get_deck(target_uid)
     target_config = target_deck_data['config']
 
-    # Calculate Battle
     success, battle_log = calculate_battle(selected_programs, target_config)
 
     stolen_coins = 0
-    data_gained = 0
+    reward_coins = 0
     lost_xp = 0
+    ice_trap_triggered = False
 
     try:
         with db.db_session() as conn:
@@ -291,27 +331,41 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
                 real_bal = cur.fetchone()[0]
 
                 if success:
-                    # Grant DATA
-                    data_gained = config.PVP_CONSTANTS['DATA_PER_WIN'] + random.randint(0, 10)
-                    cur.execute("UPDATE users SET data_balance = data_balance + %s WHERE uid = %s", (data_gained, attacker_uid))
+                    # Reward Coins (Mining)
+                    reward_coins = config.PVP_CONSTANTS['HACK_REWARD'] + random.randint(0, 10)
 
                     # Steal Coins
                     steal_pct = config.PVP_CONSTANTS['STEAL_PERCENT']
                     amount = int(real_bal * steal_pct)
                     amount = min(amount, int(real_bal * (config.PVP_CONSTANTS['MAX_STEAL']/100)))
 
+                    # Total Gain
+                    total_gain = reward_coins + amount
+                    cur.execute("UPDATE users SET biocoin = biocoin + %s WHERE uid = %s", (total_gain, attacker_uid))
+
                     if amount > 0:
                         stolen_coins = amount
                         cur.execute("UPDATE users SET biocoin = biocoin - %s WHERE uid = %s", (amount, target_uid))
-                        cur.execute("UPDATE users SET biocoin = biocoin + %s WHERE uid = %s", (amount, attacker_uid))
 
                     # Set Shield
                     shield_end = int(time.time() + config.PVP_CONSTANTS['SHIELD_DURATION'])
                     cur.execute("UPDATE users SET shield_until = %s WHERE uid = %s", (shield_end, target_uid))
 
                 else:
-                    # Failure Penalty: Lost XP (Energy Damage)
-                    lost_xp = 100 # Flat penalty or scaled?
+                    # Failure Logic
+                    # Check ICE Trap
+                    traps = db.get_item_count(target_uid, 'ice_trap', cursor=cur)
+
+                    lost_xp = 100 # Base penalty
+
+                    if traps > 0:
+                        ice_trap_triggered = True
+                        db.use_item(target_uid, 'ice_trap', 1, cursor=cur)
+                        lost_xp = 300 # Enhanced penalty
+
+                        # Steal XP (give to defender)
+                        cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (lost_xp, target_uid))
+
                     cur.execute("UPDATE users SET xp = GREATEST(0, xp - %s) WHERE uid = %s", (lost_xp, attacker_uid))
 
                 # Reduce Durability of used programs (Attacker)
@@ -340,10 +394,11 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
         'success': success,
         'log': battle_log,
         'stolen': stolen_coins,
-        'data': data_gained,
+        'reward': reward_coins,
         'target_name': target.get('username') or "Unknown",
         'log_id': log_id,
-        'lost_xp': lost_xp
+        'lost_xp': lost_xp,
+        'ice_trap': ice_trap_triggered
     }
 
 # =============================================================================

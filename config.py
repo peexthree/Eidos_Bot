@@ -187,7 +187,7 @@ DECK_UPGRADES = {
 PVP_CONSTANTS = {
     "SHIELD_DURATION": 14400,  # 4 hours
     "PROTECTION_LIMIT": 500,   # Min BioCoins to be attacked
-    "DATA_PER_WIN": 25,        # Base DATA reward
+    "HACK_REWARD": 25,         # Base BioCoin reward (Mining)
     "STEAL_PERCENT": 0.10,     # 10% of coins
     "MAX_STEAL": 15            # Max %
 }

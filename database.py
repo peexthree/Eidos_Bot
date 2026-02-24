@@ -134,7 +134,7 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quarantine_end_time BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_history TEXT DEFAULT ''")
                 # PVP v2.0
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS data_balance INTEGER DEFAULT 0")
+                # data_balance deprecated - replaced by biocoin
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deck_level INTEGER DEFAULT 1")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deck_config TEXT DEFAULT '{\"1\": \"soft_brute_v1\", \"2\": null, \"3\": null}'")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS shield_until BIGINT DEFAULT 0")

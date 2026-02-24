@@ -621,7 +621,7 @@ def pvp_config_menu(deck):
     next_lvl = deck['level'] + 1
     if next_lvl in config.DECK_UPGRADES:
         cost = config.DECK_UPGRADES[next_lvl]['cost']
-        m.add(types.InlineKeyboardButton(f"🔼 АПГРЕЙД ДЕКИ ({cost} DATA)", callback_data="pvp_upgrade_deck"))
+        m.add(types.InlineKeyboardButton(f"🔼 АПГРЕЙД ДЕКИ ({cost} BC)", callback_data="pvp_upgrade_deck"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
     return m
@@ -650,17 +650,43 @@ def pvp_software_select_menu(inventory, slot_id, mode='defense'):
 def pvp_shop_menu():
     m = types.InlineKeyboardMarkup(row_width=1)
 
+    # Standard Software
+    m.add(types.InlineKeyboardButton("─── 💾 ПРОГРАММЫ ───", callback_data="dummy"))
     for sid, info in config.SOFTWARE_DB.items():
-        txt = f"{info['icon']} {info['name']} — {info['cost']} DATA"
+        txt = f"{info['icon']} {info['name']} — {info['cost']} BC"
         m.add(types.InlineKeyboardButton(txt, callback_data=f"pvp_buy_{sid}"))
+
+    # Hardware / Consumables
+    m.add(types.InlineKeyboardButton("─── 🛠 ЖЕЛЕЗО ───", callback_data="dummy"))
+
+    # Prices for Hardware from config (assumed merged or standard)
+    p_firewall = PRICES.get('firewall', 1000)
+    p_ice = PRICES.get('ice_trap', 2000)
+    p_proxy = PRICES.get('proxy_server', 500) # XP?
+
+    m.add(types.InlineKeyboardButton(f"🛡 ФАЙРВОЛ ({p_firewall} BC)", callback_data="pvp_buy_hw_firewall"))
+    m.add(types.InlineKeyboardButton(f"🪤 ICE-ЛОВУШКА ({p_ice} BC)", callback_data="pvp_buy_hw_ice_trap"))
+    m.add(types.InlineKeyboardButton(f"🕶 ПРОКСИ ({p_proxy} XP)", callback_data="pvp_buy_hw_proxy_server"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
     return m
 
-def pvp_shop_confirm(sid):
-    info = config.SOFTWARE_DB[sid]
+def pvp_shop_confirm(sid, is_hardware=False):
+    # Retrieve info
+    if is_hardware:
+        from config import ITEMS_INFO
+        info = ITEMS_INFO.get(sid, {})
+        cost = PRICES.get(sid, 0)
+        # Proxy uses XP
+        currency = "XP" if sid == "proxy_server" else "BC"
+    else:
+        info = config.SOFTWARE_DB[sid]
+        cost = info['cost']
+        currency = "BC"
+
     m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(types.InlineKeyboardButton(f"✅ КУПИТЬ ({info['cost']})", callback_data=f"pvp_buy_confirm_{sid}"))
+    cb_data = f"pvp_buy_confirm_hw_{sid}" if is_hardware else f"pvp_buy_confirm_{sid}"
+    m.add(types.InlineKeyboardButton(f"✅ КУПИТЬ ({cost} {currency})", callback_data=cb_data))
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="pvp_shop"))
     return m
 
