@@ -118,26 +118,75 @@ def pvp_shop_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_buy_"))
 def pvp_buy_handler(call):
-    if "confirm" in call.data:
-        # Execute Buy
-        sid = call.data.split('_')[3]
-        uid = call.from_user.id
-        success, msg = pvp.buy_software(uid, sid)
+    uid = call.from_user.id
+
+    # 1. Parse Data
+    action = call.data
+    is_confirm = False
+
+    # Check if confirm
+    if "_confirm_" in action:
+        is_confirm = True
+        raw_sid = action.replace("pvp_buy_confirm_", "")
+    else:
+        is_confirm = False
+        raw_sid = action.replace("pvp_buy_", "")
+
+    # Check if hardware
+    is_hardware = False
+    if raw_sid.startswith("hw_"):
+        is_hardware = True
+        sid = raw_sid[3:] # remove 'hw_'
+    else:
+        sid = raw_sid
+
+    # 2. Execute Logic
+    if is_confirm:
+        # BUY
+        success, msg = pvp.buy_software(uid, sid, is_hardware=is_hardware)
         bot.answer_callback_query(call.id, msg, show_alert=True)
         if success:
             pvp_shop_handler(call)
     else:
-        # Show Confirm
-        sid = call.data.split('_')[2]
-        info = config.SOFTWARE_DB[sid]
+        # SHOW INFO
+        if is_hardware:
+            from config import ITEMS_INFO, PRICES
+            info = ITEMS_INFO.get(sid, {})
+            cost = PRICES.get(sid, 0)
+            currency = 'XP' if sid == 'proxy_server' else 'BC'
+
+            # Construct description for HW
+            name = info.get('name', '???')
+            desc = info.get('desc', '...')
+            icon = "🛠"
+            pwr = "N/A"
+            type_str = "HARDWARE"
+
+        else:
+            # Software
+            soft = config.SOFTWARE_DB.get(sid)
+            if not soft:
+                bot.answer_callback_query(call.id, "❌ Ошибка: ПО не найдено.", show_alert=True)
+                return
+
+            info = soft
+            cost = info['cost']
+            currency = 'BC'
+
+            name = info['name']
+            desc = info['desc']
+            icon = info['icon']
+            pwr = info['power']
+            type_str = info['type'].upper()
+
         msg = (
-            f"💾 <b>{info['name']}</b>\n"
-            f"Тип: {info['type'].upper()} {info['icon']}\n"
-            f"Мощь: {info['power']}\n"
-            f"Описание: {info['desc']}\n\n"
-            f"Цена: <b>{info['cost']} BC</b>"
+            f"💾 <b>{name}</b>\n"
+            f"Тип: {type_str} {icon}\n"
+            f"Мощь: {pwr}\n"
+            f"Описание: {desc}\n\n"
+            f"Цена: <b>{cost} {currency}</b>"
         )
-        menu_update(call, msg, kb.pvp_shop_confirm(sid))
+        menu_update(call, msg, kb.pvp_shop_confirm(sid, is_hardware=is_hardware))
 
 # =============================================================================
 # 4. ATTACK FLOW

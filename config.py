@@ -125,51 +125,51 @@ ITEM_IMAGES = {
 SOFTWARE_DB = {
     # 🔴 ATK (Attack / BruteForce)
     "soft_brute_v1": {
-        "name": "🔴 BruteForce.exe", "type": "atk", "power": 1, "cost": 100, "durability": 10,
+        "name": "🔴 БрутФорс.exe", "type": "atk", "power": 1, "cost": 100, "durability": 10,
         "desc": "Базовая атака. Ломает Стены.",
         "icon": "🔴"
     },
     "soft_trojan_v1": {
-        "name": "🔴 Trojan.bat", "type": "atk", "power": 2, "cost": 250, "durability": 1,
+        "name": "🔴 Троян.bat", "type": "atk", "power": 2, "cost": 250, "durability": 1,
         "desc": "Атака с шансом крита (х2 награда). Одноразовая.",
         "icon": "🔴"
     },
     "soft_ddos_v1": {
-        "name": "🔴 DDoS_Cannon", "type": "atk", "power": 3, "cost": 500, "durability": 1,
+        "name": "🔴 DDoS-Пушка", "type": "atk", "power": 3, "cost": 500, "durability": 1,
         "desc": "Мощная атака. Пробивает даже продвинутые щиты. Одноразовая.",
         "icon": "🔴"
     },
 
     # 🔵 DEF (Defense / Firewall)
     "soft_wall_v1": {
-        "name": "🔵 Firewall 1.0", "type": "def", "power": 1, "cost": 100, "durability": 10,
+        "name": "🔵 Файрвол 1.0", "type": "def", "power": 1, "cost": 100, "durability": 10,
         "desc": "Базовая защита. Блокирует Стелс.",
         "icon": "🔵"
     },
     "soft_ice_v1": {
-        "name": "🔵 Ice Wall", "type": "def", "power": 2, "cost": 250, "durability": 1,
+        "name": "🔵 Ледяная Стена", "type": "def", "power": 2, "cost": 250, "durability": 1,
         "desc": "Защита + наносит урон атакующему при успехе. Одноразовая.",
         "icon": "🔵"
     },
     "soft_aegis_v1": {
-        "name": "🔵 Aegis Core", "type": "def", "power": 3, "cost": 500, "durability": 5,
+        "name": "🔵 Ядро Эгиды", "type": "def", "power": 3, "cost": 500, "durability": 5,
         "desc": "Абсолютная защита. Отражает 80% атак.",
         "icon": "🔵"
     },
 
     # 🟢 STL (Stealth / Utility)
     "soft_vpn_v1": {
-        "name": "🟢 VPN Ghost", "type": "stl", "power": 1, "cost": 100, "durability": 10,
+        "name": "🟢 VPN-Призрак", "type": "stl", "power": 1, "cost": 100, "durability": 10,
         "desc": "Базовый стелс. Обходит Ловушки (Атаку).",
         "icon": "🟢"
     },
     "soft_sniffer_v1": {
-        "name": "🟢 Sniffer", "type": "stl", "power": 1, "cost": 200, "durability": 5,
+        "name": "🟢 Сниффер", "type": "stl", "power": 1, "cost": 200, "durability": 5,
         "desc": "Показывает 1 слот врага перед боем.",
         "icon": "🟢"
     },
     "soft_backdoor_v1": {
-        "name": "🟢 Backdoor.js", "type": "stl", "power": 3, "cost": 500, "durability": 1,
+        "name": "🟢 Бэкдор.js", "type": "stl", "power": 3, "cost": 500, "durability": 1,
         "desc": "Продвинутый стелс. Крадет данные даже при ничьей. Одноразовая.",
         "icon": "🟢"
     }
