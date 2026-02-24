@@ -8,6 +8,7 @@ import logging
 import random
 from datetime import datetime
 import re
+import traceback
 from config import ITEMS_INFO, INVENTORY_LIMIT
 from content_presets import CONTENT_DATA
 
@@ -47,6 +48,7 @@ def db_session():
     except Exception as e:
         if conn: conn.rollback()
         print(f"/// DB ERROR: {e}")
+        print(traceback.format_exc())
     finally:
         if conn and pg_pool:
             pg_pool.putconn(conn)
