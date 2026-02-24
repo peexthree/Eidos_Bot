@@ -80,6 +80,12 @@ def admin_force_delete_item(uid, item_id):
         cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
         return cur.rowcount > 0
 
+def get_all_tables():
+    with db_cursor() as cur:
+        if not cur: return []
+        cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+        return [row[0] for row in cur.fetchall()]
+
 def init_db():
     print("/// DEBUG: init_db started")
     with db_session() as conn:
