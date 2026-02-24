@@ -384,7 +384,7 @@ def combat_handler(call):
                  active_threshold = int(time.time() - 86400)
                  with db.db_cursor() as cur:
                      cur.execute("""
-                         SELECT uid FROM users
+                         SELECT uid FROM players
                          WHERE uid != %s
                          AND (last_raid_date >= CURRENT_DATE - 1 OR last_protocol_time >= %s)
                          ORDER BY last_raid_date DESC

@@ -91,9 +91,23 @@ def init_db():
     with db_session() as conn:
         if not conn: return
         with conn.cursor() as cur:
-            print("/// DEBUG: creating users table")
+            # --- MIGRATION: users -> players ---
+            try:
+                cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='users'")
+                users_exists = cur.fetchone()
+                cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='players'")
+                players_exists = cur.fetchone()
+
+                if users_exists and not players_exists:
+                    print("/// DEBUG: Renaming users to players")
+                    cur.execute("ALTER TABLE users RENAME TO players")
+                    conn.commit()
+            except Exception as e:
+                print(f"/// MIGRATION ERROR (users->players): {e}")
+
+            print("/// DEBUG: creating players table")
             cur.execute('''
-                CREATE TABLE IF NOT EXISTS users (
+                CREATE TABLE IF NOT EXISTS players (
                     uid BIGINT PRIMARY KEY,
                     username TEXT, first_name TEXT, path TEXT DEFAULT 'general',
                     xp INTEGER DEFAULT 0, biocoin INTEGER DEFAULT 0,
@@ -110,45 +124,45 @@ def init_db():
                 );
             ''')
             try:
-                print("/// DEBUG: migrating users columns")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS raid_count_today INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_raid_date DATE DEFAULT CURRENT_DATE")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT TRUE")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_cache_unlock_time BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_cache_type TEXT DEFAULT NULL")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_broker_expiry BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_expiry BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS anomaly_buff_type TEXT DEFAULT NULL")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS proxy_expiry BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
+                print("/// DEBUG: migrating players columns")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS raid_count_today INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_raid_date DATE DEFAULT CURRENT_DATE")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT TRUE")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS encrypted_cache_unlock_time BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS encrypted_cache_type TEXT DEFAULT NULL")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS shadow_broker_expiry BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS anomaly_buff_expiry BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS anomaly_buff_type TEXT DEFAULT NULL")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS proxy_expiry BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
                 # New Stats for Achievements
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS raids_done INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS perfect_raids INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_wins INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS messages INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS likes INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS purchases INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS found_zero BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_glitched BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS found_devtrace BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS night_visits INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS clicks INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS raids_done INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS perfect_raids INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS quiz_wins INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS messages INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS likes INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS purchases INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS found_zero BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_glitched BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS found_devtrace BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS night_visits INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS clicks INTEGER DEFAULT 0")
                 # Onboarding & Quarantine
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_stage INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_start_time BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_quarantined BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quarantine_end_time BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_history TEXT DEFAULT ''")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS onboarding_stage INTEGER DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS onboarding_start_time BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_quarantined BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS quarantine_end_time BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS quiz_history TEXT DEFAULT ''")
                 # PVP v2.0
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deck_level INTEGER DEFAULT 1")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deck_config TEXT DEFAULT '{\"1\": \"soft_brute_v1\", \"2\": null, \"3\": null}'")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS shield_until BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_hack_target BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_hardware TEXT DEFAULT '{}'")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS deck_level INTEGER DEFAULT 1")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS deck_config TEXT DEFAULT '{\"1\": \"soft_brute_v1\", \"2\": null, \"3\": null}'")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS shield_until BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_hack_target BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS active_hardware TEXT DEFAULT '{}'")
             except: pass
 
             print("/// DEBUG: creating death_loot table")
@@ -398,15 +412,15 @@ def populate_villains():
 def get_user(uid):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
-        cur.execute("SELECT * FROM users WHERE uid = %s", (uid,))
+        cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
         return cur.fetchone()
 
 def add_user(uid, username, first_name, referrer=None):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (uid, username, first_name, referrer, last_active) VALUES (%s, %s, %s, %s, CURRENT_DATE) ON CONFLICT (uid) DO NOTHING", (uid, username, first_name, referrer))
+            cur.execute("INSERT INTO players (uid, username, first_name, referrer, last_active) VALUES (%s, %s, %s, %s, CURRENT_DATE) ON CONFLICT (uid) DO NOTHING", (uid, username, first_name, referrer))
             if referrer and str(referrer) != str(uid):
-                cur.execute("UPDATE users SET ref_count = ref_count + 1 WHERE uid = %s", (referrer,))
+                cur.execute("UPDATE players SET ref_count = ref_count + 1 WHERE uid = %s", (referrer,))
 
 def update_user(uid, **kwargs):
     if not kwargs: return
@@ -414,7 +428,7 @@ def update_user(uid, **kwargs):
     values = list(kwargs.values()) + [uid]
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"UPDATE users SET {set_clause} WHERE uid = %s", values)
+            cur.execute(f"UPDATE players SET {set_clause} WHERE uid = %s", values)
 
 def set_user_active(uid, status):
     update_user(uid, is_active=status)
@@ -422,14 +436,14 @@ def set_user_active(uid, status):
 def add_xp_to_user(uid, amount):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (amount, uid))
-            cur.execute("SELECT referrer FROM users WHERE uid = %s", (uid,))
+            cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (amount, uid))
+            cur.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
             res = cur.fetchone()
             if res and res[0]:
                 ref_id = res[0]
                 profit = int(amount * 0.1)
                 if profit > 0:
-                    cur.execute("UPDATE users SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
+                    cur.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
 
 def increment_user_stat(uid, stat, amount=1):
     # Safe allow-list for stats
@@ -438,7 +452,7 @@ def increment_user_stat(uid, stat, amount=1):
 
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"UPDATE users SET {stat} = {stat} + %s WHERE uid = %s", (amount, uid))
+            cur.execute(f"UPDATE players SET {stat} = {stat} + %s WHERE uid = %s", (amount, uid))
             return cur.rowcount > 0
 
 def set_user_stat(uid, stat, value):
@@ -448,13 +462,13 @@ def set_user_stat(uid, stat, value):
 
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"UPDATE users SET {stat} = %s WHERE uid = %s", (value, uid))
+            cur.execute(f"UPDATE players SET {stat} = %s WHERE uid = %s", (value, uid))
             return cur.rowcount > 0
 
 def reset_daily_stats(uid):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("UPDATE users SET raid_count_today = 0, last_raid_date = CURRENT_DATE WHERE uid = %s", (uid,))
+            cur.execute("UPDATE players SET raid_count_today = 0, last_raid_date = CURRENT_DATE WHERE uid = %s", (uid,))
 
 def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
     # Import locally to avoid circular deps if any
@@ -754,7 +768,7 @@ def grant_achievement(uid, ach_id, bonus_xp):
         if not cur: return False
         cur.execute("INSERT INTO achievements (uid, ach_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, ach_id))
         if cur.rowcount > 0:
-            cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (bonus_xp, uid))
+            cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (bonus_xp, uid))
             return True
         return False
 
@@ -777,7 +791,7 @@ def save_knowledge(uid, content_id):
         cur.execute("INSERT INTO user_knowledge (uid, content_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, content_id))
         cur.execute("INSERT INTO unlocked_protocols (uid, protocol_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, content_id))
         if cur.rowcount > 0:
-            cur.execute("UPDATE users SET know_count = know_count + 1 WHERE uid = %s", (uid,))
+            cur.execute("UPDATE players SET know_count = know_count + 1 WHERE uid = %s", (uid,))
 
 def get_leaderboard(limit=10, sort_by='xp'):
     order_clause = "xp DESC, level DESC, uid ASC"
@@ -790,7 +804,7 @@ def get_leaderboard(limit=10, sort_by='xp'):
         if not cur: return []
         # Using format string for ORDER BY is necessary as it cannot be parameterized directly.
         # sort_by is controlled by code logic, not user input directly (enum-like), so it's safe-ish.
-        query = f"SELECT uid, first_name, username, xp, level, max_depth, biocoin, path FROM users ORDER BY {order_clause} LIMIT %s"
+        query = f"SELECT uid, first_name, username, xp, level, max_depth, biocoin, path FROM players ORDER BY {order_clause} LIMIT %s"
         cur.execute(query, (limit,))
         return cur.fetchall()
 
@@ -801,22 +815,22 @@ def get_user_rank(uid, sort_by='xp'):
         # Rank by (max_depth, xp)
         query = """
             SELECT COUNT(*) + 1
-            FROM users
-            WHERE (max_depth, xp) > (SELECT max_depth, xp FROM users WHERE uid = %s)
+            FROM players
+            WHERE (max_depth, xp) > (SELECT max_depth, xp FROM players WHERE uid = %s)
         """
     elif sort_by == 'biocoin':
         # Rank by (biocoin, xp)
         query = """
             SELECT COUNT(*) + 1
-            FROM users
-            WHERE (biocoin, xp) > (SELECT biocoin, xp FROM users WHERE uid = %s)
+            FROM players
+            WHERE (biocoin, xp) > (SELECT biocoin, xp FROM players WHERE uid = %s)
         """
     else:
         # Default: Rank by (xp, level)
         query = """
             SELECT COUNT(*) + 1
-            FROM users
-            WHERE (xp, level) > (SELECT xp, level FROM users WHERE uid = %s)
+            FROM players
+            WHERE (xp, level) > (SELECT xp, level FROM players WHERE uid = %s)
         """
 
     with db_cursor() as cur:
@@ -845,7 +859,7 @@ def get_diary_count(uid):
 def get_referrals_stats(uid):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
-        cur.execute("SELECT username, first_name, level, ref_profit_xp, ref_profit_coins FROM users WHERE referrer = %s ORDER BY ref_profit_xp DESC LIMIT 20", (str(uid),))
+        cur.execute("SELECT username, first_name, level, ref_profit_xp, ref_profit_coins FROM players WHERE referrer = %s ORDER BY ref_profit_xp DESC LIMIT 20", (str(uid),))
         return cur.fetchall()
 
 def get_user_achievements(uid):
@@ -953,7 +967,7 @@ def admin_get_users_dossier(limit=50):
         cur.execute("""
             SELECT uid, first_name, username, level, xp, path,
                    streak, max_depth, last_active
-            FROM users
+            FROM players
             ORDER BY last_active DESC
             LIMIT %s
         """, (limit,))
@@ -983,12 +997,12 @@ def admin_add_signal_to_db(text, level=1, c_type='protocol', path='general'):
 def set_user_admin(uid, status):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("UPDATE users SET is_admin = %s WHERE uid = %s", (status, uid))
+            cur.execute("UPDATE players SET is_admin = %s WHERE uid = %s", (status, uid))
 
 def get_admins():
     with db_cursor() as cur:
         if not cur: return []
-        cur.execute("SELECT uid FROM users WHERE is_admin = TRUE")
+        cur.execute("SELECT uid FROM players WHERE is_admin = TRUE")
         return [row[0] for row in cur.fetchall()]
 
 def is_user_admin(uid):
@@ -1001,7 +1015,7 @@ def is_user_admin(uid):
 
     with db_cursor() as cur:
         if not cur: return False
-        cur.execute("SELECT is_admin FROM users WHERE uid = %s", (uid,))
+        cur.execute("SELECT is_admin FROM players WHERE uid = %s", (uid,))
         res = cur.fetchone()
         return res[0] if res else False
 
@@ -1025,7 +1039,7 @@ def get_random_raid_advice(level, cursor=None):
 def get_random_user_for_hack(exclude_uid):
     with db_cursor() as cur:
         if not cur: return None
-        cur.execute("SELECT uid FROM users WHERE uid != %s ORDER BY RANDOM() LIMIT 1", (exclude_uid,))
+        cur.execute("SELECT uid FROM players WHERE uid != %s ORDER BY RANDOM() LIMIT 1", (exclude_uid,))
         res = cur.fetchone()
         return res[0] if res else None
 
@@ -1097,7 +1111,7 @@ def hard_reset_user(uid):
             cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
             # Reset User Stats
             cur.execute("""
-                UPDATE users SET
+                UPDATE players SET
                 xp = 0, level = 1, biocoin = 0,
                 streak = 1, max_depth = 0,
                 raid_count_today = 0,
@@ -1113,7 +1127,7 @@ def hard_reset_user(uid):
 def set_onboarding_stage(uid, stage):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("UPDATE users SET onboarding_stage = %s WHERE uid = %s", (stage, uid))
+            cur.execute("UPDATE players SET onboarding_stage = %s WHERE uid = %s", (stage, uid))
 
 def quarantine_user(uid, duration_hours=24):
     hard_reset_user(uid)
@@ -1121,7 +1135,7 @@ def quarantine_user(uid, duration_hours=24):
     with db_session() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                UPDATE users SET
+                UPDATE players SET
                 is_quarantined = TRUE,
                 quarantine_end_time = %s,
                 onboarding_stage = 0,
@@ -1132,7 +1146,7 @@ def quarantine_user(uid, duration_hours=24):
 def add_quiz_history(uid, question_id):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("UPDATE users SET quiz_history = quiz_history || %s || ',' WHERE uid = %s", (str(question_id), uid))
+            cur.execute("UPDATE players SET quiz_history = quiz_history || %s || ',' WHERE uid = %s", (str(question_id), uid))
 
 def delete_user_fully(uid):
     try:
@@ -1142,7 +1156,7 @@ def delete_user_fully(uid):
                 tables = [
                     "inventory", "user_equipment", "raid_sessions", "bot_states",
                     "achievements", "diary", "history", "logs", "user_knowledge",
-                    "unlocked_protocols", "users"
+                    "unlocked_protocols", "players"
                 ]
                 for table in tables:
                     cur.execute(f"DELETE FROM {table} WHERE uid = %s", (uid,))
@@ -1175,7 +1189,7 @@ def get_pvp_history(uid, limit=10):
         cur.execute("""
             SELECT p.*, u.username, u.first_name, u.level
             FROM pvp_logs p
-            JOIN users u ON p.attacker_uid = u.uid
+            JOIN players u ON p.attacker_uid = u.uid
             WHERE p.target_uid = %s
               AND p.timestamp > %s
               AND p.success = TRUE

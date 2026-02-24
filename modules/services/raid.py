@@ -149,7 +149,7 @@ def process_anomaly_bet(uid, bet_type):
             # Helper to set buff/debuff
             def set_status(effect):
                 expiry = int(time.time() + 86400)
-                cur.execute("UPDATE users SET anomaly_buff_type=%s, anomaly_buff_expiry=%s WHERE uid=%s", (effect, expiry, uid))
+                cur.execute("UPDATE players SET anomaly_buff_type=%s, anomaly_buff_expiry=%s WHERE uid=%s", (effect, expiry, uid))
 
             if bet_type == 'hp':
                 stake = int(s['signal'] * 0.3)
@@ -293,7 +293,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     # Penalty: Lose Level
                     new_lvl = max(1, u['level'] - 1)
                     if new_lvl < u['level']:
-                        cur.execute("UPDATE users SET level = %s, xp = 0 WHERE uid = %s", (new_lvl, uid))
+                        cur.execute("UPDATE players SET level = %s, xp = 0 WHERE uid = %s", (new_lvl, uid))
                         msg_prefix += "💣 <b>КАМИКАДЗЕ:</b> Ядро расплавилось! Уровень понижен.\n"
                         # Reset steps or just keep punishing? Usually resets or kills.
                         # Let's kill the player too to end the raid.
@@ -308,7 +308,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                 # Сброс ежедневных лимитов (ПРЯМОЙ SQL)
                 if str(last) != str(today):
-                    cur.execute("UPDATE users SET raid_count_today=0, last_raid_date=%s WHERE uid=%s", (today, uid))
+                    cur.execute("UPDATE players SET raid_count_today=0, last_raid_date=%s WHERE uid=%s", (today, uid))
                     u['raid_count_today'] = 0
 
                 # Проверка баланса
@@ -318,7 +318,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                 # Списание XP и вход (ПРЯМОЙ SQL)
                 new_xp = u['xp'] - cost
-                cur.execute("UPDATE users SET xp=%s, raid_count_today=raid_count_today+1, last_raid_date=%s WHERE uid=%s",
+                cur.execute("UPDATE players SET xp=%s, raid_count_today=raid_count_today+1, last_raid_date=%s WHERE uid=%s",
                            (new_xp, today, uid))
                 u['xp'] = new_xp # Обновляем локально
 
@@ -329,7 +329,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                 # --- STAT: FOUND ZERO ---
                 if depth == 0:
-                    cur.execute("UPDATE users SET found_zero = TRUE WHERE uid = %s", (uid,))
+                    cur.execute("UPDATE players SET found_zero = TRUE WHERE uid = %s", (uid,))
 
                 first_next = generate_random_event_type()
                 cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, event_streak, buffer_items, buffer_xp, buffer_coins) VALUES (%s, %s, 100, %s, 0, 0, %s, 1, '', 0, 0)",
@@ -368,7 +368,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     glitch_text = f"⚠️ <b>ГЛИТЧ (ОШИБКА):</b> Часть данных повреждена. -{loss} BC из буфера."
 
                 # We just return this as an event
-                cur.execute("UPDATE users SET is_glitched = TRUE WHERE uid = %s", (uid,))
+                cur.execute("UPDATE players SET is_glitched = TRUE WHERE uid = %s", (uid,))
                 return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", {'alert': strip_html(glitch_text), 'image': RAID_EVENT_IMAGES.get('glitch')}, u, 'glitch', 0
 
             # ПРОВЕРКА БОЯ
@@ -558,7 +558,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 if u['xp'] < step_cost:
                     return False, f"🪫 <b>НЕТ ЭНЕРГИИ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
 
-                cur.execute("UPDATE users SET xp = xp - %s WHERE uid=%s", (step_cost, uid))
+                cur.execute("UPDATE players SET xp = xp - %s WHERE uid=%s", (step_cost, uid))
                 u['xp'] -= step_cost
 
             # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
@@ -674,7 +674,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 extra_lore = ""
                 if random.random() < 0.01:
                     extra_lore = "\n\n👁 <i>Вы видите странный комментарий в коде: 'peexthree was here'.</i>"
-                    cur.execute("UPDATE users SET found_devtrace = TRUE WHERE uid = %s", (uid,))
+                    cur.execute("UPDATE players SET found_devtrace = TRUE WHERE uid = %s", (uid,))
 
                 event = {'type': 'neutral', 'text': f"💨 <b>БЕЗОПАСНАЯ ЗОНА</b>\n\nВы переводите дух. В логах терминала осталась запись:\n<i>«{lore_text}»</i>{extra_lore}", 'val': 0}
 
@@ -841,7 +841,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
             cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, next_event_type=%s, event_streak=%s WHERE uid=%s", (new_depth, new_sig, next_preview, new_streak, uid))
 
             if new_depth > u.get('max_depth', 0):
-                cur.execute("UPDATE users SET max_depth=%s WHERE uid=%s", (new_depth, uid))
+                cur.execute("UPDATE players SET max_depth=%s WHERE uid=%s", (new_depth, uid))
 
             conn.commit() # ФИКСИРУЕМ ШАГ
 
@@ -967,7 +967,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                  broadcast = handle_death_log(uid, depth, u['level'], u['username'], s['buffer_coins'])
                  if broadcast: extra_death['broadcast'] = broadcast
 
-                 cur.execute("UPDATE users SET raids_done = raids_done + 1 WHERE uid = %s", (uid,))
+                 cur.execute("UPDATE players SET raids_done = raids_done + 1 WHERE uid = %s", (uid,))
 
                  return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n\n{report}{broken_msg}", extra_death, u, 'death', 0
 
