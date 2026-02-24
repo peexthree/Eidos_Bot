@@ -258,8 +258,20 @@ def item_action_handler(call):
         item_id = None
         durability = None
         inv_id = None
+        is_equipped = False
 
-        if val.isdigit():
+        if val.startswith("eq_"):
+            slot = val[3:]
+            res = db.get_equipped_item_in_slot(uid, slot)
+            if res:
+                item_id = res['item_id']
+                durability = res['durability']
+                is_equipped = True
+            else:
+                bot.answer_callback_query(call.id, "Слот пуст или ошибка.")
+                return
+
+        elif val.isdigit():
             inv_id = int(val)
             items = db.get_inventory(uid)
             target = next((i for i in items if i['id'] == inv_id), None)
@@ -279,7 +291,6 @@ def item_action_handler(call):
                     if durability <= 0:
                         desc += "\n⚠️ <b>СЛОМАНО (Не дает бонусов)</b>"
 
-            is_equipped = False # View item from inventory is never equipped
             image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["inventory"]
 
             # Crafting Button Logic

@@ -642,6 +642,12 @@ def get_equipped_items(uid):
         cur.execute("SELECT slot, item_id, durability FROM user_equipment WHERE uid=%s", (uid,))
         return {row['slot']: row['item_id'] for row in cur.fetchall()}
 
+def get_equipped_item_in_slot(uid, slot):
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return None
+        cur.execute("SELECT item_id, durability FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
+        return cur.fetchone()
+
 def break_equipment_randomly(uid):
     # Reduces durability of a random item. If 0, unequip it.
     # Returns the item_id that broke (hit 0), or None.
