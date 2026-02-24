@@ -86,6 +86,12 @@ def get_cursed_chest_drops():
     from config import CURSED_CHEST_DROPS
     return random.choice(CURSED_CHEST_DROPS)
 
+def get_legendary_drops():
+    from config import EQUIPMENT_DB
+    pool = [k for k, v in EQUIPMENT_DB.items() if "🟠" in v.get('name', '')]
+    if not pool: return "rusty_knife"
+    return random.choice(pool)
+
 def process_riddle_answer(uid, user_answer):
     with db.db_session() as conn:
         with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
@@ -464,11 +470,18 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 loot_item_txt = ""
 
                 if is_cursed:
-                    # Guaranteed 1 RED item
-                    l_item = get_cursed_chest_drops()
+                    # 50% Red, 50% Legendary
+                    if random.random() < 0.5:
+                        l_item = get_cursed_chest_drops()
+                        prefix = "🔴 ПРОКЛЯТЫЙ ЛУТ"
+                    else:
+                        l_item = get_legendary_drops()
+                        prefix = "🟠 ЛЕГЕНДАРНЫЙ ЛУТ"
+
+                    # Assuming get_legendary_drops returns item_id
                     cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
-                    i_name = ITEMS_INFO.get(l_item, {}).get('name', 'Неизвестно')
-                    loot_item_txt = f"\n🔴 <b>ПРОКЛЯТЫЙ ЛУТ:</b>\n{i_name}"
+                    i_name = ITEMS_INFO.get(l_item, {}).get('name', l_item)
+                    loot_item_txt = f"\n{prefix}:\n{i_name}"
                     bonus_xp *= 2
                     bonus_coins *= 2
                 else:
@@ -549,21 +562,12 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 u['xp'] -= step_cost
 
             # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
-            # msg_prefix is initialized at start of function
-
             # SCALING BIOMES IMPLEMENTATION
             biome_data = get_biome_modifiers(depth)
             diff = biome_data.get('mult', 1.0)
 
             # --- HEAD AURA: MOVEMENT (Void Walker / Relic Speed) ---
             step_size = 1
-            # equipped_head already fetched above as 'head_item'
-
-            # ARCHITECT'S EYE: Always see next room (handled in COMPASS section usually, but cost doubles here)
-            # Cost calc is in step 3 above, we need to adjust there.
-            # WAIT: Step cost calculation happens BEFORE this block in code structure.
-            # I need to verify where step_cost is calculated.
-
             if head_item in ['relic_speed', 'shadow_reliq-speed']:
                 step_size = 2
             elif head_item == 'void_walker_hood' and random.random() < 0.25:
@@ -655,7 +659,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 event = {'type': 'locked_chest', 'text': 'Запертый контейнер.', 'val': 0}
 
             elif current_type_code == 'cursed_chest':
-                event = {'type': 'cursed_chest', 'text': '🔴 <b>ПРОКЛЯТЫЙ СУНДУК:</b>\nОт него веет могильным холодом.', 'val': 0}
+                event = {'type': 'cursed_chest', 'text': '🔴 <b>ПРОКЛЯТЫЙ СУНДУК:</b>\nШанс: 50% КРАСНОЕ / 50% ЛЕГЕНДАРНОЕ.\nОт него веет могильным холодом.', 'val': 0}
 
             # ПЕРЕДЫШКА (ЛОР)
             elif current_type_code == 'lore':
@@ -931,6 +935,14 @@ def process_raid_step(uid, answer=None, start_depth=None):
             # СМЕРТЬ
             if new_sig <= 0:
                  report = generate_raid_report(uid, s)
+
+                 # Break Equipment Logic
+                 broken_item_id = db.break_equipment_randomly(uid)
+                 broken_msg = ""
+                 if broken_item_id:
+                     i_name = ITEMS_INFO.get(broken_item_id, {}).get('name', broken_item_id)
+                     broken_msg = f"\n\n💔 <b>СНАРЯЖЕНИЕ СЛОМАНО:</b>\n{i_name} (Прочность 0)"
+
                  cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
 
                  # Save Grave (Loot)
@@ -957,7 +969,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                  cur.execute("UPDATE users SET raids_done = raids_done + 1 WHERE uid = %s", (uid,))
 
-                 return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n\n{report}", extra_death, u, 'death', 0
+                 return False, f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nГлубина: {new_depth}м\n\n{report}{broken_msg}", extra_death, u, 'death', 0
 
             # If riddle_data exists, it is passed as 3rd arg.
             # If not, we can pass a dict with alert as 3rd arg if we want.
@@ -985,8 +997,10 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 extra_ret['image'] = RAID_EVENT_IMAGES[img_key]
 
             # Special case for cursed chest image
-            if event['type'] == 'cursed_chest' and 'cursed_chest' in RAID_EVENT_IMAGES:
-                extra_ret['image'] = RAID_EVENT_IMAGES['cursed_chest']
+            if event['type'] == 'cursed_chest':
+                # Explicitly use the image requested by user for compliance
+                extra_ret['image'] = "AgACAgIAAyEFAATh7MR7AAOXaZtdX-HmNHBDJve48wwy6h0te2gAArMTaxtY9OFIchMB7mz9pmMBAAMCAAN5AAM6BA"
+
                 # Pass data spike status specifically for chest logic
                 has_spike = db.get_item_count(uid, 'data_spike', cursor=cur) > 0
                 extra_ret['has_data_spike'] = has_spike

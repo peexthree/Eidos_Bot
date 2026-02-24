@@ -118,7 +118,7 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
     m.add(types.InlineKeyboardButton(f"{'✅' if category=='equip' else ''} СНАРЯЖЕНИЕ", callback_data="inv_cat_equip"),
           types.InlineKeyboardButton(f"{'✅' if category=='consumable' else ''} РАСХОДНИКИ", callback_data="inv_cat_consumable"))
 
-    mode_btn = "♻️ РЕЖИМ РАЗБОРА: ВКЛ" if dismantle_mode else "♻️ РАЗОБРАТЬ ВЕЩИ (10%)"
+    mode_btn = "♻️ РЕЖИМ РАЗБОРА: ВКЛ" if dismantle_mode else "♻️ РАЗОБРАТЬ (вернешь от стоимости 10%)"
     mode_cb = "inv_mode_normal" if dismantle_mode else "inv_mode_dismantle"
     m.add(types.InlineKeyboardButton(mode_btn, callback_data=mode_cb))
 
@@ -129,10 +129,15 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
         m.add(types.InlineKeyboardButton("─── 🛡 НАДЕТО ───", callback_data="dummy"))
         for slot, item_id in equipped.items():
             name = EQUIPMENT_DB.get(item_id, {}).get('name', '???')
+            # Assuming equipped items passed as a dict {slot: item_id}, but we might need durability?
+            # Ideally equipped should be a dict of item details or fetch logic handles display.
+            # Current caller passes `db.get_equipped_items(uid)` which returns {slot: item_id}.
+            # We can't display durability here easily without fetching it again or changing caller.
+            # For now, keep it simple or user can click to see details.
             if dismantle_mode:
                  pass
             else:
-                 m.add(types.InlineKeyboardButton(f"⬇️ {SLOTS.get(slot, slot)}: {name}", callback_data=f"view_item_{item_id}"))
+                 m.add(types.InlineKeyboardButton(f"⬇️ {SLOTS.get(slot, slot)}: {name}", callback_data=f"view_item_eq_{slot}"))
     
     # Filter items
     filtered = []
@@ -147,6 +152,8 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
         for i in filtered:
             item_id = i['item_id']
             qty = i['quantity']
+            inv_id = i.get('id') # New unique ID
+            durability = i.get('durability', 100)
 
             # Fetch nice name from config
             if item_id in EQUIPMENT_DB:
@@ -156,17 +163,24 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
                 info = config.ITEMS_INFO.get(item_id, {})
                 name = info.get('name', item_id)
 
+            display_name = f"{name}"
+            if item_id in EQUIPMENT_DB:
+                display_name += f" [{durability}]"
+            elif qty > 1:
+                display_name += f" (x{qty})"
+
             if dismantle_mode:
                 # Кнопка разбора
-                m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ: {name} (x{qty})", callback_data=f"dismantle_{item_id}"))
+                m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ: {display_name}", callback_data=f"dismantle_{inv_id}"))
             else:
                 if item_id in EQUIPMENT_DB:
-                    m.add(types.InlineKeyboardButton(f"⬆️ {name} (x{qty})", callback_data=f"view_item_{item_id}"))
+                    # Use unique ID for equipment
+                    m.add(types.InlineKeyboardButton(f"⬆️ {display_name}", callback_data=f"view_item_{inv_id}"))
                 elif item_id == 'admin_key':
-                    m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: {name} (x{qty})", callback_data="use_admin_key"))
+                    m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: {display_name}", callback_data="use_admin_key"))
                 else:
-                    # Clean button without extra icon prefix if name has it
-                    m.add(types.InlineKeyboardButton(f"{name} (x{qty})", callback_data=f"view_item_{item_id}"))
+                    # For consumables, we can still use inv_id as it refers to the stack
+                    m.add(types.InlineKeyboardButton(f"{display_name}", callback_data=f"view_item_{inv_id}"))
             
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
@@ -212,9 +226,16 @@ def shop_section_menu(category):
         m.add(types.InlineKeyboardButton(f"♻️ СИНХРОН ОЧИЩЕНИЯ ({PRICES['purification_sync']} BC)", callback_data="view_shop_purification_sync"))
 
     elif category in ['weapon', 'armor', 'chip']:
+        # Sort by price cheap to expensive
+        items = []
         for k, v in EQUIPMENT_DB.items():
             if v.get('slot') == category and k not in CURSED_CHEST_DROPS:
-                m.add(types.InlineKeyboardButton(f"{v['name']} ({v['price']} BC)", callback_data=f"view_shop_{k}"))
+                items.append((k, v))
+
+        items.sort(key=lambda x: x[1]['price'])
+
+        for k, v in items:
+            m.add(types.InlineKeyboardButton(f"{v['name']} ({v['price']} BC)", callback_data=f"view_shop_{k}"))
 
     m.add(types.InlineKeyboardButton("🔙 К КАТЕГОРИЯМ", callback_data="shop_menu"))
     return m
@@ -506,22 +527,40 @@ def admin_item_select():
     m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="admin_menu_users"))
     return m
 
-def item_details_keyboard(item_id, is_owned=True, is_equipped=False):
+def item_details_keyboard(item_id, is_owned=True, is_equipped=False, durability=None, inv_id=None):
+    # Added durability and inv_id args
     m = types.InlineKeyboardMarkup(row_width=2)
-    if is_equipped:
-        info = EQUIPMENT_DB.get(item_id)
-        slot = info['slot'] if info else None
-        if slot:
-             m.add(types.InlineKeyboardButton("📦 СНЯТЬ", callback_data=f"unequip_{slot}"))
-    else:
-        # Check if equippable
-        if item_id in EQUIPMENT_DB:
-             m.add(types.InlineKeyboardButton("🛡 НАДЕТЬ", callback_data=f"equip_{item_id}"))
-        else:
-             # Consumables / Misc
-             m.add(types.InlineKeyboardButton("⚡️ ИСПОЛЬЗОВАТЬ", callback_data=f"use_item_{item_id}"))
 
-    m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"dismantle_{item_id}"))
+    if durability is not None and durability <= 0:
+        # Broken
+        if inv_id:
+            m.add(types.InlineKeyboardButton("🛠 ПОЧИНИТЬ (15% цены)", callback_data=f"repair_{inv_id}"))
+            m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ (5% цены)", callback_data=f"dismantle_{inv_id}"))
+    else:
+        if is_equipped:
+            # Unequip needs slot. If we passed item_id, we need to find slot.
+            # Or passed unequip callback can figure it out?
+            # Current `unequip_{slot}`. We need slot.
+            info = EQUIPMENT_DB.get(item_id)
+            slot = info['slot'] if info else None
+            if slot:
+                 m.add(types.InlineKeyboardButton("📦 СНЯТЬ", callback_data=f"unequip_{slot}"))
+        else:
+            # Check if equippable
+            if item_id in EQUIPMENT_DB:
+                 # Pass inv_id if available, otherwise fallback to item_id (legacy)
+                 cb = f"equip_{inv_id}" if inv_id else f"equip_{item_id}"
+                 m.add(types.InlineKeyboardButton("🛡 НАДЕТЬ", callback_data=cb))
+            else:
+                 # Consumables / Misc
+                 m.add(types.InlineKeyboardButton("⚡️ ИСПОЛЬЗОВАТЬ", callback_data=f"use_item_{item_id}"))
+
+        # Dismantle
+        if inv_id:
+            m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"dismantle_{inv_id}"))
+        else:
+            m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"dismantle_{item_id}"))
+
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="inventory"))
     return m
 

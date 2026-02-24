@@ -218,18 +218,33 @@ def inventory_handler(call):
         call.data = "inventory"
         inventory_handler(call)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("equip_") or call.data.startswith("unequip_") or call.data.startswith("use_item_") or call.data.startswith("dismantle_") or call.data.startswith("view_item_") or call.data.startswith("craft_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("equip_") or call.data.startswith("unequip_") or call.data.startswith("use_item_") or call.data.startswith("dismantle_") or call.data.startswith("view_item_") or call.data.startswith("craft_") or call.data.startswith("repair_"))
 def item_action_handler(call):
     uid = call.from_user.id
     u = db.get_user(uid)
 
     if call.data.startswith("equip_"):
-        item = call.data.replace("equip_", "")
-        info = EQUIPMENT_DB.get(item)
-        if info and db.equip_item(uid, item, info['slot']):
-            bot.answer_callback_query(call.id, f"🛡 Надето: {info['name']}")
-            call.data = "inventory"
-            inventory_handler(call)
+        val = call.data.replace("equip_", "")
+        # Try to parse as int (inv_id)
+        try:
+            inv_id = int(val)
+            # Find item info
+            items = db.get_inventory(uid)
+            target = next((i for i in items if i['id'] == inv_id), None)
+            if target:
+                item_id = target['item_id']
+                info = EQUIPMENT_DB.get(item_id)
+                if info and db.equip_item(uid, inv_id, info['slot']):
+                    bot.answer_callback_query(call.id, f"🛡 Надето: {info['name']}")
+                    call.data = "inventory"
+                    inventory_handler(call)
+                else:
+                    bot.answer_callback_query(call.id, "❌ Не удалось надеть.", show_alert=True)
+            else:
+                bot.answer_callback_query(call.id, "❌ Предмет не найден.", show_alert=True)
+        except ValueError:
+            # Legacy string item_id
+            bot.answer_callback_query(call.id, "⚠️ Устаревший предмет. Используйте конвертер.", show_alert=True)
 
     elif call.data.startswith("unequip_"):
         slot = call.data.replace("unequip_", "")
@@ -239,18 +254,37 @@ def item_action_handler(call):
             inventory_handler(call)
 
     elif call.data.startswith("view_item_"):
-        item_id = call.data.replace("view_item_", "")
+        val = call.data.replace("view_item_", "")
+        item_id = None
+        durability = None
+        inv_id = None
+
+        if val.isdigit():
+            inv_id = int(val)
+            items = db.get_inventory(uid)
+            target = next((i for i in items if i['id'] == inv_id), None)
+            if target:
+                item_id = target['item_id']
+                durability = target.get('durability')
+        else:
+            item_id = val # Legacy or Consumable stack
+
         info = ITEMS_INFO.get(item_id)
         if info:
             desc = info['desc']
             if info.get('type') == 'equip':
                 desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
-            is_equipped = item_id in db.get_equipped_items(uid).values()
+                if durability is not None:
+                    desc += f"\n\n🔧 Прочность: {durability}"
+                    if durability <= 0:
+                        desc += "\n⚠️ <b>СЛОМАНО (Не дает бонусов)</b>"
+
+            is_equipped = False # View item from inventory is never equipped
             image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["inventory"]
 
             # Crafting Button Logic
             can_craft = crafting_service.can_craft(uid, item_id)
-            markup = kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped)
+            markup = kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped, durability=durability, inv_id=inv_id)
             if can_craft:
                 if item_id == 'fragment':
                     markup.add(types.InlineKeyboardButton("✨ СИНТЕЗ (5 ШТ)", callback_data=f"craft_{item_id}"))
@@ -258,6 +292,34 @@ def item_action_handler(call):
                     markup.add(types.InlineKeyboardButton("🛠 КРАФТ (3->1)", callback_data=f"craft_{item_id}"))
 
             menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", markup, image_url=image)
+        else:
+            bot.answer_callback_query(call.id, "Предмет не найден.")
+
+    elif call.data.startswith("repair_"):
+        inv_id = int(call.data.replace("repair_", ""))
+        items = db.get_inventory(uid)
+        target = next((i for i in items if i['id'] == inv_id), None)
+
+        if target:
+            item_id = target['item_id']
+            info = EQUIPMENT_DB.get(item_id)
+            if info:
+                price = PRICES.get(item_id, info.get('price', 0))
+                repair_cost = int(price * 0.15)
+
+                if u['biocoin'] >= repair_cost:
+                    db.update_user(uid, biocoin=u['biocoin'] - repair_cost)
+                    db.repair_item(uid, inv_id)
+                    bot.answer_callback_query(call.id, f"🛠 Починено за {repair_cost} BC", show_alert=True)
+                    # Refresh view
+                    call.data = f"view_item_{inv_id}"
+                    item_action_handler(call)
+                else:
+                    bot.answer_callback_query(call.id, f"❌ Не хватает монет. Нужно {repair_cost} BC.", show_alert=True)
+            else:
+                bot.answer_callback_query(call.id, "Ошибка предмета.", show_alert=True)
+        else:
+            bot.answer_callback_query(call.id, "Предмет не найден.", show_alert=True)
 
     elif call.data.startswith("craft_"):
         item_id = call.data.replace("craft_", "")
@@ -273,9 +335,10 @@ def item_action_handler(call):
                 new_item_id = res
                 new_info = ITEMS_INFO.get(new_item_id, {})
                 bot.answer_callback_query(call.id, f"🛠 УСПЕХ! Получено: {new_info.get('name', new_item_id)}", show_alert=True)
-                # Switch view to new item
-                call.data = f"view_item_{new_item_id}"
-                item_action_handler(call)
+                # Switch view to new item - requires finding new ID which is hard here.
+                # Just go to inventory.
+                call.data = "inventory"
+                inventory_handler(call)
         else:
             bot.answer_callback_query(call.id, res, show_alert=True)
 
@@ -321,7 +384,24 @@ def item_action_handler(call):
             return
 
     elif call.data.startswith("dismantle_"):
-        item_id = call.data.replace("dismantle_", "")
+        val = call.data.replace("dismantle_", "")
+        item_id = None
+        inv_id = None
+        durability = 100
+
+        if val.isdigit():
+            inv_id = int(val)
+            items = db.get_inventory(uid)
+            target = next((i for i in items if i['id'] == inv_id), None)
+            if target:
+                item_id = target['item_id']
+                durability = target.get('durability', 100)
+        else:
+            item_id = val # Legacy/Stack
+
+        if not item_id:
+            bot.answer_callback_query(call.id, "Предмет не найден.")
+            return
 
         # Equipped check
         equipped = db.get_equipped_items(uid)
@@ -332,18 +412,29 @@ def item_action_handler(call):
         info = EQUIPMENT_DB.get(item_id) or ITEMS_INFO.get(item_id)
         if info:
             price = PRICES.get(item_id, info.get('price', 0))
-            scrap_val = int(price * 0.1)
+
+            # Refund Calculation
+            refund_pct = 0.05 if (durability is not None and durability <= 0) else 0.10
+            scrap_val = int(price * refund_pct)
 
             if scrap_val <= 0:
                 bot.answer_callback_query(call.id, "❌ Эту вещь нельзя разобрать (Цена 0).")
-            elif db.use_item(uid, item_id, 1):
-                db.update_user(uid, biocoin=u['biocoin'] + scrap_val)
-                bot.answer_callback_query(call.id, f"♻️ Разобрано: +{scrap_val} BC")
-                # Refresh
-                call.data = "inv_mode_dismantle"
-                inventory_handler(call)
             else:
-                bot.answer_callback_query(call.id, "❌ Ошибка предмета.")
+                # Use item (handle stack or id)
+                success = False
+                if inv_id:
+                    success = db.dismantle_item(uid, inv_id)
+                else:
+                    success = db.use_item(uid, item_id, 1)
+
+                if success:
+                    db.update_user(uid, biocoin=u['biocoin'] + scrap_val)
+                    bot.answer_callback_query(call.id, f"♻️ Разобрано: +{scrap_val} BC")
+                    # Refresh
+                    call.data = "inventory"
+                    inventory_handler(call)
+                else:
+                    bot.answer_callback_query(call.id, "❌ Ошибка предмета.")
         else:
                 bot.answer_callback_query(call.id, "❌ Эту вещь нельзя разобрать.")
 
