@@ -80,7 +80,7 @@ def pvp_equip_handler(call):
     # pvp_equip_{slot}_{sid}
     parts = call.data.split('_')
     slot_id = parts[2]
-    sid = parts[3]
+    sid = "_".join(parts[3:])
 
     uid = call.from_user.id
 
@@ -263,7 +263,7 @@ def pvp_atk_sel_handler(call):
     # pvp_atk_sel_{slot}_{sid}
     parts = call.data.split('_')
     slot_id = parts[3]
-    sid = parts[4]
+    sid = "_".join(parts[4:])
 
     uid = call.from_user.id
 
