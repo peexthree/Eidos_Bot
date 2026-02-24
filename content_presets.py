@@ -153,3 +153,38 @@ CONTENT_DATA = {
         {"type": "signal", "path": "general", "text": "📡 СИГНАЛ: ПРОБУЖДЕНИЕ. Доброе утро, Нео."},
     ]
 }
+
+# =============================================================================
+# VILLAINS DATA
+# =============================================================================
+
+VILLAINS_DATA = [
+    {"name": "🦠 Цифровой Паразит", "level": 1, "hp": 15, "atk": 3, "def": 0, "xp": 10, "coin": 5, "desc": "Мелкий вредоносный скрипт.", "image": "AgACAgIAAyEFAATh7MR7AAMFaZdrmi4qg_N9BN_x-gLXGwdrKicAAocZaxsIWrhI5Y_dTT5fA3ABAAMCAAN5AAM6BA"},
+    {"name": "👻 Призрак Глитча", "level": 1, "hp": 20, "atk": 5, "def": 1, "xp": 15, "coin": 8, "desc": "Искаженная тень удаленного файла.", "image": "AgACAgIAAyEFAATh7MR7AAMGaZdsNkH7JDRyMT9c49GqyUoQ0RoAAokZaxsIWrhIle-ahgUNZh4BAAMCAAN5AAM6BA"},
+    {"name": "🚁 Дрон-Страж", "level": 2, "hp": 35, "atk": 8, "def": 2, "xp": 30, "coin": 15, "desc": "Автоматическая система защиты.", "image": "AgACAgIAAyEFAATh7MR7AAMHaZds6ED5mmbXJbFvKbhmHczoeuoAAo0ZaxsIWrhIQuizc2gAAei4AQADAgADeQADOgQ"},
+    {"name": "💣 Логическая Бомба", "level": 2, "hp": 25, "atk": 14, "def": 0, "xp": 35, "coin": 20, "desc": "Нестабильный код. Бьет больно, умирает быстро.", "image": "AgACAgIAAyEFAATh7MR7AAMIaZdtfkWResG7cf608teGHW2ib0YAApEZaxsIWrhIlzYB0uES0isBAAMCAAN5AAM6BA"},
+    {"name": "⛏ Крипто-Майнер", "level": 3, "hp": 45, "atk": 10, "def": 4, "xp": 40, "coin": 50, "desc": "Вор ресурсов.", "image": "AgACAgIAAyEFAATh7MR7AAMLaZduYT8MvIcvURyeY94kKFw-3wkAApQZaxsIWrhI_ZAsnjoFsrIBAAMCAAN5AAM6BA"},
+    {"name": "🐉 Спам-Гидра", "level": 3, "hp": 55, "atk": 12, "def": 5, "xp": 50, "coin": 25, "desc": "Отрежь один баннер - всплывут два.", "image": "AgACAgIAAyEFAATh7MR7AAMMaZdu5b7fBc0Ljz81M5K-_H76LxgAApYZaxsIWrhI_Gm8yRyNOEMBAAMCAAN5AAM6BA"},
+    {"name": "❌ Фатальный Сбой", "level": 4, "hp": 70, "atk": 15, "def": 6, "xp": 80, "coin": 40, "desc": "Воплощение ошибки.", "image": "AgACAgIAAyEFAATh7MR7AAMNaZdvcdmJOoh05uZtmI30l6Q-UnEAApoZaxsIWrhIPyEIlMGsqSwBAAMCAAN5AAM6BA"},
+    {"name": "🗡 Ассасин Даркнета", "level": 4, "hp": 60, "atk": 18, "def": 5, "xp": 90, "coin": 60, "desc": "Скрытный убийца.", "image": "AgACAgIAAyEFAATh7MR7AAMOaZdwB64RBFjucZtBFCraEWyFuBUAAp4ZaxsIWrhI-dgfMLd4wyABAAMCAAN5AAM6BA"},
+    {"name": "🧠 ИИ-Доминатор", "level": 5, "hp": 90, "atk": 20, "def": 8, "xp": 200, "coin": 100, "desc": "Мятежный ИИ.", "image": "AgACAgIAAxkBAAIHk2mXcLX5QDMhHjjFpaLAKfLE3YvYAALvEmsbAk7ASLxYbYHYESP1AQADAgADeQADOgQ"},
+    {"name": "⬛ Стиратель", "level": 6, "hp": 110, "atk": 22, "def": 10, "xp": 300, "coin": 200, "desc": "Сущность пустоты.", "image": "AgACAgIAAyEFAATh7MR7AAMRaZdx0N-bZk1ZUKwIDbOg9JUJupgAAqgZaxsIWrhIbsivZh0xC1MBAAMCAAN5AAM6BA"},
+    {"name": "👻 Нейро-Призрак", "level": 7, "hp": 130, "atk": 24, "def": 11, "xp": 400, "coin": 250, "desc": "Фантом нейросети.", "image": "AgACAgIAAyEFAATh7MR7AAMSaZdyVqEf748CvklylemN2YahescAAqkZaxsIWrhIAhNl07jTLUcBAAMCAAN5AAM6BA"},
+    {"name": "💀 Кибер-Лич", "level": 8, "hp": 150, "atk": 26, "def": 12, "xp": 500, "coin": 350, "desc": "Восставший из удаленных.", "image": "AgACAgIAAyEFAATh7MR7AAMTaZdy2HeF9r8MorB-0NmVuja-0bYAAqoZaxsIWrhIWN9ELUMp-CsBAAMCAAN5AAM6BA"},
+    {"name": "🏗 Архитектор Кошмаров", "level": 9, "hp": 170, "atk": 28, "def": 13, "xp": 700, "coin": 500, "desc": "Строит лабиринты страха.", "image": "AgACAgIAAyEFAATh7MR7AAMUaZdzSZzEtRaFa835qbvXgrWwrYQAAq0ZaxsIWrhIVeAOHTvOBfIBAAMCAAN5AAM6BA"},
+    {"name": "🍽 Пожиратель Кода", "level": 10, "hp": 190, "atk": 30, "def": 14, "xp": 1000, "coin": 800, "desc": "Уничтожитель миров.", "image": "AgACAgIAAyEFAATh7MR7AAMVaZdz599RkRYpnSmxxXy5tkZKn14AArMZaxsIWrhIT6qjL-sjZh0BAAMCAAN5AAM6BA"},
+    {"name": "🛡 Страж Ядра", "level": 12, "hp": 210, "atk": 32, "def": 15, "xp": 1500, "coin": 1200, "desc": "Охраняет самое ценное.", "image": "AgACAgIAAyEFAATh7MR7AAMWaZd0R7E_6UjTG_C5Erw80kiJhmAAArUZaxsIWrhIh6m0tCby5EUBAAMCAAN5AAM6BA"},
+    {"name": "⚛️ Омни-Синтез", "level": 15, "hp": 240, "atk": 35, "def": 16, "xp": 2500, "coin": 2000, "desc": "Слияние всех ошибок.", "image": "AgACAgIAAyEFAATh7MR7AAMXaZd0iQhGPrilyfLBp_g9alaPB7EAArkZaxsIWrhIyPGw1IFGY6kBAAMCAAN5AAM6BA"},
+    {"name": "🤖 Бог Машины", "level": 20, "hp": 270, "atk": 38, "def": 17, "xp": 5000, "coin": 4000, "desc": "Deus Ex Machina.", "image": "AgACAgIAAyEFAATh7MR7AAMYaZd1igu6iCr1oLnMb107UNJGtL8AAtAZaxsIWrhI5NTPv0YGs1kBAAMCAAN5AAM6BA"},
+    {"name": "🌌 Пустотный Странник", "level": 25, "hp": 300, "atk": 42, "def": 18, "xp": 8000, "coin": 6000, "desc": "Пришел из-за грани.", "image": "AgACAgIAAyEFAATh7MR7AAMZaZd15f1mvL9Y_2F3MnKzSclhb-EAAtIZaxsIWrhI3gwhvb3aPD0BAAMCAAN5AAM6BA"},
+    {"name": "🌀 Энтропия", "level": 30, "hp": 350, "atk": 48, "def": 20, "xp": 10000, "coin": 10000, "desc": "Хаос воплоти.", "image": "AgACAgIAAyEFAATh7MR7AAMaaZd2Xje8phrJ1YTTa0rTku-v6JcAAtQZaxsIWrhIN97CBiNN2FYBAAMCAAN5AAM6BA"}
+]
+
+OLD_VILLAINS_NAMES = (
+    "Цифровой Паразит", "Призрак Глитча", "Дрон-Страж", "Логическая Бомба",
+    "Крипто-Майнер", "Спам-Гидра", "Фатальный Сбой", "Ассасин Даркнета",
+    "ИИ-Доминатор", "Стиратель", "Нейро-Призрак", "Кибер-Лич",
+    "Архитектор Кошмаров", "Пожиратель Кода", "Страж Ядра", "Омни-Синтез",
+    "Бог Машины", "Пустотный Странник", "Энтропия",
+    "Data Leech", "Glitch Phantom"
+)
