@@ -4,6 +4,10 @@ import config
 import keyboards as kb
 from modules.services.utils import menu_update, split_long_message
 import time
+import csv
+import base64
+import os
+from datetime import datetime
 
 @bot.message_handler(commands=['admin'])
 def admin_command(m):
@@ -298,3 +302,69 @@ def admin_text_handler(m):
         except:
             bot.send_message(uid, "RESULT TOO LONG / ERROR")
         db.delete_state(uid)
+
+
+# Команда для выгрузки базы
+@bot.message_handler(commands=['backup_content'])
+def send_content_backup(message):
+    uid = message.from_user.id
+    # Проверка, что это админ
+    if not db.is_user_admin(uid):
+        return
+
+    bot.send_message(uid, "⏳ Начинаю сборку контента из базы...")
+
+    filename = f"content_export_{datetime.now().strftime('%d_%m')}.csv"
+
+    try:
+        # 1. Подключаемся к базе
+        with db.db_cursor() as cursor:
+            if not cursor:
+                bot.send_message(uid, "❌ Ошибка подключения к базе данных.")
+                return
+
+            cursor.execute("SELECT id, type, path, level, text FROM content ORDER BY id")
+            rows = cursor.fetchall()
+
+        if not rows:
+             bot.send_message(uid, "⚠️ База данных пуста.")
+             return
+
+        # 2. Создаем CSV и сразу расшифровываем текст
+        with open(filename, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', 'type', 'path', 'level', 'text'])
+
+            for row in rows:
+                # Handle both tuple and RealDictCursor logic if necessary
+                if isinstance(row, dict):
+                     r_id = row['id']
+                     r_type = row['type']
+                     r_path = row['path']
+                     r_level = row['level']
+                     r_text = row['text']
+                else:
+                     r_id, r_type, r_path, r_level, r_text = row
+
+                try:
+                    # Расшифровываем Base64 прямо тут
+                    decoded_text = base64.b64decode(r_text).decode('utf-8')
+                except:
+                    decoded_text = r_text # Если не вышло, оставляем как есть
+
+                writer.writerow([r_id, r_type, r_path, r_level, decoded_text])
+
+        # 3. Отправляем файл
+        with open(filename, 'rb') as doc:
+            bot.send_document(uid, doc, caption=f"✅ База выгружена! Всего строк: {len(rows)}")
+
+    except Exception as e:
+        bot.send_message(uid, f"❌ Ошибка при выгрузке: {e}")
+
+    finally:
+        # Удаляем временный файл
+        if os.path.exists(filename):
+            try:
+                os.remove(filename)
+            except:
+                pass
