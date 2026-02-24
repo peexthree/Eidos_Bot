@@ -7,6 +7,7 @@ import time
 import csv
 import base64
 import os
+import zipfile
 from datetime import datetime
 
 @bot.message_handler(commands=['admin'])
@@ -368,3 +369,57 @@ def send_content_backup(message):
                 os.remove(filename)
             except:
                 pass
+
+@bot.message_handler(commands=['backup_full'])
+def send_full_backup(message):
+    uid = message.from_user.id
+    if not db.is_user_admin(uid):
+        return
+
+    bot.send_message(uid, "⏳ Начинаю полную выгрузку базы данных...")
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    zip_filename = f"full_backup_{timestamp}.zip"
+    temp_files = []
+
+    try:
+        tables = db.get_all_tables()
+        if not tables:
+            bot.send_message(uid, "⚠️ Не удалось получить список таблиц.")
+            return
+
+        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zip_obj:
+            for table in tables:
+                csv_filename = f"{table}.csv"
+                temp_files.append(csv_filename)
+                try:
+                    with open(csv_filename, 'w', newline='', encoding='utf-8') as f:
+                        writer = csv.writer(f)
+                        with db.db_cursor() as cur:
+                            cur.execute(f"SELECT * FROM {table}")
+                            if cur.description:
+                                headers = [desc[0] for desc in cur.description]
+                                writer.writerow(headers)
+                                # Fetch in chunks if needed, but fetchall is simpler for now
+                                writer.writerows(cur.fetchall())
+                            else:
+                                writer.writerow(['(Empty Table Structure)'])
+
+                    zip_obj.write(csv_filename)
+                except Exception as e:
+                    bot.send_message(uid, f"⚠️ Ошибка при экспорте таблицы {table}: {e}")
+
+        if os.path.exists(zip_filename):
+            with open(zip_filename, 'rb') as doc:
+                bot.send_document(uid, doc, caption=f"✅ Полный бэкап базы ({len(tables)} таблиц).")
+            temp_files.append(zip_filename)
+        else:
+             bot.send_message(uid, "❌ Ошибка создания архива.")
+
+    except Exception as e:
+        bot.send_message(uid, f"❌ Критическая ошибка бэкапа: {e}")
+    finally:
+        for f in temp_files:
+            if os.path.exists(f):
+                try: os.remove(f)
+                except: pass
