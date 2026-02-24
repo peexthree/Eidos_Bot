@@ -429,7 +429,9 @@ def guide_menu(page_key='intro', u=None):
     m.add(types.InlineKeyboardButton("⚔️ БОЙ", callback_data="guide_page_combat"),
           types.InlineKeyboardButton("📊 ПРОКАЧКА", callback_data="guide_page_stats"))
     m.add(types.InlineKeyboardButton("🎒 ПРЕДМЕТЫ", callback_data="guide_page_items"),
-          types.InlineKeyboardButton("🔓 ВЗЛОМ", callback_data="guide_page_pvp"))
+          types.InlineKeyboardButton("🛠 КРАФТ", callback_data="guide_page_crafting"))
+    m.add(types.InlineKeyboardButton("💰 ЭКОНОМИКА", callback_data="guide_page_economy"),
+          types.InlineKeyboardButton("🔓 ВЗЛОМ (PvP)", callback_data="guide_page_pvp"))
     m.add(types.InlineKeyboardButton("🤝 СИНДИКАТ", callback_data="guide_page_social"),
           types.InlineKeyboardButton("⚡️ СОВЕТЫ", callback_data="guide_page_tips"))
 
