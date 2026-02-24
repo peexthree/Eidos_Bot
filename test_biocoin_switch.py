@@ -50,7 +50,7 @@ def test_buy_software_biocoin():
     args = mock_cursor.execute.call_args[0]
     sql = args[0]
     print(f"SQL Executed: {sql}")
-    assert "UPDATE users SET biocoin =" in sql
+    assert "UPDATE players SET biocoin =" in sql
 
 if __name__ == "__main__":
     try:

@@ -258,7 +258,7 @@ def admin_text_handler(m):
         count = 0
         try:
             with db.db_cursor() as cur:
-                cur.execute("SELECT uid FROM users")
+                cur.execute("SELECT uid FROM players")
                 users = cur.fetchall()
                 for row in users:
                     try:

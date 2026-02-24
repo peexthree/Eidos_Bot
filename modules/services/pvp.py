@@ -144,12 +144,12 @@ def upgrade_deck(uid):
         with db.db_session() as conn:
             with conn.cursor() as cur:
                 # Deduct BioCoins safely
-                cur.execute("UPDATE users SET biocoin = biocoin - %s WHERE uid = %s AND biocoin >= %s", (cost, uid, cost))
+                cur.execute("UPDATE players SET biocoin = biocoin - %s WHERE uid = %s AND biocoin >= %s", (cost, uid, cost))
                 if cur.rowcount == 0:
                     return False, f"❌ Не хватает BioCoins ({cost} нужно)."
 
                 # Upgrade Level
-                cur.execute("UPDATE users SET deck_level = %s WHERE uid = %s", (next_level, uid))
+                cur.execute("UPDATE players SET deck_level = %s WHERE uid = %s", (next_level, uid))
         return True, f"🆙 Дека улучшена до уровня {next_level}!"
     except Exception as e:
         return False, f"Error: {e}"
@@ -176,9 +176,9 @@ def buy_software(uid, software_id, is_hardware=False):
         with db.db_session() as conn:
             with conn.cursor() as cur:
                 if currency == 'biocoin':
-                    cur.execute("UPDATE users SET biocoin = biocoin - %s WHERE uid = %s AND biocoin >= %s", (cost, uid, cost))
+                    cur.execute("UPDATE players SET biocoin = biocoin - %s WHERE uid = %s AND biocoin >= %s", (cost, uid, cost))
                 else:
-                    cur.execute("UPDATE users SET xp = xp - %s WHERE uid = %s AND xp >= %s", (cost, uid, cost))
+                    cur.execute("UPDATE players SET xp = xp - %s WHERE uid = %s AND xp >= %s", (cost, uid, cost))
 
                 if cur.rowcount == 0:
                     return False, f"❌ Не хватает средств ({cost} {currency.upper()} нужно)."
@@ -186,7 +186,7 @@ def buy_software(uid, software_id, is_hardware=False):
                 # Special logic for Proxy
                 if software_id == 'proxy_server':
                     expiry = int(time.time() + 86400) # 24h
-                    cur.execute("UPDATE users SET proxy_expiry = %s WHERE uid = %s", (expiry, uid))
+                    cur.execute("UPDATE players SET proxy_expiry = %s WHERE uid = %s", (expiry, uid))
                     msg = "🕶 Прокси активирован на 24 часа."
                 else:
                     # Add Item
@@ -405,7 +405,7 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
         with db.db_session() as conn:
             with conn.cursor() as cur:
                 # Lock target
-                cur.execute("SELECT biocoin FROM users WHERE uid = %s FOR UPDATE", (target_uid,))
+                cur.execute("SELECT biocoin FROM players WHERE uid = %s FOR UPDATE", (target_uid,))
                 real_bal = cur.fetchone()[0]
 
                 if success:
@@ -419,15 +419,15 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
 
                     # Total Gain
                     total_gain = reward_coins + amount
-                    cur.execute("UPDATE users SET biocoin = biocoin + %s WHERE uid = %s", (total_gain, attacker_uid))
+                    cur.execute("UPDATE players SET biocoin = biocoin + %s WHERE uid = %s", (total_gain, attacker_uid))
 
                     if amount > 0:
                         stolen_coins = amount
-                        cur.execute("UPDATE users SET biocoin = biocoin - %s WHERE uid = %s", (amount, target_uid))
+                        cur.execute("UPDATE players SET biocoin = biocoin - %s WHERE uid = %s", (amount, target_uid))
 
                     # Set Shield
                     shield_end = int(time.time() + config.PVP_CONSTANTS['SHIELD_DURATION'])
-                    cur.execute("UPDATE users SET shield_until = %s WHERE uid = %s", (shield_end, target_uid))
+                    cur.execute("UPDATE players SET shield_until = %s WHERE uid = %s", (shield_end, target_uid))
 
                 else:
                     # Failure Logic
@@ -444,9 +444,9 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
                         lost_xp = 300 # Enhanced penalty
 
                         # Steal XP (give to defender)
-                        cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (lost_xp, target_uid))
+                        cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (lost_xp, target_uid))
 
-                    cur.execute("UPDATE users SET xp = GREATEST(0, xp - %s) WHERE uid = %s", (lost_xp, attacker_uid))
+                    cur.execute("UPDATE players SET xp = GREATEST(0, xp - %s) WHERE uid = %s", (lost_xp, attacker_uid))
 
                 # Reduce Durability of used programs (Attacker)
                 for slot, soft_id in selected_programs.items():
@@ -465,7 +465,7 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
                 log_id = cur.fetchone()[0]
 
                 # Update last hack target
-                cur.execute("UPDATE users SET last_hack_target = %s WHERE uid = %s", (target_uid, attacker_uid))
+                cur.execute("UPDATE players SET last_hack_target = %s WHERE uid = %s", (target_uid, attacker_uid))
 
     except Exception as e:
         return {'success': False, 'msg': f"DB Error: {e}"}
