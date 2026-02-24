@@ -2,7 +2,7 @@ import time
 import random
 import database as db
 import config
-from config import SHADOW_BROKER_ITEMS, EQUIPMENT_DB, ITEMS_INFO
+from config import SHADOW_BROKER_ITEMS, EQUIPMENT_DB, ITEMS_INFO, CURSED_CHEST_DROPS
 
 GACHA_PRICE = 1000
 
@@ -71,20 +71,26 @@ def process_gacha_purchase(uid):
     reward = ""
     item_id = ""
 
-    if roll < 0.05:
+    if roll < 0.01:
+        # 1% - Cursed Item (Red)
+        item_id = random.choice(CURSED_CHEST_DROPS)
+        # Fetch name from EQUIPMENT_DB since they are equipment
+        reward = EQUIPMENT_DB.get(item_id, {}).get('name', '🔴 ПРОКЛЯТЫЙ АРТЕФАКТ')
+
+    elif roll < 0.06:
         # 5% - Fragment
         item_id = "fragment"
         reward = "🧩 ФРАГМЕНТ ДАННЫХ (Легендарный)"
-    elif roll < 0.20:
+    elif roll < 0.21:
          # 15% - Good Consumable
          item_id = random.choice(['neural_stimulator', 'emp_grenade', 'stealth_spray', 'abyssal_key'])
          reward = ITEMS_INFO[item_id]['name']
-    elif roll < 0.40:
+    elif roll < 0.41:
          # 20% - Standard Consumable
          item_id = random.choice(['battery', 'compass', 'master_key'])
          reward = ITEMS_INFO[item_id]['name']
     else:
-         # 60% - Trash (XP consolation)
+         # 59% - Trash (XP consolation)
          scrap = random.randint(10, 50)
          db.add_xp_to_user(uid, scrap)
          return True, f"📂 <b>ПУСТО...</b>\n\nВнутри только мусорный код.\nВы извлекли {scrap} XP."
