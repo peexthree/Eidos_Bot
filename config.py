@@ -7,9 +7,9 @@ TOKEN = os.environ.get('BOT_TOKEN')
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 DATABASE_URL = os.environ.get('DATABASE_URL')
 try:
-    ADMIN_ID = int(os.environ.get('ADMIN_ID', 5178416366))
-except:
-    ADMIN_ID = 5178416366
+    ADMIN_ID = int(os.environ.get('ADMIN_ID'))
+except (TypeError, ValueError):
+    ADMIN_ID = None
 CHANNEL_ID = "@Eidos_Chronicles"
 BOT_USERNAME = "Eidos_Interface_bot"
 
