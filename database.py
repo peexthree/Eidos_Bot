@@ -731,19 +731,26 @@ def dismantle_item(uid, inv_id):
              return cur.rowcount > 0
 
 def get_item_count(uid, item_id, cursor=None):
-    query = "SELECT SUM(quantity) FROM inventory WHERE uid=%s AND item_id=%s"
+    query = "SELECT SUM(quantity) as total FROM inventory WHERE uid=%s AND item_id=%s"
+
+    def _extract(res):
+        if not res: return 0
+        if isinstance(res, dict):
+            val = res.get('total')
+        else:
+            val = res[0]
+        return int(val) if val is not None else 0
+
     if cursor:
         cursor.execute(query, (uid, item_id))
         res = cursor.fetchone()
-        if not res or res[0] is None: return 0
-        return int(res[0])
+        return _extract(res)
 
     with db_cursor() as cur:
         if not cur: return 0
         cur.execute(query, (uid, item_id))
         res = cur.fetchone()
-        if not res or res[0] is None: return 0
-        return int(res[0])
+        return _extract(res)
 
 def check_achievement_exists(uid, ach_id):
     with db_cursor() as cur:
