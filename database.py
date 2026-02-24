@@ -5,6 +5,7 @@ from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 import time
 import logging
+import random
 from datetime import datetime
 import re
 from config import ITEMS_INFO, INVENTORY_LIMIT
@@ -73,6 +74,7 @@ def admin_exec_query(query, params=None):
 def admin_force_delete_item(uid, item_id):
     with db_cursor() as cur:
         if not cur: return False
+        # Fallback to delete all instances if legacy item_id logic is used
         cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
         return cur.rowcount > 0
 
@@ -134,7 +136,6 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quarantine_end_time BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_history TEXT DEFAULT ''")
                 # PVP v2.0
-                # data_balance deprecated - replaced by biocoin
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deck_level INTEGER DEFAULT 1")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deck_config TEXT DEFAULT '{\"1\": \"soft_brute_v1\", \"2\": null, \"3\": null}'")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS shield_until BIGINT DEFAULT 0")
@@ -200,28 +201,50 @@ def init_db():
                 );
             ''')
 
-            print("/// DEBUG: creating inventory table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS inventory (
-                    uid BIGINT, item_id TEXT, quantity INTEGER DEFAULT 1, durability INTEGER DEFAULT 100,
-                    PRIMARY KEY(uid, item_id)
-                );
-            ''')
+            # --- INVENTORY MIGRATION V2 ---
+            # We need to support unique item instances.
+            # 1. Check if 'id' column exists.
+            needs_migration = False
             try:
-                print("/// DEBUG: migrating inventory constraint")
-                cur.execute("SELECT 1 FROM pg_constraint WHERE conname = 'inventory_uid_item_id_key'")
+                cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='inventory' AND column_name='id'")
                 if not cur.fetchone():
+                    needs_migration = True
+            except: pass
+
+            if needs_migration:
+                print("/// DEBUG: MIGRATING INVENTORY TO V2 (Instance Based)")
+                try:
+                    # 1. Rename old table
+                    cur.execute("ALTER TABLE inventory RENAME TO inventory_old")
+                    # 2. Create new table
+                    cur.execute('''
+                        CREATE TABLE inventory (
+                            id SERIAL PRIMARY KEY,
+                            uid BIGINT,
+                            item_id TEXT,
+                            quantity INTEGER DEFAULT 1,
+                            durability INTEGER DEFAULT 100
+                        )
+                    ''')
+                    # 3. Copy data and EXPAND stacks
+                    # Using generate_series to unroll quantity into individual rows with quantity 1
                     cur.execute("""
-                        CREATE TEMP TABLE IF NOT EXISTS inv_backup AS
-                        SELECT uid, item_id, SUM(quantity) as q, MAX(durability) as d
-                        FROM inventory GROUP BY uid, item_id
+                        INSERT INTO inventory (uid, item_id, quantity, durability)
+                        SELECT uid, item_id, 1, durability
+                        FROM inventory_old
+                        CROSS JOIN generate_series(1, quantity)
                     """)
-                    cur.execute("TRUNCATE inventory CASCADE")
-                    cur.execute("INSERT INTO inventory (uid, item_id, quantity, durability) SELECT uid, item_id, q, d FROM inv_backup")
-                    cur.execute("DROP TABLE inv_backup")
-                    cur.execute("ALTER TABLE inventory ADD CONSTRAINT inventory_uid_item_id_key UNIQUE (uid, item_id)")
+                    # 4. Drop old table
+                    cur.execute("DROP TABLE inventory_old")
                     conn.commit()
-            except: conn.rollback()
+                except Exception as e:
+                    print(f"/// MIGRATION ERROR: {e}")
+                    conn.rollback()
+
+            # Ensure user_equipment has durability
+            try:
+                cur.execute("ALTER TABLE user_equipment ADD COLUMN IF NOT EXISTS durability INTEGER DEFAULT 10")
+            except: pass
 
             print("/// DEBUG: creating content table")
             cur.execute('''
@@ -323,12 +346,6 @@ def get_state(uid):
         cur.execute("SELECT state, data FROM bot_states WHERE uid = %s", (uid,))
         res = cur.fetchone()
         if res:
-            # If data is present, maybe return tuple?
-            # Original code used 'state' string often containing data like "wait_give_item_id|item_id"
-            # We will stick to returning just state string for compatibility if data is None,
-            # or maybe the stored state string itself if logic expects it.
-            # In admin.py logic: state = user_states.get(uid).
-            # So get_state should return the state string.
             return res[0]
         return None
 
@@ -452,25 +469,61 @@ def reset_daily_stats(uid):
         with conn.cursor() as cur:
             cur.execute("UPDATE users SET raid_count_today = 0, last_raid_date = CURRENT_DATE WHERE uid = %s", (uid,))
 
-def add_item(uid, item_id, qty=1, cursor=None):
-    def _add_logic(cur):
-        # 1. Check if item already exists (for stacking)
-        cur.execute("SELECT 1 FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
-        exists = cur.fetchone()
+def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
+    # Import locally to avoid circular deps if any
+    from config import EQUIPMENT_DB, CURSED_CHEST_DROPS
 
-        if not exists:
-            # 2. Check limit only for new items
+    def _add_logic(cur):
+        is_equipment = item_id in EQUIPMENT_DB
+
+        # Check limits only if creating NEW entry/stack
+        # For equipment, every item is a new entry.
+        # For consumables, only if not exists.
+
+        check_limit = False
+        if is_equipment:
+            check_limit = True
+        else:
+            cur.execute("SELECT 1 FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
+            if not cur.fetchone():
+                check_limit = True
+
+        if check_limit:
             cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
             res = cur.fetchone()
             count = res[0] if res else 0
             if count >= INVENTORY_LIMIT:
                 return False
 
-        durability = ITEMS_INFO.get(item_id, {}).get('durability', 100)
-        cur.execute("""
-            INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, %s, %s)
-            ON CONFLICT (uid, item_id) DO UPDATE SET quantity = inventory.quantity + %s
-        """, (uid, item_id, qty, durability, qty))
+        if is_equipment:
+            # Equipment: Always insert new row with unique durability
+            if specific_durability:
+                durability = specific_durability
+            elif item_id in CURSED_CHEST_DROPS:
+                durability = 50
+            else:
+                durability = random.randint(5, 10)
+
+            # Insert QTY times
+            for _ in range(qty):
+                cur.execute("""
+                    INSERT INTO inventory (uid, item_id, quantity, durability)
+                    VALUES (%s, %s, 1, %s)
+                """, (uid, item_id, durability))
+        else:
+            # Consumable: Stack
+            # PK is id, so we can't use ON CONFLICT(uid, item_id)
+            cur.execute("SELECT id, quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
+            row = cur.fetchone()
+            if row:
+                inv_id, current_qty = row
+                cur.execute("UPDATE inventory SET quantity = quantity + %s WHERE id = %s", (qty, inv_id))
+            else:
+                cur.execute("""
+                    INSERT INTO inventory (uid, item_id, quantity, durability)
+                    VALUES (%s, %s, %s, 100)
+                """, (uid, item_id, qty))
+
         return True
 
     if cursor:
@@ -481,7 +534,8 @@ def add_item(uid, item_id, qty=1, cursor=None):
         return _add_logic(cur)
 
 def get_inventory(uid, cursor=None):
-    query = "SELECT * FROM inventory WHERE quantity > 0 AND uid = %s"
+    # Returns list including 'id' for handling individual items
+    query = "SELECT id, uid, item_id, quantity, durability FROM inventory WHERE quantity > 0 AND uid = %s ORDER BY item_id ASC"
     if cursor:
         cursor.execute(query, (uid,))
         return cursor.fetchall()
@@ -492,44 +546,57 @@ def get_inventory(uid, cursor=None):
         return cur.fetchall()
 
 def use_item(uid, item_id, qty=1, cursor=None):
+    # This function is mostly used for consumables/currencies/logic
+    # For equipment 'dismantle', we should use a specific function or logic, but
+    # legacy calls use this. We need to handle stack vs individual.
+    # If item_id is passed, and multiple exist, which one to use?
+    # Default to "First found" for consumables/legacy compatibility.
+
+    def _use_logic(cur):
+        cur.execute("SELECT id, quantity FROM inventory WHERE uid=%s AND item_id=%s ORDER BY id LIMIT 1", (uid, item_id))
+        row = cur.fetchone()
+        if not row: return False
+
+        inv_id, quantity = row
+        # Handling row dict or tuple
+        if isinstance(row, dict):
+            inv_id = row['id']
+            quantity = row['quantity']
+
+        if quantity >= qty:
+            new_qty = quantity - qty
+            if new_qty <= 0:
+                cur.execute("DELETE FROM inventory WHERE id = %s", (inv_id,))
+            else:
+                cur.execute("UPDATE inventory SET quantity = %s WHERE id = %s", (new_qty, inv_id))
+            return True
+        else:
+            # Not enough in this stack?
+            # Current logic implies singular consumable stacks.
+            return False
+
     if cursor:
-        cursor.execute("UPDATE inventory SET quantity = quantity - %s WHERE uid = %s AND item_id = %s RETURNING quantity", (qty, uid, item_id))
-        res = cursor.fetchone()
-
-        quantity = None
-        if res:
-            if isinstance(res, dict): quantity = res['quantity']
-            else: quantity = res[0]
-
-        if quantity is not None and quantity <= 0:
-            cursor.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
-        return res is not None
+        return _use_logic(cursor)
 
     with db_cursor() as cur:
         if not cur: return False
-        cur.execute("UPDATE inventory SET quantity = quantity - %s WHERE uid = %s AND item_id = %s RETURNING quantity", (qty, uid, item_id))
-        res = cur.fetchone()
-        if res and res[0] <= 0:
-            cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
-        return res is not None
+        return _use_logic(cur)
 
-def decrease_durability(uid, item_id, amount=1):
+def decrease_durability(uid, slot, amount=1):
+    # Updates durability in user_equipment directly
     with db_cursor() as cur:
         if not cur: return False
-        cur.execute("SELECT durability, quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
+        cur.execute("SELECT durability, item_id FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
         res = cur.fetchone()
         if not res: return False
-        new_dur = res[0] - amount
-        if new_dur <= 0:
-            if res[1] > 1:
-                base_dur = ITEMS_INFO.get(item_id, {}).get('durability', 100)
-                cur.execute("UPDATE inventory SET quantity = quantity - 1, durability = %s WHERE uid=%s AND item_id=%s", (base_dur, uid, item_id))
-            else:
-                cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
-            return False
-        else:
-            cur.execute("UPDATE inventory SET durability = %s WHERE uid=%s AND item_id=%s", (new_dur, uid, item_id))
-            return True
+
+        dur, item_id = res
+        if dur is None: dur = 10 # Fallback
+
+        new_dur = max(0, dur - amount)
+        cur.execute("UPDATE user_equipment SET durability = %s WHERE uid=%s AND slot=%s", (new_dur, uid, slot))
+
+        return True # Just decrease, don't auto-unequip here (handled by raid logic or check)
 
 def get_inventory_size(uid):
     with db_cursor() as cur:
@@ -537,63 +604,144 @@ def get_inventory_size(uid):
         cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
         return cur.fetchone()[0]
 
-def equip_item(uid, item_id, slot):
+def equip_item(uid, inv_id, slot):
+    # inv_id is the primary key in inventory table
     try:
         with db_cursor() as cur:
             if not cur: return False
-            cur.execute("SELECT item_id FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
+
+            # 1. Get item from inventory
+            cur.execute("SELECT item_id, durability, quantity FROM inventory WHERE id=%s AND uid=%s", (inv_id, uid))
+            res = cur.fetchone()
+            if not res: return False
+            item_id, durability, qty = res
+
+            # 2. Check if slot is occupied
+            cur.execute("SELECT item_id, durability FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
             old = cur.fetchone()
+
             if old:
-                cur.execute("""INSERT INTO inventory (uid, item_id, quantity) VALUES (%s, %s, 1) 
-                               ON CONFLICT (uid, item_id) DO UPDATE SET quantity = inventory.quantity + 1""", (uid, old[0]))
-            cur.execute("""INSERT INTO user_equipment (uid, slot, item_id) VALUES (%s, %s, %s)
-                           ON CONFLICT (uid, slot) DO UPDATE SET item_id = %s""", (uid, slot, item_id, item_id))
-            cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE uid=%s AND item_id=%s", (uid, item_id))
-            cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s AND quantity <= 0", (uid, item_id))
+                # Unequip old item -> Move to Inventory
+                old_item_id, old_dur = old
+                if old_dur is None: old_dur = 10
+                cur.execute("INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, 1, %s)", (uid, old_item_id, old_dur))
+
+            # 3. Equip new item
+            # upsert into user_equipment
+            cur.execute("""
+                INSERT INTO user_equipment (uid, slot, item_id, durability) VALUES (%s, %s, %s, %s)
+                ON CONFLICT (uid, slot) DO UPDATE SET item_id = EXCLUDED.item_id, durability = EXCLUDED.durability
+            """, (uid, slot, item_id, durability))
+
+            # 4. Remove from inventory (or decrement)
+            if qty > 1:
+                cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE id=%s", (inv_id,))
+            else:
+                cur.execute("DELETE FROM inventory WHERE id=%s", (inv_id,))
+
             return True
-    except: return False
+    except Exception as e:
+        print(f"Equip Error: {e}")
+        return False
 
 def unequip_item(uid, slot):
-    with db_cursor() as cur:
-        if not cur: return False
-        cur.execute("SELECT item_id FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
-        old = cur.fetchone()
-        if not old: return False
-        cur.execute("DELETE FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
-        cur.execute("""INSERT INTO inventory (uid, item_id, quantity) VALUES (%s, %s, 1)
-                       ON CONFLICT (uid, item_id) DO UPDATE SET quantity = inventory.quantity + 1""", (uid, old[0]))
-        return True
+    try:
+        with db_cursor() as cur:
+            if not cur: return False
+
+            cur.execute("SELECT item_id, durability FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
+            old = cur.fetchone()
+            if not old: return False
+
+            item_id, durability = old
+            if durability is None: durability = 10
+
+            cur.execute("DELETE FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
+
+            # Move to inventory
+            cur.execute("INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, 1, %s)", (uid, item_id, durability))
+            return True
+    except Exception as e:
+        print(f"Unequip Error: {e}")
+        return False
 
 def get_equipped_items(uid):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return {}
-        cur.execute("SELECT slot, item_id FROM user_equipment WHERE uid=%s", (uid,))
+        cur.execute("SELECT slot, item_id, durability FROM user_equipment WHERE uid=%s", (uid,))
         return {row['slot']: row['item_id'] for row in cur.fetchall()}
 
 def break_equipment_randomly(uid):
+    # Reduces durability of a random item. If 0, unequip it.
+    # Returns the item_id that broke (hit 0), or None.
     with db_cursor() as cur:
         if not cur: return None
-        cur.execute("SELECT slot, item_id FROM user_equipment WHERE uid=%s ORDER BY RANDOM() LIMIT 1", (uid,))
-        item = cur.fetchone()
-        if item:
-            cur.execute("DELETE FROM user_equipment WHERE uid=%s AND slot=%s", (uid, item[0]))
-            return item[1]
+
+        # Select random equipped item
+        cur.execute("SELECT slot, item_id, durability FROM user_equipment WHERE uid=%s ORDER BY RANDOM() LIMIT 1", (uid,))
+        res = cur.fetchone()
+        if not res: return None
+
+        slot, item_id, durability = res
+        if durability is None: durability = 10
+
+        new_dur = max(0, durability - 1)
+        cur.execute("UPDATE user_equipment SET durability = %s WHERE uid=%s AND slot=%s", (new_dur, uid, slot))
+
+        if new_dur == 0:
+            # Move to inventory (Broken)
+            cur.execute("DELETE FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
+            cur.execute("INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, 1, 0)", (uid, item_id))
+            return item_id # Signal that it broke
+
         return None
 
+def repair_item(uid, inv_id):
+    from config import CURSED_CHEST_DROPS
+    with db_cursor() as cur:
+        if not cur: return False
+
+        cur.execute("SELECT item_id FROM inventory WHERE id=%s AND uid=%s", (inv_id, uid))
+        res = cur.fetchone()
+        if not res: return False
+
+        item_id = res[0]
+        max_dur = 50 if item_id in CURSED_CHEST_DROPS else 10
+
+        cur.execute("UPDATE inventory SET durability = %s WHERE id=%s", (max_dur, inv_id))
+        return True
+
+def dismantle_item(uid, inv_id):
+    # Deletes item or decrements stack
+    with db_cursor() as cur:
+        if not cur: return False
+
+        cur.execute("SELECT quantity FROM inventory WHERE id=%s AND uid=%s", (inv_id, uid))
+        res = cur.fetchone()
+        if not res: return False
+        qty = res[0]
+
+        if qty > 1:
+             cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE id=%s", (inv_id,))
+             return True
+        else:
+             cur.execute("DELETE FROM inventory WHERE id=%s", (inv_id,))
+             return cur.rowcount > 0
+
 def get_item_count(uid, item_id, cursor=None):
-    query = "SELECT quantity FROM inventory WHERE uid=%s AND item_id=%s"
+    query = "SELECT SUM(quantity) FROM inventory WHERE uid=%s AND item_id=%s"
     if cursor:
         cursor.execute(query, (uid, item_id))
         res = cursor.fetchone()
-        if not res: return 0
-        if isinstance(res, dict): return res['quantity']
-        return res[0]
+        if not res or res[0] is None: return 0
+        return int(res[0])
 
     with db_cursor() as cur:
         if not cur: return 0
         cur.execute(query, (uid, item_id))
         res = cur.fetchone()
-        return res[0] if res else 0
+        if not res or res[0] is None: return 0
+        return int(res[0])
 
 def check_achievement_exists(uid, ach_id):
     with db_cursor() as cur:
@@ -727,7 +875,7 @@ def get_random_villain(level=1, cursor=None):
         res = cur.fetchone()
         if not res:
             cur.execute(fallback_query, (level,))
-            res = cur.fetchone()
+            res = cursor.fetchone()
         return res
 
 def update_raid_enemy(uid, enemy_id, hp):
@@ -754,7 +902,7 @@ def get_villain_by_id(vid, cursor=None):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
         cur.execute("SELECT * FROM villains WHERE id = %s", (vid,))
-        return cur.fetchone()
+        return cursor.fetchone()
 
 def admin_add_content(c_type, text):
     with db_cursor() as cur:
