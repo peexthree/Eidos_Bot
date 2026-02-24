@@ -22,10 +22,11 @@ def get_raid_entry_cost(uid):
 
 def generate_random_event_type():
     r = random.random()
-    if r < 0.15: return 'combat'        # 15% Combat
-    if r < 0.20: return 'locked_chest'  # 5% Locked Chest
-    if r < 0.50: return 'lore'          # 30% Lore Room
-    return 'random'                     # 50% Random (Traps/Loot/Riddles)
+    if r < 0.01: return 'cursed_chest'  # 1% Cursed Chest (Ultra Rare)
+    if r < 0.16: return 'combat'        # 15% Combat
+    if r < 0.21: return 'locked_chest'  # 5% Locked Chest
+    if r < 0.51: return 'lore'          # 30% Lore Room
+    return 'random'                     # 49% Random (Traps/Loot/Riddles)
 
 def generate_balanced_event_type(last_type, current_streak):
     # Base logic
@@ -36,6 +37,7 @@ def generate_balanced_event_type(last_type, current_streak):
         # Force switch
         options = ['combat', 'locked_chest', 'random', 'lore']
         if last_type in options: options.remove(last_type)
+        # Don't force cursed_chest, keep it rare
         return random.choice(options)
 
     if current_streak >= 2 and new_type == last_type:
@@ -79,6 +81,10 @@ def get_chest_drops(depth, luck):
         pool.extend(['laser_pistol', 'nano_suit', 'backup_drive', 'nomad_goggles'])
 
     return random.choice(pool)
+
+def get_cursed_chest_drops():
+    from config import CURSED_CHEST_DROPS
+    return random.choice(CURSED_CHEST_DROPS)
 
 def process_riddle_answer(uid, user_answer):
     with db.db_session() as conn:
@@ -177,6 +183,9 @@ def process_raid_step(uid, answer=None, start_depth=None):
     stats, u = get_user_stats(uid)
     if not u: return False, "User not found", None, None, 'error', 0
 
+    # Initialize msg_prefix early to avoid UnboundLocalError in passive effects
+    msg_prefix = ""
+
     # ИСПОЛЬЗУЕМ ОДНО СОЕДИНЕНИЕ (чтобы избежать зависания бота)
     with db.db_session() as conn:
         with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
@@ -185,6 +194,106 @@ def process_raid_step(uid, answer=None, start_depth=None):
             s = cur.fetchone()
 
             is_new = False
+
+            # --- PASSIVE ITEM EFFECTS (START OF STEP) ---
+            # Retrieve equipped items once for efficiency
+            eq_items = db.get_equipped_items(uid)
+            head_item = eq_items.get('head')
+            chip_item = eq_items.get('chip')
+            armor_item = eq_items.get('armor')
+            weapon_item = eq_items.get('weapon')
+
+            # 1. BLOOD MINER (Chip)
+            if chip_item == 'blood_miner' and s: # Apply only if session exists
+                cur.execute("UPDATE raid_sessions SET buffer_coins = buffer_coins + 50, signal = GREATEST(0, signal - 2) WHERE uid = %s", (uid,))
+                s['buffer_coins'] += 50
+                s['signal'] = max(0, s['signal'] - 2)
+                # If signal drops to 0 here, death check handles it later or needs immediate check?
+                # Usually processed at event end, but if this kills, we should know.
+
+            # 2. SCHRODINGER'S ARMOR (Armor)
+            if armor_item == 'schrodinger_armor' and s:
+                import json
+                try:
+                    mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
+                except: mech_data = {}
+
+                # Randomize DEF for this step (-50 to +200)
+                mech_data['schrodinger_def'] = random.randint(-50, 200)
+                cur.execute("UPDATE raid_sessions SET mechanic_data = %s WHERE uid = %s", (json.dumps(mech_data), uid))
+
+            # 3. GRANDFATHER PARADOX (Weapon) - Delayed Damage
+            if weapon_item == 'grandfather_paradox' and s:
+                import json
+                try:
+                    mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
+                except: mech_data = {}
+
+                # Process Queue
+                dmg_queue = mech_data.get('paradox_queue', [])
+                if dmg_queue:
+                    # Pop first element if its time
+                    # Logic: Each step we shift queue.
+                    # Assuming queue is list of damage values.
+                    # Actually we need to track "turns remaining".
+                    # Simplified: Queue is list of {dmg: X, turns: Y}.
+                    # Decrement turns. If 0, apply damage.
+
+                    incoming_dmg = 0
+                    new_queue = []
+                    for entry in dmg_queue:
+                        entry['turns'] -= 1
+                        if entry['turns'] <= 0:
+                            incoming_dmg += entry['dmg']
+                        else:
+                            new_queue.append(entry)
+
+                    mech_data['paradox_queue'] = new_queue
+                    cur.execute("UPDATE raid_sessions SET mechanic_data = %s WHERE uid = %s", (json.dumps(mech_data), uid))
+
+                    if incoming_dmg > 0:
+                        s['signal'] = max(0, s['signal'] - incoming_dmg)
+                        cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid = %s", (s['signal'], uid))
+                        # We need to notify user about this damage?
+                        # It will appear as sudden signal loss in UI.
+
+            # 4. MARTYR'S HALO (Head) - Dynamic Luck
+            if head_item == 'martyr_halo' and s:
+                hp_perc = s['signal']
+                bonus_luck = 0
+                if hp_perc <= 10:
+                    bonus_luck = 200
+                else:
+                    # Scale: Lower HP = Higher Luck. e.g. 100 HP = 0, 10 HP = 200?
+                    # "The lower your signal, the higher your luck".
+                    # Let's say +1 LUCK per 1% missing HP?
+                    bonus_luck = 100 - hp_perc
+
+                stats['luck'] += bonus_luck
+
+            # 5. KAMIKAZE PROTOCOL (Chip)
+            if chip_item == 'kamikaze_protocol' and s:
+                import json
+                try:
+                    mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
+                except: mech_data = {}
+
+                k_steps = mech_data.get('kami_steps', 0) + 1
+                mech_data['kami_steps'] = k_steps
+                cur.execute("UPDATE raid_sessions SET mechanic_data = %s WHERE uid = %s", (json.dumps(mech_data), uid))
+
+                # Check Timer (10 steps max)
+                if k_steps > 10:
+                    # Penalty: Lose Level
+                    new_lvl = max(1, u['level'] - 1)
+                    if new_lvl < u['level']:
+                        cur.execute("UPDATE users SET level = %s, xp = 0 WHERE uid = %s", (new_lvl, uid))
+                        msg_prefix += "💣 <b>КАМИКАДЗЕ:</b> Ядро расплавилось! Уровень понижен.\n"
+                        # Reset steps or just keep punishing? Usually resets or kills.
+                        # Let's kill the player too to end the raid.
+                        s['signal'] = 0
+                        cur.execute("UPDATE raid_sessions SET signal = 0 WHERE uid = %s", (uid,))
+                        # Logic will proceed to death check
 
             # --- ЛОГИКА ВХОДА ---
             if not s:
@@ -230,7 +339,11 @@ def process_raid_step(uid, answer=None, start_depth=None):
             depth = s['depth']
 
             # --- [MODULE 2] GLITCH MECHANIC (5%) ---
-            if random.random() < 0.05 and not s.get('current_enemy_id'):
+            # REALITY SILENCER: Disable Glitches
+            can_glitch = True
+            if head_item == 'reality_silencer': can_glitch = False
+
+            if can_glitch and random.random() < 0.05 and not s.get('current_enemy_id'):
                 glitch_roll = random.random()
                 glitch_text = ""
 
@@ -300,43 +413,70 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     conn.commit()
 
             # 2. ДЕЙСТВИЕ: ОТКРЫТИЕ СУНДУКА (ИСПРАВЛЕНО)
-            if answer == 'open_chest':
+            if answer == 'open_chest' or answer == 'hack_chest':
+                event_type = s.get('next_event_type', 'locked_chest')
+                is_cursed = (event_type == 'cursed_chest')
+
                 has_abyssal = db.get_item_count(uid, 'abyssal_key', cursor=cur) > 0
                 has_master = db.get_item_count(uid, 'master_key', cursor=cur) > 0
                 has_spike = db.get_item_count(uid, 'data_spike', cursor=cur) > 0
 
-                if not (has_abyssal or has_master or has_spike):
-                    return False, "🔒 <b>НУЖЕН КЛЮЧ</b>\nКупите [КЛЮЧ], [ДАТА-ШИП] или найдите [КЛЮЧ БЕЗДНЫ].", None, u, 'locked_chest', 0
+                if answer == 'open_chest':
+                    if is_cursed:
+                        if not has_abyssal:
+                             return False, "🔒 <b>ПРОКЛЯТО</b>\nНужен КЛЮЧ ОТ БЕЗДНЫ (или попробуйте Взлом).", None, u, 'cursed_chest', 0
+                        key_used = 'abyssal_key'
+                    else:
+                        if has_abyssal: key_used = 'abyssal_key'
+                        elif has_master: key_used = 'master_key'
+                        else: return False, "🔒 <b>НУЖЕН КЛЮЧ</b>\nКупите [КЛЮЧ] или найдите [КЛЮЧ БЕЗДНЫ].", None, u, 'locked_chest', 0
 
-                key_used = None
+                elif answer == 'hack_chest':
+                    if not has_spike:
+                        # Should check if cursed or locked for return type
+                        ret_type = 'cursed_chest' if is_cursed else 'locked_chest'
+                        return False, "🔒 <b>НЕТ ДАТА-ШИПА</b>", None, u, ret_type, 0
+                    key_used = 'data_spike'
 
-                # Priority: Abyssal -> Master -> Spike
-                if has_abyssal: key_used = 'abyssal_key'
-                elif has_master: key_used = 'master_key'
-                else: key_used = 'data_spike'
-
-                # Spike Logic (80% chance)
-                spike_success = True
-                if key_used == 'data_spike':
-                    if random.random() > 0.8:
-                        spike_success = False
-
-                # Consume item
+                # Execute Attempt
                 db.use_item(uid, key_used, 1, cursor=cur)
 
-                if not spike_success:
-                    conn.commit()
-                    return False, "❌ <b>ВЗЛОМ ПРОВАЛЕН</b>\nДата-шип сломался.", None, u, 'locked_chest', 0
+                success = True
 
+                if key_used == 'data_spike':
+                    if is_cursed:
+                        # 50% chance for Cursed
+                        if random.random() > 0.5: success = False
+                    else:
+                        # 80% chance for Normal
+                        if random.random() > 0.8: success = False
+
+                if not success:
+                    conn.commit()
+                    ret_type = 'cursed_chest' if is_cursed else 'locked_chest'
+                    extra_d = {'has_data_spike': (db.get_item_count(uid, 'data_spike', cursor=cur) > 0)}
+                    return False, "❌ <b>ВЗЛОМ ПРОВАЛЕН</b>\nДата-шип сломался.", extra_d, u, ret_type, 0
+
+                # SUCCESS LUCK & REWARDS
                 bonus_xp = (300 + (depth * 5)) if key_used == 'abyssal_key' else (150 + (depth * 2))
                 bonus_coins = (100 + (depth * 2)) if key_used == 'abyssal_key' else (50 + depth)
 
-                # Дроп предмета
                 loot_item_txt = ""
-                if random.random() < 0.30: # 30% шанс на предмет
-                     l_item = get_chest_drops(depth, stats['luck'])
-                     cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
-                     loot_item_txt = f"\n📦 Предмет: {ITEMS_INFO.get(l_item, {}).get('name')}"
+
+                if is_cursed:
+                    # Guaranteed 1 RED item
+                    l_item = get_cursed_chest_drops()
+                    cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
+                    i_name = ITEMS_INFO.get(l_item, {}).get('name', 'Неизвестно')
+                    loot_item_txt = f"\n🔴 <b>ПРОКЛЯТЫЙ ЛУТ:</b>\n{i_name}"
+                    bonus_xp *= 2
+                    bonus_coins *= 2
+                else:
+                    # Normal chest loot logic
+                    if random.random() < 0.30: # 30% шанс на предмет
+                         l_item = get_chest_drops(depth, stats['luck'])
+                         cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
+                         loot_item_txt = f"\n📦 Предмет: {ITEMS_INFO.get(l_item, {}).get('name')}"
 
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, bonus_coins, uid))
                 conn.commit()
@@ -393,7 +533,12 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             # 3. ЦЕНА ШАГА
             step_cost = RAID_STEP_COST + (depth // 25)
-            if not is_new and answer != 'open_chest' and answer != 'use_battery':
+
+            # ARCHITECT'S EYE: Double Cost
+            if head_item == 'architect_eye':
+                step_cost *= 2
+
+            if not is_new and answer != 'open_chest' and answer != 'use_battery' and answer != 'hack_chest' and answer != 'claim_body' and answer != 'use_stimulator':
                 if u['xp'] < step_cost:
                     return False, f"🪫 <b>НЕТ ЭНЕРГИИ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
 
@@ -401,7 +546,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 u['xp'] -= step_cost
 
             # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
-            msg_prefix = ""
+            # msg_prefix is initialized at start of function
 
             # SCALING BIOMES IMPLEMENTATION
             biome_data = get_biome_modifiers(depth)
@@ -409,11 +554,16 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             # --- HEAD AURA: MOVEMENT (Void Walker / Relic Speed) ---
             step_size = 1
-            equipped_head = db.get_equipped_items(uid).get('head')
+            # equipped_head already fetched above as 'head_item'
 
-            if equipped_head in ['relic_speed', 'shadow_reliq-speed']:
+            # ARCHITECT'S EYE: Always see next room (handled in COMPASS section usually, but cost doubles here)
+            # Cost calc is in step 3 above, we need to adjust there.
+            # WAIT: Step cost calculation happens BEFORE this block in code structure.
+            # I need to verify where step_cost is calculated.
+
+            if head_item in ['relic_speed', 'shadow_reliq-speed']:
                 step_size = 2
-            elif equipped_head == 'void_walker_hood' and random.random() < 0.25:
+            elif head_item == 'void_walker_hood' and random.random() < 0.25:
                 step_size = 2
                 msg_prefix += "🌌 <b>ДВОЙНОЙ ШАГ:</b> Вы проскользнули сквозь пространство!\n"
 
@@ -501,6 +651,9 @@ def process_raid_step(uid, answer=None, start_depth=None):
             elif current_type_code == 'locked_chest':
                 event = {'type': 'locked_chest', 'text': 'Запертый контейнер.', 'val': 0}
 
+            elif current_type_code == 'cursed_chest':
+                event = {'type': 'cursed_chest', 'text': '🔴 <b>ПРОКЛЯТЫЙ СУНДУК:</b>\nОт него веет могильным холодом.', 'val': 0}
+
             # ПЕРЕДЫШКА (ЛОР)
             elif current_type_code == 'lore':
                 adv_level = 1
@@ -523,11 +676,18 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 # Use new grave system
                 grave = db.get_random_grave(depth)
 
+                # HEAD AURA: REALITY SILENCER (No Anomalies)
+                # HEAD AURA: DEATH MASK (+50% chance for graves)
+
+                allow_anomaly = (head_item != 'reality_silencer')
+                grave_chance = 0.3
+                if head_item == 'death_mask': grave_chance = 0.8 # significantly higher
+
                 # --- ANOMALY EVENT (Maxwell's Demon) ---
-                if depth > 50 and random.random() < 0.05:
+                if allow_anomaly and depth > 50 and random.random() < 0.05:
                      event = {'text': '🔴 <b>АНОМАЛИЯ:</b> Демон Максвелла.', 'type': 'anomaly_terminal', 'val': 0}
                 # --- SCAVENGING (Found Body) ---
-                elif grave and random.random() < 0.3: # 30% chance if grave exists
+                elif grave and random.random() < grave_chance:
                      # Load loot to show value?
                      import json
                      try:
@@ -558,35 +718,42 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             # ЭФФЕКТЫ СОБЫТИЙ
             if event['type'] == 'trap':
-                base_dmg = int(event['val'] * diff)
+                # KARMA INVERSION: Traps Heal
+                if chip_item == 'karma_inversion':
+                    heal_amt = 20
+                    new_sig = min(100, new_sig + heal_amt)
+                    msg_event = f"🔄 <b>ИНВЕРСИЯ:</b> Ловушка преобразована в энергию.\n❤️ +{heal_amt}% Сигнала"
+                    alert_msg = "🔄 ИНВЕРСИЯ: ЛОВУШКА -> ХИЛ"
+                else:
+                    base_dmg = int(event['val'] * diff)
 
-                # --- HEAD AURA: SCAVENGER MASK ---
-                if equipped_head == 'scavenger_mask':
-                    base_dmg = max(0, base_dmg - 5)
+                    # --- HEAD AURA: SCAVENGER MASK ---
+                    if head_item == 'scavenger_mask':
+                        base_dmg = max(0, base_dmg - 5)
 
-                dmg = max(5, base_dmg - stats['def'])
+                    dmg = max(5, base_dmg - stats['def'])
 
-                # Проверка Эгиды (Прямой SQL для скорости)
-                has_aegis = False
-                cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id='aegis'", (uid,))
-                ae_res = cur.fetchone()
-                if ae_res and ae_res['quantity'] > 0 and (new_sig - dmg <= 0):
-                    cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE uid=%s AND item_id='aegis'", (uid,))
-                    cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id='aegis' AND quantity <= 0", (uid,))
-                    dmg = 0
-                    msg_prefix += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
+                    # Проверка Эгиды (Прямой SQL для скорости)
+                    has_aegis = False
+                    cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id='aegis'", (uid,))
+                    ae_res = cur.fetchone()
+                    if ae_res and ae_res['quantity'] > 0 and (new_sig - dmg <= 0):
+                        cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE uid=%s AND item_id='aegis'", (uid,))
+                        cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id='aegis' AND quantity <= 0", (uid,))
+                        dmg = 0
+                        msg_prefix += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
 
-                # ONE-SHOT PROTECTION
-                elif new_sig > 90 and (new_sig - dmg <= 0):
-                     dmg = new_sig - 5
-                     msg_prefix += "⚠️ <b>СИСТЕМА СПАСЕНИЯ:</b> Критический урон снижен!\n"
+                    # ONE-SHOT PROTECTION
+                    elif new_sig > 90 and (new_sig - dmg <= 0):
+                         dmg = new_sig - 5
+                         msg_prefix += "⚠️ <b>СИСТЕМА СПАСЕНИЯ:</b> Критический урон снижен!\n"
 
-                new_sig = max(0, new_sig - dmg)
-                msg_event = f"💥 <b>ЛОВУШКА:</b> {event['text']}\n🔻 <b>-{dmg}% Сигнала</b>"
-                alert_msg = f"💥 ЛОВУШКА!\n{event['text']}\n-{dmg}% Сигнала"
+                    new_sig = max(0, new_sig - dmg)
+                    msg_event = f"💥 <b>ЛОВУШКА:</b> {event['text']}\n🔻 <b>-{dmg}% Сигнала</b>"
+                    alert_msg = f"💥 ЛОВУШКА!\n{event['text']}\n-{dmg}% Сигнала"
 
-                if new_sig <= 0:
-                    death_reason = f"ЛОВУШКА: {event['text']}"
+                    if new_sig <= 0:
+                        death_reason = f"ЛОВУШКА: {event['text']}"
 
             elif event['type'] == 'loot':
                 # TIERED LOOT IMPLEMENTATION
@@ -612,13 +779,28 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     if db.add_item(uid, 'encrypted_cache'):
                         cache_drop_txt = "\n🔐 <b>ПОЛУЧЕНО:</b> Зашифрованный Кэш"
 
+                # HOLO-POVERTY: Cap buffer coins at 500
+                if armor_item == 'holo_poverty':
+                    current_coins = s['buffer_coins'] # already updated above
+                    if current_coins > 500:
+                        diff_coins = current_coins - 500
+                        cur.execute("UPDATE raid_sessions SET buffer_coins = 500 WHERE uid=%s", (uid,))
+                        msg_prefix += "🧥 <b>НИЩЕТА:</b> Монеты сверх 500 потеряны.\n"
+
                 msg_event = f"{loot_info['prefix']} <b>НАХОДКА:</b> {event['text']}\n+{bonus_xp} XP | +{coins} BC{cache_drop_txt}"
                 alert_msg = f"💎 НАХОДКА!\n{event['text']}\n+{bonus_xp} XP | +{coins} BC{cache_drop_txt}"
 
             elif event['type'] == 'heal':
-                new_sig = min(100, new_sig + 25)
-                msg_event = f"❤️ <b>АПТЕЧКА:</b> {event['text']}\n+25% Сигнала"
-                alert_msg = f"❤️ АПТЕЧКА!\n+25% Сигнала"
+                if chip_item == 'karma_inversion':
+                    dmg_amt = 25
+                    new_sig = max(0, new_sig - dmg_amt)
+                    msg_event = f"🔄 <b>ИНВЕРСИЯ:</b> Аптечка оказалась ядом.\n🔻 -{dmg_amt}% Сигнала"
+                    alert_msg = "🔄 ИНВЕРСИЯ: ХИЛ -> УРОН"
+                    if new_sig <= 0: death_reason = "ИНВЕРСИЯ КАРМЫ (Аптечка)"
+                else:
+                    new_sig = min(100, new_sig + 25)
+                    msg_event = f"❤️ <b>АПТЕЧКА:</b> {event['text']}\n+25% Сигнала"
+                    alert_msg = f"❤️ АПТЕЧКА!\n+25% Сигнала"
 
             elif event['type'] == 'anomaly_terminal':
                 msg_event = f"🔴 <b>АНОМАЛИЯ:</b>\nВы встретили Демона Максвелла.\nОн предлагает сыграть."
@@ -682,18 +864,30 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             sig_bar = draw_bar(new_sig, 100, 8)
 
+            # OBLIVION CHIP: Hide HP
+            if chip_item == 'oblivion_chip':
+                sig_bar = "???"
+                new_sig = "???"
+
             # КОМПАС (БУДУЩЕЕ)
             comp_txt = ""
-            # Проверяем наличие компаса (безопасно)
+            # ARCHITECT'S EYE: Always active
+            is_architect = (head_item == 'architect_eye')
+
+            # Проверяем наличие компаса (безопасно) or Architect Eye
             cur.execute("SELECT quantity FROM inventory WHERE uid=%s AND item_id='compass'", (uid,))
             comp_q = cur.fetchone()
-            if comp_q and comp_q['quantity'] > 0:
-                 # Тратим заряд компаса
-                 cur.execute("UPDATE inventory SET durability = durability - 1 WHERE uid=%s AND item_id='compass'", (uid,))
-                 # Если сломался (условно, если есть механика поломки), но пока просто показываем
-                 comp_map = {'combat': '⚔️ ВРАГ', 'trap': '💥 ЛОВУШКА', 'loot': '💎 ЛУТ', 'random': '❔ НЕИЗВЕСТНО', 'locked_chest': '🔒 СУНДУК'}
+
+            if is_architect or (comp_q and comp_q['quantity'] > 0):
+                 # Тратим заряд компаса ONLY if not Architect
+                 if not is_architect:
+                     cur.execute("UPDATE inventory SET durability = durability - 1 WHERE uid=%s AND item_id='compass'", (uid,))
+
+                 comp_map = {'combat': '⚔️ ВРАГ', 'trap': '💥 ЛОВУШКА', 'loot': '💎 ЛУТ', 'random': '❔ НЕИЗВЕСТНО', 'locked_chest': '🔒 СУНДУК', 'cursed_chest': '🔴 ПРОКЛЯТИЕ'}
                  comp_res = comp_map.get(next_preview, '❔')
-                 comp_txt = f"🧭 <b>КОМПАС (Дальше):</b> {comp_res}"
+
+                 prefix = "🧿 <b>ОКО (Дальше):</b>" if is_architect else "🧭 <b>КОМПАС (Дальше):</b>"
+                 comp_txt = f"{prefix} {comp_res}"
                  conn.commit()
 
             # ЛОР / СОВЕТЫ
@@ -722,15 +916,28 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             next_step_cost = RAID_STEP_COST + (new_depth // 25)
 
+            # DEATH CHECKS (TRAPS/ENVIRONMENT)
+            # Check Thermonuclear Shroud again (for traps)
+            if new_sig <= 0 and armor_item == 'thermonuclear_shroud':
+                new_sig = 1
+                cur.execute("UPDATE raid_sessions SET buffer_xp=0, buffer_coins=0, buffer_items='', signal=1 WHERE uid=%s", (uid,))
+                msg_event += "\n☢️ <b>САВАН:</b> Взрыв спас жизнь, но уничтожил лут."
+                # We survived, return normally
+                return True, interface, extra_ret, u, event['type'], next_step_cost
+
             # СМЕРТЬ
             if new_sig <= 0:
                  report = generate_raid_report(uid, s)
                  cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
 
                  # Save Grave (Loot)
+                 # DEATH MASK: No Grave if equipped
+                 allow_grave = (head_item != 'death_mask')
+
                  import json
                  grave_loot = {'coins': s['buffer_coins'], 'items': s.get('buffer_items', '')}
-                 if s['buffer_coins'] > 0 or s.get('buffer_items'):
+
+                 if allow_grave and (s['buffer_coins'] > 0 or s.get('buffer_items')):
                      db.save_raid_grave(depth, json.dumps(grave_loot), u['username'] or "Unknown")
 
                  db.log_action(uid, 'death', f"Depth: {depth}, Reason: {death_reason}")
@@ -773,6 +980,17 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             if img_key and img_key in RAID_EVENT_IMAGES:
                 extra_ret['image'] = RAID_EVENT_IMAGES[img_key]
+
+            # Special case for cursed chest image
+            if event['type'] == 'cursed_chest' and 'cursed_chest' in RAID_EVENT_IMAGES:
+                extra_ret['image'] = RAID_EVENT_IMAGES['cursed_chest']
+                # Pass data spike status specifically for chest logic
+                has_spike = db.get_item_count(uid, 'data_spike', cursor=cur) > 0
+                extra_ret['has_data_spike'] = has_spike
+
+            if event['type'] == 'locked_chest':
+                has_spike = db.get_item_count(uid, 'data_spike', cursor=cur) > 0
+                extra_ret['has_data_spike'] = has_spike
 
             if not extra_ret: extra_ret = None
 

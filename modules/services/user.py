@@ -181,6 +181,36 @@ def get_user_stats(uid):
         stats['atk'] = int(stats['atk'] * 0.8)
         stats['def'] = int(stats['def'] * 0.8)
 
+    # --- IMPOSTER SYNDROME (Chip) ---
+    if eq.get('chip') == 'imposter_syndrome':
+        # Fetch Top 1 stats
+        top_user_data = db.get_leaderboard(limit=1, sort_by='xp')
+        if top_user_data:
+            top_u = top_user_data[0]
+            # Avoid self-copy if already top 1? The item says "copy ... player at 1st place".
+            # If self is 1st, it copies self (no change).
+            if str(top_u['uid']) != str(uid):
+                # We need to get stats of that user.
+                # WARNING: Recursion if we call get_user_stats again?
+                # No, db.get_equipped_items is separate.
+                # But get_user_stats calls get_equipped_items.
+                # We need to calculate their stats manually here to avoid recursion loop if they also have Imposter Syndrome (though unlikely to matter, just one level).
+                # Actually, better to just get their base stats from equipment.
+
+                top_eq = db.get_equipped_items(top_u['uid'])
+                top_stats = {'atk': 0, 'def': 0, 'luck': 0}
+                for _, t_item in top_eq.items():
+                    t_info = ITEMS_INFO.get(t_item, {})
+                    top_stats['atk'] += t_info.get('atk', 0)
+                    top_stats['def'] += t_info.get('def', 0)
+                    top_stats['luck'] += t_info.get('luck', 0)
+
+                # Apply school bonus for them
+                if top_u['path'] == 'mind': top_stats['def'] += 10
+                elif top_u['path'] == 'tech': top_stats['luck'] += 10
+
+                stats = top_stats
+
     return stats, u
 
 def perform_hard_reset(uid):

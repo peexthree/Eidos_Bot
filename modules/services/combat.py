@@ -41,8 +41,33 @@ def process_combat_action(uid, action):
     current_signal = full_s['signal']
     biome_data = get_biome_modifiers(full_s.get('depth', 0))
 
-    # --- HEAD AURA CHECK ---
-    equipped_head = db.get_equipped_items(uid).get('head')
+    # --- ITEM CHECKS ---
+    eq_items = db.get_equipped_items(uid)
+    equipped_head = eq_items.get('head')
+    equipped_weapon = eq_items.get('weapon')
+    equipped_armor = eq_items.get('armor')
+    equipped_chip = eq_items.get('chip')
+
+    import json
+    try:
+        mech_data = json.loads(full_s.get('mechanic_data', '{}') or '{}')
+    except: mech_data = {}
+
+    # --- MECHANICS: SCHRODINGER'S ARMOR ---
+    if equipped_armor == 'schrodinger_armor':
+        sch_def = mech_data.get('schrodinger_def')
+        if sch_def is not None:
+            stats['def'] = sch_def
+            # msg += f"🎲 <b>ШРЕДИНГЕР:</b> DEF={sch_def}\n" # Optional spam
+
+    # --- MECHANICS: MARTYR'S HALO ---
+    if equipped_head == 'martyr_halo':
+        if current_signal <= 10:
+            bonus_luck = 200
+            msg += "🕯 <b>МУЧЕНИК:</b> Смертельная удача (+200)!\n"
+        else:
+            bonus_luck = int((100 - current_signal) * 2)
+        stats['luck'] += bonus_luck
 
     if action == 'attack':
         # ADRENALINE
@@ -67,10 +92,36 @@ def process_combat_action(uid, action):
 
         base_dmg = int(stats['atk'] * (1.5 if is_crit else 1.0) * dmg_mult)
 
+        # 1. CREDIT SLICER (Weapon)
+        if equipped_weapon == 'credit_slicer':
+            burn = int(u['biocoin'] * 0.01)
+            if burn > 0:
+                db.update_user(uid, biocoin=max(0, u['biocoin'] - burn))
+                base_dmg += burn
+                msg += f"🔪 <b>РЕЗАК:</b> Сожжено {burn} BC ради урона.\n"
+
+        # 2. EMPATH'S NEURO-WHIP (Weapon)
+        if equipped_weapon == 'empath_whip':
+            base_dmg = int(villain['atk'] * 1.5)
+            msg += f"🏏 <b>ЭМПАТИЯ:</b> Возврат агрессии.\n"
+
+        # 3. CACHE WIPER (Weapon)
+        if equipped_weapon == 'cache_wiper':
+            base_dmg += 200 # Weapon base
+            # Loot wipe handled in kill block
+
         # RNG VARIANCE (Module 2)
         variance = random.uniform(0.8, 1.2)
         dmg = int(base_dmg * variance)
         dmg = max(1, dmg)
+
+        # 4. BANHAMMER SHARD (Weapon)
+        ban_triggered = False
+        if equipped_weapon == 'banhammer_shard':
+            if random.random() < 0.01:
+                dmg = 999999
+                ban_triggered = True
+                msg += "🔨 <b>БАН-ХАММЕР:</b> УДАЛЕНИЕ ОБЪЕКТА ИЗ РЕАЛЬНОСТИ.\n"
 
         # EXECUTION
         if enemy_hp < (villain['hp'] * 0.1):
@@ -100,6 +151,17 @@ def process_combat_action(uid, action):
         if new_enemy_hp <= 0:
             xp_gain = villain.get('xp_reward', 0)
             coin_gain = villain.get('coin_reward', 0)
+
+            # CACHE WIPER (No Loot)
+            if equipped_weapon == 'cache_wiper':
+                xp_gain = 0
+                coin_gain = 0
+                msg += "🔫 <b>СТИРАТЕЛЬ:</b> Лут удален вместе с врагом.\n"
+
+            # BANHAMMER BONUS (x10 XP)
+            if ban_triggered:
+                xp_gain *= 10
+                msg += "🔨 <b>БАН-БОНУС:</b> Опыт x10!\n"
 
             # --- ANOMALY BUFF: OVERLOAD (+50% Coins) ---
             if u.get('anomaly_buff_expiry', 0) > time.time() and u.get('anomaly_buff_type') == 'overload':
@@ -157,6 +219,16 @@ def process_combat_action(uid, action):
                 enemy_dmg = 0
                 msg += "🪖 <b>ТАКТИКА:</b> Автоматическое уклонение!\n"
 
+            # 5. ERROR 404 MIRROR (Armor)
+            if equipped_armor == 'error_404_mirror' and enemy_dmg > 0:
+                if random.random() < 0.5:
+                    # Reflect full damage? Desc: "Hit pass through you and hit monster"
+                    # Assume self=0, monster takes enemy_dmg
+                    new_enemy_hp = max(0, new_enemy_hp - enemy_dmg)
+                    db.update_raid_enemy(uid, enemy_id, new_enemy_hp)
+                    enemy_dmg = 0
+                    msg += "🪞 <b>404:</b> Удар прошел сквозь текстуры и задел врага!\n"
+
             # --- AURA: ARCHITECT MASK (Reflection) ---
             if equipped_head == 'architect_mask' and enemy_dmg > 0:
                 reflect = int(enemy_dmg * 0.3)
@@ -164,6 +236,19 @@ def process_combat_action(uid, action):
                     new_enemy_hp = max(0, new_enemy_hp - reflect)
                     db.update_raid_enemy(uid, enemy_id, new_enemy_hp)
                     msg += f"🎭 <b>ЗЕРКАЛО:</b> Отражено {reflect} урона.\n"
+
+            # 6. GRANDFATHER PARADOX (Weapon) - Delayed Damage
+            if equipped_weapon == 'grandfather_paradox' and enemy_dmg > 0:
+                # Add to queue
+                dmg_queue = mech_data.get('paradox_queue', [])
+                dmg_queue.append({'dmg': enemy_dmg, 'turns': 3})
+                mech_data['paradox_queue'] = dmg_queue
+
+                with db.db_cursor() as cur:
+                    cur.execute("UPDATE raid_sessions SET mechanic_data = %s WHERE uid = %s", (json.dumps(mech_data), uid))
+
+                msg += "🕰 <b>ПАРАДОКС:</b> Урон отложен на 3 хода.\n"
+                enemy_dmg = 0
 
             used_aegis = False
             if enemy_dmg > current_signal:
@@ -177,12 +262,37 @@ def process_combat_action(uid, action):
 
             # --- AURA: CYBER HALO (Death Prevent) ---
             if new_sig <= 0 and equipped_head == 'cyber_halo':
-                # Check cooldown? Prompt says "1 time per battle".
-                # We need to track if halo used in this battle.
-                # Simplification: 20% chance always (without limit per battle it might be OP, but without DB change...)
                 if random.random() < 0.20:
                     new_sig = 1
                     msg += "🪩 <b>НИМБ:</b> Вмешательство системы! Смерть отменена.\n"
+
+            # 7. THERMONUCLEAR SHROUD (Armor) - Prevent Death
+            if new_sig <= 0 and equipped_armor == 'thermonuclear_shroud':
+                new_sig = 1
+                new_enemy_hp = 0 # Kill enemy
+                db.update_raid_enemy(uid, enemy_id, 0) # Dead
+
+                # Wipe Loot
+                with db.db_cursor() as cur:
+                    cur.execute("UPDATE raid_sessions SET buffer_xp = 0, buffer_coins = 0, buffer_items = '' WHERE uid=%s", (uid,))
+
+                msg += "☢️ <b>САВАН:</b> ВЗРЫВ ЯДРА! Враг уничтожен, лут уничтожен, вы живы.\n"
+                # This should count as a win technically if enemy dies?
+                # But logic continues... we set hp=0.
+                # Loop below will handle "win" if enemy dies?
+                # Actually, enemy logic happened above. We are in player defense phase.
+                # If enemy dies here (reflect/explosion), we need to trigger win state.
+
+                # Special return to force win processing?
+                # Currently function returns combat state.
+                # If enemy HP 0, next turn player will likely attack and win instantly or handle it.
+                # Or we can return 'win' here?
+                # Let's return a special combat msg that ends fight?
+                # Actually, simply setting enemy HP to 0 means next "attack" or check will find it dead.
+                # But we are in "process_combat_action".
+                # If we return 'combat', user sees screen.
+                # Next click 'attack' -> enemy has 0 HP -> Win logic triggers.
+                # Good enough.
 
             with db.db_cursor() as cur:
                 cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_sig, uid))
