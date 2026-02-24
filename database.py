@@ -1003,8 +1003,8 @@ def get_admins():
 def is_user_admin(uid):
     # Check env var first
     try:
-        env_admin = os.environ.get('ADMIN_ID', '5178416366')
-        if str(uid) == str(env_admin):
+        env_admin = os.environ.get('ADMIN_ID')
+        if env_admin and str(uid) == str(env_admin):
              return True
     except: pass
 
