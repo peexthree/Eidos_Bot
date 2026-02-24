@@ -8,6 +8,7 @@ from modules.services.inventory import format_inventory, check_legacy_items, con
 from modules.services.shop import get_shadow_shop_items, process_gacha_purchase
 from modules.services.user import check_achievements, perform_hard_reset
 from modules.services.content import get_decryption_status
+from modules.services.crafting import crafting_service
 import time
 from telebot import types
 
@@ -213,7 +214,7 @@ def inventory_handler(call):
         call.data = "inventory"
         inventory_handler(call)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("equip_") or call.data.startswith("unequip_") or call.data.startswith("use_item_") or call.data.startswith("dismantle_") or call.data.startswith("view_item_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("equip_") or call.data.startswith("unequip_") or call.data.startswith("use_item_") or call.data.startswith("dismantle_") or call.data.startswith("view_item_") or call.data.startswith("craft_"))
 def item_action_handler(call):
     uid = call.from_user.id
     u = db.get_user(uid)
@@ -242,7 +243,28 @@ def item_action_handler(call):
                 desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
             is_equipped = item_id in db.get_equipped_items(uid).values()
             image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["inventory"]
-            menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped), image_url=image)
+
+            # Crafting Button Logic
+            can_craft = crafting_service.can_craft(uid, item_id)
+            markup = kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped)
+            if can_craft:
+                markup.add(types.InlineKeyboardButton("🛠 КРАФТ (3->1)", callback_data=f"craft_{item_id}"))
+
+            menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", markup, image_url=image)
+
+    elif call.data.startswith("craft_"):
+        item_id = call.data.replace("craft_", "")
+        success, res = crafting_service.craft_item(uid, item_id)
+
+        if success:
+            new_item_id = res
+            new_info = ITEMS_INFO.get(new_item_id, {})
+            bot.answer_callback_query(call.id, f"🛠 УСПЕХ! Получено: {new_info.get('name', new_item_id)}", show_alert=True)
+            # Switch view to new item
+            call.data = f"view_item_{new_item_id}"
+            item_action_handler(call)
+        else:
+            bot.answer_callback_query(call.id, res, show_alert=True)
 
     elif call.data.startswith("use_item_"):
         item_id = call.data.replace("use_item_", "")
