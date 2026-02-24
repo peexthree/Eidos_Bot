@@ -594,6 +594,7 @@ def pvp_menu():
     m = types.InlineKeyboardMarkup(row_width=2)
     m.add(types.InlineKeyboardButton(f"📡 ПОИСК ЦЕЛИ ({config.PVP_FIND_COST} XP)", callback_data="pvp_search"))
     m.add(types.InlineKeyboardButton("🛡 НАСТРОИТЬ ЗАЩИТУ", callback_data="pvp_config"))
+    m.add(types.InlineKeyboardButton("🎒 ИНВЕНТАРЬ ПО", callback_data="pvp_inventory"))
     m.add(types.InlineKeyboardButton("🏪 МАГАЗИН СОФТА", callback_data="pvp_shop"))
     m.add(types.InlineKeyboardButton("🩸 ВЕНДЕТТА", callback_data="pvp_vendetta"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
@@ -640,7 +641,8 @@ def pvp_software_select_menu(inventory, slot_id, mode='defense'):
 
     for item in inventory:
         # Item: {'id': ..., 'name': ..., 'icon': ..., 'type': ...}
-        txt = f"{item['icon']} {item['name']} ({item['type'].upper()})"
+        # Name already contains icon in config
+        txt = f"{item['name']} ({item['type'].upper()})"
         m.add(types.InlineKeyboardButton(txt, callback_data=f"{cb_prefix}{slot_id}_{item['id']}"))
 
     back_cb = "pvp_config" if mode == 'defense' else "pvp_attack_prep"
@@ -653,7 +655,8 @@ def pvp_shop_menu():
     # Standard Software
     m.add(types.InlineKeyboardButton("─── 💾 ПРОГРАММЫ ───", callback_data="dummy"))
     for sid, info in config.SOFTWARE_DB.items():
-        txt = f"{info['icon']} {info['name']} — {info['cost']} BC"
+        # Name has icon
+        txt = f"{info['name']} — {info['cost']} BC"
         m.add(types.InlineKeyboardButton(txt, callback_data=f"pvp_buy_{sid}"))
 
     # Hardware / Consumables
