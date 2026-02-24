@@ -243,6 +243,16 @@ def init_db():
                     print(f"/// MIGRATION ERROR: {e}")
                     conn.rollback()
 
+            # --- FIX: REMOVE LEGACY CONSTRAINTS ---
+            try:
+                print("/// DEBUG: Removing legacy unique constraints on inventory")
+                cur.execute("ALTER TABLE inventory DROP CONSTRAINT IF EXISTS inventory_uid_item_id_key")
+                cur.execute("DROP INDEX IF EXISTS inventory_uid_item_id_key")
+                conn.commit()
+            except Exception as e:
+                print(f"/// CONSTRAINT DROP ERROR: {e}")
+                conn.rollback()
+
             # Ensure user_equipment has durability
             try:
                 cur.execute("ALTER TABLE user_equipment ADD COLUMN IF NOT EXISTS durability INTEGER DEFAULT 10")
