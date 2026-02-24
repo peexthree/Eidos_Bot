@@ -1,204 +1,357 @@
 import time
 import random
+import json
 import database as db
 import config
 from modules.services.user import get_user_stats
 
+# =============================================================================
+# DECK & INVENTORY MANAGEMENT (v2.0)
+# =============================================================================
+
+def get_deck(uid):
+    """
+    Retrieves the user's cyber deck configuration.
+    Returns: {'level': int, 'slots': int, 'config': dict}
+    """
+    user = db.get_user(uid)
+    if not user:
+        return None
+
+    level = user.get('deck_level', 1)
+
+    # Get max slots for level
+    upgrade_info = config.DECK_UPGRADES.get(level, {"slots": 1})
+    max_slots = upgrade_info['slots']
+
+    # Parse config
+    config_json = user.get('deck_config')
+    deck_config = {}
+    if config_json:
+        try:
+            deck_config = json.loads(config_json)
+        except:
+            deck_config = {"1": "soft_brute_v1"} # Fallback default
+    else:
+        deck_config = {"1": "soft_brute_v1"}
+
+    # Ensure config has entries for all slots (even if None)
+    for i in range(1, max_slots + 1):
+        if str(i) not in deck_config:
+            deck_config[str(i)] = None
+
+    return {
+        'level': level,
+        'slots': max_slots,
+        'config': deck_config
+    }
+
+def set_slot(uid, slot_id, software_id):
+    """
+    Equips software into a deck slot.
+    slot_id: str ("1", "2", "3")
+    software_id: str (from config.SOFTWARE_DB) or None to unequip
+    """
+    user = db.get_user(uid)
+    if not user: return False, "User not found"
+
+    # Validate software ownership
+    if software_id:
+        count = db.get_item_count(uid, software_id)
+        if count < 1:
+            return False, "❌ Программа не куплена!"
+
+        # Verify valid software
+        if software_id not in config.SOFTWARE_DB:
+            return False, "❌ Неизвестная программа."
+
+    # Get current deck
+    deck_data = get_deck(uid)
+    current_config = deck_data['config']
+    max_slots = deck_data['slots']
+
+    if int(slot_id) > max_slots:
+        return False, f"❌ Слот {slot_id} недоступен (Уровень деки мал)."
+
+    # Update config
+    current_config[str(slot_id)] = software_id
+
+    new_config_json = json.dumps(current_config)
+    db.update_user(uid, deck_config=new_config_json)
+
+    return True, "✅ Программа установлена."
+
+def upgrade_deck(uid):
+    """
+    Upgrades deck level using DATA currency.
+    """
+    user = db.get_user(uid)
+    current_level = user.get('deck_level', 1)
+    next_level = current_level + 1
+
+    if next_level not in config.DECK_UPGRADES:
+        return False, "❌ Максимальный уровень!"
+
+    cost = config.DECK_UPGRADES[next_level]['cost']
+
+    # Transaction with Atomic Check
+    try:
+        with db.db_session() as conn:
+            with conn.cursor() as cur:
+                # Deduct DATA safely
+                cur.execute("UPDATE users SET data_balance = data_balance - %s WHERE uid = %s AND data_balance >= %s", (cost, uid, cost))
+                if cur.rowcount == 0:
+                    return False, f"❌ Не хватает DATA ({cost} нужно)."
+
+                # Upgrade Level
+                cur.execute("UPDATE users SET deck_level = %s WHERE uid = %s", (next_level, uid))
+        return True, f"🆙 Дека улучшена до уровня {next_level}!"
+    except Exception as e:
+        return False, f"Error: {e}"
+
+def buy_software(uid, software_id):
+    """
+    Purchases software using DATA currency.
+    """
+    soft = config.SOFTWARE_DB.get(software_id)
+    if not soft: return False, "Программа не найдена."
+
+    cost = soft['cost']
+
+    try:
+        with db.db_session() as conn:
+            with conn.cursor() as cur:
+                # Deduct DATA safely
+                cur.execute("UPDATE users SET data_balance = data_balance - %s WHERE uid = %s AND data_balance >= %s", (cost, uid, cost))
+                if cur.rowcount == 0:
+                    return False, f"❌ Не хватает DATA ({cost} нужно)."
+
+                # Add Item
+                db.add_item(uid, software_id)
+        return True, f"💾 Программа {soft['name']} приобретена!"
+    except Exception as e:
+        return False, f"Error: {e}"
+
+def get_software_inventory(uid):
+    """
+    Returns list of owned software items.
+    """
+    all_items = db.get_inventory(uid)
+    software = []
+    for item in all_items:
+        sid = item['item_id']
+        if sid in config.SOFTWARE_DB:
+            info = config.SOFTWARE_DB[sid]
+            software.append({
+                'id': sid,
+                'name': info['name'],
+                'type': info['type'],
+                'icon': info['icon'],
+                'power': info['power'],
+                'desc': info['desc'],
+                'quantity': item['quantity'],
+                'durability': item['durability']
+            })
+    return software
+
+# =============================================================================
+# BATTLE ENGINE (v2.0)
+# =============================================================================
+
 def find_target(attacker_uid):
     """
-    Finds a random target for PVP.
+    Finds a random target for PVP (v2.0 Logic).
     """
-    for _ in range(10):
+    for _ in range(15):
         target_uid = db.get_random_user_for_hack(attacker_uid)
         if not target_uid: continue
 
         target = db.get_user(target_uid)
         if not target: continue
 
+        # V2 Checks:
+        if target.get('biocoin', 0) < config.PVP_CONSTANTS['PROTECTION_LIMIT']: continue
+        if target.get('shield_until', 0) > time.time(): continue
+
         if target.get('level', 1) <= config.QUARANTINE_LEVEL: continue
         if db.check_pvp_cooldown(attacker_uid, target_uid): continue
         if target.get('is_quarantined'): continue
 
+        # Calculate Loot Estimate
         real_bal = target.get('biocoin', 0)
-        est_base = int(real_bal * 0.075)
-        est_base = min(est_base, 5000)
-        if est_base < 100: est_base = 100
+        steal_percent = config.PVP_CONSTANTS.get('STEAL_PERCENT', 0.10)
 
-        est_min = int(est_base * 0.8)
-        est_max = int(est_base * 1.2)
+        est_amount = int(real_bal * steal_percent)
+
+        # Scan slots (Masked)
+        target_deck = get_deck(target_uid)
+        slots_preview = {}
+        for i in range(1, 4):
+            val = target_deck['config'].get(str(i))
+            if i > target_deck['slots']:
+                slots_preview[i] = "🔒" # Locked slot
+            elif val:
+                slots_preview[i] = "❓"
+            else:
+                slots_preview[i] = "🕸" # Empty
 
         t_stats, _ = get_user_stats(target_uid)
-        threat = "🟢 НИЗКИЙ"
-        if t_stats['def'] > 50: threat = "🔴 ВЫСОКИЙ"
-        elif t_stats['def'] > 20: threat = "🟡 СРЕДНИЙ"
+        threat = "🟡 СРЕДНИЙ"
 
         return {
             'uid': target_uid,
             'name': target.get('username') or target.get('first_name') or "Unknown",
             'level': target.get('level', 1),
-            'est_loot_min': est_min,
-            'est_loot_max': est_max,
+            'est_loot': est_amount,
+            'slots_preview': slots_preview,
             'threat': threat
         }
 
     return None
 
-def calculate_hack_chance(attacker_uid, target_uid):
-    a_stats, _ = get_user_stats(attacker_uid)
-    t_stats, _ = get_user_stats(target_uid)
-    target = db.get_user(target_uid)
-
-    a_score = a_stats['atk'] + (a_stats['luck'] * 1.5)
-    d_score = t_stats['def'] + (target['level'] * 5)
-
-    diff = a_score - d_score
-    chance = 50 + (diff * 0.5)
-
-    return max(10, min(90, int(chance)))
-
-def perform_hack(attacker_uid, target_uid, method='normal', revenge_amount=0):
+def calculate_battle(attacker_deck, defender_deck):
     """
-    Executes the hack.
-    method: 'normal', 'stealth', 'revenge'
-    revenge_amount: If method='revenge', try to steal this amount.
+    Simulates 3 rounds of Rock-Paper-Scissors.
+    ATK > DEF > STL > ATK
+    """
+    log = []
+    score_attacker = 0
+    score_defender = 0
+
+    for i in range(1, 4):
+        slot_str = str(i)
+
+        atk_soft_id = attacker_deck.get(slot_str)
+        def_soft_id = defender_deck.get(slot_str)
+
+        atk_info = config.SOFTWARE_DB.get(atk_soft_id) if atk_soft_id else None
+        def_info = config.SOFTWARE_DB.get(def_soft_id) if def_soft_id else None
+
+        atk_type = atk_info['type'] if atk_info else None
+        def_type = def_info['type'] if def_info else None
+
+        round_res = "draw"
+
+        if not atk_type and not def_type:
+            round_res = "draw"
+        elif not atk_type:
+            round_res = "loss"
+        elif not def_type:
+            round_res = "win"
+        else:
+            if atk_type == def_type:
+                round_res = "draw"
+            elif (atk_type == 'atk' and def_type == 'def') or \
+                 (atk_type == 'def' and def_type == 'stl') or \
+                 (atk_type == 'stl' and def_type == 'atk'):
+                round_res = "win"
+            else:
+                round_res = "loss"
+
+        if round_res == "win":
+            score_attacker += 1
+        elif round_res == "loss":
+            score_defender += 1
+
+        log.append({
+            'round': i,
+            'atk_soft': atk_info,
+            'def_soft': def_info,
+            'result': round_res
+        })
+
+    is_success = score_attacker >= 2
+    return is_success, log
+
+def execute_hack(attacker_uid, target_uid, selected_programs):
+    """
+    Orchestrates the battle.
     """
     attacker = db.get_user(attacker_uid)
     target = db.get_user(target_uid)
 
     if not attacker or not target:
-        return {'success': False, 'msg': "User not found"}
+        return {'success': False, 'msg': "Error loading users"}
 
-    # 1. Check Costs
-    cost_xp = 0
-    if method == 'stealth':
-        cost_xp = config.PVP_STEALTH_COST
-    elif method == 'revenge':
-        cost_xp = 50
-    elif method == 'normal':
-        cost_xp = config.PVP_DIRTY_COST
+    target_deck_data = get_deck(target_uid)
+    target_config = target_deck_data['config']
 
-    if attacker['xp'] < cost_xp:
-        return {'success': False, 'msg': f"Not enough XP (Need {cost_xp})"}
+    # Calculate Battle
+    success, battle_log = calculate_battle(selected_programs, target_config)
 
-    # 2. Check Cooldown (Skip for Revenge)
-    if method != 'revenge':
-        if db.check_pvp_cooldown(attacker_uid, target_uid):
-            return {'success': False, 'msg': "Target on cooldown (12h)"}
-
-    # CROWN OF PARANOIA (Target) - Immune to PvP
-    target_head = db.get_equipped_items(target_uid).get('head')
-    if target_head == 'crown_paranoia':
-        return {'success': False, 'msg': "🛡 TARGET IS UNTOUCHABLE (Paranoia Crown)"}
-
-    # 3. Anonymity Check
-    is_anonymous = False
-    if attacker.get('proxy_expiry', 0) > time.time():
-        is_anonymous = True
-
-    # 4. Calculate Outcome
-    chance = calculate_hack_chance(attacker_uid, target_uid)
-
-    # JUDAS SHELL (Target) - Def = 0 (effectively increases hack chance significantly)
-    target_armor = db.get_equipped_items(target_uid).get('armor')
-    if target_armor == 'judas_shell':
-        chance = 99 # Guaranteed mostly
-
-    roll = random.randint(1, 100)
-    is_success = roll <= chance
-
-    # 5. Defense Items Check (Pre-check logic, actual check in DB)
-    blocked_by_firewall = False
-
-    # 6. Execute Transaction
-    stolen = 0
+    stolen_coins = 0
+    data_gained = 0
     lost_xp = 0
-    ice_trap_triggered = False
-    log_id = None
 
     try:
         with db.db_session() as conn:
             with conn.cursor() as cur:
-                # Lock Target Row & Get Fresh Balance
+                # Lock target
                 cur.execute("SELECT biocoin FROM users WHERE uid = %s FOR UPDATE", (target_uid,))
-                res = cur.fetchone()
-                target_bal = res[0] if res else 0
+                real_bal = cur.fetchone()[0]
 
-                # Check Firewall (Atomic)
-                firewalls = db.get_item_count(target_uid, 'firewall', cursor=cur)
-                if firewalls > 0:
-                    blocked_by_firewall = True
-                    is_success = False
-                    db.use_item(target_uid, 'firewall', 1, cursor=cur)
+                if success:
+                    # Grant DATA
+                    data_gained = config.PVP_CONSTANTS['DATA_PER_WIN'] + random.randint(0, 10)
+                    cur.execute("UPDATE users SET data_balance = data_balance + %s WHERE uid = %s", (data_gained, attacker_uid))
 
-                # Pay Cost
-                if cost_xp > 0:
-                    cur.execute("UPDATE users SET xp = xp - %s WHERE uid = %s", (cost_xp, attacker_uid))
-
-                if not blocked_by_firewall and is_success:
-                    amount = 0
-                    if method == 'revenge':
-                        # Try to recover specific amount
-                        amount = min(revenge_amount, target_bal)
-                    else:
-                        # Standard Steal
-                        percent = random.uniform(0.05, 0.10)
-
-                        # JUDAS SHELL (Target) - Double Steal
-                        if target_armor == 'judas_shell':
-                            percent *= 2.0
-
-                        amount = int(target_bal * percent)
-                        amount = min(amount, 5000 * (2 if target_armor == 'judas_shell' else 1))
-
-                    # Prevent negative
-                    amount = max(0, amount)
+                    # Steal Coins
+                    steal_pct = config.PVP_CONSTANTS['STEAL_PERCENT']
+                    amount = int(real_bal * steal_pct)
+                    amount = min(amount, int(real_bal * (config.PVP_CONSTANTS['MAX_STEAL']/100)))
 
                     if amount > 0:
-                        stolen = amount
-                        cur.execute("UPDATE users SET biocoin = biocoin - %s WHERE uid = %s", (stolen, target_uid))
-                        cur.execute("UPDATE users SET biocoin = biocoin + %s WHERE uid = %s", (stolen, attacker_uid))
+                        stolen_coins = amount
+                        cur.execute("UPDATE users SET biocoin = biocoin - %s WHERE uid = %s", (amount, target_uid))
+                        cur.execute("UPDATE users SET biocoin = biocoin + %s WHERE uid = %s", (amount, attacker_uid))
 
-                elif not blocked_by_firewall and not is_success:
-                    # Failure Logic (Ice Trap)
-                    traps = db.get_item_count(target_uid, 'ice_trap', cursor=cur)
-                    if traps > 0:
-                        ice_trap_triggered = True
-                        steal_xp = 200
-                        cur.execute("UPDATE users SET xp = GREATEST(0, xp - %s) WHERE uid = %s", (steal_xp, attacker_uid))
-                        cur.execute("UPDATE users SET xp = xp + %s WHERE uid = %s", (steal_xp, target_uid))
-                        lost_xp = steal_xp
-                        db.use_item(target_uid, 'ice_trap', 1, cursor=cur)
+                    # Set Shield
+                    shield_end = int(time.time() + config.PVP_CONSTANTS['SHIELD_DURATION'])
+                    cur.execute("UPDATE users SET shield_until = %s WHERE uid = %s", (shield_end, target_uid))
 
-                # Logging
-                if not is_success and method == 'stealth':
-                    is_anonymous = True
+                else:
+                    # Failure Penalty: Lost XP (Energy Damage)
+                    lost_xp = 100 # Flat penalty or scaled?
+                    cur.execute("UPDATE users SET xp = GREATEST(0, xp - %s) WHERE uid = %s", (lost_xp, attacker_uid))
+
+                # Reduce Durability of used programs (Attacker)
+                for slot, soft_id in selected_programs.items():
+                    if soft_id:
+                        db.decrease_durability(attacker_uid, soft_id, amount=1)
+
+                # Log
+                is_anonymous = False
                 if attacker.get('proxy_expiry', 0) > time.time():
                     is_anonymous = True
-
-                is_revenged_log = (method == 'revenge' and is_success)
 
                 cur.execute("""
                     INSERT INTO pvp_logs (attacker_uid, target_uid, stolen_coins, success, timestamp, is_revenged, is_anonymous)
                     VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
-                """, (attacker_uid, target_uid, stolen, is_success, int(time.time()), is_revenged_log, is_anonymous))
+                """, (attacker_uid, target_uid, stolen_coins, success, int(time.time()), False, is_anonymous))
                 log_id = cur.fetchone()[0]
 
-    except Exception as e:
-        print(f"PVP Transaction Error: {e}")
-        return {'success': False, 'msg': f"Database Error: {e}"}
+                # Update last hack target
+                cur.execute("UPDATE users SET last_hack_target = %s WHERE uid = %s", (target_uid, attacker_uid))
 
-    target_name = target.get('username') or target.get('first_name') or "Unknown"
+    except Exception as e:
+        return {'success': False, 'msg': f"DB Error: {e}"}
 
     return {
-        'success': is_success,
-        'stolen': stolen,
-        'blocked': blocked_by_firewall,
-        'ice_trap': ice_trap_triggered,
-        'lost_xp': lost_xp,
-        'anonymous': is_anonymous,
-        'target_name': target_name,
-        'log_id': log_id
+        'success': success,
+        'log': battle_log,
+        'stolen': stolen_coins,
+        'data': data_gained,
+        'target_name': target.get('username') or "Unknown",
+        'log_id': log_id,
+        'lost_xp': lost_xp
     }
+
+# =============================================================================
+# LEGACY STUBS
+# =============================================================================
+
+def perform_hack(attacker_uid, target_uid, method='normal', revenge_amount=0):
+    return {'success': False, 'msg': "Module updating..."}
 
 def get_revenge_list(uid):
     return db.get_pvp_history(uid)
