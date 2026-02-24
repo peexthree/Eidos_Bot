@@ -113,6 +113,7 @@ def buy_software(uid, software_id, is_hardware=False):
     """
     Purchases software/hardware using BioCoins (or XP for Proxy).
     """
+    msg = None
     if is_hardware:
         from config import ITEMS_INFO, PRICES
         if software_id not in ITEMS_INFO: return False, "Товар не найден."
@@ -144,8 +145,14 @@ def buy_software(uid, software_id, is_hardware=False):
                     msg = "🕶 Прокси активирован на 24 часа."
                 else:
                     # Add Item
-                    db.add_item(uid, software_id)
+                    added = db.add_item(uid, software_id, cursor=cur)
+                    if not added:
+                        raise ValueError("Инвентарь полон!")
+
                     msg = f"💾 {info['name']} приобретен!"
+
+        if msg is None:
+            return False, "❌ Ошибка транзакции (Инвентарь полон?)"
 
         return True, msg
     except Exception as e:
