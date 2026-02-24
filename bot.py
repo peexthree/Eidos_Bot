@@ -110,10 +110,32 @@ def health_check():
 def webhook():
     if flask.request.method == 'POST':
         try:
-            bot.process_new_updates([telebot.types.Update.de_json(flask.request.get_data().decode('utf-8'))])
+            # 1. Get raw data
+            json_string = flask.request.get_data().decode('utf-8')
+            if not json_string:
+                return 'Empty Data', 200
+
+            # 2. Parse JSON safely
+            try:
+                update = telebot.types.Update.de_json(json_string)
+                # Check if de_json returned None (unlikely for valid JSON string but possible)
+                if update is None:
+                    return 'Invalid JSON', 200
+            except TypeError:
+                # Catches "TypeError: 'NoneType' object is not subscriptable" when input is "null"
+                # Log as warning but return 200 to stop retries
+                print(f"/// WEBHOOK WARNING: Received 'null' or invalid payload.")
+                return 'Invalid Payload', 200
+            except Exception as e:
+                print(f"/// WEBHOOK PARSE ERROR: {e}")
+                return 'Parse Error', 200
+
+            # 3. Process Update
+            bot.process_new_updates([update])
             return 'ALIVE', 200
         except Exception as e:
             print(f"/// WEBHOOK ERROR: {e}")
+            # print(traceback.format_exc()) # Optional: Uncomment if needed
             return 'Error', 500
 
 @app.route("/", methods=["GET"])
