@@ -118,6 +118,80 @@ ITEM_IMAGES = {
     "martyr_halo": "AgACAgIAAyEFAATh7MR7AAOYaZ1y2pH5oTr8BLKXGGkS6g2re3AAArcUaxuNZulIWO-j5VXKuLQBAAMCAAN5AAM6BA"
 }
 
+# =============================================================================
+# PVP & CYBERDECK CONFIG (v2.0)
+# =============================================================================
+
+SOFTWARE_DB = {
+    # 🔴 ATK (Attack / BruteForce)
+    "soft_brute_v1": {
+        "name": "🔴 BruteForce.exe", "type": "atk", "power": 1, "cost": 100, "durability": 10,
+        "desc": "Базовая атака. Ломает Стены.",
+        "icon": "🔴"
+    },
+    "soft_trojan_v1": {
+        "name": "🔴 Trojan.bat", "type": "atk", "power": 2, "cost": 250, "durability": 1,
+        "desc": "Атака с шансом крита (х2 награда). Одноразовая.",
+        "icon": "🔴"
+    },
+    "soft_ddos_v1": {
+        "name": "🔴 DDoS_Cannon", "type": "atk", "power": 3, "cost": 500, "durability": 1,
+        "desc": "Мощная атака. Пробивает даже продвинутые щиты. Одноразовая.",
+        "icon": "🔴"
+    },
+
+    # 🔵 DEF (Defense / Firewall)
+    "soft_wall_v1": {
+        "name": "🔵 Firewall 1.0", "type": "def", "power": 1, "cost": 100, "durability": 10,
+        "desc": "Базовая защита. Блокирует Стелс.",
+        "icon": "🔵"
+    },
+    "soft_ice_v1": {
+        "name": "🔵 Ice Wall", "type": "def", "power": 2, "cost": 250, "durability": 1,
+        "desc": "Защита + наносит урон атакующему при успехе. Одноразовая.",
+        "icon": "🔵"
+    },
+    "soft_aegis_v1": {
+        "name": "🔵 Aegis Core", "type": "def", "power": 3, "cost": 500, "durability": 5,
+        "desc": "Абсолютная защита. Отражает 80% атак.",
+        "icon": "🔵"
+    },
+
+    # 🟢 STL (Stealth / Utility)
+    "soft_vpn_v1": {
+        "name": "🟢 VPN Ghost", "type": "stl", "power": 1, "cost": 100, "durability": 10,
+        "desc": "Базовый стелс. Обходит Ловушки (Атаку).",
+        "icon": "🟢"
+    },
+    "soft_sniffer_v1": {
+        "name": "🟢 Sniffer", "type": "stl", "power": 1, "cost": 200, "durability": 5,
+        "desc": "Показывает 1 слот врага перед боем.",
+        "icon": "🟢"
+    },
+    "soft_backdoor_v1": {
+        "name": "🟢 Backdoor.js", "type": "stl", "power": 3, "cost": 500, "durability": 1,
+        "desc": "Продвинутый стелс. Крадет данные даже при ничьей. Одноразовая.",
+        "icon": "🟢"
+    }
+}
+
+# Integrate Software into Main Items DB for compatibility
+ITEMS_INFO.update(SOFTWARE_DB)
+
+DECK_UPGRADES = {
+    1: {"slots": 1, "cost": 0},
+    2: {"slots": 2, "cost": 500},
+    3: {"slots": 3, "cost": 1500}
+}
+
+PVP_CONSTANTS = {
+    "SHIELD_DURATION": 14400,  # 4 hours
+    "PROTECTION_LIMIT": 500,   # Min BioCoins to be attacked
+    "HACK_REWARD": 25,         # Base BioCoin reward (Mining)
+    "STEAL_PERCENT": 0.10,     # 10% of coins
+    "MAX_STEAL": 15            # Max %
+}
+
 RAID_EVENT_IMAGES = {
     "riddle": "AgACAgIAAyEFAATh7MR7AAOMaZplE9yRGp0OQ7wrI08MXvVstDIAApQRaxtY9NlIuWaeLR2EvfcBAAMCAAN5AAM6BA",
     "remains": "AgACAgIAAyEFAATh7MR7AAOLaZplEvzNEMCrtEsHBPXeNOJWPQYAApMRaxtY9NlIerWDJ64TzH8BAAMCAAN5AAM6BA",

@@ -587,23 +587,133 @@ def onboarding_exam_keyboard():
     return m
 
 # =============================================================
-# 🌐 PVP (СЕТЕВАЯ ВОЙНА)
+# 🌐 PVP (СЕТЕВАЯ ВОЙНА v2.0)
 # =============================================================
 
 def pvp_menu():
     m = types.InlineKeyboardMarkup(row_width=2)
-    m.add(types.InlineKeyboardButton(f"🔍 ИСКАТЬ ЦЕЛЬ ({config.PVP_FIND_COST} XP)", callback_data="pvp_search"),
-          types.InlineKeyboardButton("🩸 ВЕНДЕТТА", callback_data="pvp_vendetta"))
-    m.add(types.InlineKeyboardButton("🛡 ЗАЩИТА (SHOP)", callback_data="pvp_defense_shop"))
+    m.add(types.InlineKeyboardButton(f"📡 ПОИСК ЦЕЛИ ({config.PVP_FIND_COST} XP)", callback_data="pvp_search"))
+    m.add(types.InlineKeyboardButton("🛡 НАСТРОИТЬ ЗАЩИТУ", callback_data="pvp_config"))
+    m.add(types.InlineKeyboardButton("🏪 МАГАЗИН СОФТА", callback_data="pvp_shop"))
+    m.add(types.InlineKeyboardButton("🩸 ВЕНДЕТТА", callback_data="pvp_vendetta"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 
-def pvp_target_menu(target_uid):
+def pvp_config_menu(deck):
+    m = types.InlineKeyboardMarkup(row_width=3)
+
+    # Slots
+    slots_row = []
+    for i in range(1, 4): # Max 3
+        if i <= deck['slots']:
+            sid = deck['config'].get(str(i))
+            icon = "🕸"
+            if sid and sid in config.SOFTWARE_DB:
+                icon = config.SOFTWARE_DB[sid]['icon']
+
+            slots_row.append(types.InlineKeyboardButton(f"[{icon}] Слот {i}", callback_data=f"pvp_slot_{i}"))
+        else:
+            slots_row.append(types.InlineKeyboardButton("🔒", callback_data=f"pvp_slot_locked"))
+
+    m.add(*slots_row)
+
+    # Upgrade
+    next_lvl = deck['level'] + 1
+    if next_lvl in config.DECK_UPGRADES:
+        cost = config.DECK_UPGRADES[next_lvl]['cost']
+        m.add(types.InlineKeyboardButton(f"🔼 АПГРЕЙД ДЕКИ ({cost} BC)", callback_data="pvp_upgrade_deck"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
+    return m
+
+def pvp_software_select_menu(inventory, slot_id, mode='defense'):
+    # mode: 'defense' (equips to deck) or 'attack' (selects for battle)
     m = types.InlineKeyboardMarkup(row_width=1)
-    m.add(types.InlineKeyboardButton(f"💥 ГРЯЗНЫЙ ВЗЛОМ ({config.PVP_DIRTY_COST} XP)", callback_data=f"pvp_attack_normal_{target_uid}"))
-    m.add(types.InlineKeyboardButton(f"👻 СКРЫТЫЙ ВЗЛОМ ({config.PVP_STEALTH_COST} XP)", callback_data=f"pvp_attack_stealth_{target_uid}"))
-    m.add(types.InlineKeyboardButton(f"🔄 СБРОСИТЬ ({config.PVP_RESET_COST} XP)", callback_data="pvp_search"))
-    m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="pvp_menu"))
+
+    # Empty/Unequip
+    cb_prefix = "pvp_equip_" if mode == 'defense' else "pvp_atk_sel_"
+
+    m.add(types.InlineKeyboardButton("🚫 ОЧИСТИТЬ СЛОТ", callback_data=f"{cb_prefix}{slot_id}_empty"))
+
+    if not inventory:
+        m.add(types.InlineKeyboardButton("У вас нет программ", callback_data="dummy"))
+
+    for item in inventory:
+        # Item: {'id': ..., 'name': ..., 'icon': ..., 'type': ...}
+        txt = f"{item['icon']} {item['name']} ({item['type'].upper()})"
+        m.add(types.InlineKeyboardButton(txt, callback_data=f"{cb_prefix}{slot_id}_{item['id']}"))
+
+    back_cb = "pvp_config" if mode == 'defense' else "pvp_attack_prep"
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data=back_cb))
+    return m
+
+def pvp_shop_menu():
+    m = types.InlineKeyboardMarkup(row_width=1)
+
+    # Standard Software
+    m.add(types.InlineKeyboardButton("─── 💾 ПРОГРАММЫ ───", callback_data="dummy"))
+    for sid, info in config.SOFTWARE_DB.items():
+        txt = f"{info['icon']} {info['name']} — {info['cost']} BC"
+        m.add(types.InlineKeyboardButton(txt, callback_data=f"pvp_buy_{sid}"))
+
+    # Hardware / Consumables
+    m.add(types.InlineKeyboardButton("─── 🛠 ЖЕЛЕЗО ───", callback_data="dummy"))
+
+    # Prices for Hardware from config (assumed merged or standard)
+    p_firewall = PRICES.get('firewall', 1000)
+    p_ice = PRICES.get('ice_trap', 2000)
+    p_proxy = PRICES.get('proxy_server', 500) # XP?
+
+    m.add(types.InlineKeyboardButton(f"🛡 ФАЙРВОЛ ({p_firewall} BC)", callback_data="pvp_buy_hw_firewall"))
+    m.add(types.InlineKeyboardButton(f"🪤 ICE-ЛОВУШКА ({p_ice} BC)", callback_data="pvp_buy_hw_ice_trap"))
+    m.add(types.InlineKeyboardButton(f"🕶 ПРОКСИ ({p_proxy} XP)", callback_data="pvp_buy_hw_proxy_server"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
+    return m
+
+def pvp_shop_confirm(sid, is_hardware=False):
+    # Retrieve info
+    if is_hardware:
+        from config import ITEMS_INFO
+        info = ITEMS_INFO.get(sid, {})
+        cost = PRICES.get(sid, 0)
+        # Proxy uses XP
+        currency = "XP" if sid == "proxy_server" else "BC"
+    else:
+        info = config.SOFTWARE_DB[sid]
+        cost = info['cost']
+        currency = "BC"
+
+    m = types.InlineKeyboardMarkup(row_width=2)
+    cb_data = f"pvp_buy_confirm_hw_{sid}" if is_hardware else f"pvp_buy_confirm_{sid}"
+    m.add(types.InlineKeyboardButton(f"✅ КУПИТЬ ({cost} {currency})", callback_data=cb_data))
+    m.add(types.InlineKeyboardButton("🔙 ОТМЕНА", callback_data="pvp_shop"))
+    return m
+
+def pvp_target_menu(target_uid, selected_slots={}):
+    # Pre-attack screen
+    m = types.InlineKeyboardMarkup(row_width=3)
+
+    # Slot Buttons (to change programs)
+    slots_row = []
+    for i in range(1, 4):
+        sid = selected_slots.get(str(i))
+        icon = "🕸"
+        if sid and sid in config.SOFTWARE_DB:
+            icon = config.SOFTWARE_DB[sid]['icon']
+        slots_row.append(types.InlineKeyboardButton(f"[{icon}]", callback_data=f"pvp_atk_slot_{i}"))
+
+    m.add(*slots_row)
+
+    # Action
+    # Check if at least one program is selected? (Optional)
+    # The game says "At least 2 wins", so user should probably equip items.
+    m.add(types.InlineKeyboardButton("☠️ НАЧАТЬ ВЗЛОМ", callback_data="pvp_execute_attack"))
+
+    # Randomizer?
+    m.add(types.InlineKeyboardButton("🎲 СЛУЧАЙНЫЙ НАБОР", callback_data="pvp_atk_random"))
+
+    m.add(types.InlineKeyboardButton("🔙 СБРОС ЦЕЛИ", callback_data="pvp_menu"))
     return m
 
 def pvp_vendetta_menu(attackers):
@@ -612,7 +722,6 @@ def pvp_vendetta_menu(attackers):
         m.add(types.InlineKeyboardButton("✅ СПИСОК ПУСТ", callback_data="dummy"))
     else:
         for a in attackers:
-            # a is a dict from get_pvp_history
             log_id = a['id']
             name = a['username'] or a['first_name'] or "Unknown"
             lvl = a.get('level', 1)
@@ -630,12 +739,8 @@ def pvp_revenge_confirm(log_id, name):
     return m
 
 def pvp_defense_shop():
-    m = types.InlineKeyboardMarkup(row_width=1)
-    m.add(types.InlineKeyboardButton(f"🛡 ФАЙРВОЛ ({config.PRICES['firewall']} BC)", callback_data="buy_firewall"))
-    m.add(types.InlineKeyboardButton(f"🪤 ICE-ЛОВУШКА ({config.PRICES['ice_trap']} BC)", callback_data="buy_ice_trap"))
-    m.add(types.InlineKeyboardButton(f"🕶 ПРОКСИ ({config.PRICES['proxy_server']} XP)", callback_data="buy_proxy_server"))
-    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
-    return m
+    # Deprecated in v2.0 but kept for safety if old callbacks exist
+    return pvp_shop_menu()
 
 def leaderboard_menu(current_sort='xp'):
     m = types.InlineKeyboardMarkup(row_width=3)
