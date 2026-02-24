@@ -332,6 +332,13 @@ def get_state(uid):
             return res[0]
         return None
 
+def get_full_state(uid):
+    with db_cursor() as cur:
+        if not cur: return None
+        cur.execute("SELECT state, data FROM bot_states WHERE uid = %s", (uid,))
+        res = cur.fetchone()
+        return res if res else None
+
 def delete_state(uid):
     with db_session() as conn:
         with conn.cursor() as cur:

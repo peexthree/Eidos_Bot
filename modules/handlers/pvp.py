@@ -313,7 +313,7 @@ def pvp_atk_sel_handler(call):
     if sid == "empty": sid = None
 
     # Update State
-    state_tuple = db.get_state(uid)
+    state_tuple = db.get_full_state(uid)
     if not state_tuple:
         bot.answer_callback_query(call.id, "❌ Сессия истекла.", show_alert=True)
         return pvp_menu_handler(call)
@@ -338,7 +338,7 @@ def pvp_atk_random(call):
         bot.answer_callback_query(call.id, "❌ Нет программ!", show_alert=True)
         return
 
-    state_tuple = db.get_state(uid)
+    state_tuple = db.get_full_state(uid)
     if not state_tuple: return
     state_name, data_json = state_tuple
     data = json.loads(data_json)
@@ -356,7 +356,7 @@ def pvp_atk_random(call):
 def pvp_attack_prep_back(call):
     # Back button from selection screen
     uid = call.from_user.id
-    state_tuple = db.get_state(uid)
+    state_tuple = db.get_full_state(uid)
     if not state_tuple: return pvp_menu_handler(call)
 
     data = json.loads(state_tuple[1])
@@ -365,7 +365,7 @@ def pvp_attack_prep_back(call):
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_execute_attack")
 def pvp_execute_handler(call):
     uid = call.from_user.id
-    state_tuple = db.get_state(uid)
+    state_tuple = db.get_full_state(uid)
     if not state_tuple:
         bot.answer_callback_query(call.id, "❌ Ошибка состояния.", show_alert=True)
         return
