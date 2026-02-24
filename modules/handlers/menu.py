@@ -25,6 +25,27 @@ def profile_handler(call):
 
         p_stats = get_profile_stats(uid)
 
+        # Equipment List
+        equipped = db.get_equipped_items(uid)
+        equip_txt = ""
+        if equipped:
+            equip_txt = "\n🛡 <b>ЭКИПИРОВКА:</b>\n"
+            for slot, item_id in equipped.items():
+                info = config.EQUIPMENT_DB.get(item_id, {})
+                name = info.get('name', item_id)
+                stats_arr = []
+                if info.get('atk'): stats_arr.append(f"⚔️{info['atk']}")
+                if info.get('def'): stats_arr.append(f"🛡{info['def']}")
+                if info.get('luck'): stats_arr.append(f"🍀{info['luck']}")
+
+                # Special effects description (shortened)
+                # We can't put full description here, it's too long.
+                # Just name and stats is good as per request "full description of what is equipped ... so it would be clearer what his parameters are".
+
+                stats_str = " | ".join(stats_arr)
+                if stats_str: stats_str = f"({stats_str})"
+                equip_txt += f"• {name} {stats_str}\n"
+
         # Formatting title logic
         full_title = TITLES.get(u['level'], 'Unknown')
         if '(' in full_title:
@@ -50,7 +71,8 @@ def profile_handler(call):
             f"🔋 <b>ТЕКУЩИЙ ОПЫТ:</b> {u['xp']}\n"
             f"📉 <b>ДО СЛЕДУЮЩЕГО УРОВНЯ:</b> {xp_need} XP\n"
             f"🔥 <b>СТРИК входов дней в игру:</b> {p_stats['streak']} (+{p_stats['streak_bonus']}% к опыту)\n\n"
-            f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n\n"
+            f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
+            f"{equip_txt}\n"
             f"🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
             f"🏆 Ачивки: <b>{len(ach_list)}</b>\n"
             f"🌐 Протоколов в коллекции: <b>{db.get_archived_protocols_count(uid)} ({config.TOTAL_PROTOCOLS})</b>\n"

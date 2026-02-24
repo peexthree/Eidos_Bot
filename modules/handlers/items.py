@@ -1,7 +1,7 @@
 from modules.bot_instance import bot
 import database as db
 import config
-from config import PRICES, EQUIPMENT_DB, ITEMS_INFO, TITLES, SCHOOLS, ITEM_IMAGES
+from config import PRICES, EQUIPMENT_DB, ITEMS_INFO, TITLES, SCHOOLS, ITEM_IMAGES, PVP_ITEMS
 import keyboards as kb
 from modules.services.utils import menu_update, get_menu_text, get_menu_image, get_consumables
 from modules.services.inventory import format_inventory, check_legacy_items, convert_legacy_items
@@ -175,30 +175,34 @@ def shadow_shop_handler(call):
 def inventory_handler(call):
     uid = call.from_user.id
 
+    def get_filtered_items(uid):
+        all_items = db.get_inventory(uid)
+        return [i for i in all_items if i['item_id'] not in PVP_ITEMS]
+
     if call.data == "inventory":
         txt = format_inventory(uid, category='equip')
-        items = db.get_inventory(uid)
+        items = get_filtered_items(uid)
         equipped = db.get_equipped_items(uid)
         has_legacy = check_legacy_items(uid)
         menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy), image_url=config.MENU_IMAGES["inventory"])
 
     elif call.data == "inv_cat_equip":
         txt = format_inventory(uid, category='equip')
-        items = db.get_inventory(uid)
+        items = get_filtered_items(uid)
         equipped = db.get_equipped_items(uid)
         has_legacy = check_legacy_items(uid)
         menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy))
 
     elif call.data == "inv_cat_consumable":
         txt = format_inventory(uid, category='consumable')
-        items = db.get_inventory(uid)
+        items = get_filtered_items(uid)
         equipped = db.get_equipped_items(uid)
         has_legacy = check_legacy_items(uid)
         menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='consumable', has_legacy=has_legacy))
 
     elif call.data == "inv_mode_dismantle":
         txt = format_inventory(uid)
-        items = db.get_inventory(uid)
+        items = get_filtered_items(uid)
         equipped = db.get_equipped_items(uid)
         has_legacy = check_legacy_items(uid)
         menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", kb.inventory_menu(items, equipped, dismantle_mode=True, has_legacy=has_legacy))

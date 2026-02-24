@@ -47,6 +47,36 @@ def pvp_menu_handler(call):
 
     menu_update(call, msg, kb.pvp_menu(), image_url=config.MENU_IMAGES["pvp_menu"])
 
+@bot.callback_query_handler(func=lambda call: call.data == "pvp_inventory")
+def pvp_inventory_handler(call):
+    uid = call.from_user.id
+    items = pvp.get_software_inventory(uid)
+
+    # Get equipped items
+    deck = pvp.get_deck(uid)
+    equipped_ids = list(deck['config'].values()) if deck else []
+
+    txt = "🎒 <b>ИНВЕНТАРЬ СЕТЕВОЙ ВОЙНЫ</b>\n\n"
+    if not items:
+        txt += "Пусто."
+    else:
+        for i in items:
+            cat = "💾" if i.get('category') == 'software' else "🛠"
+
+            status = ""
+            if i['id'] in equipped_ids:
+                status = " ✅ (Установлено)"
+
+            txt += f"{cat} <b>{i['name']}</b> (x{i['quantity']}){status}\n"
+            if i.get('durability'):
+                txt += f"   Состояние: {i['durability']}\n"
+            txt += f"   <i>{i['desc']}</i>\n\n"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
+
+    menu_update(call, txt, markup)
+
 # =============================================================================
 # 2. DEFENSE CONFIGURATION (DECK)
 # =============================================================================

@@ -73,6 +73,12 @@ def set_slot(uid, slot_id, software_id):
     if int(slot_id) > max_slots:
         return False, f"❌ Слот {slot_id} недоступен (Уровень деки мал)."
 
+    # Check for duplicates (One item - One slot)
+    if software_id:
+        for s, val in current_config.items():
+            if val == software_id and str(s) != str(slot_id):
+                return False, "❌ Эта программа уже установлена в другой слот!"
+
     # Update config
     current_config[str(slot_id)] = software_id
 
@@ -160,12 +166,14 @@ def buy_software(uid, software_id, is_hardware=False):
 
 def get_software_inventory(uid):
     """
-    Returns list of owned software items.
+    Returns list of owned PVP items (Software + Hardware).
     """
     all_items = db.get_inventory(uid)
     software = []
     for item in all_items:
         sid = item['item_id']
+
+        # Check Software
         if sid in config.SOFTWARE_DB:
             info = config.SOFTWARE_DB[sid]
             software.append({
@@ -176,8 +184,26 @@ def get_software_inventory(uid):
                 'power': info['power'],
                 'desc': info['desc'],
                 'quantity': item['quantity'],
-                'durability': item['durability']
+                'durability': item['durability'],
+                'category': 'software'
             })
+
+        # Check Hardware
+        elif sid in config.PVP_HARDWARE:
+            from config import ITEMS_INFO
+            info = ITEMS_INFO.get(sid, {})
+            software.append({
+                'id': sid,
+                'name': info.get('name', sid),
+                'type': 'hardware',
+                'icon': '🛠',
+                'power': 'N/A',
+                'desc': info.get('desc', ''),
+                'quantity': item['quantity'],
+                'durability': item['durability'],
+                'category': 'hardware'
+            })
+
     return software
 
 # =============================================================================

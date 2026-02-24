@@ -1,5 +1,5 @@
 import database as db
-from config import ITEMS_INFO, EQUIPMENT_DB, INVENTORY_LIMIT
+from config import ITEMS_INFO, EQUIPMENT_DB, INVENTORY_LIMIT, PVP_ITEMS
 
 def format_inventory(uid, category='all'):
     items = db.get_inventory(uid)
@@ -17,11 +17,14 @@ def format_inventory(uid, category='all'):
                 txt += f"• {name}\n"
             txt += "\n"
 
+    # Filter out PVP items from general inventory
+    non_pvp_items = [i for i in items if i['item_id'] not in PVP_ITEMS]
+
     # Filter
     filtered = []
-    if category == 'all': filtered = items
-    elif category == 'equip': filtered = [i for i in items if i['item_id'] in EQUIPMENT_DB]
-    elif category == 'consumable': filtered = [i for i in items if i['item_id'] not in EQUIPMENT_DB]
+    if category == 'all': filtered = non_pvp_items
+    elif category == 'equip': filtered = [i for i in non_pvp_items if i['item_id'] in EQUIPMENT_DB]
+    elif category == 'consumable': filtered = [i for i in non_pvp_items if i['item_id'] not in EQUIPMENT_DB]
 
     if filtered:
         txt += "<b>📦 ПРЕДМЕТЫ:</b>\n"
