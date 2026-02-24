@@ -40,6 +40,11 @@ class CraftingService:
         return self.item_tier.get(item_id, 0)
 
     def can_craft(self, uid, item_id):
+        # SPECIAL: FRAGMENTS
+        if item_id == 'fragment':
+            count = db.get_item_count(uid, 'fragment')
+            return count >= 5
+
         # 1. Check if item is equipment (in map)
         tier = self.get_item_tier(item_id)
         if tier == 0: return False
@@ -147,7 +152,7 @@ class CraftingService:
                     """, (uid, reward_id, durability))
 
                     reward_name = config.EQUIPMENT_DB.get(reward_id, {}).get('name', reward_id)
-                    return True, f"🧩 СИНТЕЗ УСПЕШЕН!\nПолучено: {reward_name}"
+                    return True, f"✨ <b>СИНТЕЗ ЗАВЕРШЕН</b> ✨\n\n🧩 5 Фрагментов успешно соединены.\n\n🎁 <b>ПОЛУЧЕНО:</b>\n{reward_name}\n\n<i>Предмет добавлен в инвентарь.</i>"
         except Exception as e:
             print(f"FRAGMENT CRAFT ERR: {e}")
             return False, "❌ Ошибка синтеза."

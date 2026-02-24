@@ -627,6 +627,44 @@ def pvp_config_menu(deck):
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
     return m
 
+def pvp_inventory_menu(inventory, active_hardware={}):
+    m = types.InlineKeyboardMarkup(row_width=1)
+
+    if not inventory:
+        m.add(types.InlineKeyboardButton("✅ ИНВЕНТАРЬ ПУСТ", callback_data="dummy"))
+
+    for item in inventory:
+        item_id = item['id']
+        name = item['name']
+        qty = item['quantity']
+        is_hw = item.get('category') == 'hardware'
+
+        # Icon based on type
+        icon = item.get('icon', '📦')
+
+        if is_hw:
+            # Check if active
+            is_active = active_hardware.get(item_id, False)
+            state_icon = "🟢 АКТИВЕН" if is_active else "🔴 НЕАКТИВЕН"
+            toggle_action = "pvp_hw_unequip_" if is_active else "pvp_hw_equip_"
+            toggle_btn_text = f"🛑 ВЫКЛЮЧИТЬ" if is_active else f"⚡️ ВКЛЮЧИТЬ"
+
+            # Row 1: Info
+            m.add(types.InlineKeyboardButton(f"{icon} {name} (x{qty}) | {state_icon}", callback_data="dummy"))
+            # Row 2: Actions
+            m.row(
+                types.InlineKeyboardButton(toggle_btn_text, callback_data=f"{toggle_action}{item_id}"),
+                types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"pvp_dismantle_{item_id}")
+            )
+
+        else:
+            # Software
+            m.add(types.InlineKeyboardButton(f"{icon} {name} (x{qty})", callback_data="dummy"))
+            m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"pvp_dismantle_{item_id}"))
+
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
+    return m
+
 def pvp_software_select_menu(inventory, slot_id, mode='defense'):
     # mode: 'defense' (equips to deck) or 'attack' (selects for battle)
     m = types.InlineKeyboardMarkup(row_width=1)

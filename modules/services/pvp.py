@@ -46,6 +46,45 @@ def get_deck(uid):
         'config': deck_config
     }
 
+def get_active_hardware(uid):
+    u = db.get_user(uid)
+    if not u or not u.get('active_hardware'): return {}
+    try:
+        return json.loads(u['active_hardware'])
+    except:
+        return {}
+
+def toggle_hardware(uid, item_id):
+    active = get_active_hardware(uid)
+    # Toggle
+    current_state = active.get(item_id, False)
+    new_state = not current_state
+    active[item_id] = new_state
+
+    db.update_user(uid, active_hardware=json.dumps(active))
+    return new_state
+
+def dismantle_pvp_item(uid, item_id):
+    from config import PRICES, SOFTWARE_DB
+
+    # Calculate price
+    price = 0
+    if item_id in SOFTWARE_DB:
+        price = SOFTWARE_DB[item_id]['cost']
+    elif item_id in PRICES:
+        price = PRICES[item_id]
+
+    if price <= 0: return False, "Цена 0."
+
+    scrap_val = int(price * 0.1) # 10% return
+    if scrap_val < 1: scrap_val = 1
+
+    if db.use_item(uid, item_id, 1):
+        u = db.get_user(uid)
+        db.update_user(uid, biocoin=u['biocoin'] + scrap_val)
+        return True, f"♻️ Разобрано: +{scrap_val} BC"
+    return False, "Ошибка предмета."
+
 def set_slot(uid, slot_id, software_id):
     """
     Equips software into a deck slot.
@@ -226,7 +265,8 @@ def find_target(attacker_uid):
         if target.get('shield_until', 0) > time.time(): continue
 
         if target.get('level', 1) <= config.QUARANTINE_LEVEL: continue
-        if db.check_pvp_cooldown(attacker_uid, target_uid): continue
+        # Cooldown Check (v2.0)
+        if db.check_pvp_cooldown(attacker_uid, target_uid, duration=config.PVP_COOLDOWN): continue
         if target.get('is_quarantined'): continue
 
         # Calculate Loot Estimate
@@ -327,11 +367,16 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
 
     # 1. Check for Hardware Defense (Firewall)
     blocked_by_fw = False
+
+    target_active_hw = get_active_hardware(target_uid)
+
     with db.db_cursor() as cur:
-        fw_count = db.get_item_count(target_uid, 'firewall', cursor=cur)
-        if fw_count > 0:
-            db.use_item(target_uid, 'firewall', 1, cursor=cur)
-            blocked_by_fw = True
+        # Firewall Logic: Must be ACTIVE and present
+        if target_active_hw.get('firewall', False):
+            fw_count = db.get_item_count(target_uid, 'firewall', cursor=cur)
+            if fw_count > 0:
+                db.use_item(target_uid, 'firewall', 1, cursor=cur)
+                blocked_by_fw = True
 
     if blocked_by_fw:
         return {
@@ -386,8 +431,10 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
 
                 else:
                     # Failure Logic
-                    # Check ICE Trap
-                    traps = db.get_item_count(target_uid, 'ice_trap', cursor=cur)
+                    # Check ICE Trap (Must be ACTIVE)
+                    traps = 0
+                    if target_active_hw.get('ice_trap', False):
+                        traps = db.get_item_count(target_uid, 'ice_trap', cursor=cur)
 
                     lost_xp = 100 # Base penalty
 

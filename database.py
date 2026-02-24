@@ -139,6 +139,7 @@ def init_db():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deck_config TEXT DEFAULT '{\"1\": \"soft_brute_v1\", \"2\": null, \"3\": null}'")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS shield_until BIGINT DEFAULT 0")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_hack_target BIGINT DEFAULT 0")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_hardware TEXT DEFAULT '{}'")
             except: pass
 
             print("/// DEBUG: creating death_loot table")

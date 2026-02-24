@@ -252,7 +252,10 @@ def item_action_handler(call):
             can_craft = crafting_service.can_craft(uid, item_id)
             markup = kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped)
             if can_craft:
-                markup.add(types.InlineKeyboardButton("🛠 КРАФТ (3->1)", callback_data=f"craft_{item_id}"))
+                if item_id == 'fragment':
+                    markup.add(types.InlineKeyboardButton("✨ СИНТЕЗ (5 ШТ)", callback_data=f"craft_{item_id}"))
+                else:
+                    markup.add(types.InlineKeyboardButton("🛠 КРАФТ (3->1)", callback_data=f"craft_{item_id}"))
 
             menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", markup, image_url=image)
 
@@ -261,12 +264,18 @@ def item_action_handler(call):
         success, res = crafting_service.craft_item(uid, item_id)
 
         if success:
-            new_item_id = res
-            new_info = ITEMS_INFO.get(new_item_id, {})
-            bot.answer_callback_query(call.id, f"🛠 УСПЕХ! Получено: {new_info.get('name', new_item_id)}", show_alert=True)
-            # Switch view to new item
-            call.data = f"view_item_{new_item_id}"
-            item_action_handler(call)
+            if item_id == 'fragment':
+                # res is a message
+                bot.answer_callback_query(call.id, "✅ УСПЕХ", show_alert=False)
+                # Send explicit message with beautiful design
+                menu_update(call, res, kb.back_button())
+            else:
+                new_item_id = res
+                new_info = ITEMS_INFO.get(new_item_id, {})
+                bot.answer_callback_query(call.id, f"🛠 УСПЕХ! Получено: {new_info.get('name', new_item_id)}", show_alert=True)
+                # Switch view to new item
+                call.data = f"view_item_{new_item_id}"
+                item_action_handler(call)
         else:
             bot.answer_callback_query(call.id, res, show_alert=True)
 
