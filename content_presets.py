@@ -1,6 +1,3 @@
-import json
-import os
-
 # =============================================================================
 # STANDARD: CONTENT STRUCTURE
 # =============================================================================
@@ -156,25 +153,3 @@ CONTENT_DATA = {
         {"type": "signal", "path": "general", "text": "📡 СИГНАЛ: ПРОБУЖДЕНИЕ. Доброе утро, Нео."},
     ]
 }
-
-# =============================================================================
-# VILLAINS DATA
-# =============================================================================
-
-# Define path to JSON file
-DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
-VILLAINS_JSON_PATH = os.path.join(DATA_DIR, 'villains.json')
-
-VILLAINS_DATA = []
-OLD_VILLAINS_NAMES = ()
-
-if os.path.exists(VILLAINS_JSON_PATH):
-    try:
-        with open(VILLAINS_JSON_PATH, 'r', encoding='utf-8') as f:
-            _v_data = json.load(f)
-        VILLAINS_DATA = _v_data.get('villains', [])
-        OLD_VILLAINS_NAMES = tuple(_v_data.get('old_names', []))
-    except Exception as e:
-        print(f"Error loading villains.json: {e}")
-else:
-    print(f"Warning: {VILLAINS_JSON_PATH} not found.")

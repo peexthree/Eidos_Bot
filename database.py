@@ -1,4 +1,5 @@
 import os
+import json
 import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
@@ -10,7 +11,7 @@ from datetime import datetime
 import re
 import traceback
 from config import ITEMS_INFO, INVENTORY_LIMIT
-from content_presets import CONTENT_DATA, VILLAINS_DATA, OLD_VILLAINS_NAMES
+from content_presets import CONTENT_DATA
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
@@ -673,16 +674,31 @@ def delete_state(uid):
         with conn.cursor() as cur:
             cur.execute("DELETE FROM bot_states WHERE uid = %s", (uid,))
 
+def _load_villains_data():
+    data_path = os.path.join(os.path.dirname(__file__), 'data', 'villains.json')
+    if os.path.exists(data_path):
+        try:
+            with open(data_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data.get('villains', []), tuple(data.get('old_names', []))
+        except Exception as e:
+            print(f"Error loading villains.json: {e}")
+            return [], ()
+    else:
+        print(f"Warning: {data_path} not found.")
+        return [], ()
+
 def populate_villains():
+    villains_data, old_names = _load_villains_data()
     with db_session() as conn:
         with conn.cursor() as cur:
             # Delete old versions to force update with icons
             try:
-                cur.execute("DELETE FROM villains WHERE name IN %s", (OLD_VILLAINS_NAMES,))
+                cur.execute("DELETE FROM villains WHERE name IN %s", (old_names,))
             except Exception as e:
                 print(f"Cleanup Error: {e}")
 
-            for v in VILLAINS_DATA:
+            for v in villains_data:
                 cur.execute("""
                     INSERT INTO villains (name, level, hp, atk, def, xp_reward, coin_reward, description, image)
                     VALUES (%(name)s, %(level)s, %(hp)s, %(atk)s, %(def)s, %(xp)s, %(coin)s, %(desc)s, %(image)s)
