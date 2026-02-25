@@ -161,6 +161,7 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
     consumables = get_consumables(uid)
     riddle_opts = extra['options'] if etype == 'riddle' and extra else []
     image_url = extra.get('image') if extra else None
+    if not image_url: image_url = get_menu_image(new_u)
     has_spike = extra.get('has_data_spike', False) if extra else False
 
     markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
@@ -304,29 +305,10 @@ def combat_handler(call):
      except: pass
 
      if res_type == 'error':
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid)
-         if res:
-             consumables = get_consumables(uid)
-             image_url = extra.get('image') if extra else None
-             markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
-             menu_update(call, txt, markup, image_url=image_url)
-         else: menu_update(call, "Ошибка синхронизации.", kb.back_button())
+         handle_raid_action(call, uid)
 
-     elif res_type == 'win':
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid)
-         full_txt = f"{msg}\n\n{txt}"
-         consumables = get_consumables(uid)
-         image_url = extra.get('image') if extra else None
-         if not image_url: image_url = get_menu_image(new_u)
-         menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
-
-     elif res_type == 'escaped':
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid)
-         full_txt = f"{msg}\n\n{txt}"
-         consumables = get_consumables(uid)
-         image_url = extra.get('image') if extra else None
-         if not image_url: image_url = get_menu_image(new_u)
-         menu_update(call, full_txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
+     elif res_type == 'win' or res_type == 'escaped':
+         handle_raid_action(call, uid, text_prefix=f"{msg}\n\n")
 
      elif res_type == 'death':
          if extra and extra.get('broadcast'):
@@ -355,12 +337,7 @@ def combat_handler(call):
          menu_update(call, msg, kb.back_button())
 
      elif res_type == 'combat':
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid)
-         full_txt = f"{msg}\n\n{txt}"
-         consumables = get_consumables(uid)
-         image_url = extra.get('image') if extra else None
-         markup = kb.raid_action_keyboard(cost, 'combat', consumables=consumables)
-         menu_update(call, full_txt, markup, image_url=image_url)
+         handle_raid_action(call, uid, text_prefix=f"{msg}\n\n")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("anomaly_bet_"))
 def anomaly_handler(call):
