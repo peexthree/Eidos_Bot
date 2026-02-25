@@ -321,6 +321,35 @@ def fix_inventory_schema():
     except Exception as e:
         print(f"/// FIX INVENTORY ERROR: {e}")
 
+def fix_user_equipment_schema():
+    print("/// DEBUG: Checking user_equipment schema constraints...")
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # Check if constraint exists
+                cur.execute("""
+                    SELECT conname FROM pg_constraint
+                    JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
+                    WHERE pg_class.relname = 'user_equipment' AND pg_constraint.contype = 'p';
+                """)
+                if cur.fetchone():
+                    return # Exists
+
+                print("/// FIX: Adding PRIMARY KEY constraint to user_equipment(uid, slot)...")
+
+                # Remove duplicates first (keep highest ctid - effectively random/latest)
+                # Group by uid, slot.
+                cur.execute("""
+                    DELETE FROM user_equipment a USING user_equipment b
+                    WHERE a.ctid < b.ctid AND a.uid = b.uid AND a.slot = b.slot;
+                """)
+
+                # Add constraint
+                cur.execute("ALTER TABLE user_equipment ADD PRIMARY KEY (uid, slot);")
+                conn.commit()
+    except Exception as e:
+        print(f"/// FIX USER_EQUIPMENT ERROR: {e}")
+
 def init_db():
     print("/// DEBUG: init_db started")
 
@@ -604,6 +633,7 @@ def init_db():
     fix_villains_schema()
     fix_bot_states_schema()
     fix_inventory_schema()
+    fix_user_equipment_schema()
 
     # 3. POPULATE DATA (New Transactions)
     print("/// DEBUG: populating villains")
