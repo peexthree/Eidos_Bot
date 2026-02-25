@@ -280,6 +280,44 @@ def fix_inventory_schema():
                          print(f"/// FIX: Dropping legacy constraint {name} from inventory...")
                          cur.execute(f"ALTER TABLE inventory DROP CONSTRAINT {name};")
                          conn.commit()
+
+                # --- FIX: Ensure 'id' column is PRIMARY KEY and has SEQUENCE (for NULL IDs) ---
+                # Check if 'id' has a default value (sequence)
+                cur.execute("SELECT column_default FROM information_schema.columns WHERE table_name='inventory' AND column_name='id'")
+                res = cur.fetchone()
+                if res and res[0] is None:
+                    print("/// FIX: Inventory 'id' column missing sequence. Repairing schema...")
+
+                    # 1. Create Sequence if not exists
+                    cur.execute("CREATE SEQUENCE IF NOT EXISTS inventory_id_seq")
+
+                    # 2. Sync Sequence to MAX(id)
+                    # We use setval to start from the highest existing ID + 1
+                    cur.execute("SELECT MAX(id) FROM inventory")
+                    max_id = cur.fetchone()[0]
+                    if max_id is None: max_id = 0
+                    cur.execute(f"SELECT setval('inventory_id_seq', {max_id + 1}, false)")
+
+                    # 3. Fill existing NULL IDs
+                    cur.execute("UPDATE inventory SET id = nextval('inventory_id_seq') WHERE id IS NULL")
+
+                    # 4. Set Default Value
+                    cur.execute("ALTER TABLE inventory ALTER COLUMN id SET DEFAULT nextval('inventory_id_seq')")
+
+                    # 5. Add PRIMARY KEY constraint if not exists
+                    # Check first
+                    cur.execute("""
+                        SELECT conname FROM pg_constraint
+                        JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
+                        WHERE pg_class.relname = 'inventory' AND pg_constraint.contype = 'p';
+                    """)
+                    if not cur.fetchone():
+                        print("/// FIX: Adding PRIMARY KEY to inventory(id)...")
+                        cur.execute("ALTER TABLE inventory ADD PRIMARY KEY (id)")
+
+                    conn.commit()
+                    print("/// FIX: Inventory schema repair complete.")
+
     except Exception as e:
         print(f"/// FIX INVENTORY ERROR: {e}")
 
