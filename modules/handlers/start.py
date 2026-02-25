@@ -66,6 +66,10 @@ def start_handler(m):
 # ==========================================
 @bot.message_handler(content_types=['photo'])
 def grab_file_id(message):
+    uid = message.from_user.id
+    if not db.is_user_admin(uid):
+        return
+
     # Берем самую качественную версию картинки (она всегда последняя в списке)
     file_id = message.photo[-1].file_id
 
