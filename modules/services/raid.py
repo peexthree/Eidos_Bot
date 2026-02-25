@@ -862,6 +862,10 @@ def process_raid_step(uid, answer=None, start_depth=None):
             cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid = %s", (uid,))
             res = cur.fetchone()
 
+            if not res:
+                print(f"/// WARNING: Session lost for UID {uid} in process_raid_step")
+                res = {'buffer_xp': 0, 'buffer_coins': 0}
+
             # Achievements Check
             new_achs = check_achievements(uid)
             if new_achs:
