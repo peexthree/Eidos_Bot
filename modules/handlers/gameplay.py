@@ -11,6 +11,7 @@ from modules.services.combat import process_combat_action
 import time
 import random
 import threading
+import traceback
 from telebot import types
 
 # Helper for Shadow Broker (Middleware-ish)
@@ -342,7 +343,15 @@ def combat_handler(call):
      uid = call.from_user.id
      check_sb(call)
      action = call.data.replace("combat_", "")
-     res_type, msg, extra = process_combat_action(uid, action)
+
+     try:
+         res_type, msg, extra = process_combat_action(uid, action)
+     except Exception as e:
+         print(f"COMBAT HANDLER ERROR: {e}")
+         traceback.print_exc()
+         try: bot.answer_callback_query(call.id, "⚠️ SYSTEM ERROR: Combat failed.", show_alert=True)
+         except: pass
+         return
 
      # Alert with combat log
      alert_msg = strip_html(msg)

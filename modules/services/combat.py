@@ -33,6 +33,7 @@ def process_combat_action(uid, action):
     res_type = 'next_turn'
 
     with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
+        if not cur: return 'error', "Database Error", None
         cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
         full_s = cur.fetchone()
 
