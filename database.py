@@ -261,21 +261,21 @@ def init_db():
                     username TEXT, first_name TEXT, path TEXT DEFAULT 'general',
                     xp INTEGER DEFAULT 0, biocoin INTEGER DEFAULT 0,
                     level INTEGER DEFAULT 1, streak INTEGER DEFAULT 1,
-                    last_active DATE DEFAULT CURRENT_DATE,
+                    last_active TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                     cryo INTEGER DEFAULT 0, accel INTEGER DEFAULT 0, decoder INTEGER DEFAULT 0,
                     accel_exp BIGINT DEFAULT 0, referrer TEXT,
                     ref_profit_xp INTEGER DEFAULT 0, ref_profit_coins INTEGER DEFAULT 0,
                     last_protocol_time BIGINT DEFAULT 0, last_signal_time BIGINT DEFAULT 0,
                     notified BOOLEAN DEFAULT TRUE, max_depth INTEGER DEFAULT 0,
                     ref_count INTEGER DEFAULT 0, know_count INTEGER DEFAULT 0, total_spent INTEGER DEFAULT 0,
-                    raid_count_today INTEGER DEFAULT 0, last_raid_date DATE DEFAULT CURRENT_DATE,
+                    raid_count_today INTEGER DEFAULT 0, last_raid_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                     is_admin BOOLEAN DEFAULT FALSE
                 );
             ''')
             try:
                 print("/// DEBUG: migrating players columns")
                 cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS raid_count_today INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_raid_date DATE DEFAULT CURRENT_DATE")
+                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_raid_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP")
                 cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT TRUE")
                 cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0")
                 cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0")
@@ -577,7 +577,7 @@ def get_user(uid):
 def add_user(uid, username, first_name, referrer=None):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO players (uid, username, first_name, referrer, last_active) VALUES (%s, %s, %s, %s, CURRENT_DATE) ON CONFLICT (uid) DO NOTHING", (uid, username, first_name, referrer))
+            cur.execute("INSERT INTO players (uid, username, first_name, referrer, last_active) VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP) ON CONFLICT (uid) DO NOTHING", (uid, username, first_name, referrer))
             if referrer and str(referrer) != str(uid):
                 cur.execute("UPDATE players SET ref_count = ref_count + 1 WHERE uid = %s", (referrer,))
 
@@ -627,7 +627,7 @@ def set_user_stat(uid, stat, value):
 def reset_daily_stats(uid):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("UPDATE players SET raid_count_today = 0, last_raid_date = CURRENT_DATE WHERE uid = %s", (uid,))
+            cur.execute("UPDATE players SET raid_count_today = 0, last_raid_date = CURRENT_TIMESTAMP WHERE uid = %s", (uid,))
 
 def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
     # Import locally to avoid circular deps if any
@@ -818,8 +818,12 @@ def unequip_item(uid, slot):
 
             cur.execute("DELETE FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
 
-            # Move to inventory
-            cur.execute("INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, 1, %s)", (uid, item_id, durability))
+            # Move to inventory using add_item to handle stacking and limits properly
+            # We pass specific_durability to preserve the item's condition
+            if not add_item(uid, item_id, 1, cursor=cur, specific_durability=durability):
+                # If inventory is full, rollback the unequip
+                raise Exception("Inventory Full")
+
             return True
     except Exception as e:
         print(f"Unequip Error: {e}")
