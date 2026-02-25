@@ -157,79 +157,77 @@ def pvp_shop_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_buy_"))
 def pvp_buy_handler(call):
     uid = call.from_user.id
+    action = call.data
 
     # 1. Parse Data
-    action = call.data
-    is_confirm = False
-
-    # Check if confirm
-    if "_confirm_" in action:
-        is_confirm = True
+    is_confirm = "_confirm_" in action
+    if is_confirm:
         raw_sid = action.replace("pvp_buy_confirm_", "")
     else:
-        is_confirm = False
         raw_sid = action.replace("pvp_buy_", "")
 
-    # Check if hardware
-    is_hardware = False
-    if raw_sid.startswith("hw_"):
-        is_hardware = True
+    is_hardware = raw_sid.startswith("hw_")
+    if is_hardware:
         sid = raw_sid[3:] # remove 'hw_'
     else:
         sid = raw_sid
 
     # 2. Execute Logic
     if is_confirm:
-        # BUY
-        success, msg = pvp.buy_software(uid, sid, is_hardware=is_hardware)
-        bot.answer_callback_query(call.id, msg, show_alert=True)
-        if success:
-            pvp_shop_handler(call)
+        process_purchase(call, uid, sid, is_hardware)
     else:
-        # SHOW INFO
-        image_url = None
-        if is_hardware:
-            from config import ITEMS_INFO, PRICES
-            info = ITEMS_INFO.get(sid, {})
-            cost = PRICES.get(sid, 0)
-            currency = 'XP' if sid == 'proxy_server' else 'BC'
+        show_item_info(call, sid, is_hardware)
 
-            # Construct description for HW
-            name = info.get('name', '???')
-            desc = info.get('desc', '...')
-            icon = "🛠"
-            pwr = "N/A"
-            type_str = "HARDWARE"
+def process_purchase(call, uid, sid, is_hardware):
+    success, msg = pvp.buy_software(uid, sid, is_hardware=is_hardware)
+    bot.answer_callback_query(call.id, msg, show_alert=True)
+    if success:
+        pvp_shop_handler(call)
 
-            image_url = config.ITEM_IMAGES.get(sid)
+def show_item_info(call, sid, is_hardware):
+    image_url = None
+    if is_hardware:
+        from config import ITEMS_INFO, PRICES
+        info = ITEMS_INFO.get(sid, {})
+        cost = PRICES.get(sid, 0)
+        currency = 'XP' if sid == 'proxy_server' else 'BC'
 
-        else:
-            # Software
-            soft = config.SOFTWARE_DB.get(sid)
-            if not soft:
-                bot.answer_callback_query(call.id, "❌ Ошибка: ПО не найдено.", show_alert=True)
-                return
+        # Construct description for HW
+        name = info.get('name', '???')
+        desc = info.get('desc', '...')
+        icon = "🛠"
+        pwr = "N/A"
+        type_str = "HARDWARE"
 
-            info = soft
-            cost = info['cost']
-            currency = 'BC'
+        image_url = config.ITEM_IMAGES.get(sid)
 
-            name = info['name']
-            desc = info['desc']
-            icon = info['icon']
-            pwr = info['power']
-            type_str = info['type'].upper()
+    else:
+        # Software
+        soft = config.SOFTWARE_DB.get(sid)
+        if not soft:
+            bot.answer_callback_query(call.id, "❌ Ошибка: ПО не найдено.", show_alert=True)
+            return
 
-            image_url = config.ITEM_IMAGES.get(sid)
+        info = soft
+        cost = info['cost']
+        currency = 'BC'
 
-        msg = (
-            f"💾 <b>{name}</b>\n"
-            f"Тип: {type_str} {icon}\n"
-            f"Мощь: {pwr}\n"
-            f"Описание: {desc}\n\n"
-            f"Цена: <b>{cost} {currency}</b>"
-        )
-        menu_update(call, msg, kb.pvp_shop_confirm(sid, is_hardware=is_hardware), image_url=image_url)
+        name = info['name']
+        desc = info['desc']
+        icon = info['icon']
+        pwr = info['power']
+        type_str = info['type'].upper()
+
+        image_url = config.ITEM_IMAGES.get(sid)
+
+    msg = (
+        f"💾 <b>{name}</b>\n"
+        f"Тип: {type_str} {icon}\n"
+        f"Мощь: {pwr}\n"
+        f"Описание: {desc}\n\n"
+        f"Цена: <b>{cost} {currency}</b>"
+    )
+    menu_update(call, msg, kb.pvp_shop_confirm(sid, is_hardware=is_hardware), image_url=image_url)
 
 # =============================================================================
 # 4. ATTACK FLOW
