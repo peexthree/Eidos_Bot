@@ -53,6 +53,7 @@ def db_session():
         if conn: conn.rollback()
         print(f"/// DB ERROR: {e}")
         print(traceback.format_exc())
+        raise e
     finally:
         if conn and pg_pool:
             pg_pool.putconn(conn)

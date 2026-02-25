@@ -71,11 +71,16 @@ def process_combat_action(uid, action):
             stats['luck'] += bonus_luck
 
         if action == 'attack':
-            # ADRENALINE
+            # --- ADRENALINE LOGIC ---
             dmg_mult = 1.0
+            is_adrenaline = False
             if current_signal < 20:
                 dmg_mult = 2.0
+                is_adrenaline = True
                 msg += "🩸 <b>АДРЕНАЛИН:</b> Урон удвоен!\n"
+
+            # Log initial stats for debugging
+            print(f"/// COMBAT DEBUG: UID={uid} | ATK={stats['atk']} | LUCK={stats['luck']} | Signal={current_signal} | Adrenaline={is_adrenaline}")
 
             crit_chance = stats['luck'] / 100.0
 
@@ -97,7 +102,11 @@ def process_combat_action(uid, action):
             if equipped_weapon == 'credit_slicer':
                 burn = int(u['biocoin'] * 0.01)
                 if burn > 0:
-                    db.update_user(uid, biocoin=max(0, u['biocoin'] - burn))
+                    # Using separate cursor or ensuring update_user uses current cursor via helper?
+                    # db.update_user creates new session. Since we are inside a session, mixing is tricky unless update_user supports cursor.
+                    # db.update_user does NOT support cursor.
+                    # We should do inline update here to stay atomic.
+                    cur.execute("UPDATE players SET biocoin = GREATEST(0, biocoin - %s) WHERE uid = %s", (burn, uid))
                     base_dmg += burn
                     msg += f"🔪 <b>РЕЗАК:</b> Сожжено {burn} BC ради урона.\n"
 
@@ -130,6 +139,8 @@ def process_combat_action(uid, action):
                 msg += "💀 <b>КАЗНЬ:</b> Вы жестоко добиваете врага.\n"
 
             new_enemy_hp = enemy_hp - dmg
+
+            print(f"/// COMBAT DEBUG: DMG={dmg} | Enemy HP: {enemy_hp} -> {new_enemy_hp}")
 
             crit_msg = " (КРИТ!)" if is_crit else ""
 

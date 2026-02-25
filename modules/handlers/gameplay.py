@@ -347,7 +347,7 @@ def combat_handler(call):
      try:
          res_type, msg, extra = process_combat_action(uid, action)
      except Exception as e:
-         print(f"COMBAT HANDLER ERROR: {e}")
+         print(f"/// COMBAT HANDLER FATAL ERROR (UID={uid}): {e}")
          traceback.print_exc()
          try: bot.answer_callback_query(call.id, "⚠️ SYSTEM ERROR: Combat failed.", show_alert=True)
          except: pass
