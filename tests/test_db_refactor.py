@@ -23,7 +23,7 @@ class TestDBRefactor(unittest.TestCase):
         # Create a mock cursor
         mock_cursor = MagicMock()
         # Simulate RealDictCursor result (dict)
-        mock_cursor.fetchone.return_value = {'quantity': 10}
+        mock_cursor.fetchone.return_value = {'total': 10}
 
         # Call get_item_count with the mock cursor
         uid = 123
@@ -36,7 +36,7 @@ class TestDBRefactor(unittest.TestCase):
         # Verify execute was called on the PASSED cursor
         mock_cursor.execute.assert_called_once()
         args, _ = mock_cursor.execute.call_args
-        self.assertIn("SELECT quantity FROM inventory", args[0])
+        self.assertIn("SELECT SUM(quantity) as total FROM inventory", args[0])
         self.assertEqual(args[1], (uid, item_id))
 
         # Verify db_cursor is NOT called
