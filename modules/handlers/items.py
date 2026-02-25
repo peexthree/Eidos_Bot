@@ -283,6 +283,7 @@ def item_action_handler(call):
 
         info = ITEMS_INFO.get(item_id)
         if info:
+            bot.answer_callback_query(call.id)
             desc = info['desc']
             if info.get('type') == 'equip':
                 desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
