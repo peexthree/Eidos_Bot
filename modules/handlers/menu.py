@@ -7,6 +7,7 @@ from modules.services.utils import menu_update, get_menu_text, get_menu_image, G
 from modules.services.user import get_user_stats, get_level_progress_stats, get_profile_stats, get_syndicate_stats, perform_hard_reset
 import time
 import random
+import html
 from telebot import types
 
 @bot.callback_query_handler(func=lambda call: call.data == "profile" or call.data.startswith("set_path_") or call.data.startswith("confirm_path_") or call.data == "change_path_menu" or call.data == "use_accelerator" or call.data == "activate_purification")
@@ -62,8 +63,9 @@ def profile_handler(call):
              rem_hours = int((u['accel_exp'] - time.time()) / 3600)
              accel_status = f"\n⚡️ Ускоритель: <b>АКТИВЕН ({rem_hours}ч)</b>"
 
+        safe_name = html.escape(u['username'] or u['first_name'] or "Unknown")
         msg = (
-            f"👤 <b>ПРОФИЛЬ: {u['username'] or u['first_name']}</b>\n"
+            f"👤 <b>ПРОФИЛЬ: {safe_name}</b>\n"
             f"🏫 Школа: <b>{school_name}</b>\n"
             f"🔰 Статус: <b>{title_name}</b>\n"
             f"<i>({title_desc})</i>\n"
@@ -191,7 +193,10 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
 
         if i <= 3:
             username = l.get('username')
-            display_name = f"@{username}" if username else (l['first_name'] or "Unknown")
+            if username:
+                display_name = f"@{username}"
+            else:
+                display_name = html.escape(l['first_name'] or "Unknown")
             header = f"{rank_icon} [{detail}] {display_name} <i>({path_icon})</i> — <b>{val}</b>"
             txt += f"{header}\n"
         else:
@@ -462,10 +467,12 @@ def feedback_process_handler(m):
     first_name = u.get('first_name', 'Unknown')
 
     # Send to Admin
+    safe_first_name = html.escape(first_name)
+    safe_text = html.escape(text)
     admin_msg = (
         f"📩 <b>FEEDBACK RECEIVED</b>\n"
-        f"From: {first_name} (@{username}) [ID: {uid}]\n\n"
-        f"{text}"
+        f"From: {safe_first_name} (@{username}) [ID: {uid}]\n\n"
+        f"{safe_text}"
     )
     try:
         bot.send_message(config.ADMIN_ID, admin_msg, parse_mode="HTML")

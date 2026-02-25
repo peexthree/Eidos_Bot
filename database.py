@@ -8,6 +8,7 @@ import logging
 import random
 from datetime import datetime
 import re
+import html
 import traceback
 from config import ITEMS_INFO, INVENTORY_LIMIT
 from content_presets import CONTENT_DATA, VILLAINS_DATA, OLD_VILLAINS_NAMES
@@ -1263,7 +1264,8 @@ def admin_get_users_dossier(limit=50):
         report = "📂 <b>DOSSIER: USERS LIST</b>\n\n"
         for u in users:
             active = u['last_active'].strftime('%d.%m') if u['last_active'] else "N/A"
-            report += (f"👤 <b>{u['first_name']}</b> (@{u['username']})\n"
+            safe_name = html.escape(u['first_name'] or "Unknown")
+            report += (f"👤 <b>{safe_name}</b> (@{u['username']})\n"
                        f"   Lvl {u['level']} | {u['xp']} XP | {u['path'].upper()}\n"
                        f"   Streak: {u['streak']} | Depth: {u['max_depth']}m | Last: {active}\n"
                        f"   🆔 <code>{u['uid']}</code>\n\n")
