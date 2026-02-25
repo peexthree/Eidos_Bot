@@ -306,6 +306,9 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 today = datetime.now().date()
                 last = u.get('last_raid_date')
 
+                if isinstance(last, datetime):
+                    last = last.date()
+
                 # Сброс ежедневных лимитов (ПРЯМОЙ SQL)
                 if str(last) != str(today):
                     cur.execute("UPDATE players SET raid_count_today=0, last_raid_date=%s WHERE uid=%s", (today, uid))

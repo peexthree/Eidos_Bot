@@ -256,14 +256,30 @@ def pvp_search_handler(call):
 
     # Initialize Attack State
     # We store the target ID and an empty program selection
+
+    # Ensure target dict is JSON serializable
+    safe_target = {}
+    for k, v in target.items():
+        if isinstance(v, (str, int, float, bool, list, dict, type(None))):
+            safe_target[k] = v
+        else:
+            safe_target[k] = str(v)
+
     state_data = {
         'target_uid': target['uid'],
         'slots': {"1": None, "2": None, "3": None}, # Selected programs
-        'target_info': target # Cache info to avoid re-query
+        'target_info': safe_target # Cache info to avoid re-query
     }
-    db.set_state(uid, 'pvp_attack_prep', json.dumps(state_data))
 
-    _show_attack_screen(call, target, state_data['slots'])
+    try:
+        json_str = json.dumps(state_data)
+        db.set_state(uid, 'pvp_attack_prep', json_str)
+    except Exception as e:
+        print(f"PVP STATE ERROR: {e}")
+        bot.answer_callback_query(call.id, "❌ Ошибка данных цели.", show_alert=True)
+        return
+
+    _show_attack_screen(call, safe_target, state_data['slots'])
 
 def _show_attack_screen(call, target, slots):
     # Preview logic
@@ -315,7 +331,7 @@ def pvp_atk_sel_handler(call):
     # Update State
     state_tuple = db.get_full_state(uid)
     if not state_tuple:
-        bot.answer_callback_query(call.id, "❌ Сессия истекла.", show_alert=True)
+        bot.answer_callback_query(call.id, "❌ Сессия истекла. Начните поиск заново.", show_alert=True)
         return pvp_menu_handler(call)
 
     state_name, data_json = state_tuple # Unpack
