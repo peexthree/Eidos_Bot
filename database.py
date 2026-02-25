@@ -160,6 +160,8 @@ def fix_column_types():
                     if ('text' in curr or 'char' in curr) and ('int' in target or 'bool' in target or 'date' in target):
                         needs_fix = True
 
+                    print(f"/// DEBUG TYPE CHECK: {col} | Current: {curr} | Target: {target} | Needs Fix: {needs_fix}")
+
                     if needs_fix:
                         print(f"/// FIX: Converting {col} from {curr} to {target}...")
                         try:
@@ -173,15 +175,36 @@ def fix_column_types():
                             print(f"/// FIX ERROR for {col}: {e}")
                             conn.rollback()
 
+def fix_villains_schema():
+    print("/// DEBUG: Checking villains schema constraints...")
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # Check if constraint exists
+                cur.execute("""
+                    SELECT conname FROM pg_constraint
+                    JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
+                    WHERE pg_class.relname = 'villains' AND pg_constraint.contype = 'u';
+                """)
+                if cur.fetchone():
+                    return # Exists
+
+                print("/// FIX: Adding UNIQUE constraint to villains(name)...")
+                # Remove duplicates first (keep highest ID)
+                cur.execute("""
+                    DELETE FROM villains a USING villains b
+                    WHERE a.id < b.id AND a.name = b.name;
+                """)
+                # Add constraint
+                cur.execute("ALTER TABLE villains ADD CONSTRAINT villains_name_key UNIQUE (name);")
+                conn.commit()
+    except Exception as e:
+        print(f"/// FIX VILLAINS ERROR: {e}")
+
 def init_db():
     print("/// DEBUG: init_db started")
 
-    # Run the fix for column types before creating/altering other things
-    try:
-        fix_column_types()
-    except Exception as e:
-        print(f"/// FIX COLUMN TYPES ERROR: {e}")
-
+    # 1. SCHEMA MIGRATION & CREATION (Transaction 1)
     with db_session() as conn:
         if not conn: return
         with conn.cursor() as cur:
@@ -451,6 +474,16 @@ def init_db():
                 );
             ''')
 
+    # 2. FIXES (New Transactions)
+    # Now that tables are created/renamed, we can fix column types and constraints.
+    try:
+        fix_column_types()
+    except Exception as e:
+        print(f"/// FIX COLUMN TYPES ERROR: {e}")
+
+    fix_villains_schema()
+
+    # 3. POPULATE DATA (New Transactions)
     print("/// DEBUG: populating villains")
     populate_villains()
     print("/// DEBUG: populating content")
