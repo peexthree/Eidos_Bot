@@ -1,8 +1,11 @@
 import telebot
 import flask
 import os
+import sys
 import time
 import threading
+
+sys.stdout.reconfigure(line_buffering=True)
 import config
 import database as db
 
@@ -110,6 +113,7 @@ def health_check():
 def webhook():
     if flask.request.method == 'POST':
         try:
+            print("/// WEBHOOK RECEIVED")
             # 1. Get raw data
             json_string = flask.request.get_data().decode('utf-8')
             if not json_string:
@@ -171,6 +175,8 @@ def system_startup():
                     print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
                 except Exception as e:
                     print(f"/// WEBHOOK ERROR: {e}")
+            else:
+                print("/// WARNING: WEBHOOK_URL not set. Bot will not receive updates via Webhook.")
 
             # Signal DB is ready
             DB_READY.set()

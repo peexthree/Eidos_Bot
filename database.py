@@ -151,19 +151,6 @@ def fix_column_types():
             if not cur.fetchone():
                 return
 
-            # --- CLEANUP STEP: Handle '0.0' in date columns ---
-            # If we don't clean this, type conversion will fail.
-            try:
-                # We can update text '0.0' to NULL even if column is text.
-                # If column is already DATE/TIMESTAMP, '0.0' wouldn't exist (it would be an error or not there).
-                # So this is safe to run blindly on possible text columns.
-                for date_col in ['last_active', 'last_raid_date']:
-                    try:
-                        cur.execute(f"UPDATE players SET {date_col} = NULL WHERE {date_col}::text = '0.0' OR {date_col}::text = ''")
-                        conn.commit()
-                    except: conn.rollback()
-            except: pass
-
             cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'players'")
             current_types = {row[0]: row[1].lower() for row in cur.fetchall()}
 
@@ -189,6 +176,18 @@ def fix_column_types():
 
                     if needs_fix:
                         print(f"/// FIX: Converting {col} from {curr} to {target}...")
+
+                        # --- NEW: Cleanup Logic ---
+                        if col in ['last_active', 'last_raid_date']:
+                            try:
+                                # Safe to run here because we know it's text based on needs_fix logic
+                                cur.execute(f"UPDATE players SET {col} = NULL WHERE {col} = '0.0' OR {col} = ''")
+                                conn.commit()
+                            except Exception as e:
+                                print(f"/// CLEANUP ERROR {col}: {e}")
+                                conn.rollback()
+                        # --- End Cleanup ---
+
                         try:
                             # Robust USING clause
                             # 1. Handle empty strings -> NULL
