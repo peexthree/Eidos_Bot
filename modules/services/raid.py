@@ -124,7 +124,7 @@ def process_riddle_answer(uid, user_answer):
                 msg = f"✅ <b>ВЕРНО!</b>\nПолучено: +{bonus_xp} XP."
                 if random.random() < 0.3:
                     # Add to buffer
-                    cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',battery' WHERE uid=%s", (uid,))
+                    cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',battery' WHERE uid=%s", (uid,))
                     msg += "\n🎁 Награда: Батарея (В буфер)"
                 return True, msg
             else:
@@ -482,7 +482,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                         prefix = "🟠 ЛЕГЕНДАРНЫЙ ЛУТ"
 
                     # Assuming get_legendary_drops returns item_id
-                    cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
+                    cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (l_item, uid))
                     i_name = ITEMS_INFO.get(l_item, {}).get('name', l_item)
                     loot_item_txt = f"\n{prefix}:\n{i_name}"
                     bonus_xp *= 2
@@ -491,7 +491,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     # Normal chest loot logic
                     if random.random() < 0.30: # 30% шанс на предмет
                          l_item = get_chest_drops(depth, stats['luck'])
-                         cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (l_item, uid))
+                         cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (l_item, uid))
                          loot_item_txt = f"\n📦 Предмет: {ITEMS_INFO.get(l_item, {}).get('name')}"
 
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, bonus_coins, uid))
@@ -521,7 +521,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                          cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (coins, uid))
                          if items_str:
-                             cur.execute("UPDATE raid_sessions SET buffer_items = buffer_items || ',' || %s WHERE uid=%s", (items_str, uid))
+                             cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (items_str, uid))
 
                          conn.commit()
                          return True, f"💰 <b>МАРОДЕРСТВО:</b> Вы забрали {coins} BC и снаряжение.", {'alert': f"💰 +{coins} BC"}, u, 'loot_claimed', 0

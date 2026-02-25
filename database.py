@@ -724,10 +724,14 @@ def add_xp_to_user(uid, amount):
                 if profit > 0:
                     cur.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
 
-def increment_user_stat(uid, stat, amount=1):
+def increment_user_stat(uid, stat, amount=1, cursor=None):
     # Safe allow-list for stats
     ALLOWED_STATS = ['kills', 'raids_done', 'perfect_raids', 'quiz_wins', 'messages', 'likes', 'purchases', 'night_visits', 'clicks']
     if stat not in ALLOWED_STATS: return False
+
+    if cursor:
+        cursor.execute(f"UPDATE players SET {stat} = {stat} + %s WHERE uid = %s", (amount, uid))
+        return cursor.rowcount > 0
 
     with db_session() as conn:
         with conn.cursor() as cur:
