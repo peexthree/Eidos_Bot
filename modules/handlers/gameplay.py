@@ -115,6 +115,57 @@ def protocol_handler(call):
                  final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP{ach_text}"
                  threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_signal"])).start()
 
+# Helper function for raid actions
+def handle_raid_action(call, uid, action_args=None, custom_success_callback=None, text_prefix=""):
+    if action_args is None: action_args = {}
+
+    try:
+        res, txt, extra, new_u, etype, cost = process_raid_step(uid, **action_args)
+    except Exception as e:
+        print(f"RAID ACTION ERROR: {e}")
+        traceback.print_exc()
+        try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА. Попробуйте позже.", show_alert=True)
+        except: pass
+        return
+
+    if not res:
+        if txt == "no_key":
+             try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
+             except: pass
+        elif etype == 'death':
+             if extra and extra.get('death_reason'):
+                  try: bot.answer_callback_query(call.id, extra['death_reason'], show_alert=True)
+                  except: pass
+             menu_update(call, txt, kb.back_button())
+        else:
+             try: bot.answer_callback_query(call.id, txt, show_alert=True)
+             except: pass
+        return
+
+    # Success Logic
+    alert_handled = False
+    if custom_success_callback:
+        alert_handled = custom_success_callback(call, uid, extra)
+
+    if not alert_handled:
+        alert = extra.get('alert') if extra else None
+        if alert:
+             try: bot.answer_callback_query(call.id, alert, show_alert=True)
+             except: pass
+        else:
+             try: bot.answer_callback_query(call.id)
+             except: pass
+
+    full_text = text_prefix + txt
+
+    consumables = get_consumables(uid)
+    riddle_opts = extra['options'] if etype == 'riddle' and extra else []
+    image_url = extra.get('image') if extra else None
+    has_spike = extra.get('has_data_spike', False) if extra else False
+
+    markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
+    menu_update(call, full_text, markup, image_url=image_url)
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("raid_") or call.data == "zero_layer_menu" or call.data.startswith("r_check_") or call.data == "use_admin_key")
 def raid_handler(call):
     uid = call.from_user.id
@@ -149,129 +200,36 @@ def raid_handler(call):
          else:
              start_depth = int(val)
 
-         try:
-             res, txt, extra, new_u, etype, cost = process_raid_step(uid, start_depth=start_depth)
-         except Exception as e:
-             print(f"RAID START ERROR: {e}")
-             bot.answer_callback_query(call.id, "⚠️ ОШИБКА РЕЙДА. Попробуйте позже.", show_alert=True)
-             return
-
-         if res:
+         def on_start_success(call, uid, extra):
              db.log_action(uid, 'raid_start', f"Depth: {start_depth}")
              entry_cost = get_raid_entry_cost(uid)
              bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
-             consumables = get_consumables(uid)
-         else:
-             bot.answer_callback_query(call.id, txt, show_alert=True)
-             return
+             return True
 
-         riddle_opts = extra['options'] if etype == 'riddle' and extra else []
-         image_url = extra.get('image') if extra else None
-         has_spike = extra.get('has_data_spike', False) if extra else False
-         markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
-         menu_update(call, txt, markup, image_url=image_url)
+         handle_raid_action(call, uid, {'start_depth': start_depth}, custom_success_callback=on_start_success)
 
     elif call.data == "raid_enter":
-         try:
-             res, txt, extra, new_u, etype, cost = process_raid_step(uid)
-         except Exception as e:
-             print(f"RAID ENTER ERROR: {e}")
-             bot.answer_callback_query(call.id, "⚠️ ОШИБКА ВХОДА. Попробуйте позже.", show_alert=True)
-             return
-
-         if res:
+         def on_enter_success(call, uid, extra):
              entry_cost = get_raid_entry_cost(uid)
              bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
-             consumables = get_consumables(uid)
-         else:
-             bot.answer_callback_query(call.id, txt, show_alert=True)
-             return
+             return True
 
-         riddle_opts = extra['options'] if etype == 'riddle' and extra else []
-         image_url = extra.get('image') if extra else None
-         has_spike = extra.get('has_data_spike', False) if extra else False
-         markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
-         menu_update(call, txt, markup, image_url=image_url)
+         handle_raid_action(call, uid, custom_success_callback=on_enter_success)
 
     elif call.data == "raid_step":
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid)
-         if not res:
-             if etype == 'death' and extra and extra.get('death_reason'):
-                  try: bot.answer_callback_query(call.id, extra['death_reason'], show_alert=True)
-                  except: pass
-             menu_update(call, txt, kb.back_button())
-         else:
-             if extra and extra.get('alert'):
-                  try: bot.answer_callback_query(call.id, extra['alert'], show_alert=True)
-                  except: bot.answer_callback_query(call.id)
-             else:
-                  try: bot.answer_callback_query(call.id)
-                  except: pass
-
-             consumables = get_consumables(uid)
-             riddle_opts = extra['options'] if etype == 'riddle' and extra else []
-             image_url = extra.get('image') if extra else None
-             has_spike = extra.get('has_data_spike', False) if extra else False
-             markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
-             menu_update(call, txt, markup, image_url=image_url)
+         handle_raid_action(call, uid)
 
     elif call.data == "raid_open_chest":
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid, answer='open_chest')
-         if not res:
-             if txt == "no_key":
-                 bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
-             else:
-                 bot.answer_callback_query(call.id, txt, show_alert=True)
-         else:
-             alert_txt = f"🔓 СИСТЕМА РАЗБЛОКИРОВАНА. Получено: {extra.get('alert', '')}" if extra else "🔓 СИСТЕМА РАЗБЛОКИРОВАНА"
-             bot.answer_callback_query(call.id, alert_txt, show_alert=True)
-             consumables = get_consumables(uid)
-             image_url = extra.get('image') if extra else None
-             has_spike = extra.get('has_data_spike', False) if extra else False
-             markup = kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
-             menu_update(call, txt, markup, image_url=image_url)
+         handle_raid_action(call, uid, {'answer': 'open_chest'})
 
     elif call.data == "raid_hack_chest":
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid, answer='hack_chest')
-         if not res:
-             bot.answer_callback_query(call.id, txt, show_alert=True)
-             # Refresh menu to show failure state if needed, or just alert
-             # If failure means "chest remains locked", we should refresh the keyboard probably?
-             # But usually process_raid_step returns False only for errors or hard blocks.
-             # If hack fails, process_raid_step should return True with "Hack Failed" text and next state?
-             # Let's assume process_raid_step handles it. If False, it's an error.
-         else:
-             alert_txt = extra.get('alert', 'Взлом завершен') if extra else 'Взлом завершен'
-             bot.answer_callback_query(call.id, alert_txt, show_alert=True)
-             consumables = get_consumables(uid)
-             image_url = extra.get('image') if extra else None
-             has_spike = extra.get('has_data_spike', False) if extra else False
-             markup = kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
-             menu_update(call, txt, markup, image_url=image_url)
+         handle_raid_action(call, uid, {'answer': 'hack_chest'})
 
     elif call.data == "raid_use_battery":
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid, answer='use_battery')
-         if not res:
-             bot.answer_callback_query(call.id, txt, show_alert=True)
-         else:
-             alert_txt = extra.get('alert', 'Батарея использована') if extra else 'Батарея использована'
-             bot.answer_callback_query(call.id, alert_txt, show_alert=True)
-             consumables = get_consumables(uid)
-             image_url = extra.get('image') if extra else None
-             markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
-             menu_update(call, txt, markup, image_url=image_url)
+         handle_raid_action(call, uid, {'answer': 'use_battery'})
 
     elif call.data == "raid_use_stimulator":
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid, answer='use_stimulator')
-         if not res:
-             bot.answer_callback_query(call.id, txt, show_alert=True)
-         else:
-             alert_txt = extra.get('alert', 'Стимулятор использован') if extra else 'Стимулятор использован'
-             bot.answer_callback_query(call.id, alert_txt, show_alert=True)
-             consumables = get_consumables(uid)
-             image_url = extra.get('image') if extra else None
-             markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
-             menu_update(call, txt, markup, image_url=image_url)
+         handle_raid_action(call, uid, {'answer': 'use_stimulator'})
 
     elif call.data == "use_admin_key":
          bot.answer_callback_query(call.id, "🟠 КЛЮЧ АРХИТЕКТОРА:\n\nЭтот артефакт пульсирует странной энергией.\nОн не имеет видимого применения в этой версии реальности.\n\n...пока что.", show_alert=True)
@@ -315,28 +273,14 @@ def raid_handler(call):
          menu_update(call, report, kb.back_button(), image_url=config.RAID_EVENT_IMAGES.get('evacuation'))
 
     elif call.data == "raid_claim_body":
-         res, txt, extra, new_u, etype, cost = process_raid_step(uid, answer='claim_body')
-         if res:
-             alert = extra.get('alert') if extra else "Забрано"
-             bot.answer_callback_query(call.id, alert, show_alert=True)
-             consumables = get_consumables(uid)
-             image_url = extra.get('image') if extra else None
-             menu_update(call, txt, kb.raid_action_keyboard(cost, etype, consumables=consumables), image_url=image_url)
-         else:
-             bot.answer_callback_query(call.id, txt, show_alert=True)
+         handle_raid_action(call, uid, {'answer': 'claim_body'})
 
     elif call.data.startswith("r_check_"):
         ans = call.data.replace("r_check_", "")
         success, msg = process_riddle_answer(uid, ans)
         bot.answer_callback_query(call.id, "Принято.")
 
-        res, txt, extra, new_u, etype, cost = process_raid_step(uid)
-        full_txt = f"{msg}\n\n{txt}"
-        consumables = get_consumables(uid)
-        riddle_opts = extra['options'] if etype == 'riddle' and extra else []
-        image_url = extra.get('image') if extra else None
-        markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables)
-        menu_update(call, full_txt, markup, image_url=image_url)
+        handle_raid_action(call, uid, text_prefix=f"{msg}\n\n")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("combat_"))
 def combat_handler(call):
@@ -436,12 +380,7 @@ def anomaly_handler(call):
         except: pass
 
         # Show result and continue raid
-        res_raid, txt, extra_raid, new_u, etype, cost = process_raid_step(uid)
-        full_txt = f"{msg}\n\n{txt}"
-        consumables = get_consumables(uid)
-        image_url = extra_raid.get('image') if extra_raid else None
-        markup = kb.raid_action_keyboard(cost, etype, consumables=consumables)
-        menu_update(call, full_txt, markup, image_url=image_url)
+        handle_raid_action(call, uid, text_prefix=f"{msg}\n\n")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("decrypt_"))
 def decrypt_handler(call):
