@@ -191,7 +191,7 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
 
         if i <= 3:
             username = l.get('username')
-            display_name = f"@{username}" if username else l['first_name']
+            display_name = f"@{username}" if username else (l['first_name'] or "Unknown")
             header = f"{rank_icon} [{detail}] {display_name} <i>({path_icon})</i> — <b>{val}</b>"
             txt += f"{header}\n"
         else:
