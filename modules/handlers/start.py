@@ -67,6 +67,7 @@ def start_handler(m):
 @bot.message_handler(content_types=['photo'])
 def grab_file_id(message):
     uid = message.from_user.id
+    # SECURITY: Prevent unauthorized access to file IDs. Only admins allowed.
     if not db.is_user_admin(uid):
         return
 
