@@ -26,9 +26,13 @@ def init_pool():
                 maxconn=20,
                 dsn=DATABASE_URL,
                 sslmode='require',
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5,
                 options='-c lock_timeout=10000'
             )
-            print("/// DB POOL INITIALIZED")
+            print("/// DB POOL INITIALIZED (SUPABASE)")
         except Exception as e:
             print(f"/// DB POOL INIT ERROR: {e}")
 
@@ -232,6 +236,53 @@ def fix_villains_schema():
                 conn.commit()
     except Exception as e:
         print(f"/// FIX VILLAINS ERROR: {e}")
+
+def fix_bot_states_schema():
+    print("/// DEBUG: Checking bot_states table schema...")
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # Check if constraint exists
+                cur.execute("""
+                    SELECT conname FROM pg_constraint
+                    JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
+                    WHERE pg_class.relname = 'bot_states' AND pg_constraint.contype = 'p';
+                """)
+                if cur.fetchone():
+                    return # Exists
+
+                print("/// FIX: Adding PRIMARY KEY constraint to bot_states(uid)...")
+                # Remove duplicates first (keep highest ctid)
+                cur.execute("""
+                    DELETE FROM bot_states a USING bot_states b
+                    WHERE a.ctid < b.ctid AND a.uid = b.uid;
+                """)
+                # Add constraint
+                cur.execute("ALTER TABLE bot_states ADD PRIMARY KEY (uid);")
+                conn.commit()
+    except Exception as e:
+        print(f"/// FIX BOT_STATES ERROR: {e}")
+
+def fix_inventory_schema():
+    print("/// DEBUG: Checking inventory constraints...")
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # Check for legacy constraint
+                cur.execute("""
+                    SELECT conname FROM pg_constraint
+                    JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
+                    WHERE pg_class.relname = 'inventory' AND pg_constraint.contype = 'u';
+                """)
+                constraints = cur.fetchall()
+                for con in constraints:
+                    name = con[0]
+                    if 'uid' in name and 'item' in name:
+                         print(f"/// FIX: Dropping legacy constraint {name} from inventory...")
+                         cur.execute(f"ALTER TABLE inventory DROP CONSTRAINT {name};")
+                         conn.commit()
+    except Exception as e:
+        print(f"/// FIX INVENTORY ERROR: {e}")
 
 def init_db():
     print("/// DEBUG: init_db started")
@@ -514,6 +565,8 @@ def init_db():
         print(f"/// FIX COLUMN TYPES ERROR: {e}")
 
     fix_villains_schema()
+    fix_bot_states_schema()
+    fix_inventory_schema()
 
     # 3. POPULATE DATA (New Transactions)
     print("/// DEBUG: populating villains")
