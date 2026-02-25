@@ -106,13 +106,12 @@ class CraftingService:
                         cur.execute("UPDATE inventory SET quantity = %s WHERE uid = %s AND item_id = %s", (new_qty, uid, item_id))
 
                     # 3. Add Reward
-                    cur.execute("""
-                        INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, 1, %s)
-                        ON CONFLICT (uid, item_id) DO UPDATE SET quantity = inventory.quantity + 1
-                    """, (uid, new_item_id, durability))
-
-                    res_success = True
-                    res_msg = new_item_id
+                    if db.add_item(uid, new_item_id, 1, cursor=cur, specific_durability=durability):
+                        res_success = True
+                        res_msg = new_item_id
+                    else:
+                        res_msg = "❌ Ошибка добавления (инвентарь полон?)."
+                        raise ValueError("Add item failed")
 
         except ValueError:
             pass # Handled by db_session rollback
@@ -144,15 +143,12 @@ class CraftingService:
 
                     # Grant Red Item
                     reward_id = random.choice(config.CURSED_CHEST_DROPS)
-                    durability = 100 # Should be standard for equipment?
 
-                    cur.execute("""
-                        INSERT INTO inventory (uid, item_id, quantity, durability) VALUES (%s, %s, 1, %s)
-                        ON CONFLICT (uid, item_id) DO UPDATE SET quantity = inventory.quantity + 1
-                    """, (uid, reward_id, durability))
-
-                    reward_name = config.EQUIPMENT_DB.get(reward_id, {}).get('name', reward_id)
-                    return True, f"✨ <b>СИНТЕЗ ЗАВЕРШЕН</b> ✨\n\n🧩 5 Фрагментов успешно соединены.\n\n🎁 <b>ПОЛУЧЕНО:</b>\n{reward_name}\n\n<i>Предмет добавлен в инвентарь.</i>"
+                    if db.add_item(uid, reward_id, 1, cursor=cur):
+                        reward_name = config.EQUIPMENT_DB.get(reward_id, {}).get('name', reward_id)
+                        return True, f"✨ <b>СИНТЕЗ ЗАВЕРШЕН</b> ✨\n\n🧩 5 Фрагментов успешно соединены.\n\n🎁 <b>ПОЛУЧЕНО:</b>\n{reward_name}\n\n<i>Предмет добавлен в инвентарь.</i>"
+                    else:
+                        return False, "❌ Ошибка добавления предмета."
         except Exception as e:
             print(f"FRAGMENT CRAFT ERR: {e}")
             return False, "❌ Ошибка синтеза."

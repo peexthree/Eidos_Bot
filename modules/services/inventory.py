@@ -67,19 +67,8 @@ def convert_legacy_items(uid):
                 res = cur.fetchone()
                 if res:
                     qty, dur = res
-                    # Добавляем новый предмет (суммируем количество если есть)
-                    # Используем dur от старого предмета или стандартный от нового?
-                    # Лучше взять стандартный, так как это 'восстановление'. Но для честности можно оставить старый.
-                    # Но так как dur у нас обычно 100... пусть будет стандартный (через INSERT conflict).
-                    # Внимание: если предмет уже есть, мы просто добавляем количество, игнорируя прочность (она усредняется или берется max в другой логике? В add_item мы не меняем dur).
-                    # Здесь мы делаем прямой SQL.
-
-                    cur.execute("""
-                        INSERT INTO inventory (uid, item_id, quantity, durability)
-                        VALUES (%s, %s, %s, %s)
-                        ON CONFLICT (uid, item_id)
-                        DO UPDATE SET quantity = inventory.quantity + %s
-                    """, (uid, new_id, qty, dur, qty))
+                    # Добавляем новый предмет
+                    db.add_item(uid, new_id, qty, cursor=cur, specific_durability=dur)
 
                     # Удаляем старый
                     cur.execute("DELETE FROM inventory WHERE uid=%s AND item_id=%s", (uid, old_id))
