@@ -3,7 +3,8 @@ import database as db
 import config
 from config import TITLES, SCHOOLS, SCHOOLS_INFO, PATH_CHANGE_COST, ACHIEVEMENTS_LIST
 import keyboards as kb
-from modules.services.utils import menu_update, get_menu_text, get_menu_image, GAME_GUIDE_TEXTS, draw_bar
+from modules.services.utils import menu_update, get_menu_text, get_menu_image, draw_bar
+from modules.texts import GAME_GUIDE_TEXTS
 from modules.services.user import get_user_stats, get_level_progress_stats, get_profile_stats, get_syndicate_stats, perform_hard_reset
 import time
 import random
