@@ -377,7 +377,9 @@ def process_raid_step(uid, answer=None, start_depth=None):
             # ПРОВЕРКА БОЯ
             if s.get('current_enemy_id'):
                 vid = s['current_enemy_id']
-                v_hp = s.get('current_enemy_hp', 10)
+                try:
+                    v_hp = int(s.get('current_enemy_hp', 10))
+                except: v_hp = 10
                 villain = db.get_villain_by_id(vid, cursor=cur)
                 if villain:
                     biome_data = get_biome_modifiers(depth)

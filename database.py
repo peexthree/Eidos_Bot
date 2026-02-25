@@ -92,6 +92,57 @@ def get_all_tables():
         cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         return [row[0] for row in cur.fetchall()]
 
+def fix_raid_sessions_types():
+    """
+    Fixes column types in the 'raid_sessions' table.
+    Ensures critical columns are BIGINT/INTEGER.
+    """
+    COLUMNS_TO_FIX = {
+        'current_enemy_hp': ('BIGINT', 'NULL'),
+        'current_enemy_id': ('BIGINT', 'NULL'),
+        'depth': ('BIGINT', '0'),
+        'signal': ('BIGINT', '100'),
+        'buffer_xp': ('BIGINT', '0'),
+        'buffer_coins': ('BIGINT', '0')
+    }
+
+    print("/// DEBUG: Checking column types for raid_sessions table...")
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='raid_sessions'")
+            if not cur.fetchone():
+                return
+
+            cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'raid_sessions'")
+            current_types = {row[0]: row[1].lower() for row in cur.fetchall()}
+
+            for col, (target_type, default_val) in COLUMNS_TO_FIX.items():
+                if col in current_types:
+                    curr = current_types[col]
+                    target = target_type.lower()
+                    needs_fix = False
+
+                    if ('text' in curr or 'char' in curr) and ('int' in target or 'bigint' in target):
+                        needs_fix = True
+
+                    if target == 'bigint' and curr == 'integer':
+                        needs_fix = True
+
+                    print(f"/// DEBUG TYPE CHECK (RAID): {col} | Current: {curr} | Target: {target} | Needs Fix: {needs_fix}")
+
+                    if needs_fix:
+                        print(f"/// FIX: Converting raid_sessions.{col} from {curr} to {target}...")
+                        try:
+                            # Robust USING clause
+                            using_clause = f"USING (NULLIF(NULLIF({col}::text, ''), '0.0')::NUMERIC::{target_type})"
+
+                            stmt = f"ALTER TABLE raid_sessions ALTER COLUMN {col} TYPE {target_type} {using_clause}, ALTER COLUMN {col} SET DEFAULT {default_val}"
+                            cur.execute(stmt)
+                            conn.commit()
+                        except Exception as e:
+                            print(f"/// FIX ERROR for raid_sessions.{col}: {e}")
+                            conn.rollback()
+
 def fix_column_types():
     """
     Fixes column types in the 'players' table that might have been incorrectly imported as TEXT/VARCHAR.
@@ -631,6 +682,11 @@ def init_db():
         fix_column_types()
     except Exception as e:
         print(f"/// FIX COLUMN TYPES ERROR: {e}")
+
+    try:
+        fix_raid_sessions_types()
+    except Exception as e:
+        print(f"/// FIX RAID SESSION TYPES ERROR: {e}")
 
     fix_villains_schema()
     fix_bot_states_schema()

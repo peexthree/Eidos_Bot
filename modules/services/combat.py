@@ -15,7 +15,10 @@ def process_combat_action(uid, action):
          return 'error', "Нет активного боя.", None
 
     enemy_id = s['current_enemy_id']
-    enemy_hp = s['current_enemy_hp']
+    try:
+        enemy_hp = int(s.get('current_enemy_hp', 0))
+    except:
+        return 'error', "Ошибка данных боя (HP).", None
 
     villain = db.get_villain_by_id(enemy_id)
     if not villain:
