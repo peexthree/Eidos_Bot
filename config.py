@@ -250,7 +250,7 @@ PVP_REVENGE_PENALTY = 0.10
 PVP_COOLDOWN = 7200 # 2 hours
 QUARANTINE_LEVEL = 3
 
-INVENTORY_LIMIT = 10 
+INVENTORY_LIMIT = 20
 
 # --- РЫНОЧНЫЕ КОТИРОВКИ (BioCoins) ---
 PRICES = {

@@ -1,10 +1,10 @@
 try:
-    import modules.services.combat
-    print("modules.services.combat imported successfully")
+    import modules.handlers.menu
+    print("modules.handlers.menu imported successfully")
 except ImportError as e:
-    print(f"Error importing modules.services.combat: {e}")
+    print(f"Error importing modules.handlers.menu: {e}")
 except SyntaxError as e:
-    print(f"SyntaxError in modules.services.combat: {e}")
+    print(f"SyntaxError in modules.handlers.menu: {e}")
 
 try:
     import database
