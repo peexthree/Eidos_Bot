@@ -56,9 +56,15 @@ def start_decryption(uid):
 
     u = db.get_user(uid)
     # Check if already unlocking (unlock_time > 0)
-    if u.get('encrypted_cache_unlock_time', 0) > 0:
+    unlock_time = u.get('encrypted_cache_unlock_time', 0)
+    try:
+        unlock_time = float(unlock_time)
+    except (ValueError, TypeError):
+        unlock_time = 0
+
+    if unlock_time > 0:
         # If time passed, tell them to claim. If not, tell them to wait.
-        if time.time() >= u['encrypted_cache_unlock_time']:
+        if time.time() >= unlock_time:
              return False, "✅ Кэш уже взломан! Нажмите 'Открыть'."
         else:
              return False, "⏳ Процесс уже идет."
@@ -87,6 +93,10 @@ def start_decryption(uid):
 def claim_decrypted_cache(uid):
     u = db.get_user(uid)
     unlock_time = u.get('encrypted_cache_unlock_time', 0)
+    try:
+        unlock_time = float(unlock_time)
+    except (ValueError, TypeError):
+        unlock_time = 0
 
     if unlock_time == 0:
         return False, "❌ Нет активных контейнеров."
@@ -138,6 +148,10 @@ def claim_decrypted_cache(uid):
 def get_decryption_status(uid):
     u = db.get_user(uid)
     unlock_time = u.get('encrypted_cache_unlock_time', 0)
+    try:
+        unlock_time = float(unlock_time)
+    except (ValueError, TypeError):
+        unlock_time = 0
 
     if unlock_time == 0:
         count = db.get_item_count(uid, 'encrypted_cache')
@@ -158,7 +172,13 @@ def check_shadow_broker_trigger(uid):
     if not u: return False, 0
 
     # Don't trigger if already active
-    if u.get('shadow_broker_expiry', 0) > time.time():
+    expiry = u.get('shadow_broker_expiry', 0)
+    try:
+        expiry = float(expiry)
+    except (ValueError, TypeError):
+        expiry = 0
+
+    if expiry > time.time():
         return False, 0
 
     # 5% chance (per TZ/README)

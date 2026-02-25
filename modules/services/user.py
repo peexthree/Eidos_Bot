@@ -182,7 +182,13 @@ def get_user_stats(uid):
     elif u['path'] == 'tech': stats['luck'] += 10
 
     # --- ANOMALY DEBUFF: CORROSION ---
-    if u.get('anomaly_buff_expiry', 0) > time.time() and u.get('anomaly_buff_type') == 'corrosion':
+    anomaly_buff_expiry = u.get('anomaly_buff_expiry', 0)
+    try:
+        anomaly_buff_expiry = float(anomaly_buff_expiry)
+    except (ValueError, TypeError):
+        anomaly_buff_expiry = 0
+
+    if anomaly_buff_expiry > time.time() and u.get('anomaly_buff_type') == 'corrosion':
         stats['atk'] = int(stats['atk'] * 0.8)
         stats['def'] = int(stats['def'] * 0.8)
 
