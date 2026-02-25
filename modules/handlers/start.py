@@ -6,6 +6,7 @@ import keyboards as kb
 from modules.services.combat import perform_hack
 from modules.services.utils import get_menu_text, get_menu_image
 from modules.services.user import check_daily_streak
+import html
 
 @bot.message_handler(commands=['hack_random'])
 def hack_command(m):
@@ -28,7 +29,9 @@ def start_handler(m):
         db.log_action(uid, 'register', f"User {username} joined via {ref}")
         if ref:
              db.add_xp_to_user(int(ref), REFERRAL_BONUS)
-             try: bot.send_message(int(ref), f"👤 <b>НОВЫЙ АГЕНТ:</b> {first_name}\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
+             try:
+                 safe_name = html.escape(first_name)
+                 bot.send_message(int(ref), f"👤 <b>НОВЫЙ АГЕНТ:</b> {safe_name}\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
              except: pass
 
         # INIT ONBOARDING
