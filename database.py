@@ -92,26 +92,26 @@ def fix_column_types():
     This is common when migrating databases via CSV/Export-Import.
     """
     COLUMNS_TO_FIX = {
-        'xp': ('INTEGER', '0'),
-        'biocoin': ('INTEGER', '0'),
+        'xp': ('BIGINT', '0'),
+        'biocoin': ('BIGINT', '0'),
         'level': ('INTEGER', '1'),
         'streak': ('INTEGER', '1'),
-        'last_active': ('DATE', 'CURRENT_DATE'),
-        'cryo': ('INTEGER', '0'),
+        'last_active': ('TIMESTAMPTZ', 'CURRENT_TIMESTAMP'),
+        'cryo': ('BIGINT', '0'),
         'accel': ('INTEGER', '0'),
         'decoder': ('INTEGER', '0'),
         'accel_exp': ('BIGINT', '0'),
-        'ref_profit_xp': ('INTEGER', '0'),
-        'ref_profit_coins': ('INTEGER', '0'),
+        'ref_profit_xp': ('BIGINT', '0'),
+        'ref_profit_coins': ('BIGINT', '0'),
         'last_protocol_time': ('BIGINT', '0'),
         'last_signal_time': ('BIGINT', '0'),
         'notified': ('BOOLEAN', 'TRUE'),
         'max_depth': ('INTEGER', '0'),
         'ref_count': ('INTEGER', '0'),
         'know_count': ('INTEGER', '0'),
-        'total_spent': ('INTEGER', '0'),
+        'total_spent': ('BIGINT', '0'),
         'raid_count_today': ('INTEGER', '0'),
-        'last_raid_date': ('DATE', 'CURRENT_DATE'),
+        'last_raid_date': ('TIMESTAMPTZ', 'CURRENT_TIMESTAMP'),
         'is_admin': ('BOOLEAN', 'FALSE'),
         'encrypted_cache_unlock_time': ('BIGINT', '0'),
         'shadow_broker_expiry': ('BIGINT', '0'),
@@ -147,6 +147,19 @@ def fix_column_types():
             if not cur.fetchone():
                 return
 
+            # --- CLEANUP STEP: Handle '0.0' in date columns ---
+            # If we don't clean this, type conversion will fail.
+            try:
+                # We can update text '0.0' to NULL even if column is text.
+                # If column is already DATE/TIMESTAMP, '0.0' wouldn't exist (it would be an error or not there).
+                # So this is safe to run blindly on possible text columns.
+                for date_col in ['last_active', 'last_raid_date']:
+                    try:
+                        cur.execute(f"UPDATE players SET {date_col} = NULL WHERE {date_col}::text = '0.0' OR {date_col}::text = ''")
+                        conn.commit()
+                    except: conn.rollback()
+            except: pass
+
             cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'players'")
             current_types = {row[0]: row[1].lower() for row in cur.fetchall()}
 
@@ -155,9 +168,17 @@ def fix_column_types():
                     curr = current_types[col]
                     target = target_type.lower()
 
-                    # Detect need for fix: present as text/varchar but target is int/bool/date
+                    # Detect need for fix: present as text/varchar but target is int/bool/date/timestamp/bigint
                     needs_fix = False
-                    if ('text' in curr or 'char' in curr) and ('int' in target or 'bool' in target or 'date' in target):
+                    if ('text' in curr or 'char' in curr) and ('int' in target or 'bool' in target or 'date' in target or 'timestamp' in target):
+                        needs_fix = True
+
+                    # Also fix if target is bigint but current is integer
+                    if target == 'bigint' and curr == 'integer':
+                        needs_fix = True
+
+                    # Also fix if target is timestamptz but current is date
+                    if 'timestamp' in target and 'date' == curr:
                         needs_fix = True
 
                     print(f"/// DEBUG TYPE CHECK: {col} | Current: {curr} | Target: {target} | Needs Fix: {needs_fix}")
@@ -165,8 +186,19 @@ def fix_column_types():
                     if needs_fix:
                         print(f"/// FIX: Converting {col} from {curr} to {target}...")
                         try:
-                            # Using clause to handle empty strings/nulls
-                            using_clause = f"USING (NULLIF({col}, '')::{target_type})"
+                            # Robust USING clause
+                            # 1. Handle empty strings -> NULL
+                            # 2. Handle '0.0' -> NULL (via NULLIF)
+                            # 3. For Numeric types: Cast to NUMERIC first (handles '10.0' -> 10)
+                            # 4. For Date/Timestamp: DO NOT cast to NUMERIC (handles '2023-01-01' correctly)
+
+                            if 'timestamp' in target or 'date' in target:
+                                using_clause = f"USING (NULLIF(NULLIF({col}::text, ''), '0.0')::{target_type})"
+                            elif 'bool' in target:
+                                using_clause = f"USING (NULLIF(NULLIF({col}::text, ''), '0.0')::{target_type})"
+                            else:
+                                # Integer/BigInt
+                                using_clause = f"USING (NULLIF(NULLIF({col}::text, ''), '0.0')::NUMERIC::{target_type})"
 
                             stmt = f"ALTER TABLE players ALTER COLUMN {col} TYPE {target_type} {using_clause}, ALTER COLUMN {col} SET DEFAULT {default_val}"
                             cur.execute(stmt)

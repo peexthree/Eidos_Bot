@@ -13,6 +13,11 @@ def check_daily_streak(uid):
         db.update_user(uid, last_active=date.today())
         return
 
+    # Handle datetime vs date mismatch
+    import datetime
+    if isinstance(last_active, datetime.datetime):
+        last_active = last_active.date()
+
     today = date.today()
 
     if last_active == today:
