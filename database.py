@@ -280,6 +280,41 @@ def fix_inventory_schema():
                          print(f"/// FIX: Dropping legacy constraint {name} from inventory...")
                          cur.execute(f"ALTER TABLE inventory DROP CONSTRAINT {name};")
                          conn.commit()
+
+            # Check for NULL IDs and Primary Key (Fix for failed migrations)
+            cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='inventory' AND column_name='id' AND (is_nullable='YES' OR column_default IS NULL)")
+            if cur.fetchone():
+                print("/// FIX: Repairing inventory ID column (Sequence/PK/Nullable)...")
+                cur.execute("CREATE SEQUENCE IF NOT EXISTS inventory_id_seq")
+                cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM inventory")
+                next_val = cur.fetchone()[0]
+                cur.execute(f"SELECT setval('inventory_id_seq', {next_val})")
+                cur.execute("UPDATE inventory SET id = nextval('inventory_id_seq') WHERE id IS NULL")
+                cur.execute("ALTER TABLE inventory ALTER COLUMN id SET DEFAULT nextval('inventory_id_seq')")
+                cur.execute("ALTER TABLE inventory ALTER COLUMN id SET NOT NULL")
+
+                # Add PK if missing
+                cur.execute("""
+                    SELECT conname FROM pg_constraint
+                    WHERE conrelid = 'inventory'::regclass AND contype = 'p';
+                """)
+                if not cur.fetchone():
+                        # Check duplicates before adding PK
+                        cur.execute("SELECT id FROM inventory GROUP BY id HAVING COUNT(*) > 1")
+                        if cur.fetchone():
+                            cur.execute("""
+                            UPDATE inventory SET id = nextval('inventory_id_seq')
+                            WHERE id IN (SELECT id FROM inventory GROUP BY id HAVING COUNT(*) > 1)
+                            AND ctid NOT IN (
+                                SELECT MIN(ctid) FROM inventory GROUP BY id HAVING COUNT(*) > 1
+                            )
+                            """)
+
+                        cur.execute("ALTER TABLE inventory ADD PRIMARY KEY (id);")
+
+                conn.commit()
+                print("/// FIX: Inventory ID column repaired.")
+
     except Exception as e:
         print(f"/// FIX INVENTORY ERROR: {e}")
 
