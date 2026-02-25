@@ -260,51 +260,63 @@ def item_action_handler(call):
         inv_id = None
         is_equipped = False
 
-        if val.startswith("eq_"):
-            slot = val[3:]
-            res = db.get_equipped_item_in_slot(uid, slot)
-            if res:
-                item_id = res['item_id']
-                durability = res['durability']
-                is_equipped = True
-            else:
-                bot.answer_callback_query(call.id, "Слот пуст или ошибка.")
-                return
-
-        elif val.isdigit():
-            inv_id = int(val)
-            items = db.get_inventory(uid)
-            target = next((i for i in items if i['id'] == inv_id), None)
-            if target:
-                item_id = target['item_id']
-                durability = target.get('durability')
-        else:
-            item_id = val # Legacy or Consumable stack
-
-        info = ITEMS_INFO.get(item_id)
-        if info:
-            desc = info['desc']
-            if info.get('type') == 'equip':
-                desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
-                if durability is not None:
-                    desc += f"\n\n🔧 Прочность: {durability}"
-                    if durability <= 0:
-                        desc += "\n⚠️ <b>СЛОМАНО (Не дает бонусов)</b>"
-
-            image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["inventory"]
-
-            # Crafting Button Logic
-            can_craft = crafting_service.can_craft(uid, item_id)
-            markup = kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped, durability=durability, inv_id=inv_id)
-            if can_craft:
-                if item_id == 'fragment':
-                    markup.add(types.InlineKeyboardButton("✨ СИНТЕЗ (5 ШТ)", callback_data=f"craft_{item_id}"))
+        try:
+            if val.startswith("eq_"):
+                slot = val[3:]
+                res = db.get_equipped_item_in_slot(uid, slot)
+                if res:
+                    item_id = res['item_id']
+                    durability = res['durability']
+                    is_equipped = True
                 else:
-                    markup.add(types.InlineKeyboardButton("🛠 КРАФТ (3->1)", callback_data=f"craft_{item_id}"))
+                    bot.answer_callback_query(call.id, "Слот пуст или ошибка.")
+                    return
 
-            menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", markup, image_url=image)
-        else:
-            bot.answer_callback_query(call.id, "Предмет не найден.")
+            elif val.isdigit():
+                inv_id = int(val)
+                items = db.get_inventory(uid)
+                target = next((i for i in items if i['id'] == inv_id), None)
+                if target:
+                    item_id = target['item_id']
+                    durability = target.get('durability')
+            else:
+                item_id = val # Legacy or Consumable stack
+
+            info = ITEMS_INFO.get(item_id)
+            if info:
+                # Handle potential string pollution or missing keys gracefully
+                if not isinstance(info, dict):
+                    print(f"/// ERROR: Item info for {item_id} is not a dict: {type(info)}")
+                    bot.answer_callback_query(call.id, "❌ Ошибка данных предмета.", show_alert=True)
+                    return
+
+                desc = info.get('desc', 'Описание отсутствует.')
+                if info.get('type') == 'equip':
+                    desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
+                    if durability is not None:
+                        desc += f"\n\n🔧 Прочность: {durability}"
+                        if durability <= 0:
+                            desc += "\n⚠️ <b>СЛОМАНО (Не дает бонусов)</b>"
+
+                image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["inventory"]
+
+                # Crafting Button Logic
+                can_craft = crafting_service.can_craft(uid, item_id)
+                markup = kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped, durability=durability, inv_id=inv_id)
+                if can_craft:
+                    if item_id == 'fragment':
+                        markup.add(types.InlineKeyboardButton("✨ СИНТЕЗ (5 ШТ)", callback_data=f"craft_{item_id}"))
+                    else:
+                        markup.add(types.InlineKeyboardButton("🛠 КРАФТ (3->1)", callback_data=f"craft_{item_id}"))
+
+                menu_update(call, f"📦 <b>{info.get('name', item_id)}</b>\n\n{desc}", markup, image_url=image)
+            else:
+                bot.answer_callback_query(call.id, "Предмет не найден.")
+        except Exception as e:
+            print(f"/// ITEM VIEW ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+            bot.answer_callback_query(call.id, "❌ Произошла ошибка при просмотре.", show_alert=True)
 
     elif call.data.startswith("repair_"):
         inv_id = int(call.data.replace("repair_", ""))
