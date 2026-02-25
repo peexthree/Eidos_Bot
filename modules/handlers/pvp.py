@@ -161,16 +161,11 @@ def pvp_buy_handler(call):
 
     # 1. Parse Data
     is_confirm = "_confirm_" in action
-    if is_confirm:
-        raw_sid = action.replace("pvp_buy_confirm_", "")
-    else:
-        raw_sid = action.replace("pvp_buy_", "")
+    prefix = "pvp_buy_confirm_" if is_confirm else "pvp_buy_"
+    raw_sid = action.replace(prefix, "")
 
     is_hardware = raw_sid.startswith("hw_")
-    if is_hardware:
-        sid = raw_sid[3:] # remove 'hw_'
-    else:
-        sid = raw_sid
+    sid = raw_sid[3:] if is_hardware else raw_sid
 
     # 2. Execute Logic
     if is_confirm:
@@ -187,9 +182,12 @@ def process_purchase(call, uid, sid, is_hardware):
 def show_item_info(call, sid, is_hardware):
     image_url = None
     if is_hardware:
-        from config import ITEMS_INFO, PRICES
-        info = ITEMS_INFO.get(sid, {})
-        cost = PRICES.get(sid, 0)
+        info = config.ITEMS_INFO.get(sid)
+        if not info:
+            bot.answer_callback_query(call.id, "❌ Ошибка: Предмет не найден.", show_alert=True)
+            return
+
+        cost = config.PRICES.get(sid, 0)
         currency = 'XP' if sid == 'proxy_server' else 'BC'
 
         # Construct description for HW
