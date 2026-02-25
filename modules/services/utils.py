@@ -307,6 +307,9 @@ def menu_update(call, text, markup=None, image_url=None):
             else:
                  bot.edit_message_text(text=text, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode="HTML")
     except ApiTelegramException as e:
+        if "message is not modified" in e.description:
+            return # Ignore if content matches
+
         if e.error_code == 403 or "blocked" in e.description:
             db.set_user_active(call.from_user.id, False)
             return
