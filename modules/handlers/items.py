@@ -10,6 +10,7 @@ from modules.services.user import check_achievements, perform_hard_reset
 from modules.services.content import get_decryption_status
 from modules.services.crafting import crafting_service
 import time
+import traceback
 from telebot import types
 
 @bot.callback_query_handler(func=lambda call: call.data == "shop_menu" or call.data.startswith("shop_cat_") or (call.data.startswith("buy_") and not call.data.startswith("buy_shadow_")) or call.data.startswith("view_shop_") or call.data == "shop_gacha_menu")
@@ -220,6 +221,7 @@ def inventory_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("equip_") or call.data.startswith("unequip_") or call.data.startswith("use_item_") or call.data.startswith("dismantle_") or call.data.startswith("view_item_") or call.data.startswith("craft_") or call.data.startswith("repair_"))
 def item_action_handler(call):
+    print(f"/// DEBUG ACTION: {call.data} | User: {call.from_user.id}")
     uid = call.from_user.id
     u = db.get_user(uid)
 
@@ -256,6 +258,7 @@ def item_action_handler(call):
     elif call.data.startswith("view_item_"):
         try:
             val = call.data.replace("view_item_", "")
+            print(f"/// DEBUG VIEW: val={val}")
             item_id = None
             durability = None
             inv_id = None
@@ -275,14 +278,20 @@ def item_action_handler(call):
             elif val.isdigit():
                 inv_id = int(val)
                 items = db.get_inventory(uid)
+                if items is None: items = []
+                print(f"/// DEBUG INV: Count={len(items)}")
                 target = next((i for i in items if i['id'] == inv_id), None)
+                print(f"/// DEBUG TARGET: {target}")
                 if target:
                     item_id = target['item_id']
                     durability = target.get('durability')
             else:
                 item_id = val # Legacy or Consumable stack
 
+            print(f"/// DEBUG ITEM_ID: {item_id}")
             info = ITEMS_INFO.get(item_id)
+            print(f"/// DEBUG INFO FOUND: {bool(info)}")
+
             if info:
                 desc = info['desc']
                 if info.get('type') == 'equip':
@@ -307,9 +316,11 @@ def item_action_handler(call):
                 try: bot.answer_callback_query(call.id)
                 except: pass
             else:
+                print("/// DEBUG: Item not found in config")
                 bot.answer_callback_query(call.id, "Предмет не найден.")
         except Exception as e:
             print(f"VIEW ITEM ERROR: {e}")
+            traceback.print_exc()
             try: bot.answer_callback_query(call.id, "❌ Ошибка предмета", show_alert=True)
             except: pass
 
