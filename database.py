@@ -18,6 +18,185 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 # Global Connection Pool
 pg_pool = None
 
+# --- SCHEMA DEFINITIONS ---
+TABLE_SCHEMAS = {
+    'players': {
+        'uid': ('BIGINT', None), # PK, handled by CREATE TABLE usually
+        'username': ('TEXT', None),
+        'first_name': ('TEXT', None),
+        'path': ('TEXT', "'general'"),
+        'xp': ('BIGINT', '0'),
+        'biocoin': ('BIGINT', '0'),
+        'level': ('INTEGER', '1'),
+        'streak': ('INTEGER', '1'),
+        'last_active': ('TIMESTAMPTZ', 'CURRENT_TIMESTAMP'),
+        'cryo': ('BIGINT', '0'),
+        'accel': ('INTEGER', '0'),
+        'decoder': ('INTEGER', '0'),
+        'accel_exp': ('BIGINT', '0'),
+        'referrer': ('TEXT', None),
+        'ref_profit_xp': ('BIGINT', '0'),
+        'ref_profit_coins': ('BIGINT', '0'),
+        'last_protocol_time': ('BIGINT', '0'),
+        'last_signal_time': ('BIGINT', '0'),
+        'notified': ('BOOLEAN', 'TRUE'),
+        'max_depth': ('INTEGER', '0'),
+        'ref_count': ('INTEGER', '0'),
+        'know_count': ('INTEGER', '0'),
+        'total_spent': ('BIGINT', '0'),
+        'raid_count_today': ('INTEGER', '0'),
+        'last_raid_date': ('TIMESTAMPTZ', 'CURRENT_TIMESTAMP'),
+        'is_admin': ('BOOLEAN', 'FALSE'),
+        'encrypted_cache_unlock_time': ('BIGINT', '0'),
+        'encrypted_cache_type': ('TEXT', 'NULL'),
+        'shadow_broker_expiry': ('BIGINT', '0'),
+        'anomaly_buff_expiry': ('BIGINT', '0'),
+        'anomaly_buff_type': ('TEXT', 'NULL'),
+        'proxy_expiry': ('BIGINT', '0'),
+        'is_active': ('BOOLEAN', 'TRUE'),
+        'kills': ('INTEGER', '0'),
+        'raids_done': ('INTEGER', '0'),
+        'perfect_raids': ('INTEGER', '0'),
+        'quiz_wins': ('INTEGER', '0'),
+        'messages': ('INTEGER', '0'),
+        'likes': ('INTEGER', '0'),
+        'purchases': ('INTEGER', '0'),
+        'found_zero': ('BOOLEAN', 'FALSE'),
+        'is_glitched': ('BOOLEAN', 'FALSE'),
+        'found_devtrace': ('BOOLEAN', 'FALSE'),
+        'night_visits': ('INTEGER', '0'),
+        'clicks': ('INTEGER', '0'),
+        'onboarding_stage': ('INTEGER', '0'),
+        'onboarding_start_time': ('BIGINT', '0'),
+        'is_quarantined': ('BOOLEAN', 'FALSE'),
+        'quarantine_end_time': ('BIGINT', '0'),
+        'quiz_history': ('TEXT', "''"),
+        'deck_level': ('INTEGER', '1'),
+        'deck_config': ('TEXT', "'{\"1\": \"soft_brute_v1\", \"2\": null, \"3\": null}'"),
+        'shield_until': ('BIGINT', '0'),
+        'last_hack_target': ('BIGINT', '0'),
+        'active_hardware': ('TEXT', "'{}'")
+    },
+    'raid_sessions': {
+        'uid': ('BIGINT', None), # PK
+        'depth': ('BIGINT', '0'), # Fixed to BIGINT
+        'signal': ('BIGINT', '100'), # Fixed to BIGINT
+        'start_time': ('BIGINT', '0'),
+        'buffer_xp': ('BIGINT', '0'), # Fixed to BIGINT
+        'buffer_coins': ('BIGINT', '0'), # Fixed to BIGINT
+        'current_enemy_id': ('BIGINT', 'NULL'), # Fixed to BIGINT
+        'current_enemy_hp': ('BIGINT', 'NULL'), # Fixed to BIGINT
+        'kills': ('INTEGER', '0'),
+        'riddles_solved': ('INTEGER', '0'),
+        'current_riddle_answer': ('TEXT', 'NULL'),
+        'next_event_type': ('TEXT', 'NULL'),
+        'event_streak': ('INTEGER', '0'),
+        'buffer_items': ('TEXT', "''"),
+        'is_elite': ('BOOLEAN', 'FALSE'),
+        'mechanic_data': ('TEXT', "'{}'")
+    },
+    'inventory': {
+        'id': ('SERIAL', None), # PK
+        'uid': ('BIGINT', None),
+        'item_id': ('TEXT', None),
+        'quantity': ('INTEGER', '1'),
+        'durability': ('INTEGER', '100')
+    },
+    'user_equipment': {
+        'uid': ('BIGINT', None),
+        'slot': ('TEXT', None),
+        'item_id': ('TEXT', None),
+        'durability': ('INTEGER', '10')
+    },
+    'bot_states': {
+        'uid': ('BIGINT', None), # PK
+        'state': ('TEXT', None),
+        'data': ('TEXT', None)
+    },
+    'villains': {
+        'id': ('SERIAL', None), # PK
+        'name': ('TEXT', None), # Unique
+        'level': ('INTEGER', '1'),
+        'hp': ('INTEGER', '10'),
+        'atk': ('INTEGER', '1'),
+        'def': ('INTEGER', '0'),
+        'xp_reward': ('INTEGER', '0'),
+        'coin_reward': ('INTEGER', '0'),
+        'description': ('TEXT', "''"),
+        'image': ('TEXT', 'NULL')
+    },
+    'achievements': {
+        'uid': ('BIGINT', None),
+        'ach_id': ('TEXT', None),
+        'created_at': ('TIMESTAMP', 'CURRENT_TIMESTAMP')
+    },
+    'content': {
+        'id': ('SERIAL', None),
+        'type': ('TEXT', None),
+        'path': ('TEXT', "'general'"),
+        'level': ('INTEGER', '1'),
+        'text': ('TEXT', None) # Unique
+    },
+    'raid_content': {
+        'id': ('SERIAL', None),
+        'text': ('TEXT', None),
+        'type': ('TEXT', "'neutral'"),
+        'val': ('INTEGER', '0')
+    },
+    'user_knowledge': {
+        'uid': ('BIGINT', None),
+        'content_id': ('INTEGER', None)
+    },
+    'unlocked_protocols': {
+        'uid': ('BIGINT', None),
+        'protocol_id': ('INTEGER', None)
+    },
+    'diary': {
+        'id': ('SERIAL', None),
+        'uid': ('BIGINT', None),
+        'entry': ('TEXT', None),
+        'created_at': ('TIMESTAMP', 'CURRENT_TIMESTAMP')
+    },
+    'death_loot': {
+        'id': ('SERIAL', None),
+        'depth': ('INTEGER', '0'),
+        'amount': ('INTEGER', '0'),
+        'created_at': ('BIGINT', '0'),
+        'original_owner_name': ('TEXT', 'NULL')
+    },
+    'raid_graves': {
+        'id': ('SERIAL', None),
+        'depth': ('INTEGER', '0'),
+        'loot_json': ('TEXT', "'{}'"),
+        'owner_name': ('TEXT', 'NULL'),
+        'message': ('TEXT', "''"),
+        'created_at': ('BIGINT', '0')
+    },
+    'logs': {
+        'id': ('SERIAL', None),
+        'uid': ('BIGINT', None),
+        'action': ('TEXT', None),
+        'details': ('TEXT', None),
+        'timestamp': ('TIMESTAMP', 'CURRENT_TIMESTAMP')
+    },
+    'pvp_logs': {
+        'id': ('SERIAL', None),
+        'attacker_uid': ('BIGINT', None),
+        'target_uid': ('BIGINT', None),
+        'stolen_coins': ('INTEGER', '0'),
+        'success': ('BOOLEAN', 'FALSE'),
+        'timestamp': ('BIGINT', '0'),
+        'is_revenged': ('BOOLEAN', 'FALSE'),
+        'is_anonymous': ('BOOLEAN', 'FALSE')
+    },
+    'history': {
+        'id': ('SERIAL', None),
+        'uid': ('BIGINT', None),
+        'archived_data_json': ('TEXT', None),
+        'reset_date': ('TIMESTAMP', 'CURRENT_TIMESTAMP')
+    }
+}
+
 def init_pool():
     global pg_pool
     if not pg_pool:
@@ -92,175 +271,87 @@ def get_all_tables():
         cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         return [row[0] for row in cur.fetchall()]
 
-def fix_raid_sessions_types():
+def ensure_table_schema(table_name, schema_def):
     """
-    Fixes column types in the 'raid_sessions' table.
-    Ensures critical columns are BIGINT/INTEGER.
+    Ensures that a table has all required columns with correct types.
+    Does NOT handle constraints (PK, UK) - those should be handled by fix_ functions or initial CREATE.
     """
-    COLUMNS_TO_FIX = {
-        'current_enemy_hp': ('BIGINT', 'NULL'),
-        'current_enemy_id': ('BIGINT', 'NULL'),
-        'depth': ('BIGINT', '0'),
-        'signal': ('BIGINT', '100'),
-        'buffer_xp': ('BIGINT', '0'),
-        'buffer_coins': ('BIGINT', '0')
-    }
-
-    print("/// DEBUG: Checking column types for raid_sessions table...")
+    print(f"/// DEBUG: Ensuring schema for table '{table_name}'...")
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='raid_sessions'")
+            # 1. Check if table exists
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name=%s", (table_name,))
             if not cur.fetchone():
+                print(f"/// TABLE MISSING: {table_name}. Creating via init_db logic later if not covered.")
                 return
 
-            cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'raid_sessions'")
-            current_types = {row[0]: row[1].lower() for row in cur.fetchall()}
+            # 2. Get current columns
+            cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s", (table_name,))
+            current_cols = {row[0]: row[1].lower() for row in cur.fetchall()}
 
-            for col, (target_type, default_val) in COLUMNS_TO_FIX.items():
-                if col in current_types:
-                    curr = current_types[col]
-                    target = target_type.lower()
+            for col_name, (target_type, default_val) in schema_def.items():
+                target_type_clean = target_type.lower()
+
+                # Special handling for SERIAL (it's actually INTEGER with a sequence)
+                if target_type_clean == 'serial':
+                    target_type_clean = 'integer'
+
+                if col_name not in current_cols:
+                    print(f"/// FIX: Adding column {table_name}.{col_name} ({target_type})...")
+                    try:
+                        default_clause = ""
+                        if default_val is not None:
+                            default_clause = f"DEFAULT {default_val}"
+
+                        # Handle SERIAL separately for ADD COLUMN
+                        if target_type.lower() == 'serial':
+                            # Creating a serial column later is tricky, usually we add INTEGER and create SEQUENCE manually
+                            # For simplicity, we assume ID columns exist from CREATE TABLE.
+                            # But if missing, we try standard ADD COLUMN (postgres handles SERIAL type in ADD COLUMN fine in modern versions)
+                            stmt = f"ALTER TABLE {table_name} ADD COLUMN {col_name} SERIAL"
+                        else:
+                            stmt = f"ALTER TABLE {table_name} ADD COLUMN {col_name} {target_type} {default_clause}"
+
+                        cur.execute(stmt)
+                        conn.commit()
+                    except Exception as e:
+                        print(f"/// ERROR ADDING COLUMN {col_name}: {e}")
+                        conn.rollback()
+                else:
+                    # Column exists, check type
+                    current_type = current_cols[col_name]
                     needs_fix = False
 
-                    if ('text' in curr or 'char' in curr) and ('int' in target or 'bigint' in target):
-                        needs_fix = True
+                    # Loosely match types
+                    if 'int' in target_type_clean and 'int' not in current_type: needs_fix = True
+                    if 'bigint' in target_type_clean and 'bigint' not in current_type: needs_fix = True # upgrade int to bigint
+                    if 'bool' in target_type_clean and 'bool' not in current_type: needs_fix = True
+                    if 'timestamp' in target_type_clean and 'timestamp' not in current_type: needs_fix = True
 
-                    if target == 'bigint' and curr == 'integer':
+                    # Specific check: Upgrade INTEGER to BIGINT
+                    if target_type_clean == 'bigint' and current_type == 'integer':
                         needs_fix = True
-
-                    print(f"/// DEBUG TYPE CHECK (RAID): {col} | Current: {curr} | Target: {target} | Needs Fix: {needs_fix}")
 
                     if needs_fix:
-                        print(f"/// FIX: Converting raid_sessions.{col} from {curr} to {target}...")
+                        print(f"/// FIX: Type mismatch for {table_name}.{col_name} ({current_type} -> {target_type})...")
                         try:
                             # Robust USING clause
-                            using_clause = f"USING (NULLIF(NULLIF({col}::text, ''), '0.0')::NUMERIC::{target_type})"
+                            using_clause = ""
+                            if 'int' in target_type_clean or 'bigint' in target_type_clean:
+                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::NUMERIC::{target_type})"
+                            elif 'bool' in target_type_clean:
+                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type})"
+                            elif 'timestamp' in target_type_clean:
+                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type})"
 
-                            stmt = f"ALTER TABLE raid_sessions ALTER COLUMN {col} TYPE {target_type} {using_clause}, ALTER COLUMN {col} SET DEFAULT {default_val}"
+                            stmt = f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {target_type} {using_clause}"
+                            if default_val is not None:
+                                stmt += f", ALTER COLUMN {col_name} SET DEFAULT {default_val}"
+
                             cur.execute(stmt)
                             conn.commit()
                         except Exception as e:
-                            print(f"/// FIX ERROR for raid_sessions.{col}: {e}")
-                            conn.rollback()
-
-def fix_column_types():
-    """
-    Fixes column types in the 'players' table that might have been incorrectly imported as TEXT/VARCHAR.
-    This is common when migrating databases via CSV/Export-Import.
-    """
-    COLUMNS_TO_FIX = {
-        'xp': ('BIGINT', '0'),
-        'biocoin': ('BIGINT', '0'),
-        'level': ('INTEGER', '1'),
-        'streak': ('INTEGER', '1'),
-        'last_active': ('TIMESTAMPTZ', 'CURRENT_TIMESTAMP'),
-        'cryo': ('BIGINT', '0'),
-        'accel': ('INTEGER', '0'),
-        'decoder': ('INTEGER', '0'),
-        'accel_exp': ('BIGINT', '0'),
-        'ref_profit_xp': ('BIGINT', '0'),
-        'ref_profit_coins': ('BIGINT', '0'),
-        'last_protocol_time': ('BIGINT', '0'),
-        'last_signal_time': ('BIGINT', '0'),
-        'notified': ('BOOLEAN', 'TRUE'),
-        'max_depth': ('INTEGER', '0'),
-        'ref_count': ('INTEGER', '0'),
-        'know_count': ('INTEGER', '0'),
-        'total_spent': ('BIGINT', '0'),
-        'raid_count_today': ('INTEGER', '0'),
-        'last_raid_date': ('TIMESTAMPTZ', 'CURRENT_TIMESTAMP'),
-        'is_admin': ('BOOLEAN', 'FALSE'),
-        'encrypted_cache_unlock_time': ('BIGINT', '0'),
-        'shadow_broker_expiry': ('BIGINT', '0'),
-        'anomaly_buff_expiry': ('BIGINT', '0'),
-        'proxy_expiry': ('BIGINT', '0'),
-        'is_active': ('BOOLEAN', 'TRUE'),
-        'kills': ('INTEGER', '0'),
-        'raids_done': ('INTEGER', '0'),
-        'perfect_raids': ('INTEGER', '0'),
-        'quiz_wins': ('INTEGER', '0'),
-        'messages': ('INTEGER', '0'),
-        'likes': ('INTEGER', '0'),
-        'purchases': ('INTEGER', '0'),
-        'found_zero': ('BOOLEAN', 'FALSE'),
-        'is_glitched': ('BOOLEAN', 'FALSE'),
-        'found_devtrace': ('BOOLEAN', 'FALSE'),
-        'night_visits': ('INTEGER', '0'),
-        'clicks': ('INTEGER', '0'),
-        'onboarding_stage': ('INTEGER', '0'),
-        'onboarding_start_time': ('BIGINT', '0'),
-        'is_quarantined': ('BOOLEAN', 'FALSE'),
-        'quarantine_end_time': ('BIGINT', '0'),
-        'deck_level': ('INTEGER', '1'),
-        'shield_until': ('BIGINT', '0'),
-        'last_hack_target': ('BIGINT', '0'),
-    }
-
-    print("/// DEBUG: Checking column types for players table...")
-    with db_session() as conn:
-        with conn.cursor() as cur:
-            # Check if table exists first
-            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='players'")
-            if not cur.fetchone():
-                return
-
-            cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'players'")
-            current_types = {row[0]: row[1].lower() for row in cur.fetchall()}
-
-            for col, (target_type, default_val) in COLUMNS_TO_FIX.items():
-                if col in current_types:
-                    curr = current_types[col]
-                    target = target_type.lower()
-
-                    # Detect need for fix: present as text/varchar but target is int/bool/date/timestamp/bigint
-                    needs_fix = False
-                    if ('text' in curr or 'char' in curr) and ('int' in target or 'bool' in target or 'date' in target or 'timestamp' in target):
-                        needs_fix = True
-
-                    # Also fix if target is bigint but current is integer
-                    if target == 'bigint' and curr == 'integer':
-                        needs_fix = True
-
-                    # Also fix if target is timestamptz but current is date
-                    if 'timestamp' in target and 'date' == curr:
-                        needs_fix = True
-
-                    print(f"/// DEBUG TYPE CHECK: {col} | Current: {curr} | Target: {target} | Needs Fix: {needs_fix}")
-
-                    if needs_fix:
-                        print(f"/// FIX: Converting {col} from {curr} to {target}...")
-
-                        # --- NEW: Cleanup Logic ---
-                        if col in ['last_active', 'last_raid_date']:
-                            try:
-                                # Safe to run here because we know it's text based on needs_fix logic
-                                cur.execute(f"UPDATE players SET {col} = NULL WHERE {col} = '0.0' OR {col} = ''")
-                                conn.commit()
-                            except Exception as e:
-                                print(f"/// CLEANUP ERROR {col}: {e}")
-                                conn.rollback()
-                        # --- End Cleanup ---
-
-                        try:
-                            # Robust USING clause
-                            # 1. Handle empty strings -> NULL
-                            # 2. Handle '0.0' -> NULL (via NULLIF)
-                            # 3. For Numeric types: Cast to NUMERIC first (handles '10.0' -> 10)
-                            # 4. For Date/Timestamp: DO NOT cast to NUMERIC (handles '2023-01-01' correctly)
-
-                            if 'timestamp' in target or 'date' in target:
-                                using_clause = f"USING (NULLIF(NULLIF({col}::text, ''), '0.0')::{target_type})"
-                            elif 'bool' in target:
-                                using_clause = f"USING (NULLIF(NULLIF({col}::text, ''), '0.0')::{target_type})"
-                            else:
-                                # Integer/BigInt
-                                using_clause = f"USING (NULLIF(NULLIF({col}::text, ''), '0.0')::NUMERIC::{target_type})"
-
-                            stmt = f"ALTER TABLE players ALTER COLUMN {col} TYPE {target_type} {using_clause}, ALTER COLUMN {col} SET DEFAULT {default_val}"
-                            cur.execute(stmt)
-                            conn.commit()
-                        except Exception as e:
-                            print(f"/// FIX ERROR for {col}: {e}")
+                            print(f"/// ERROR FIXING TYPE for {col_name}: {e}")
                             conn.rollback()
 
 def fix_villains_schema():
@@ -406,7 +497,7 @@ def fix_user_equipment_schema():
 def init_db():
     print("/// DEBUG: init_db started")
 
-    # 1. SCHEMA MIGRATION & CREATION (Transaction 1)
+    # 1. CREATE TABLES (Initial Structure)
     with db_session() as conn:
         if not conn: return
         with conn.cursor() as cur:
@@ -424,276 +515,41 @@ def init_db():
             except Exception as e:
                 print(f"/// MIGRATION ERROR (users->players): {e}")
 
-            print("/// DEBUG: creating players table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS players (
-                    uid BIGINT PRIMARY KEY,
-                    username TEXT, first_name TEXT, path TEXT DEFAULT 'general',
-                    xp INTEGER DEFAULT 0, biocoin INTEGER DEFAULT 0,
-                    level INTEGER DEFAULT 1, streak INTEGER DEFAULT 1,
-                    last_active TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                    cryo INTEGER DEFAULT 0, accel INTEGER DEFAULT 0, decoder INTEGER DEFAULT 0,
-                    accel_exp BIGINT DEFAULT 0, referrer TEXT,
-                    ref_profit_xp INTEGER DEFAULT 0, ref_profit_coins INTEGER DEFAULT 0,
-                    last_protocol_time BIGINT DEFAULT 0, last_signal_time BIGINT DEFAULT 0,
-                    notified BOOLEAN DEFAULT TRUE, max_depth INTEGER DEFAULT 0,
-                    ref_count INTEGER DEFAULT 0, know_count INTEGER DEFAULT 0, total_spent INTEGER DEFAULT 0,
-                    raid_count_today INTEGER DEFAULT 0, last_raid_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                    is_admin BOOLEAN DEFAULT FALSE
-                );
-            ''')
-            try:
-                print("/// DEBUG: migrating players columns")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS raid_count_today INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_raid_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT TRUE")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS biocoin INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS encrypted_cache_unlock_time BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS encrypted_cache_type TEXT DEFAULT NULL")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS shadow_broker_expiry BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS anomaly_buff_expiry BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS anomaly_buff_type TEXT DEFAULT NULL")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS proxy_expiry BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
-                # New Stats for Achievements
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS raids_done INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS perfect_raids INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS quiz_wins INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS messages INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS likes INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS purchases INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS found_zero BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_glitched BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS found_devtrace BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS night_visits INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS clicks INTEGER DEFAULT 0")
-                # Onboarding & Quarantine
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS onboarding_stage INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS onboarding_start_time BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_quarantined BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS quarantine_end_time BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS quiz_history TEXT DEFAULT ''")
-                # PVP v2.0
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS deck_level INTEGER DEFAULT 1")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS deck_config TEXT DEFAULT '{\"1\": \"soft_brute_v1\", \"2\": null, \"3\": null}'")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS shield_until BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_hack_target BIGINT DEFAULT 0")
-                cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS active_hardware TEXT DEFAULT '{}'")
-            except: pass
+            # Basic Create Statements (Idempotent-ish)
+            # Note: We rely on ensure_table_schema for columns, but we need the table to exist.
+            cur.execute("CREATE TABLE IF NOT EXISTS players (uid BIGINT PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS raid_sessions (uid BIGINT PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS inventory (id SERIAL PRIMARY KEY, uid BIGINT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS user_equipment (uid BIGINT, slot TEXT, PRIMARY KEY(uid, slot))")
+            cur.execute("CREATE TABLE IF NOT EXISTS bot_states (uid BIGINT PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS villains (id SERIAL PRIMARY KEY, name TEXT UNIQUE)")
+            cur.execute("CREATE TABLE IF NOT EXISTS achievements (uid BIGINT, ach_id TEXT, PRIMARY KEY(uid, ach_id))")
+            cur.execute("CREATE TABLE IF NOT EXISTS content (id SERIAL PRIMARY KEY, text TEXT UNIQUE)")
+            cur.execute("CREATE TABLE IF NOT EXISTS raid_content (id SERIAL PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS user_knowledge (uid BIGINT, content_id INTEGER, PRIMARY KEY(uid, content_id))")
+            cur.execute("CREATE TABLE IF NOT EXISTS unlocked_protocols (uid BIGINT, protocol_id INTEGER, PRIMARY KEY(uid, protocol_id))")
+            cur.execute("CREATE TABLE IF NOT EXISTS diary (id SERIAL PRIMARY KEY, uid BIGINT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS death_loot (id SERIAL PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS raid_graves (id SERIAL PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS pvp_logs (id SERIAL PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS history (id SERIAL PRIMARY KEY)")
 
-            print("/// DEBUG: creating death_loot table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS death_loot (
-                    id SERIAL PRIMARY KEY,
-                    depth INTEGER,
-                    amount INTEGER,
-                    created_at BIGINT,
-                    original_owner_name TEXT
-                );
-            ''')
+    # 2. ROBUST SCHEMA FIX (New Transactions)
+    # Check every table against TABLE_SCHEMAS
+    for table, schema in TABLE_SCHEMAS.items():
+        try:
+            ensure_table_schema(table, schema)
+        except Exception as e:
+            print(f"/// CRITICAL ERROR ensuring schema for {table}: {e}")
 
-            print("/// DEBUG: creating raid_graves table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS raid_graves (
-                    id SERIAL PRIMARY KEY,
-                    depth INTEGER,
-                    loot_json TEXT,
-                    owner_name TEXT,
-                    message TEXT,
-                    created_at BIGINT
-                );
-            ''')
-
-            print("/// DEBUG: creating logs table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS logs (
-                    id SERIAL PRIMARY KEY,
-                    uid BIGINT,
-                    action TEXT,
-                    details TEXT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            ''')
-
-            print("/// DEBUG: creating pvp_logs table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS pvp_logs (
-                    id SERIAL PRIMARY KEY,
-                    attacker_uid BIGINT,
-                    target_uid BIGINT,
-                    stolen_coins INTEGER,
-                    success BOOLEAN,
-                    timestamp BIGINT,
-                    is_revenged BOOLEAN DEFAULT FALSE,
-                    is_anonymous BOOLEAN DEFAULT FALSE
-                );
-            ''')
-
-            print("/// DEBUG: creating history table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS history (
-                    id SERIAL PRIMARY KEY,
-                    uid BIGINT,
-                    archived_data_json TEXT,
-                    reset_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            ''')
-
-            # --- INVENTORY MIGRATION V2 ---
-            # We need to support unique item instances.
-            # 1. Check if 'id' column exists.
-            needs_migration = False
-            try:
-                cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='inventory' AND column_name='id'")
-                if not cur.fetchone():
-                    needs_migration = True
-            except: pass
-
-            if needs_migration:
-                print("/// DEBUG: MIGRATING INVENTORY TO V2 (Instance Based)")
-                try:
-                    # 1. Rename old table
-                    cur.execute("ALTER TABLE inventory RENAME TO inventory_old")
-                    # 2. Create new table
-                    cur.execute('''
-                        CREATE TABLE inventory (
-                            id SERIAL PRIMARY KEY,
-                            uid BIGINT,
-                            item_id TEXT,
-                            quantity INTEGER DEFAULT 1,
-                            durability INTEGER DEFAULT 100
-                        )
-                    ''')
-                    # 3. Copy data and EXPAND stacks
-                    # Using generate_series to unroll into individual rows
-                    cur.execute("""
-                        INSERT INTO inventory (uid, item_id, quantity, durability)
-                        SELECT uid, item_id, 1, durability
-                        FROM inventory_old
-                        CROSS JOIN generate_series(1, quantity)
-                    """)
-                    # 4. Drop old table
-                    cur.execute("DROP TABLE inventory_old")
-                    conn.commit()
-                except Exception as e:
-                    print(f"/// MIGRATION ERROR: {e}")
-                    conn.rollback()
-
-            # --- FIX: REMOVE LEGACY CONSTRAINTS ---
-            try:
-                print("/// DEBUG: Removing legacy unique constraints on inventory")
-                cur.execute("ALTER TABLE inventory DROP CONSTRAINT IF EXISTS inventory_uid_item_id_key")
-                cur.execute("DROP INDEX IF EXISTS inventory_uid_item_id_key")
-                conn.commit()
-            except Exception as e:
-                print(f"/// CONSTRAINT DROP ERROR: {e}")
-                conn.rollback()
-
-            # Ensure user_equipment has durability
-            try:
-                cur.execute("ALTER TABLE user_equipment ADD COLUMN IF NOT EXISTS durability INTEGER DEFAULT 10")
-            except: pass
-
-            print("/// DEBUG: creating content table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS content (
-                    id SERIAL PRIMARY KEY, type TEXT, path TEXT DEFAULT 'general', level INTEGER DEFAULT 1, text TEXT UNIQUE
-                );
-            ''')
-
-            print("/// DEBUG: creating raid_content table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS raid_content (
-                    id SERIAL PRIMARY KEY, text TEXT, type TEXT DEFAULT 'neutral', val INTEGER DEFAULT 0
-                );
-            ''')
-
-            print("/// DEBUG: creating raid_sessions table")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS raid_sessions (
-                    uid BIGINT PRIMARY KEY, depth INTEGER DEFAULT 0, signal INTEGER DEFAULT 100,
-                    start_time BIGINT, buffer_xp INTEGER DEFAULT 0, buffer_coins INTEGER DEFAULT 0
-                );
-            ''')
-            try:
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS current_enemy_id INTEGER DEFAULT NULL")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS current_enemy_hp INTEGER DEFAULT NULL")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS riddles_solved INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS current_riddle_answer TEXT DEFAULT NULL")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS next_event_type TEXT DEFAULT NULL")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS event_streak INTEGER DEFAULT 0")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS buffer_items TEXT DEFAULT ''")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS is_elite BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE raid_sessions ADD COLUMN IF NOT EXISTS mechanic_data TEXT DEFAULT '{}'")
-            except: conn.rollback()
-
-            print("/// DEBUG: creating remaining tables (user_knowledge...)")
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS user_knowledge (
-                    uid BIGINT, content_id INTEGER, PRIMARY KEY(uid, content_id)
-                );
-            ''')
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS unlocked_protocols (
-                    uid BIGINT, protocol_id INTEGER, PRIMARY KEY(uid, protocol_id)
-                );
-            ''')
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS user_equipment (
-                    uid BIGINT, slot TEXT, item_id TEXT, PRIMARY KEY(uid, slot)
-                );
-            ''')
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS diary (
-                    id SERIAL PRIMARY KEY, uid BIGINT, entry TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            ''')
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS achievements (
-                    uid BIGINT, ach_id TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(uid, ach_id)
-                );
-            ''')
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS villains (
-                    id SERIAL PRIMARY KEY, name TEXT, level INTEGER, hp INTEGER, atk INTEGER, def INTEGER,
-                    xp_reward INTEGER, coin_reward INTEGER, description TEXT, UNIQUE(name)
-                );
-            ''')
-            try:
-                cur.execute("ALTER TABLE villains ADD COLUMN IF NOT EXISTS image TEXT")
-            except: pass
-
-            # --- BOT STATES (FSM) ---
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS bot_states (
-                    uid BIGINT PRIMARY KEY,
-                    state TEXT,
-                    data TEXT
-                );
-            ''')
-
-    # 2. FIXES (New Transactions)
-    # Now that tables are created/renamed, we can fix column types and constraints.
-    try:
-        fix_column_types()
-    except Exception as e:
-        print(f"/// FIX COLUMN TYPES ERROR: {e}")
-
-    try:
-        fix_raid_sessions_types()
-    except Exception as e:
-        print(f"/// FIX RAID SESSION TYPES ERROR: {e}")
-
+    # 3. SPECIALIZED FIXES (Constraints, Sequences, Logic)
     fix_villains_schema()
     fix_bot_states_schema()
     fix_inventory_schema()
     fix_user_equipment_schema()
 
-    # 3. POPULATE DATA (New Transactions)
+    # 4. POPULATE DATA (New Transactions)
     print("/// DEBUG: populating villains")
     populate_villains()
     print("/// DEBUG: populating content")

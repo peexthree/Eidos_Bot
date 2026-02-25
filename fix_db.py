@@ -1,85 +1,56 @@
-import os
-import psycopg2
 import sys
+import os
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# Ensure we can import from root
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-def fix_bot_states():
-    print("/// Fixing bot_states table...")
-    conn = None
+try:
+    import database
+    import psycopg2
+except ImportError as e:
+    print(f"❌ Could not import dependencies: {e}")
+    sys.exit(1)
+
+def run_repair():
+    print("🔧 Starting Database Repair...")
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
+        # 1. Run standard init_db which now includes ensure_table_schema
+        database.init_db()
+        print("✅ Database schema repair logic executed.")
 
-        # Check if constraint exists
-        cur.execute("""
-            SELECT conname FROM pg_constraint
-            WHERE conrelid = 'bot_states'::regclass AND contype = 'p';
-        """)
-        if cur.fetchone():
-            print("/// bot_states already has PRIMARY KEY. Skipping.")
-        else:
-            print("/// No PRIMARY KEY found on bot_states. Fixing...")
-
-            # Deduplicate first
-            print("/// Removing duplicates...")
+        # 2. Verify 'villains' table schema explicitly
+        print("\n🔎 Verifying 'villains' table schema...")
+        with database.db_cursor() as cur:
+            if not cur:
+                print("❌ No DB connection!")
+                return
             cur.execute("""
-                DELETE FROM bot_states a USING bot_states b
-                WHERE a.ctid < b.ctid AND a.uid = b.uid;
+                SELECT column_name, data_type
+                FROM information_schema.columns
+                WHERE table_name = 'villains'
             """)
+            cols = cur.fetchall()
+            if not cols:
+                print("❌ 'villains' table not found or empty schema!")
 
-            # Add Primary Key
-            print("/// Adding PRIMARY KEY...")
-            cur.execute("ALTER TABLE bot_states ADD PRIMARY KEY (uid);")
-            conn.commit()
-            print("/// bot_states fixed!")
+            for col in cols:
+                name, dtype = col
+                # dtype is usually lowercase in postgres like 'integer', 'character varying'
+                print(f"   - {name}: {dtype}")
 
-    except Exception as e:
-        print(f"/// Error fixing bot_states: {e}")
-        if conn: conn.rollback()
-    finally:
-        if conn: conn.close()
+                # Check critical columns
+                if name in ['def', 'atk', 'hp']:
+                    if 'int' not in dtype.lower():
+                         print(f"   ⚠️ WARNING: Column '{name}' is {dtype}, expected integer!")
+                    else:
+                         print(f"   ✅ Column '{name}' is CORRECT ({dtype})")
 
-def fix_inventory():
-    print("/// Checking inventory table...")
-    conn = None
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-
-        # Check if 'id' column exists
-        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='inventory' AND column_name='id'")
-        if not cur.fetchone():
-            print("/// Inventory table missing 'id' column! Checks required.")
-        else:
-            print("/// Inventory table has 'id' column. V2 schema active.")
-
-        # Check for legacy unique constraint that might block multiple items
-        # The migration code attempts to drop 'inventory_uid_item_id_key'
-        cur.execute("""
-            SELECT conname FROM pg_constraint
-            WHERE conrelid = 'inventory'::regclass AND contype = 'u';
-        """)
-        constraints = cur.fetchall()
-        for con in constraints:
-            name = con[0]
-            print(f"/// Found UNIQUE constraint on inventory: {name}")
-            # We should drop unique constraints on (uid, item_id) for V2
-            if 'uid' in name and 'item' in name:
-                 print(f"/// Dropping legacy constraint {name}...")
-                 cur.execute(f"ALTER TABLE inventory DROP CONSTRAINT {name}")
-                 conn.commit()
-                 print("/// Dropped.")
+        print("\n✨ Repair process complete.")
 
     except Exception as e:
-        print(f"/// Error checking inventory: {e}")
-        if conn: conn.rollback()
-    finally:
-        if conn: conn.close()
+        print(f"\n❌ FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
-    if not DATABASE_URL:
-        print("Error: DATABASE_URL not set")
-        sys.exit(1)
-    fix_bot_states()
-    fix_inventory()
+    run_repair()

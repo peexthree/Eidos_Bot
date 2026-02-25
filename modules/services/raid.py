@@ -390,8 +390,11 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     scanner_res = cur.fetchone()
 
                     if scanner_res and scanner_res['quantity'] > 0:
-                        player_dmg = max(1, stats['atk'] - villain['def'])
-                        enemy_dmg = max(1, villain['atk'] - stats['def'])
+                        # Defensive cast for legacy data types
+                        v_def = int(villain.get('def', 0))
+                        v_atk = int(villain.get('atk', 1))
+                        player_dmg = max(1, stats['atk'] - v_def)
+                        enemy_dmg = max(1, v_atk - stats['def'])
 
                         rounds_to_kill = v_hp / player_dmg
                         rounds_to_die = s['signal'] / enemy_dmg
@@ -622,10 +625,14 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     scanner_res = cur.fetchone()
 
                     if scanner_res and scanner_res['quantity'] > 0:
-                        player_dmg = max(1, stats['atk'] - villain['def'])
-                        enemy_dmg = max(1, villain['atk'] - stats['def'])
+                        # Defensive cast
+                        v_def = int(villain.get('def', 0))
+                        v_atk = int(villain.get('atk', 1))
 
-                        rounds_to_kill = villain['hp'] / player_dmg
+                        player_dmg = max(1, stats['atk'] - v_def)
+                        enemy_dmg = max(1, v_atk - stats['def'])
+
+                        rounds_to_kill = int(villain.get('hp', 10)) / player_dmg
                         rounds_to_die = s['signal'] / enemy_dmg
 
                         chance_val = 0
