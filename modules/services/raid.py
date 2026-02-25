@@ -441,8 +441,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                              return False, "🔒 <b>ПРОКЛЯТО</b>\nНужен КЛЮЧ ОТ БЕЗДНЫ (или попробуйте Взлом).", None, u, 'cursed_chest', 0
                         key_used = 'abyssal_key'
                     else:
-                        if has_abyssal: key_used = 'abyssal_key'
-                        elif has_master: key_used = 'master_key'
+                        if has_master: key_used = 'master_key'
+                        elif has_abyssal: key_used = 'abyssal_key'
                         else: return False, "🔒 <b>НУЖЕН КЛЮЧ</b>\nКупите [КЛЮЧ] или найдите [КЛЮЧ БЕЗДНЫ].", None, u, 'locked_chest', 0
 
                 elif answer == 'hack_chest':
@@ -494,7 +494,10 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     bonus_coins *= 2
                 else:
                     # Normal chest loot logic
-                    if random.random() < 0.30: # 30% шанс на предмет
+                    # If Void Key used on normal chest -> Guarantee Loot (100% chance)
+                    loot_chance = 1.0 if key_used == 'abyssal_key' else 0.30
+
+                    if random.random() < loot_chance:
                          l_item = get_chest_drops(depth, stats['luck'])
                          cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (l_item, uid))
                          loot_item_txt = f"\n📦 Предмет: {ITEMS_INFO.get(l_item, {}).get('name')}"

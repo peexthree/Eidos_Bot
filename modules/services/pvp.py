@@ -261,16 +261,16 @@ def find_target(attacker_uid):
         if not target: continue
 
         # V2 Checks:
-        if target.get('biocoin', 0) < config.PVP_CONSTANTS['PROTECTION_LIMIT']: continue
-        if target.get('shield_until', 0) > time.time(): continue
+        if (target.get('biocoin') or 0) < config.PVP_CONSTANTS['PROTECTION_LIMIT']: continue
+        if (target.get('shield_until') or 0) > time.time(): continue
 
-        if target.get('level', 1) <= config.QUARANTINE_LEVEL: continue
+        if (target.get('level') or 1) <= config.QUARANTINE_LEVEL: continue
         # Cooldown Check (v2.0)
         if db.check_pvp_cooldown(attacker_uid, target_uid, duration=config.PVP_COOLDOWN): continue
         if target.get('is_quarantined'): continue
 
         # Calculate Loot Estimate
-        real_bal = target.get('biocoin', 0)
+        real_bal = target.get('biocoin') or 0
         steal_percent = config.PVP_CONSTANTS.get('STEAL_PERCENT', 0.10)
 
         est_amount = int(real_bal * steal_percent)
@@ -406,7 +406,8 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
             with conn.cursor() as cur:
                 # Lock target
                 cur.execute("SELECT biocoin FROM players WHERE uid = %s FOR UPDATE", (target_uid,))
-                real_bal = cur.fetchone()[0]
+                res_bal = cur.fetchone()
+                real_bal = res_bal[0] if res_bal and res_bal[0] else 0
 
                 if success:
                     # Reward Coins (Mining)
