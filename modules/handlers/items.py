@@ -258,12 +258,13 @@ def item_action_handler(call):
     elif call.data.startswith("view_item_"):
         try:
             val = call.data.replace("view_item_", "")
-            print(f"/// DEBUG VIEW: val={val}")
+            print(f"/// DEBUG VIEW: val={val} | User: {uid}")
             item_id = None
             durability = None
             inv_id = None
             is_equipped = False
 
+            # Case 1: Equipped Item (view_item_eq_slot)
             if val.startswith("eq_"):
                 slot = val[3:]
                 res = db.get_equipped_item_in_slot(uid, slot)
@@ -272,28 +273,37 @@ def item_action_handler(call):
                     durability = res['durability']
                     is_equipped = True
                 else:
-                    bot.answer_callback_query(call.id, "Слот пуст или ошибка.")
+                    bot.answer_callback_query(call.id, "Слот пуст или ошибка.", show_alert=True)
                     return
 
+            # Case 2: Inventory Item by ID (view_item_123)
             elif val.isdigit():
                 inv_id = int(val)
                 items = db.get_inventory(uid)
                 if items is None: items = []
-                print(f"/// DEBUG INV: Count={len(items)}")
+
                 target = next((i for i in items if i['id'] == inv_id), None)
-                print(f"/// DEBUG TARGET: {target}")
+
                 if target:
                     item_id = target['item_id']
                     durability = target.get('durability')
+                else:
+                    # Item not found in DB (moved, sold, or equipped)
+                    print(f"/// DEBUG: Item inv_id={inv_id} not found for user {uid}")
+                    bot.answer_callback_query(call.id, "❌ Предмет перемещен или удален.", show_alert=True)
+                    return
+
+            # Case 3: Legacy String ID (view_item_potion)
             else:
-                item_id = val # Legacy or Consumable stack
+                item_id = val
 
             print(f"/// DEBUG ITEM_ID: {item_id}")
+
+            # Lookup Config Info
             info = ITEMS_INFO.get(item_id)
-            print(f"/// DEBUG INFO FOUND: {bool(info)}")
 
             if info:
-                desc = info['desc']
+                desc = info.get('desc', 'No description')
                 if info.get('type') == 'equip':
                     desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
                     if durability is not None:
@@ -304,24 +314,31 @@ def item_action_handler(call):
                 image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["inventory"]
 
                 # Crafting Button Logic
-                can_craft = crafting_service.can_craft(uid, item_id)
+                can_craft = False
+                try:
+                    can_craft = crafting_service.can_craft(uid, item_id)
+                except Exception as e:
+                    print(f"/// CRAFT CHECK ERROR: {e}")
+
                 markup = kb.item_details_keyboard(item_id, is_owned=True, is_equipped=is_equipped, durability=durability, inv_id=inv_id)
+
                 if can_craft:
                     if item_id == 'fragment':
                         markup.add(types.InlineKeyboardButton("✨ СИНТЕЗ (5 ШТ)", callback_data=f"craft_{item_id}"))
                     else:
                         markup.add(types.InlineKeyboardButton("🛠 КРАФТ (3->1)", callback_data=f"craft_{item_id}"))
 
-                menu_update(call, f"📦 <b>{info['name']}</b>\n\n{desc}", markup, image_url=image)
+                menu_update(call, f"📦 <b>{info.get('name', item_id)}</b>\n\n{desc}", markup, image_url=image)
                 try: bot.answer_callback_query(call.id)
                 except: pass
             else:
-                print("/// DEBUG: Item not found in config")
-                bot.answer_callback_query(call.id, "Предмет не найден.")
+                print(f"/// DEBUG: Item {item_id} not found in ITEMS_INFO")
+                bot.answer_callback_query(call.id, "❌ Ошибка конфигурации предмета.", show_alert=True)
+
         except Exception as e:
-            print(f"VIEW ITEM ERROR: {e}")
+            print(f"VIEW ITEM FATAL ERROR: {e}")
             traceback.print_exc()
-            try: bot.answer_callback_query(call.id, "❌ Ошибка предмета", show_alert=True)
+            try: bot.answer_callback_query(call.id, "❌ Критическая ошибка", show_alert=True)
             except: pass
 
     elif call.data.startswith("repair_"):
