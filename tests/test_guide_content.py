@@ -13,25 +13,25 @@ sys.modules['flask'] = MagicMock()
 db_mock = MagicMock()
 sys.modules['database'] = db_mock
 
-import logic
+from modules import texts
 import keyboards
 
 class TestGuideContent(unittest.TestCase):
     def test_guide_keys_match(self):
-        """Verify that all keys used in keyboards.py exist in logic.GAME_GUIDE_TEXTS"""
+        """Verify that all keys used in keyboards.py exist in texts.GAME_GUIDE_TEXTS"""
         expected_keys = ['intro', 'raids', 'combat', 'stats', 'items', 'pvp', 'social', 'tips']
 
         for key in expected_keys:
-            self.assertIn(key, logic.GAME_GUIDE_TEXTS, f"Key '{key}' missing from GAME_GUIDE_TEXTS")
+            self.assertIn(key, texts.GAME_GUIDE_TEXTS, f"Key '{key}' missing from GAME_GUIDE_TEXTS")
 
         # Check that values are non-empty strings
-        for key, text in logic.GAME_GUIDE_TEXTS.items():
+        for key, text in texts.GAME_GUIDE_TEXTS.items():
             self.assertIsInstance(text, str)
             self.assertTrue(len(text) > 0)
 
     def test_html_tags(self):
         """Basic check for unclosed HTML tags"""
-        for key, text in logic.GAME_GUIDE_TEXTS.items():
+        for key, text in texts.GAME_GUIDE_TEXTS.items():
             # Check specific tags
             tags = ['b', 'i', 'code']
             for tag in tags:
