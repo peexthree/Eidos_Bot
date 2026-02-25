@@ -88,23 +88,35 @@ class TestRaidLoot(unittest.TestCase):
     @patch('random.choice')
     @patch('random.randint')
     def test_get_chest_drops_pools(self, mock_randint, mock_choice):
-        # Base pool
+        # Base pool (0 depth)
         mock_randint.return_value = 0 # No rare
         get_chest_drops(0, 0)
         base_pool = ['battery', 'compass', 'rusty_knife', 'hoodie', 'ram_chip']
         mock_choice.assert_called_with(base_pool)
 
-        # Depth > 50
+        # Depth boundary 50 (Still base pool)
+        get_chest_drops(50, 0)
+        mock_choice.assert_called_with(base_pool)
+
+        # Depth 51 (Base + >50 items)
         get_chest_drops(51, 0)
         pool_50 = base_pool + ['crowbar', 'leather_jacket', 'cpu_booster', 'neural_stimulator']
         mock_choice.assert_called_with(pool_50)
 
-        # Depth > 150
+        # Depth boundary 150 (Still >50 pool)
+        get_chest_drops(150, 0)
+        mock_choice.assert_called_with(pool_50)
+
+        # Depth 151 (Pool 50 + >150 items)
         get_chest_drops(151, 0)
         pool_150 = pool_50 + ['shock_baton', 'kevlar_vest', 'glitch_filter', 'emp_grenade', 'stealth_spray', 'data_spike']
         mock_choice.assert_called_with(pool_150)
 
-        # Depth > 300
+        # Depth boundary 300 (Still >150 pool)
+        get_chest_drops(300, 0)
+        mock_choice.assert_called_with(pool_150)
+
+        # Depth 301 (Pool 150 + >300 items)
         get_chest_drops(301, 0)
         pool_300 = pool_150 + ['cyber_katana', 'tactical_suit', 'ai_core', 'memory_wiper', 'abyssal_key']
         mock_choice.assert_called_with(pool_300)
