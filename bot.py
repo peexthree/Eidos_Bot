@@ -37,7 +37,13 @@ def check_quarantine(user):
 
     # 1. Check if already quarantined
     if u.get('is_quarantined'):
-        if time.time() < u.get('quarantine_end_time', 0):
+        quarantine_end_time = u.get('quarantine_end_time', 0)
+        try:
+            quarantine_end_time = float(quarantine_end_time)
+        except (ValueError, TypeError):
+            quarantine_end_time = 0
+
+        if time.time() < quarantine_end_time:
             QUARANTINE_CACHE[uid] = (True, time.time() + 60)
             return True
         else:
@@ -48,8 +54,22 @@ def check_quarantine(user):
 
     # 2. Check Sleep Timer (Only for Levels < 2 and active onboarding)
     # Stage > 0 means started.
-    if u.get('level', 1) < 2 and u.get('onboarding_stage', 0) > 0:
+    level = u.get('level', 1)
+    onboarding_stage = u.get('onboarding_stage', 0)
+    try:
+        level = int(level)
+        onboarding_stage = int(onboarding_stage)
+    except (ValueError, TypeError):
+        level = 1
+        onboarding_stage = 0
+
+    if level < 2 and onboarding_stage > 0:
         start_time = u.get('onboarding_start_time', 0)
+        try:
+            start_time = float(start_time)
+        except (ValueError, TypeError):
+            start_time = 0
+
         if start_time > 0:
             elapsed = time.time() - start_time
             if elapsed > 86400: # 24 hours
@@ -63,7 +83,13 @@ def check_quarantine(user):
 @bot.message_handler(func=lambda m: check_quarantine(m.from_user))
 def quarantine_message_handler(m):
     u = db.get_user(m.from_user.id)
-    rem_time = int((u['quarantine_end_time'] - time.time()) / 3600)
+    quarantine_end_time = u.get('quarantine_end_time', 0)
+    try:
+        quarantine_end_time = float(quarantine_end_time)
+    except (ValueError, TypeError):
+        quarantine_end_time = 0
+
+    rem_time = int((quarantine_end_time - time.time()) / 3600)
     if rem_time < 0: rem_time = 0
     msg = (
         "⛔️ <b>ДОСТУП ЗАБЛОКИРОВАН</b>\n\n"

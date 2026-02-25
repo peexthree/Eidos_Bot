@@ -8,7 +8,10 @@ GACHA_PRICE = 1000
 
 def get_shadow_shop_items(uid):
     u = db.get_user(uid)
-    expiry = u.get('shadow_broker_expiry', 0)
+    try:
+        expiry = int(u.get('shadow_broker_expiry', 0))
+    except (ValueError, TypeError):
+        expiry = 0
 
     if expiry < time.time():
         return []
