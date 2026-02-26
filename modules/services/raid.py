@@ -87,10 +87,8 @@ def get_cursed_chest_drops():
     return random.choice(CURSED_CHEST_DROPS)
 
 def get_legendary_drops():
-    from config import EQUIPMENT_DB
-    pool = [k for k, v in EQUIPMENT_DB.items() if "🟠" in v.get('name', '')]
-    if not pool: return "rusty_knife"
-    return random.choice(pool)
+    from config import LEGENDARY_DROPS
+    return random.choice(LEGENDARY_DROPS)
 
 def process_riddle_answer(uid, user_answer):
     with db.db_session() as conn:
@@ -478,7 +476,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 loot_item_txt = ""
 
                 if is_cursed:
-                    # 50% Red, 50% Legendary
+                    # STRICT: 50% Red, 50% Legendary (ONLY 1 ITEM)
                     if random.random() < 0.5:
                         l_item = get_cursed_chest_drops()
                         prefix = "🔴 ПРОКЛЯТЫЙ ЛУТ"
@@ -486,10 +484,14 @@ def process_raid_step(uid, answer=None, start_depth=None):
                         l_item = get_legendary_drops()
                         prefix = "🟠 ЛЕГЕНДАРНЫЙ ЛУТ"
 
-                    # Assuming get_legendary_drops returns item_id
                     cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (l_item, uid))
-                    i_name = ITEMS_INFO.get(l_item, {}).get('name', l_item)
+
+                    i_info = ITEMS_INFO.get(l_item, {})
+                    i_name = i_info.get('name', l_item)
+
                     loot_item_txt = f"\n{prefix}:\n{i_name}"
+
+                    # STRICT: No currencies for cursed chest
                     bonus_xp = 0
                     bonus_coins = 0
                 else:
