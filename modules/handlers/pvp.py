@@ -2,7 +2,7 @@ from modules.bot_instance import bot
 import database as db
 import config
 import keyboards as kb
-from modules.services.utils import menu_update
+from modules.services.utils import menu_update, strip_html
 from modules.services import pvp
 from telebot import types
 import json
@@ -71,7 +71,7 @@ def pvp_inventory_handler(call):
             return
 
         success, msg = pvp.dismantle_pvp_item(uid, item_id)
-        bot.answer_callback_query(call.id, msg, show_alert=True)
+        bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
 
     # Render Menu
     items = pvp.get_software_inventory(uid)
@@ -127,7 +127,7 @@ def pvp_equip_handler(call):
 
     success, msg = pvp.set_slot(uid, slot_id, sid)
 
-    bot.answer_callback_query(call.id, msg, show_alert=not success)
+    bot.answer_callback_query(call.id, strip_html(msg), show_alert=not success)
 
     # Return to config
     pvp_config_handler(call)
@@ -136,7 +136,7 @@ def pvp_equip_handler(call):
 def pvp_upgrade_handler(call):
     uid = call.from_user.id
     success, msg = pvp.upgrade_deck(uid)
-    bot.answer_callback_query(call.id, msg, show_alert=True)
+    bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
     pvp_config_handler(call)
 
 # =============================================================================
@@ -175,7 +175,7 @@ def pvp_buy_handler(call):
 
 def process_purchase(call, uid, sid, is_hardware):
     success, msg = pvp.buy_software(uid, sid, is_hardware=is_hardware)
-    bot.answer_callback_query(call.id, msg, show_alert=True)
+    bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
     if success:
         pvp_shop_handler(call)
 
@@ -391,7 +391,7 @@ def pvp_execute_handler(call):
     res = pvp.execute_hack(uid, target_uid, selected_slots)
 
     if not res['success'] and res.get('msg'):
-        bot.answer_callback_query(call.id, f"❌ {res['msg']}", show_alert=True)
+        bot.answer_callback_query(call.id, strip_html(f"❌ {res['msg']}"), show_alert=True)
         return
 
     # Visualizing the log

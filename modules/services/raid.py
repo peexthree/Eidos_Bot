@@ -426,7 +426,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             # 2. ДЕЙСТВИЕ: ОТКРЫТИЕ СУНДУКА (ИСПРАВЛЕНО)
             if answer == 'open_chest' or answer == 'hack_chest':
-                event_type = s.get('next_event_type', 'locked_chest')
+                event_type = s.get('current_event_type') or s.get('next_event_type', 'locked_chest')
                 is_cursed = (event_type == 'cursed_chest')
 
                 has_abyssal = db.get_item_count(uid, 'abyssal_key', cursor=cur) > 0
@@ -859,7 +859,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
             next_preview = generate_balanced_event_type(current_type_code, current_streak)
             new_streak = current_streak + 1 if next_preview == current_type_code else 1
 
-            cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, next_event_type=%s, event_streak=%s WHERE uid=%s", (new_depth, new_sig, next_preview, new_streak, uid))
+            cur.execute("UPDATE raid_sessions SET depth=%s, signal=%s, next_event_type=%s, event_streak=%s, current_event_type=%s WHERE uid=%s", (new_depth, new_sig, next_preview, new_streak, current_type_code, uid))
 
             if new_depth > u.get('max_depth', 0):
                 cur.execute("UPDATE players SET max_depth=%s WHERE uid=%s", (new_depth, uid))
