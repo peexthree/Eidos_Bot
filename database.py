@@ -338,13 +338,14 @@ def ensure_table_schema(table_name, schema_def):
                             # Robust USING clause
                             using_clause = ""
                             if 'int' in target_type_clean or 'bigint' in target_type_clean:
-                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::NUMERIC::{target_type})"
+                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::NUMERIC::{target_type_clean})"
                             elif 'bool' in target_type_clean:
-                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type})"
+                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type_clean})"
                             elif 'timestamp' in target_type_clean:
-                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type})"
+                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type_clean})"
 
-                            stmt = f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {target_type} {using_clause}"
+                            # Use target_type_clean to avoid 'SERIAL' type error
+                            stmt = f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {target_type_clean} {using_clause}"
                             if default_val is not None:
                                 stmt += f", ALTER COLUMN {col_name} SET DEFAULT {default_val}"
 

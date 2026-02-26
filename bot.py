@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import threading
+import traceback
 
 sys.stdout.reconfigure(line_buffering=True)
 import config
@@ -165,7 +166,7 @@ def webhook():
             return 'ALIVE', 200
         except Exception as e:
             print(f"/// WEBHOOK ERROR: {e}")
-            # print(traceback.format_exc()) # Optional: Uncomment if needed
+            traceback.print_exc()
             return 'Error', 500
 
 @app.route("/", methods=["GET"])
@@ -201,6 +202,7 @@ def system_startup():
                     print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
                 except Exception as e:
                     print(f"/// WEBHOOK ERROR: {e}")
+                    traceback.print_exc()
             else:
                 print("/// WARNING: WEBHOOK_URL not set. Bot will not receive updates via Webhook.")
 
