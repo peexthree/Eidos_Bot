@@ -1213,8 +1213,9 @@ def admin_get_users_dossier(limit=50):
         for u in users:
             active = u['last_active'].strftime('%d.%m') if u['last_active'] else "N/A"
             safe_name = html.escape(u['first_name'] or "Unknown")
+            path_str = (u.get('path') or 'general').upper()
             report += (f"👤 <b>{safe_name}</b> (@{u['username']})\n"
-                       f"   Lvl {u['level']} | {u['xp']} XP | {u['path'].upper()}\n"
+                       f"   Lvl {u['level']} | {u['xp']} XP | {path_str}\n"
                        f"   Streak: {u['streak']} | Depth: {u['max_depth']}m | Last: {active}\n"
                        f"   🆔 <code>{u['uid']}</code>\n\n")
         return report
