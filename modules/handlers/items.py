@@ -3,7 +3,7 @@ import database as db
 import config
 from config import PRICES, EQUIPMENT_DB, ITEMS_INFO, TITLES, SCHOOLS, ITEM_IMAGES, PVP_ITEMS
 import keyboards as kb
-from modules.services.utils import menu_update, get_menu_text, get_menu_image, get_consumables
+from modules.services.utils import menu_update, get_menu_text, get_menu_image, get_consumables, strip_html
 from modules.services.inventory import format_inventory, check_legacy_items, convert_legacy_items
 from modules.services.shop import get_shadow_shop_items, process_gacha_purchase
 from modules.services.user import check_achievements, perform_hard_reset
@@ -31,7 +31,7 @@ def shop_handler(call):
 
     elif call.data == "buy_gacha":
         success, msg = process_gacha_purchase(uid)
-        bot.answer_callback_query(call.id, msg.split('\n')[0], show_alert=True)
+        bot.answer_callback_query(call.id, strip_html(msg.split('\n')[0]), show_alert=True)
         menu_update(call, f"🎁 <b>СИСТЕМА ЛУТБОКСОВ</b>\n\n{msg}", kb.gacha_menu())
 
     elif call.data.startswith("buy_"):
@@ -51,7 +51,7 @@ def shop_handler(call):
                     for a in new_achs:
                         ach_txt += f"\n🏆 ДОСТИЖЕНИЕ: {a['name']}"
 
-                bot.answer_callback_query(call.id, f"✅ Куплено: {item}\n📉 Потрачено: {cost} XP{ach_txt}", show_alert=True)
+                bot.answer_callback_query(call.id, strip_html(f"✅ Куплено: {item}\n📉 Потрачено: {cost} XP{ach_txt}"), show_alert=True)
                 # Refresh view
                 call.data = f"view_shop_{item}"
                 shop_handler(call)
@@ -69,7 +69,7 @@ def shop_handler(call):
                         for a in new_achs:
                             ach_txt += f"\n🏆 ДОСТИЖЕНИЕ: {a['name']}"
 
-                    bot.answer_callback_query(call.id, f"✅ Куплено: {item}\n📉 Потрачено: {cost} BC 🪙{ach_txt}", show_alert=True)
+                    bot.answer_callback_query(call.id, strip_html(f"✅ Куплено: {item}\n📉 Потрачено: {cost} BC 🪙{ach_txt}"), show_alert=True)
                     # Refresh view
                     call.data = f"view_shop_{item}"
                     shop_handler(call)
@@ -237,7 +237,7 @@ def item_action_handler(call):
                 item_id = target['item_id']
                 info = EQUIPMENT_DB.get(item_id)
                 if info and db.equip_item(uid, inv_id, info['slot']):
-                    bot.answer_callback_query(call.id, f"🛡 Надето: {info['name']}")
+                    bot.answer_callback_query(call.id, strip_html(f"🛡 Надето: {info['name']}"))
                     call.data = "inventory"
                     inventory_handler(call)
                 else:
@@ -380,13 +380,13 @@ def item_action_handler(call):
             else:
                 new_item_id = res
                 new_info = ITEMS_INFO.get(new_item_id, {})
-                bot.answer_callback_query(call.id, f"🛠 УСПЕХ! Получено: {new_info.get('name', new_item_id)}", show_alert=True)
+                bot.answer_callback_query(call.id, strip_html(f"🛠 УСПЕХ! Получено: {new_info.get('name', new_item_id)}"), show_alert=True)
                 # Switch view to new item - requires finding new ID which is hard here.
                 # Just go to inventory.
                 call.data = "inventory"
                 inventory_handler(call)
         else:
-            bot.answer_callback_query(call.id, res, show_alert=True)
+            bot.answer_callback_query(call.id, strip_html(res), show_alert=True)
 
     elif call.data.startswith("use_item_"):
         item_id = call.data.replace("use_item_", "")

@@ -80,20 +80,32 @@ def process_gacha_purchase(uid):
         # Fetch name from EQUIPMENT_DB since they are equipment
         reward = EQUIPMENT_DB.get(item_id, {}).get('name', '🔴 ПРОКЛЯТЫЙ АРТЕФАКТ')
 
-    elif roll < 0.06:
+    elif roll < 0.05:
+        # 4% - High Tier Equipment (Orange/Purple)
+        # Filter equipment > 10000 price
+        high_tier = [k for k, v in EQUIPMENT_DB.items() if v.get('price', 0) > 10000 and k not in CURSED_CHEST_DROPS]
+        if high_tier:
+            item_id = random.choice(high_tier)
+            reward = EQUIPMENT_DB[item_id]['name']
+        else:
+            # Fallback
+            item_id = "fragment"
+            reward = "🧩 ФРАГМЕНТ ДАННЫХ"
+
+    elif roll < 0.10:
         # 5% - Fragment
         item_id = "fragment"
         reward = "🧩 ФРАГМЕНТ ДАННЫХ (Легендарный)"
-    elif roll < 0.21:
-         # 15% - Good Consumable
+    elif roll < 0.30:
+         # 20% - Good Consumable
          item_id = random.choice(['neural_stimulator', 'emp_grenade', 'stealth_spray', 'abyssal_key'])
          reward = ITEMS_INFO[item_id]['name']
-    elif roll < 0.41:
-         # 20% - Standard Consumable
+    elif roll < 0.60:
+         # 30% - Standard Consumable
          item_id = random.choice(['battery', 'compass', 'master_key'])
          reward = ITEMS_INFO[item_id]['name']
     else:
-         # 59% - Trash (XP consolation)
+         # 40% - Trash (XP consolation)
          scrap = random.randint(10, 50)
          db.add_xp_to_user(uid, scrap)
          return True, f"📂 <b>ПУСТО...</b>\n\nВнутри только мусорный код.\nВы извлекли {scrap} XP."

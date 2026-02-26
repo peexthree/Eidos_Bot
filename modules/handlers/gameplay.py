@@ -146,11 +146,11 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
              except: pass
         elif etype == 'death':
              if extra and extra.get('death_reason'):
-                  try: bot.answer_callback_query(call.id, extra['death_reason'], show_alert=True)
+                  try: bot.answer_callback_query(call.id, strip_html(extra['death_reason']), show_alert=True)
                   except: pass
              menu_update(call, txt, kb.back_button())
         else:
-             try: bot.answer_callback_query(call.id, txt, show_alert=True)
+             try: bot.answer_callback_query(call.id, strip_html(txt), show_alert=True)
              except: pass
         return
 
@@ -162,7 +162,7 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
     if not alert_handled:
         alert = extra.get('alert') if extra else None
         if alert:
-             try: bot.answer_callback_query(call.id, alert, show_alert=True)
+             try: bot.answer_callback_query(call.id, strip_html(alert), show_alert=True)
              except: pass
         else:
              try: bot.answer_callback_query(call.id)
@@ -362,10 +362,10 @@ def anomaly_handler(call):
         if extra and extra.get('death_reason'):
              menu_update(call, msg, kb.back_button())
         else:
-             bot.answer_callback_query(call.id, msg, show_alert=True)
+             bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
     else:
         alert = extra.get('alert') if extra else ""
-        try: bot.answer_callback_query(call.id, alert, show_alert=True)
+        try: bot.answer_callback_query(call.id, strip_html(alert), show_alert=True)
         except: pass
 
         # Show result and continue raid
@@ -382,7 +382,7 @@ def decrypt_handler(call):
 
     elif call.data == "decrypt_start":
         res, msg = start_decryption(uid)
-        bot.answer_callback_query(call.id, msg, show_alert=True)
+        bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
         call.data = "decrypt_menu"
         decrypt_handler(call)
 
@@ -391,4 +391,4 @@ def decrypt_handler(call):
         if res:
             menu_update(call, msg, kb.back_button())
         else:
-            bot.answer_callback_query(call.id, msg, show_alert=True)
+            bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)

@@ -90,6 +90,7 @@ TABLE_SCHEMAS = {
         'riddles_solved': ('INTEGER', '0'),
         'current_riddle_answer': ('TEXT', 'NULL'),
         'next_event_type': ('TEXT', 'NULL'),
+        'current_event_type': ('TEXT', 'NULL'),
         'event_streak': ('INTEGER', '0'),
         'buffer_items': ('TEXT', "''"),
         'is_elite': ('BOOLEAN', 'FALSE'),
