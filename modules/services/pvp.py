@@ -355,7 +355,7 @@ def calculate_battle(attacker_deck, defender_deck):
     is_success = score_attacker >= 2
     return is_success, log
 
-def execute_hack(attacker_uid, target_uid, selected_programs):
+def execute_hack(attacker_uid, target_uid, selected_programs, is_revenge=False, revenge_log_id=None):
     """
     Orchestrates the battle.
     """
@@ -409,6 +409,10 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
                 res_bal = cur.fetchone()
                 real_bal = res_bal[0] if res_bal and res_bal[0] else 0
 
+                # Mark revenge log as used
+                if is_revenge and revenge_log_id:
+                    cur.execute("UPDATE pvp_logs SET is_revenged = TRUE WHERE id = %s", (revenge_log_id,))
+
                 if success:
                     # Reward Coins (Mining)
                     reward_coins = config.PVP_CONSTANTS['HACK_REWARD'] + random.randint(0, 10)
@@ -417,6 +421,15 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
                     steal_pct = config.PVP_CONSTANTS['STEAL_PERCENT']
                     amount = int(real_bal * steal_pct)
                     amount = min(amount, int(real_bal * (config.PVP_CONSTANTS['MAX_STEAL']/100)))
+
+                    # Revenge Bonus
+                    if is_revenge:
+                        # Recover previous loss + 10%
+                        # We need to check original stolen amount?
+                        # For simplicity, we just boost the steal by 50% in revenge mode
+                        amount = int(amount * 1.5)
+                        # Ensure we don't drain target below zero (DB handles logic but here for safety)
+                        if amount > real_bal: amount = real_bal
 
                     # Total Gain
                     total_gain = reward_coins + amount
@@ -449,10 +462,16 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
 
                     cur.execute("UPDATE players SET xp = GREATEST(0, xp - %s) WHERE uid = %s", (lost_xp, attacker_uid))
 
-                # Reduce Durability of used programs (Attacker)
+                # CONSUME SOFTWARE (One-time use)
+                # We need to remove 1 qty of each used software from inventory.
+                # Hardware (if any used in attack, though currently only defense) is not in selected_programs.
                 for slot, soft_id in selected_programs.items():
                     if soft_id:
-                        db.decrease_durability(attacker_uid, soft_id, amount=1)
+                        # db.use_item handles removing 1 qty or deleting row if qty=0
+                        # We need to call it inside this transaction context to be safe?
+                        # db.use_item uses its own cursor if not provided.
+                        # We should provide current cursor to ensure atomicity.
+                        db.use_item(attacker_uid, soft_id, 1, cursor=cur)
 
                 # Log
                 is_anonymous = False
@@ -462,7 +481,7 @@ def execute_hack(attacker_uid, target_uid, selected_programs):
                 cur.execute("""
                     INSERT INTO pvp_logs (attacker_uid, target_uid, stolen_coins, success, timestamp, is_revenged, is_anonymous)
                     VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
-                """, (attacker_uid, target_uid, stolen_coins, success, int(time.time()), False, is_anonymous))
+                """, (attacker_uid, target_uid, stolen_coins, success, int(time.time()), is_revenge, is_anonymous))
                 log_id = cur.fetchone()[0]
 
                 # Update last hack target
