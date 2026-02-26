@@ -490,8 +490,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (l_item, uid))
                     i_name = ITEMS_INFO.get(l_item, {}).get('name', l_item)
                     loot_item_txt = f"\n{prefix}:\n{i_name}"
-                    bonus_xp *= 2
-                    bonus_coins *= 2
+                    bonus_xp = 0
+                    bonus_coins = 0
                 else:
                     # Normal chest loot logic
                     # If Void Key used on normal chest -> Guarantee Loot (100% chance)
