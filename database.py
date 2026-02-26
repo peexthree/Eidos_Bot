@@ -529,6 +529,87 @@ def fix_data_consistency():
     except Exception as e:
         print(f"/// FIX DATA CONSISTENCY ERROR: {e}")
 
+def fix_missing_defaults():
+    print("/// DEBUG: Fixing missing DEFAULT values and NULL timestamps...")
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # 1. Diary
+                try:
+                    cur.execute("UPDATE diary SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
+                    cur.execute("ALTER TABLE diary ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP")
+                except Exception as e:
+                    print(f"/// FIX ERROR (diary): {e}")
+
+                # 2. Achievements
+                try:
+                    cur.execute("UPDATE achievements SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
+                    cur.execute("ALTER TABLE achievements ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP")
+                except Exception as e:
+                    print(f"/// FIX ERROR (achievements): {e}")
+
+                # 3. Logs
+                try:
+                    cur.execute("UPDATE logs SET timestamp = CURRENT_TIMESTAMP WHERE timestamp IS NULL")
+                    cur.execute("ALTER TABLE logs ALTER COLUMN timestamp SET DEFAULT CURRENT_TIMESTAMP")
+                except Exception as e:
+                    print(f"/// FIX ERROR (logs): {e}")
+
+                # 4. History
+                try:
+                    cur.execute("UPDATE history SET reset_date = CURRENT_TIMESTAMP WHERE reset_date IS NULL")
+                    cur.execute("ALTER TABLE history ALTER COLUMN reset_date SET DEFAULT CURRENT_TIMESTAMP")
+                except Exception as e:
+                    print(f"/// FIX ERROR (history): {e}")
+
+                conn.commit()
+                print("/// FIX: Missing defaults fixed.")
+    except Exception as e:
+        print(f"/// FIX MISSING DEFAULTS ERROR: {e}")
+
+def fix_pvp_logs_schema():
+    print("/// DEBUG: Fixing pvp_logs schema (ID and Sequence)...")
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # 1. Delete rows with NULL ID (Bad Data)
+                cur.execute("DELETE FROM pvp_logs WHERE id IS NULL")
+                deleted = cur.rowcount
+                if deleted > 0:
+                    print(f"/// FIX: Deleted {deleted} corrupt PVP logs.")
+
+                # 2. Ensure Sequence exists and is attached
+                # Check if 'id' has a default value
+                cur.execute("SELECT column_default FROM information_schema.columns WHERE table_name='pvp_logs' AND column_name='id'")
+                res = cur.fetchone()
+                if res and res[0] is None:
+                    print("/// FIX: pvp_logs 'id' missing sequence. Repairing...")
+                    try:
+                        cur.execute("CREATE SEQUENCE IF NOT EXISTS pvp_logs_id_seq")
+                        # Sync sequence
+                        cur.execute("SELECT MAX(id) FROM pvp_logs")
+                        max_id = cur.fetchone()[0]
+                        if max_id is None: max_id = 0
+                        cur.execute(f"SELECT setval('pvp_logs_id_seq', {max_id + 1}, false)")
+                        # Set default
+                        cur.execute("ALTER TABLE pvp_logs ALTER COLUMN id SET DEFAULT nextval('pvp_logs_id_seq')")
+                        # Add PK if missing
+                        cur.execute("""
+                            SELECT conname FROM pg_constraint
+                            JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
+                            WHERE pg_class.relname = 'pvp_logs' AND pg_constraint.contype = 'p';
+                        """)
+                        if not cur.fetchone():
+                            cur.execute("ALTER TABLE pvp_logs ADD PRIMARY KEY (id)")
+                        conn.commit()
+                        print("/// FIX: pvp_logs schema repaired.")
+                    except Exception as e:
+                        print(f"/// FIX ERROR (pvp_logs schema): {e}")
+                        conn.rollback()
+
+    except Exception as e:
+        print(f"/// FIX PVP LOGS ERROR: {e}")
+
 def init_db():
     print("/// DEBUG: init_db started")
 
@@ -586,6 +667,8 @@ def init_db():
 
     # Fix NULLs
     fix_data_consistency()
+    fix_missing_defaults()
+    fix_pvp_logs_schema()
 
     # 4. POPULATE DATA (New Transactions)
     print("/// DEBUG: populating villains")
@@ -1005,7 +1088,7 @@ def check_achievement_exists(uid, ach_id):
 def grant_achievement(uid, ach_id, bonus_xp):
     with db_cursor() as cur:
         if not cur: return False
-        cur.execute("INSERT INTO achievements (uid, ach_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (uid, ach_id))
+        cur.execute("INSERT INTO achievements (uid, ach_id, created_at) VALUES (%s, %s, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING", (uid, ach_id))
         if cur.rowcount > 0:
             cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (bonus_xp, uid))
             return True
@@ -1081,7 +1164,7 @@ def get_user_rank(uid, sort_by='xp'):
 def add_diary_entry(uid, text):
     with db_cursor() as cur:
         if not cur: return
-        cur.execute("INSERT INTO diary (uid, entry) VALUES (%s, %s)", (uid, text))
+        cur.execute("INSERT INTO diary (uid, entry, created_at) VALUES (%s, %s, CURRENT_TIMESTAMP)", (uid, text))
 
 def get_diary_entries(uid, limit=5, offset=0):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
@@ -1313,7 +1396,7 @@ def set_shadow_broker(uid, expiry):
 def log_action(uid, action, details):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO logs (uid, action, details) VALUES (%s, %s, %s)", (uid, action, details))
+            cur.execute("INSERT INTO logs (uid, action, details, timestamp) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", (uid, action, details))
 
 def save_raid_grave(depth, loot_json, owner_name, message=""):
     with db_session() as conn:
@@ -1339,7 +1422,7 @@ def delete_grave(grave_id):
 def save_history(uid, data_json):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO history (uid, archived_data_json) VALUES (%s, %s)", (uid, data_json))
+            cur.execute("INSERT INTO history (uid, archived_data_json, reset_date) VALUES (%s, %s, CURRENT_TIMESTAMP)", (uid, data_json))
 
 def hard_reset_user(uid):
     with db_session() as conn:

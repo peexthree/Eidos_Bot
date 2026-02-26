@@ -1,32 +1,27 @@
 import sys
-import traceback
+import os
+import py_compile
 
-files_to_check = [
-    "database",
-    "modules.services.combat",
-    "modules.handlers.gameplay"
-]
+def check_syntax(path):
+    print(f"Checking syntax for: {path}")
+    has_error = False
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if file.endswith(".py"):
+                filepath = os.path.join(root, file)
+                try:
+                    py_compile.compile(filepath, doraise=True)
+                    # print(f"✅ {filepath}")
+                except py_compile.PyCompileError as e:
+                    print(f"❌ SYNTAX ERROR: {filepath}\n{e}")
+                    has_error = True
+                except Exception as e:
+                    print(f"⚠️ ERROR: {filepath}\n{e}")
+                    has_error = True
+    return has_error
 
-print("Starting syntax verification...")
-has_error = False
-
-for module in files_to_check:
-    try:
-        __import__(module)
-        print(f"✅ {module}: OK")
-    except ImportError as e:
-        # Mock missing modules if needed for syntax check only?
-        # But we are checking syntax, so import error is fine if it's dependency missing, but SyntaxError is bad.
-        # Actually, SyntaxError is raised during import.
-        # But if ImportError happens first (e.g. missing package), we might miss SyntaxError later in the file.
-        # But Python parses the file before executing.
-        print(f"⚠️ {module}: Import Error ({e}) - Assuming syntax is OK if error is not SyntaxError")
-    except SyntaxError as e:
-        print(f"❌ {module}: SYNTAX ERROR: {e}")
-        has_error = True
-    except Exception as e:
-        print(f"⚠️ {module}: Runtime Error during import ({e}) - Syntax likely OK")
-
-if has_error:
-    sys.exit(1)
-print("Verification complete.")
+if __name__ == "__main__":
+    error = check_syntax(".")
+    if error:
+        sys.exit(1)
+    print("✅ All Python files passed syntax check.")

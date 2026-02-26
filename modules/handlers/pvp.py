@@ -483,7 +483,12 @@ def pvp_vendetta_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_revenge_confirm_"))
 def pvp_revenge_confirm_handler(call):
-    log_id = int(call.data.split('_')[3])
+    try:
+        log_id = int(call.data.split('_')[3])
+    except (ValueError, IndexError):
+        bot.answer_callback_query(call.id, "❌ Ошибка данных.", show_alert=True)
+        return
+
     # Logic for revenge?
     # Revenge allows a free/cheaper attack?
     # For now, just redirects to Target Menu with that user pre-selected?
