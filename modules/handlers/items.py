@@ -450,10 +450,21 @@ def item_action_handler(call):
             return
 
         # Equipped check
-        equipped = db.get_equipped_items(uid)
-        if item_id in equipped.values():
-            bot.answer_callback_query(call.id, "❌ Нельзя разобрать надетое снаряжение! Снимите его.", show_alert=True)
-            return
+        # NOTE: Items in inventory (inv_id) are by definition NOT equipped in the new system.
+        # Equipped items are moved to user_equipment table and removed from inventory.
+        # So we can safely skip the "is equipped" check for inventory items (inv_id).
+        # However, for legacy items without inv_id (stack logic), we might still need care,
+        # but dismantle_item usually handles specific ID.
+
+        # If the user tries to dismantle via "view_item_eq_slot" -> this callback won't be triggered
+        # because the button in "view_item_eq_slot" says "Unequip", not "Dismantle".
+        # "Dismantle" button is only shown for inventory items.
+
+        # OLD BUGGY CODE:
+        # equipped = db.get_equipped_items(uid)
+        # if item_id in equipped.values():
+        #     bot.answer_callback_query(call.id, "❌ Нельзя разобрать надетое снаряжение! Снимите его.", show_alert=True)
+        #     return
 
         info = EQUIPMENT_DB.get(item_id) or ITEMS_INFO.get(item_id)
         if info:
