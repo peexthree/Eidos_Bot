@@ -47,7 +47,8 @@ def process_combat_action(uid, action):
         biome_data = get_biome_modifiers(full_s.get('depth', 0))
 
         # --- ITEM CHECKS ---
-        eq_items = db.get_equipped_items(uid)
+        # Use shared cursor to optimize DB calls inside transaction
+        eq_items = db.get_equipped_items(uid, cursor=cur)
         equipped_head = eq_items.get('head')
         equipped_weapon = eq_items.get('weapon')
         equipped_armor = eq_items.get('armor')

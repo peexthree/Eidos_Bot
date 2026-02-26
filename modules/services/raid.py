@@ -200,8 +200,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
             is_new = False
 
             # --- PASSIVE ITEM EFFECTS (START OF STEP) ---
-            # Retrieve equipped items once for efficiency
-            eq_items = db.get_equipped_items(uid)
+            # Retrieve equipped items once for efficiency (using shared cursor)
+            eq_items = db.get_equipped_items(uid, cursor=cur)
             head_item = eq_items.get('head')
             chip_item = eq_items.get('chip')
             armor_item = eq_items.get('armor')
@@ -394,7 +394,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                         player_dmg = max(1, stats['atk'] - v_def)
                         enemy_dmg = max(1, v_atk - stats['def'])
 
-                        rounds_to_kill = v_hp / player_dmg
+                        rounds_to_kill = int(villain.get('hp', 10)) / player_dmg
                         rounds_to_die = s['signal'] / enemy_dmg
 
                         chance_val = 0
@@ -726,7 +726,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                      if not event: event = {'text': "Пустота...", 'type': 'neutral', 'val': 0}
 
                 # --- HEAD AURA: NOMAD GOGGLES (Loot Finder) ---
-                if event['type'] == 'neutral' and equipped_head == 'nomad_goggles':
+                if event['type'] == 'neutral' and head_item == 'nomad_goggles':
                     if random.random() < 0.05:
                         event = {'type': 'loot', 'text': 'Скрытый тайник (Окуляры)', 'val': 100}
                         msg_prefix += "🥽 <b>ОКУЛЯРЫ:</b> Обнаружен скрытый лут!\n"
@@ -804,7 +804,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     # Assuming 'encrypted_cache' is an item in inventory OR a state.
                     # Prompt says: "Finds... put on decryption in main menu".
                     # Let's treat it as an item 'encrypted_cache'.
-                    if db.add_item(uid, 'encrypted_cache'):
+                    if db.add_item(uid, 'encrypted_cache', cursor=cur):
                         cache_drop_txt = "\n🔐 <b>ПОЛУЧЕНО:</b> Зашифрованный Кэш"
 
                 # HOLO-POVERTY: Cap buffer coins at 500
