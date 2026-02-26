@@ -49,7 +49,8 @@ def profile_handler(call):
                 equip_txt += f"• {name} {stats_str}\n"
 
         # Formatting title logic
-        full_title = TITLES.get(u['level'], 'Unknown')
+        level_for_title = u.get('level') or 1
+        full_title = TITLES.get(level_for_title, 'Unknown')
         if '(' in full_title:
             title_name = full_title.split('(')[0].strip()
             title_desc = full_title.split('(')[1].replace(')', '').strip()
@@ -74,7 +75,7 @@ def profile_handler(call):
             f"🏫 Школа: <b>{school_name}</b>\n"
             f"🔰 Статус: <b>{title_name}</b>\n"
             f"<i>({title_desc})</i>\n"
-            f"📊 <b>LVL {u['level']}</b> | <code>{p_bar}</code> ({perc}%)\n"
+            f"📊 <b>LVL {u.get('level') or 1}</b> | <code>{p_bar}</code> ({perc}%)\n"
             f"🔋 <b>ТЕКУЩИЙ ОПЫТ:</b> {u['xp']}\n"
             f"📉 <b>ДО СЛЕДУЮЩЕГО УРОВНЯ:</b> {xp_need} XP\n"
             f"🔥 <b>СТРИК входов дней в игру:</b> {p_stats['streak']} (+{p_stats['streak_bonus']}% к опыту)\n\n"
@@ -87,7 +88,7 @@ def profile_handler(call):
         )
 
         # Determine avatar based on level
-        avatar_id = config.USER_AVATARS.get(u.get('level', 1))
+        avatar_id = config.USER_AVATARS.get(u.get('level') or 1)
         if not avatar_id:
             avatar_id = config.USER_AVATARS.get(1)
 

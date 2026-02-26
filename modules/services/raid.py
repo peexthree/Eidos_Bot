@@ -16,7 +16,7 @@ def get_raid_entry_cost(uid):
     u = db.get_user(uid)
     if not u: return 100
 
-    level = u.get('level', 1)
+    level = u.get('level') or 1
     # Dynamic Cost Formula: 100 + (Level * 150)
     return 100 + (level * 150)
 
@@ -895,11 +895,12 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 else: alert_msg = "🏆 НОВОЕ ДОСТИЖЕНИЕ!" + ach_txt
 
             sig_bar = draw_bar(new_sig, 100, 8)
+            display_sig = new_sig
 
             # OBLIVION CHIP: Hide HP
             if chip_item == 'oblivion_chip':
                 sig_bar = "???"
-                new_sig = "???"
+                display_sig = "???"
 
             # КОМПАС (БУДУЩЕЕ)
             comp_txt = ""
@@ -936,7 +937,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             interface = (
                 f"🏝 <b>{biome_data['name']}</b> | <b>{new_depth}м</b>\n"
-                f"📡 Сигнал: <code>{sig_bar}</code> {new_sig}%\n"
+                f"📡 Сигнал: <code>{sig_bar}</code> {display_sig}%\n"
                 f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
                 f"━━━━━━━━━━━━━━\n"
                 f"{msg_prefix}{msg_event}{advice_text}\n"

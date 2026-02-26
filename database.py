@@ -511,16 +511,18 @@ def fix_data_consistency():
                 ]
 
                 for col in cols_to_fix:
-                    # Check if column exists first to avoid error on fresh DBs where verify hasn't run yet?
-                    # No, ensure_table_schema runs before this in init_db.
-                    # But wait, ensure_table_schema is called in init_db.
-                    # We should call this AFTER ensure_table_schema.
-
-                    # We can wrap in try-except per column just in case
                     try:
                         cur.execute(f"UPDATE players SET {col} = 0 WHERE {col} IS NULL")
                     except Exception as e:
                         print(f"/// FIX WARN: Could not update {col}: {e}")
+
+                # Ensure core stats are never NULL
+                try:
+                    cur.execute("UPDATE players SET xp = 0 WHERE xp IS NULL")
+                    cur.execute("UPDATE players SET biocoin = 0 WHERE biocoin IS NULL")
+                    cur.execute("UPDATE players SET level = 1 WHERE level IS NULL")
+                except Exception as e:
+                    print(f"/// FIX WARN: Could not update core stats: {e}")
 
                 conn.commit()
                 print("/// FIX: Data consistency check complete.")
