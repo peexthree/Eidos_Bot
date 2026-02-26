@@ -62,7 +62,7 @@ def protocol_handler(call):
                 # SCALING XP FORMULA (Module 1)
                 # Base_XP * (u['level'] * 1.5) * (1 + (streak * 0.1))
                 streak = u.get('streak', 0)
-                level = u.get('level', 1)
+                level = u.get('level') or 1
                 base_xp = config.XP_GAIN
 
                 xp = int(base_xp * (level * 1.5) * (1 + (streak * 0.1)))
@@ -106,7 +106,7 @@ def protocol_handler(call):
                  txt = sig['text'] if sig else "/// НЕТ СВЯЗИ."
 
                  # SCALING XP
-                 level = u.get('level', 1)
+                 level = u.get('level') or 1
                  base_xp = config.XP_SIGNAL
                  xp = int(base_xp * (level * 1.5))
 

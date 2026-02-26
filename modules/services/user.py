@@ -65,8 +65,8 @@ def check_daily_streak(uid):
 
 def get_level_progress_stats(u):
     if not u: return 0, 0
-    level = u.get("level", 1)
-    xp = u.get("xp", 0)
+    level = u.get("level") or 1
+    xp = u.get("xp") or 0
 
     target = LEVELS.get(level, 999999)
     if level == 1:
@@ -87,8 +87,8 @@ def check_level_up(uid):
     u = db.get_user(uid)
     if not u: return None, None
 
-    current_level = u.get('level', 1)
-    xp = u.get('xp', 0)
+    current_level = u.get('level') or 1
+    xp = u.get('xp') or 0
     new_level = current_level
 
     while True:
@@ -109,8 +109,8 @@ def get_profile_stats(uid):
     u = db.get_user(uid)
     if not u: return None
 
-    streak = u.get('streak', 0)
-    level = u.get('level', 1)
+    streak = u.get('streak') or 0
+    level = u.get('level') or 1
 
     streak_bonus = streak * 50
     income_total = (level * 1000) + streak_bonus + (u.get('ref_profit_xp', 0) + u.get('ref_profit_coins', 0))
