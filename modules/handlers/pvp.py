@@ -77,10 +77,16 @@ def pvp_inventory_handler(call):
     items = pvp.get_software_inventory(uid)
     active_hw = pvp.get_active_hardware(uid)
 
+    soft_count = sum(1 for i in items if i['category'] == 'software')
+    hw_count = sum(1 for i in items if i['category'] == 'hardware')
+
     txt = (
-        "🎒 <b>ИНВЕНТАРЬ СЕТЕВОЙ ВОЙНЫ</b>\n\n"
-        "Управляйте своим софтом и железом.\n"
-        "<i>Зеленый индикатор — активный модуль защиты.</i>"
+        f"🎒 <b>ИНВЕНТАРЬ СЕТЕВОЙ ВОЙНЫ</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 <b>ВСЕГО: {len(items)}</b> (💾 {soft_count} | 🛠 {hw_count})\n\n"
+        f"Управляйте своим софтом и железом.\n"
+        f"⚠️ <i>Софт уничтожается при использовании!</i>\n"
+        f"🛡 <i>Железо работает автоматически.</i>"
     )
 
     menu_update(call, txt, kb.pvp_inventory_menu(items, active_hw))
@@ -386,9 +392,11 @@ def pvp_execute_handler(call):
     target_uid = data['target_uid']
     selected_slots = data['slots']
 
-    # Check if empty? (Allowed, but stupid)
+    # Extract Revenge Params
+    is_revenge = data.get('is_revenge', False)
+    revenge_log_id = data.get('log_id')
 
-    res = pvp.execute_hack(uid, target_uid, selected_slots)
+    res = pvp.execute_hack(uid, target_uid, selected_slots, is_revenge=is_revenge, revenge_log_id=revenge_log_id)
 
     if not res['success'] and res.get('msg'):
         bot.answer_callback_query(call.id, strip_html(f"❌ {res['msg']}"), show_alert=True)
@@ -446,13 +454,6 @@ def pvp_execute_handler(call):
 def send_pvp_notification(target_uid, attacker_uid, res):
     try:
         attacker_name = "НЕИЗВЕСТНЫЙ"
-        # Check anonymous logic inside res or DB
-        # res has 'anonymous' key from execute_hack? No, log has it.
-        # But we can check if attacker has proxy.
-
-        # Actually execute_hack does not return anonymous flag explicitly in dict,
-        # but we can infer or fetch log.
-        # Let's simple check user proxy here.
         au = db.get_user(attacker_uid)
         is_anon = au.get('proxy_expiry', 0) > time.time()
 
@@ -460,18 +461,27 @@ def send_pvp_notification(target_uid, attacker_uid, res):
             attacker_name = f"@{au['username']}" if au['username'] else "Unknown Haker"
 
         if res['success']:
-            msg = (
-                f"🚨 <b>ВАС ВЗЛОМАЛИ!</b>\n\n"
-                f"👤 Хакер: <b>{attacker_name}</b>\n"
-                f"📉 Украдено: {res['stolen']} BC\n\n"
-                f"Вы получили 🛡 Щит на 4 часа."
-            )
-            markup = None
-            if not is_anon and res.get('log_id'):
-                markup = types.InlineKeyboardMarkup()
-                markup.add(types.InlineKeyboardButton("🩸 ОТОМСТИТЬ", callback_data=f"pvp_revenge_confirm_{res['log_id']}"))
+            header = "🚨 <b>ВАС ВЗЛОМАЛИ!</b>"
+            body = f"📉 Украдено: {res['stolen']} BC"
+            footer = "Вы получили 🛡 Щит на 4 часа."
+        else:
+            header = "🛡 <b>АТАКА ОТРАЖЕНА!</b>"
+            body = f"Враг потерял ресурсы."
+            footer = "Ваша защита сработала идеально."
 
-            bot.send_message(target_uid, msg, parse_mode="HTML", reply_markup=markup)
+        msg = (
+            f"{header}\n\n"
+            f"👤 Хакер: <b>{attacker_name}</b>\n"
+            f"{body}\n\n"
+            f"{footer}"
+        )
+
+        markup = None
+        if not is_anon and res.get('log_id'):
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🩸 ОТОМСТИТЬ", callback_data=f"pvp_revenge_confirm_{res['log_id']}"))
+
+        bot.send_message(target_uid, msg, parse_mode="HTML", reply_markup=markup)
     except: pass
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_vendetta")

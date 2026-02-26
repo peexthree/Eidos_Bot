@@ -1516,7 +1516,6 @@ def get_pvp_history(uid, limit=10):
             JOIN players u ON p.attacker_uid = u.uid
             WHERE p.target_uid = %s
               AND p.timestamp > %s
-              AND p.success = TRUE
               AND p.is_revenged = FALSE
               AND p.is_anonymous = FALSE
             ORDER BY p.timestamp DESC

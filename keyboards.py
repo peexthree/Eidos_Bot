@@ -674,34 +674,51 @@ def pvp_inventory_menu(inventory, active_hardware={}):
     if not inventory:
         m.add(types.InlineKeyboardButton("✅ ИНВЕНТАРЬ ПУСТ", callback_data="dummy"))
 
-    for item in inventory:
-        item_id = item['id']
-        name = item['name']
-        qty = item['quantity']
-        is_hw = item.get('category') == 'hardware'
+    # Separator Helper
+    def add_separator(text):
+        m.add(types.InlineKeyboardButton(f"─── {text} ───", callback_data="dummy"))
 
-        # Icon based on type
-        icon = item.get('icon', '📦')
+    # Group Items
+    software = [i for i in inventory if i.get('category') == 'software']
+    hardware = [i for i in inventory if i.get('category') == 'hardware']
 
-        if is_hw:
+    # 1. SOFTWARE
+    if software:
+        add_separator("💾 ПРОГРАММЫ")
+        for item in software:
+            item_id = item['id']
+            name = item['name']
+            qty = item['quantity']
+            icon = item.get('icon', '💾')
+            type_str = item.get('type', 'UNK').upper()
+
+            # Row 1: Name & Type
+            m.add(types.InlineKeyboardButton(f"{icon} {name} [{type_str}] x{qty}", callback_data="dummy"))
+            # Row 2: Dismantle
+            m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ ({name})", callback_data=f"pvp_dismantle_{item_id}"))
+
+    # 2. HARDWARE
+    if hardware:
+        add_separator("🛠 ЖЕЛЕЗО")
+        for item in hardware:
+            item_id = item['id']
+            name = item['name']
+            qty = item['quantity']
+            icon = item.get('icon', '🛠')
+
             # Check if active
             is_active = active_hardware.get(item_id, False)
-            state_icon = "🟢 АКТИВЕН" if is_active else "🔴 НЕАКТИВЕН"
+            state_text = "🟢 ONLINE" if is_active else "🔴 OFFLINE"
             toggle_action = "pvp_hw_unequip_" if is_active else "pvp_hw_equip_"
-            toggle_btn_text = f"🛑 ВЫКЛЮЧИТЬ" if is_active else f"⚡️ ВКЛЮЧИТЬ"
+            toggle_btn = f"🛑 ВЫКЛ" if is_active else f"⚡️ ВКЛ"
 
             # Row 1: Info
-            m.add(types.InlineKeyboardButton(f"{icon} {name} (x{qty}) | {state_icon}", callback_data="dummy"))
-            # Row 2: Actions
+            m.add(types.InlineKeyboardButton(f"{icon} {name} (x{qty}) | {state_text}", callback_data="dummy"))
+            # Row 2: Controls
             m.row(
-                types.InlineKeyboardButton(toggle_btn_text, callback_data=f"{toggle_action}{item_id}"),
-                types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"pvp_dismantle_{item_id}")
+                types.InlineKeyboardButton(toggle_btn, callback_data=f"{toggle_action}{item_id}"),
+                types.InlineKeyboardButton("♻️ УТИЛЬ", callback_data=f"pvp_dismantle_{item_id}")
             )
-
-        else:
-            # Software
-            m.add(types.InlineKeyboardButton(f"{icon} {name} (x{qty})", callback_data="dummy"))
-            m.add(types.InlineKeyboardButton("♻️ РАЗОБРАТЬ", callback_data=f"pvp_dismantle_{item_id}"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
     return m
