@@ -91,19 +91,33 @@ class CraftingService:
                 with conn.cursor() as cur:
                     # 1. Lock and Check Quantity
                     # FOR UPDATE ensures no one else modifies this row while we are checking
-                    cur.execute("SELECT quantity FROM inventory WHERE uid = %s AND item_id = %s FOR UPDATE", (uid, item_id))
-                    row = cur.fetchone()
+                    # Order by durability ASC to prioritize using more damaged items first
+                    cur.execute("SELECT id, quantity FROM inventory WHERE uid = %s AND item_id = %s ORDER BY durability ASC FOR UPDATE", (uid, item_id))
+                    rows = cur.fetchall()
 
-                    if not row or row[0] < 3:
+                    total_qty = sum(r[1] for r in rows) if rows else 0
+
+                    if total_qty < 3:
                         res_msg = "❌ Недостаточно предметов (нужно 3 в инвентаре, снимите если надето)."
                         raise ValueError("Not enough items")
 
-                    # 2. Update Inventory (Consume)
-                    new_qty = row[0] - 3
-                    if new_qty == 0:
-                        cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
-                    else:
-                        cur.execute("UPDATE inventory SET quantity = %s WHERE uid = %s AND item_id = %s", (new_qty, uid, item_id))
+                    # 2. Consume Items (3 total)
+                    needed = 3
+                    for r in rows:
+                        inv_id = r[0]
+                        qty = r[1]
+
+                        if qty > needed:
+                            # Update this row
+                            cur.execute("UPDATE inventory SET quantity = quantity - %s WHERE id = %s", (needed, inv_id))
+                            needed = 0
+                            break
+                        else:
+                            # Consume entire row
+                            cur.execute("DELETE FROM inventory WHERE id = %s", (inv_id,))
+                            needed -= qty
+                            if needed == 0:
+                                break
 
                     # 3. Add Reward
                     if db.add_item(uid, new_item_id, 1, cursor=cur, specific_durability=durability):
