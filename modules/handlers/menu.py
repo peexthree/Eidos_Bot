@@ -307,7 +307,10 @@ def diary_handler(call):
         else:
             txt = f"📓 <b>СТРАНИЦА {page+1}/{total_pages}</b>\n\n"
             for e in entries:
-                dt = e['created_at'].strftime('%d.%m %H:%M')
+                if e.get('created_at'):
+                    dt = e['created_at'].strftime('%d.%m %H:%M')
+                else:
+                    dt = "??.?? ??:??"
                 txt += f"📅 <b>{dt}</b>\n{e['entry']}\n\n"
 
             # ONBOARDING PHASE 3
