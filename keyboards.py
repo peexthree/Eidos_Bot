@@ -805,9 +805,15 @@ def pvp_vendetta_menu(attackers):
     else:
         for a in attackers:
             log_id = a['id']
+            # Filter out broken logs (None ID)
+            if not log_id: continue
+
             name = a['username'] or a['first_name'] or "Unknown"
             lvl = a.get('level', 1)
-            time_ago = int((time.time() - a['timestamp']) / 3600)
+            try:
+                time_ago = int((time.time() - a['timestamp']) / 3600)
+            except:
+                time_ago = "?"
             btn_text = f"🩸 {name} (Lvl {lvl}) - {time_ago}ч назад"
             m.add(types.InlineKeyboardButton(btn_text, callback_data=f"pvp_revenge_confirm_{log_id}"))
 
