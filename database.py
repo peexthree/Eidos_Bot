@@ -494,6 +494,37 @@ def fix_user_equipment_schema():
     except Exception as e:
         print(f"/// FIX USER_EQUIPMENT ERROR: {e}")
 
+def fix_data_consistency():
+    print("/// DEBUG: Checking for NULL values in critical columns...")
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # Players table fixes
+                # List of columns that must be 0 if NULL
+                cols_to_fix = [
+                    'accel_exp', 'last_protocol_time', 'last_signal_time',
+                    'anomaly_buff_expiry', 'shadow_broker_expiry',
+                    'encrypted_cache_unlock_time', 'onboarding_start_time',
+                    'quarantine_end_time'
+                ]
+
+                for col in cols_to_fix:
+                    # Check if column exists first to avoid error on fresh DBs where verify hasn't run yet?
+                    # No, ensure_table_schema runs before this in init_db.
+                    # But wait, ensure_table_schema is called in init_db.
+                    # We should call this AFTER ensure_table_schema.
+
+                    # We can wrap in try-except per column just in case
+                    try:
+                        cur.execute(f"UPDATE players SET {col} = 0 WHERE {col} IS NULL")
+                    except Exception as e:
+                        print(f"/// FIX WARN: Could not update {col}: {e}")
+
+                conn.commit()
+                print("/// FIX: Data consistency check complete.")
+    except Exception as e:
+        print(f"/// FIX DATA CONSISTENCY ERROR: {e}")
+
 def init_db():
     print("/// DEBUG: init_db started")
 
@@ -548,6 +579,9 @@ def init_db():
     fix_bot_states_schema()
     fix_inventory_schema()
     fix_user_equipment_schema()
+
+    # Fix NULLs
+    fix_data_consistency()
 
     # 4. POPULATE DATA (New Transactions)
     print("/// DEBUG: populating villains")

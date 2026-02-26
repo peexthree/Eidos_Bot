@@ -784,7 +784,11 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 coins = int(random.randint(5, 20) * loot_info['mult'])
 
                 # --- ANOMALY BUFF: OVERLOAD (+50% Coins) ---
-                if u.get('anomaly_buff_expiry', 0) > time.time() and u.get('anomaly_buff_type') == 'overload':
+                buff_expiry = u.get('anomaly_buff_expiry') or 0
+                try: buff_expiry = float(buff_expiry)
+                except: buff_expiry = 0
+
+                if buff_expiry > time.time() and u.get('anomaly_buff_type') == 'overload':
                     coins = int(coins * 1.5)
                     msg_prefix += "⚡️ <b>ПЕРЕГРУЗКА:</b> +50% монет.\n"
 

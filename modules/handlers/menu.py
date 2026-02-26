@@ -60,8 +60,12 @@ def profile_handler(call):
         school_name = SCHOOLS.get(u['path'], 'ОБЩАЯ')
 
         accel_status = ""
-        if u.get('accel_exp', 0) > time.time():
-             rem_hours = int((u['accel_exp'] - time.time()) / 3600)
+        accel_exp = u.get('accel_exp') or 0
+        try: accel_exp = float(accel_exp)
+        except: accel_exp = 0
+
+        if accel_exp > time.time():
+             rem_hours = int((accel_exp - time.time()) / 3600)
              accel_status = f"\n⚡️ Ускоритель: <b>АКТИВЕН ({rem_hours}ч)</b>"
 
         safe_name = html.escape(u['username'] or u['first_name'] or "Unknown")

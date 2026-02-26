@@ -35,9 +35,17 @@ def protocol_handler(call):
         return
 
     if call.data == "get_protocol":
-        cd = COOLDOWN_ACCEL if u['accel_exp'] > time.time() else COOLDOWN_BASE
-        if time.time() - u['last_protocol_time'] < cd:
-            rem = int((cd - (time.time() - u['last_protocol_time'])) / 60)
+        accel_exp = u.get('accel_exp') or 0
+        try: accel_exp = float(accel_exp)
+        except: accel_exp = 0
+
+        last_proto = u.get('last_protocol_time') or 0
+        try: last_proto = float(last_proto)
+        except: last_proto = 0
+
+        cd = COOLDOWN_ACCEL if accel_exp > time.time() else COOLDOWN_BASE
+        if time.time() - last_proto < cd:
+            rem = int((cd - (time.time() - last_proto)) / 60)
             bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
         else:
             # GLITCH CHECK (Module 2)
@@ -78,8 +86,12 @@ def protocol_handler(call):
 
     elif call.data == "get_signal":
         cd = COOLDOWN_SIGNAL
-        if time.time() - u['last_signal_time'] < cd:
-             rem = int((cd - (time.time() - u['last_signal_time'])) / 60)
+        last_sig = u.get('last_signal_time') or 0
+        try: last_sig = float(last_sig)
+        except: last_sig = 0
+
+        if time.time() - last_sig < cd:
+             rem = int((cd - (time.time() - last_sig)) / 60)
              bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
         else:
              # GLITCH CHECK (Module 2)
