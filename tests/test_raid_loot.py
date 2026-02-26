@@ -152,25 +152,12 @@ class TestRaidLoot(unittest.TestCase):
 
     @patch('random.choice')
     def test_get_legendary_drops(self, mock_choice):
-        # Mock equipment DB with mixed items
-        mock_db = {
-            'legendary_sword': {'name': '🟠 LEGENDARY SWORD'},
-            'rusty_knife': {'name': '⚪️ RUSTY KNIFE'},
-            'mythic_armor': {'name': '🟣 MYTHIC ARMOR'}
-        }
+        # Mock LEGENDARY_DROPS list
+        mock_drops = ['legendary_sword', 'god_mode_chip']
 
-        with patch('config.EQUIPMENT_DB', mock_db):
-            # Should filter for orange icon
+        with patch('config.LEGENDARY_DROPS', mock_drops):
             get_legendary_drops()
-            mock_choice.assert_called_with(['legendary_sword'])
-
-        # Test fallback
-        mock_db_empty = {
-            'rusty_knife': {'name': '⚪️ RUSTY KNIFE'}
-        }
-        with patch('config.EQUIPMENT_DB', mock_db_empty):
-            result = get_legendary_drops()
-            self.assertEqual(result, "rusty_knife")
+            mock_choice.assert_called_with(mock_drops)
 
 if __name__ == '__main__':
     unittest.main()

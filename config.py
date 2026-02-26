@@ -728,6 +728,11 @@ CURSED_CHEST_DROPS = [
     "architect_eye", "crown_paranoia", "death_mask", "reality_silencer", "martyr_halo"
 ]
 
+LEGENDARY_DROPS = [
+    "void_cannon", "singularity_sword", "void_walker_hood", "architect_mask", "force_field",
+    "reality_armor", "quantum_shield", "chronometer", "god_mode_chip", "logic_gate"
+]
+
 SHADOW_BROKER_ITEMS = [
     "void_cannon", "singularity_sword", "force_field", "reality_armor", "quantum_shield",
     "god_mode_chip", "logic_gate", "abyssal_key", "admin_key", "relic_vampire", "relic_speed"
