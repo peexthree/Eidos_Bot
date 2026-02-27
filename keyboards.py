@@ -827,12 +827,30 @@ def pvp_vendetta_menu(attackers):
 
             name = a['username'] or a['first_name'] or "Unknown"
             lvl = a.get('level', 1)
+            stolen = a.get('stolen_coins', 0)
+            success = a.get('success', False)
+            is_revenged = a.get('is_revenged', False)
+
             try:
                 time_ago = int((time.time() - a['timestamp']) / 3600)
+                time_str = f"{time_ago}ч" if time_ago > 0 else "Сейчас"
             except:
-                time_ago = "?"
-            btn_text = f"🩸 {name} (Lvl {lvl}) - {time_ago}ч назад"
-            m.add(types.InlineKeyboardButton(btn_text, callback_data=f"pvp_revenge_confirm_{log_id}"))
+                time_str = "?"
+
+            if not success:
+                # Attack failed (Blocked)
+                btn_text = f"🛡 {name} | ⛔️ Blocked ({time_str})"
+                cb = "dummy" # No revenge needed for failed attacks
+            elif is_revenged:
+                # Already revenged
+                btn_text = f"✅ {name} | ♻️ {stolen} BC ({time_str})"
+                cb = "dummy" # Already done
+            else:
+                # Active Target
+                btn_text = f"🩸 {name} | -{stolen} BC ({time_str})"
+                cb = f"pvp_revenge_confirm_{log_id}"
+
+            m.add(types.InlineKeyboardButton(btn_text, callback_data=cb))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_menu"))
     return m

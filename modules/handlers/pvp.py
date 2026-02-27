@@ -506,7 +506,21 @@ def send_pvp_notification(target_uid, attacker_uid, res):
 def pvp_vendetta_handler(call):
     uid = call.from_user.id
     history = db.get_pvp_history(uid)
-    msg = "🩸 <b>ВЕНДЕТТА</b>\n\nСписок тех, кто атаковал вас за последние 24 часа."
+
+    # Calculate Stats
+    total_attacks = len(history)
+    total_stolen = sum(h['stolen_coins'] for h in history if h['success'])
+    defended_count = sum(1 for h in history if not h['success'])
+    success_attacks = total_attacks - defended_count
+
+    msg = (
+        f"🩸 <b>ВЕНДЕТТА (24ч)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📉 Украдено: <b>{total_stolen} BC</b>\n"
+        f"🛡 Отражено: <b>{defended_count}</b> / {total_attacks}\n"
+        f"⚠️ Пробоин: <b>{success_attacks}</b>\n\n"
+        f"Список активностей за сутки:"
+    )
     menu_update(call, msg, kb.pvp_vendetta_menu(history))
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_revenge_confirm_"))
