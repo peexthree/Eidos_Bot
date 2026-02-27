@@ -840,15 +840,15 @@ def pvp_vendetta_menu(attackers):
             if not success:
                 # Attack failed (Blocked)
                 btn_text = f"🛡 {name} | ⛔️ Blocked ({time_str})"
-                cb = "dummy" # No revenge needed for failed attacks
+                cb = f"pvp_log_details_{log_id}"
             elif is_revenged:
                 # Already revenged
                 btn_text = f"✅ {name} | ♻️ {stolen} BC ({time_str})"
-                cb = "dummy" # Already done
+                cb = f"pvp_log_details_{log_id}"
             else:
                 # Active Target
                 btn_text = f"🩸 {name} | -{stolen} BC ({time_str})"
-                cb = f"pvp_revenge_confirm_{log_id}"
+                cb = f"pvp_log_details_{log_id}"
 
             m.add(types.InlineKeyboardButton(btn_text, callback_data=cb))
 

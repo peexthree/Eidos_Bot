@@ -7,6 +7,24 @@ from modules.services import pvp
 from telebot import types
 import json
 import time
+import datetime
+import random
+
+BATTLE_LORE_SUCCESS = [
+    "✅ СИСТЕМА: Обнаружена критическая уязвимость в защитном периметре.",
+    "✅ СИСТЕМА: Файрвол противника деактивирован. Данные успешно извлечены.",
+    "✅ СИСТЕМА: Шифрование взломано методом грубой силы. Доступ получен.",
+    "✅ СИСТЕМА: Внедрение вируса прошло успешно. Ресурсы перехвачены.",
+    "✅ СИСТЕМА: Защитные протоколы цели не справились с нагрузкой."
+]
+
+BATTLE_LORE_FAIL = [
+    "❌ СИСТЕМА: Вторжение заблокировано. Сработал ICE-ловушка.",
+    "❌ СИСТЕМА: Доступ запрещен. Сигнатура атаки обнаружена и нейтрализована.",
+    "❌ СИСТЕМА: Файрвол отразил пакеты данных. Соединение разорвано.",
+    "❌ СИСТЕМА: Критическая ошибка протокола. Цель защищена эвристическим анализатором.",
+    "❌ СИСТЕМА: Попытка взлома зафиксирована службой безопасности."
+]
 
 # =============================================================================
 # 1. MAIN PVP MENU
@@ -501,6 +519,72 @@ def send_pvp_notification(target_uid, attacker_uid, res):
 
         bot.send_message(target_uid, msg, parse_mode="HTML", reply_markup=markup)
     except: pass
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_log_details_"))
+def pvp_log_details_handler(call):
+    try:
+        log_id = int(call.data.replace("pvp_log_details_", ""))
+    except ValueError:
+        bot.answer_callback_query(call.id, "❌ Ошибка данных.", show_alert=True)
+        return
+
+    log = db.get_revenge_target(log_id)
+    if not log:
+        bot.answer_callback_query(call.id, "❌ Запись не найдена.", show_alert=True)
+        return
+
+    # Fetch attacker info
+    attacker_uid = log['attacker_uid']
+    attacker = db.get_user(attacker_uid)
+
+    attacker_name = "НЕИЗВЕСТНЫЙ"
+    if attacker and not log['is_anonymous']:
+        raw_name = f"@{attacker['username']}" if attacker['username'] else attacker['first_name']
+        # Sanitize for HTML
+        import html
+        attacker_name = html.escape(raw_name)
+
+    # Format Data
+    try:
+        dt = datetime.datetime.fromtimestamp(log['timestamp']).strftime('%d.%m.%Y %H:%M')
+    except:
+        dt = "Unknown Time"
+
+    is_success = log['success']
+    stolen = log['stolen_coins']
+
+    # Lore
+    if is_success:
+        lore = random.choice(BATTLE_LORE_SUCCESS)
+        status = "🔴 ВЗЛОМАН"
+        result_txt = f"📉 Украдено: <b>{stolen} BC</b>"
+    else:
+        lore = random.choice(BATTLE_LORE_FAIL)
+        status = "🟢 ЗАЩИЩЕН"
+        result_txt = "🛡 Атака отражена. Ресурсы сохранены."
+
+    msg = (
+        f"🖥 <b>ОТЧЕТ ОБ ИНЦИДЕНТЕ #{log_id}</b>\n"
+        f"🕒 Время: {dt}\n\n"
+        f"👤 Источник: <b>{attacker_name}</b>\n"
+        f"⚠️ Статус: <b>{status}</b>\n"
+        f"{result_txt}\n\n"
+        f"📝 <b>Журнал событий:</b>\n"
+        f"<code>{lore}</code>"
+    )
+
+    markup = types.InlineKeyboardMarkup()
+
+    # Revenge Logic
+    # Can revenge if: Success=True (we lost money), Not Revenged yet, Not Anonymous? (Maybe allow revenge on anon if we find them?)
+    # Usually revenge requires knowing who it is.
+    # Existing logic in pvp_vendetta checks !is_revenged
+    if is_success and not log['is_revenged'] and not log['is_anonymous']:
+        markup.add(types.InlineKeyboardButton("🩸 ОТОМСТИТЬ", callback_data=f"pvp_revenge_confirm_{log_id}"))
+
+    markup.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="pvp_vendetta"))
+
+    menu_update(call, msg, markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_vendetta")
 def pvp_vendetta_handler(call):
