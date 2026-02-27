@@ -10,6 +10,7 @@ from datetime import datetime
 import re
 import html
 import traceback
+import threading
 from config import ITEMS_INFO, INVENTORY_LIMIT
 from content_presets import CONTENT_DATA, VILLAINS_DATA, OLD_VILLAINS_NAMES
 
@@ -17,6 +18,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 
 # Global Connection Pool
 pg_pool = None
+_pool_lock = threading.Lock()
 
 # --- SCHEMA DEFINITIONS ---
 TABLE_SCHEMAS = {
@@ -201,21 +203,23 @@ TABLE_SCHEMAS = {
 def init_pool():
     global pg_pool
     if not pg_pool:
-        try:
-            pg_pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=1,
-                maxconn=20,
-                dsn=DATABASE_URL,
-                sslmode='require',
-                keepalives=1,
-                keepalives_idle=30,
-                keepalives_interval=10,
-                keepalives_count=5,
-                options='-c lock_timeout=10000'
-            )
-            print("/// DB POOL INITIALIZED (SUPABASE)")
-        except Exception as e:
-            print(f"/// DB POOL INIT ERROR: {e}")
+        with _pool_lock:
+            if not pg_pool: # Double-check locking pattern
+                try:
+                    pg_pool = psycopg2.pool.ThreadedConnectionPool(
+                        minconn=1,
+                        maxconn=20,
+                        dsn=DATABASE_URL,
+                        sslmode='require',
+                        keepalives=1,
+                        keepalives_idle=30,
+                        keepalives_interval=10,
+                        keepalives_count=5,
+                        options='-c lock_timeout=10000'
+                    )
+                    print("/// DB POOL INITIALIZED (SUPABASE)")
+                except Exception as e:
+                    print(f"/// DB POOL INIT ERROR: {e}")
 
 @contextmanager
 def db_session():
@@ -723,7 +727,11 @@ def populate_villains():
                     ON CONFLICT (name) DO UPDATE SET level = EXCLUDED.level, hp = EXCLUDED.hp, atk = EXCLUDED.atk, def = EXCLUDED.def, xp_reward = EXCLUDED.xp_reward, coin_reward = EXCLUDED.coin_reward, description = EXCLUDED.description, image = EXCLUDED.image
                 """, v)
 
-def get_user(uid):
+def get_user(uid, cursor=None):
+    if cursor:
+        cursor.execute("SELECT * FROM players WHERE uid = %s", (uid,))
+        return cursor.fetchone()
+
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
         cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
@@ -988,13 +996,21 @@ def unequip_item(uid, slot):
         print(f"Unequip Error: {e}")
         return False
 
-def get_equipped_items(uid):
+def get_equipped_items(uid, cursor=None):
+    if cursor:
+        cursor.execute("SELECT slot, item_id, durability FROM user_equipment WHERE uid=%s", (uid,))
+        return {row['slot']: row['item_id'] for row in cursor.fetchall()}
+
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return {}
         cur.execute("SELECT slot, item_id, durability FROM user_equipment WHERE uid=%s", (uid,))
         return {row['slot']: row['item_id'] for row in cur.fetchall()}
 
-def get_equipped_item_in_slot(uid, slot):
+def get_equipped_item_in_slot(uid, slot, cursor=None):
+    if cursor:
+        cursor.execute("SELECT item_id, durability FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))
+        return cursor.fetchone()
+
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return None
         cur.execute("SELECT item_id, durability FROM user_equipment WHERE uid=%s AND slot=%s", (uid, slot))

@@ -521,6 +521,11 @@ def pvp_revenge_confirm_handler(call):
     # Set up attack state against this specific target
     target = db.get_user(target_uid) # We might need to construct the full target object like find_target does
 
+    # Safety check if target user was deleted
+    if not target:
+        bot.answer_callback_query(call.id, "❌ Цель не найдена (Игрок удален).", show_alert=True)
+        return
+
     # We fake the `find_target` result format
     target_deck = pvp.get_deck(target_uid)
     slots_preview = {i: "❓" if target_deck['config'].get(str(i)) else "🕸" for i in range(1, 4)}
