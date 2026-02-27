@@ -1521,12 +1521,10 @@ def add_pvp_log(attacker_uid, target_uid, stolen_coins, success, is_revenged=Fal
             """, (attacker_uid, target_uid, stolen_coins, success, int(time.time()), is_revenged, is_anonymous))
             return cur.fetchone()[0]
 
-def get_pvp_history(uid, limit=10):
+def get_pvp_history(uid, limit=20):
     """
     Returns list of attacks AGAINST this user (Vendetta list).
-    Only returns successful attacks that haven't been revenged yet?
-    Or all attacks?
-    Prompt: "VENDETTA — List of those who hacked you in last 24h."
+    Returns ALL non-anonymous attacks in last 24h (Revenged, Failed, Success).
     """
     cutoff = int(time.time()) - 86400 # 24h
     with db_cursor(cursor_factory=RealDictCursor) as cur:
@@ -1537,7 +1535,6 @@ def get_pvp_history(uid, limit=10):
             JOIN players u ON p.attacker_uid = u.uid
             WHERE p.target_uid = %s
               AND p.timestamp > %s
-              AND p.is_revenged = FALSE
               AND p.is_anonymous = FALSE
             ORDER BY p.timestamp DESC
             LIMIT %s
