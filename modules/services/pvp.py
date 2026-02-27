@@ -65,25 +65,56 @@ def toggle_hardware(uid, item_id):
     return new_state
 
 def dismantle_pvp_item(uid, item_id):
-    from config import PRICES, SOFTWARE_DB
-
     # Calculate price
     price = 0
-    if item_id in SOFTWARE_DB:
-        price = SOFTWARE_DB[item_id]['cost']
-    elif item_id in PRICES:
-        price = PRICES[item_id]
+    if item_id in config.SOFTWARE_DB:
+        price = config.SOFTWARE_DB[item_id]['cost']
+    elif item_id in config.PRICES:
+        price = config.PRICES[item_id]
 
     if price <= 0: return False, "Цена 0."
 
     scrap_val = int(price * 0.1) # 10% return
     if scrap_val < 1: scrap_val = 1
 
-    if db.use_item(uid, item_id, 1):
-        u = db.get_user(uid)
-        db.update_user(uid, biocoin=u['biocoin'] + scrap_val)
+    try:
+        with db.db_session() as conn:
+            with conn.cursor() as cur:
+                # 1. Use Item (Remove from Inventory)
+                if not db.use_item(uid, item_id, 1, cursor=cur):
+                    return False, "Ошибка предмета."
+
+                # 2. Add Scrap Value (BioCoins)
+                # Use current cursor to ensure atomicity
+                cur.execute("UPDATE players SET biocoin = biocoin + %s WHERE uid = %s", (scrap_val, uid))
+
+                # 3. If it was active hardware, disable it
+                # We need to read current user state first?
+                # use_item has already removed it from inventory.
+                # If quantity becomes 0, it should be removed from active_hardware too?
+                # Phantom active hardware check.
+
+                # Fetch active hardware
+                cur.execute("SELECT active_hardware FROM players WHERE uid = %s", (uid,))
+                res = cur.fetchone()
+                active_hw_json = res[0] if res else '{}'
+
+                try:
+                    active_hw = json.loads(active_hw_json)
+                except:
+                    active_hw = {}
+
+                if item_id in active_hw:
+                    # Check if we still have any left
+                    count = db.get_item_count(uid, item_id, cursor=cur)
+                    if count <= 0:
+                        del active_hw[item_id]
+                        cur.execute("UPDATE players SET active_hardware = %s WHERE uid = %s", (json.dumps(active_hw), uid))
+
         return True, f"♻️ Разобрано: +{scrap_val} BC"
-    return False, "Ошибка предмета."
+    except Exception as e:
+        print(f"Dismantle Error: {e}")
+        return False, "Ошибка системы."
 
 def set_slot(uid, slot_id, software_id):
     """

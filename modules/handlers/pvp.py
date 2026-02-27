@@ -50,46 +50,64 @@ def pvp_menu_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_inventory" or call.data.startswith("pvp_hw_") or call.data.startswith("pvp_dismantle_"))
 def pvp_inventory_handler(call):
     uid = call.from_user.id
+    u = db.get_user(uid)
 
-    # Handle Actions first
-    if call.data.startswith("pvp_hw_equip_"):
-        item_id = call.data.replace("pvp_hw_equip_", "")
-        pvp.toggle_hardware(uid, item_id)
-        bot.answer_callback_query(call.id, "⚡️ АКТИВИРОВАНО")
+    if not u or u['level'] <= config.QUARANTINE_LEVEL:
+        try:
+            bot.answer_callback_query(call.id, "⛔️ КАРАНТИННАЯ ЗОНА (LVL <= 5)", show_alert=True)
+        except: pass
+        return
 
-    elif call.data.startswith("pvp_hw_unequip_"):
-        item_id = call.data.replace("pvp_hw_unequip_", "")
-        pvp.toggle_hardware(uid, item_id)
-        bot.answer_callback_query(call.id, "🛑 ОТКЛЮЧЕНО")
+    try:
+        # Handle Actions first
+        if call.data.startswith("pvp_hw_equip_"):
+            item_id = call.data.replace("pvp_hw_equip_", "")
+            pvp.toggle_hardware(uid, item_id)
+            bot.answer_callback_query(call.id, "⚡️ АКТИВИРОВАНО")
 
-    elif call.data.startswith("pvp_dismantle_"):
-        item_id = call.data.replace("pvp_dismantle_", "")
-        # Check if equipped in deck?
-        deck = pvp.get_deck(uid)
-        if item_id in deck['config'].values():
-            bot.answer_callback_query(call.id, "❌ Нельзя разобрать (установлено в деку)!", show_alert=True)
-            return
+        elif call.data.startswith("pvp_hw_unequip_"):
+            item_id = call.data.replace("pvp_hw_unequip_", "")
+            pvp.toggle_hardware(uid, item_id)
+            bot.answer_callback_query(call.id, "🛑 ОТКЛЮЧЕНО")
 
-        success, msg = pvp.dismantle_pvp_item(uid, item_id)
-        bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+        elif call.data.startswith("pvp_dismantle_"):
+            item_id = call.data.replace("pvp_dismantle_", "")
+            if not item_id:
+                bot.answer_callback_query(call.id, "❌ Ошибка данных.", show_alert=True)
+                return
 
-    # Render Menu
-    items = pvp.get_software_inventory(uid)
-    active_hw = pvp.get_active_hardware(uid)
+            # Check if equipped in deck?
+            deck = pvp.get_deck(uid)
+            if item_id in deck['config'].values():
+                bot.answer_callback_query(call.id, "❌ Нельзя разобрать (установлено в деку)!", show_alert=True)
+                return
 
-    soft_count = sum(1 for i in items if i['category'] == 'software')
-    hw_count = sum(1 for i in items if i['category'] == 'hardware')
+            success, msg = pvp.dismantle_pvp_item(uid, item_id)
+            bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
 
-    txt = (
-        f"🎒 <b>ИНВЕНТАРЬ СЕТЕВОЙ ВОЙНЫ</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"📦 <b>ВСЕГО: {len(items)}</b> (💾 {soft_count} | 🛠 {hw_count})\n\n"
-        f"Управляйте своим софтом и железом.\n"
-        f"⚠️ <i>Софт уничтожается при использовании!</i>\n"
-        f"🛡 <i>Железо работает автоматически.</i>"
-    )
+        # Render Menu
+        items = pvp.get_software_inventory(uid)
+        active_hw = pvp.get_active_hardware(uid)
 
-    menu_update(call, txt, kb.pvp_inventory_menu(items, active_hw))
+        soft_count = sum(1 for i in items if i['category'] == 'software')
+        hw_count = sum(1 for i in items if i['category'] == 'hardware')
+
+        txt = (
+            f"🎒 <b>ИНВЕНТАРЬ СЕТЕВОЙ ВОЙНЫ</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"📦 <b>ВСЕГО: {len(items)}</b> (💾 {soft_count} | 🛠 {hw_count})\n\n"
+            f"Управляйте своим софтом и железом.\n"
+            f"⚠️ <i>Софт уничтожается при использовании!</i>\n"
+            f"🛡 <i>Железо работает автоматически.</i>"
+        )
+
+        menu_update(call, txt, kb.pvp_inventory_menu(items, active_hw))
+
+    except Exception as e:
+        print(f"PVP INVENTORY ERROR: {e}")
+        try:
+            bot.answer_callback_query(call.id, "❌ Произошла ошибка интерфейса.", show_alert=True)
+        except: pass
 
 # =============================================================================
 # 2. DEFENSE CONFIGURATION (DECK)

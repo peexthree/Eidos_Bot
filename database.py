@@ -744,10 +744,15 @@ def add_user(uid, username, first_name, referrer=None):
             if referrer and str(referrer) != str(uid):
                 cur.execute("UPDATE players SET ref_count = ref_count + 1 WHERE uid = %s", (referrer,))
 
-def update_user(uid, **kwargs):
+def update_user(uid, cursor=None, **kwargs):
     if not kwargs: return
     set_clause = ", ".join([f"{k} = %s" for k in kwargs.keys()])
     values = list(kwargs.values()) + [uid]
+
+    if cursor:
+        cursor.execute(f"UPDATE players SET {set_clause} WHERE uid = %s", values)
+        return
+
     with db_session() as conn:
         with conn.cursor() as cur:
             cur.execute(f"UPDATE players SET {set_clause} WHERE uid = %s", values)
