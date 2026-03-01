@@ -116,13 +116,16 @@ class TestPVPService(unittest.TestCase):
         # Mock get_item_count to return 1 for firewall
         mock_db.get_item_count.return_value = 1
 
-        res = pvp.execute_hack(100, 200, {})
+        # Mock get_active_hardware since pvp service uses it
+        with patch('modules.services.pvp.get_active_hardware') as mock_hw:
+            mock_hw.return_value = {'firewall': True}
+            res = pvp.execute_hack(100, 200, {})
 
-        self.assertFalse(res['success'])
-        self.assertTrue(res['blocked'])
+            self.assertFalse(res['success'])
+            self.assertTrue(res['blocked'])
 
-        # Verify Firewall used
-        mock_db.use_item.assert_called()
+            # Verify Firewall used
+            mock_db.use_item.assert_called()
 
 if __name__ == '__main__':
     unittest.main()
