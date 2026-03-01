@@ -247,7 +247,8 @@ def init_pool():
                         keepalives_idle=30,
                         keepalives_interval=10,
                         keepalives_count=5,
-                        options='-c lock_timeout=10000'
+                        connect_timeout=5,
+                        options='-c lock_timeout=10000 -c statement_timeout=5000'
                     )
                     print("/// DB POOL INITIALIZED (SUPABASE)")
                 except Exception as e:
