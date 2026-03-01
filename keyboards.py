@@ -18,6 +18,12 @@ def get_progress_bar(current, total, length=10):
 # 🌌 ГЛАВНЫЙ ТЕРМИНАЛ
 # =============================================================
 
+def glitch_question_answers(answers_list):
+    markup = InlineKeyboardMarkup(row_width=1)
+    for idx, ans in enumerate(answers_list):
+        markup.add(InlineKeyboardButton(ans['text'], callback_data=f"glitch_ans_{idx}"))
+    return markup
+
 def main_menu(u):
     import time
     import database as db
@@ -79,6 +85,11 @@ def main_menu(u):
     if has_cache_active or has_cache_item:
         status_icon = "🔓" if (has_cache_active and time.time() >= u['encrypted_cache_unlock_time']) else "🔐"
         m.add(types.InlineKeyboardButton(f"{status_icon} ДЕШИФРАТОР", callback_data="decrypt_menu"))
+
+    # [MODULE 5] Комната Эйдоса
+    shadows = db.get_user_shadow_metrics(uid)
+    if u['level'] >= 10 and shadows and shadows.get('total_sessions', 0) >= 20:
+        m.add(types.InlineKeyboardButton("👁‍🗨 ВРАТА ЭЙДОСА", callback_data="eidos_room_menu"))
 
     if u.get('is_admin') or str(uid) == str(config.ADMIN_ID):
         m.add(types.InlineKeyboardButton("⚡️ GOD MODE ⚡️", callback_data="admin_panel"))
@@ -887,3 +898,45 @@ def leaderboard_menu(current_sort='xp'):
     )
     m.add(types.InlineKeyboardButton("🔙 ВЕРНУТЬСЯ В МЕНЮ", callback_data="back"))
     return m
+
+# =============================================================
+# 👁‍🗨 КОМНАТА ЭЙДОСА (МОДУЛЬ 5, 6, 8)
+# =============================================================
+
+def eidos_tos_menu():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("[ПРИНЯТЬ УСЛОВИЯ. НАЧАТЬ СКАНИРОВАНИЕ]", callback_data="eidos_tos_accept"),
+        InlineKeyboardButton("[ОТМЕНА. Я НЕ ГОТОВ К ПРАВДЕ]", callback_data="eidos_tos_reject")
+    )
+    return markup
+
+def eidos_room_menu():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("👁‍🗨 ПОЛУЧИТЬ ДОСЬЕ (100 ⭐️)", callback_data="eidos_buy_dossier"),
+        InlineKeyboardButton("🔮 ВЕКТОР БУДУЩЕГО (250 ⭐️)", callback_data="eidos_buy_forecast"),
+        InlineKeyboardButton("🔗 ПРОТОКОЛ СИМБИОЗА (1000 ⭐️)", callback_data="eidos_buy_symbiosis"),
+        back_button()
+    )
+    return markup
+
+def eidos_tos_menu():
+    import telebot
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        telebot.types.InlineKeyboardButton("[ПРИНЯТЬ УСЛОВИЯ. НАЧАТЬ СКАНИРОВАНИЕ]", callback_data="eidos_tos_accept"),
+        telebot.types.InlineKeyboardButton("[ОТМЕНА. Я НЕ ГОТОВ К ПРАВДЕ]", callback_data="eidos_tos_reject")
+    )
+    return markup
+
+def eidos_room_menu():
+    import telebot
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        telebot.types.InlineKeyboardButton("👁‍🗨 ПОЛУЧИТЬ ДОСЬЕ (100 ⭐️)", callback_data="eidos_buy_dossier"),
+        telebot.types.InlineKeyboardButton("🔮 ВЕКТОР БУДУЩЕГО (250 ⭐️)", callback_data="eidos_buy_forecast"),
+        telebot.types.InlineKeyboardButton("🔗 ПРОТОКОЛ СИМБИОЗА (1000 ⭐️)", callback_data="eidos_buy_symbiosis"),
+        telebot.types.InlineKeyboardButton("⬅️ В ИЛЛЮЗИЮ", callback_data="back")
+    )
+    return markup

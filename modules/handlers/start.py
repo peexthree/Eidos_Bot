@@ -12,6 +12,7 @@ import html
 def hack_command(m):
     uid = m.from_user.id
     try:
+        db.update_shadow_metric(uid, 'hack_random_uses', 1)
         msg = perform_hack(uid)
         bot.send_message(uid, msg, parse_mode='HTML')
     except Exception as e:

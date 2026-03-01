@@ -69,6 +69,7 @@ def process_gacha_purchase(uid):
 
     # Deduct
     db.update_user(uid, biocoin=u['biocoin'] - GACHA_PRICE, total_spent=u['total_spent'] + GACHA_PRICE)
+    db.update_shadow_metric(uid, 'total_coins_spent', GACHA_PRICE)
 
     roll = random.random()
     reward = ""

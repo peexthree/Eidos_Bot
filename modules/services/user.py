@@ -25,18 +25,30 @@ def check_daily_streak(uid):
 
     delta = (today - last_active).days
 
-    # --- NIGHT VISITS (03:00 - 05:00) ---
+    # --- NIGHT VISITS (01:00 - 05:00) ---
     import datetime
     now_hour = datetime.datetime.now().hour
-    if 3 <= now_hour < 5:
-        db.increment_user_stat(uid, 'night_visits')
+    if 1 <= now_hour < 5:
+        db.update_shadow_metric(uid, 'night_sessions_count', 1)
+
+    # General Sessions / Days
+    db.update_shadow_metric(uid, 'total_sessions', 1)
 
     if delta == 1:
         # Streak continues
         new_streak = u.get('streak', 0) + 1
         db.update_user(uid, streak=new_streak, last_active=today)
 
+        # Track max streak
+        shadows = db.get_user_shadow_metrics(uid)
+        max_streak = shadows.get('max_streak_achieved', 0)
+        if new_streak > max_streak:
+            db.update_shadow_metric(uid, 'max_streak_achieved', new_streak - max_streak) # Add the difference
+
+        db.update_shadow_metric(uid, 'days_active', 1)
+
     elif delta > 1:
+        db.update_shadow_metric(uid, 'days_active', 1)
         # Streak broken
         cryo_count = db.get_item_count(uid, 'cryo')
         if cryo_count > 0:
@@ -47,7 +59,14 @@ def check_daily_streak(uid):
                 from modules.bot_instance import bot
                 bot.send_message(uid, "❄️ <b>КРИО-СТАЗИС ОТКЛЮЧЕН</b>\n\nВаш стрик сохранен благодаря капсуле.", parse_mode="HTML")
             except: pass
+
+            # Update max streak if saved
+            shadows = db.get_user_shadow_metrics(uid)
+            max_streak = shadows.get('max_streak_achieved', 0)
+            if u.get('streak', 0) > max_streak:
+                db.update_shadow_metric(uid, 'max_streak_achieved', u.get('streak', 0) - max_streak)
         else:
+            db.update_shadow_metric(uid, 'streaks_broken_count', 1)
             # Penalty
             current_streak = u.get('streak', 1)
             current_xp = u.get('xp', 0)

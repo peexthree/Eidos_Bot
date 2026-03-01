@@ -1,0 +1,174 @@
+from modules.bot_instance import bot
+import telebot
+from telebot.types import LabeledPrice
+import database as db
+import keyboards as kb
+from modules.services.utils import menu_update
+
+@bot.callback_query_handler(func=lambda call: call.data == "eidos_room_menu")
+def eidos_room_handler(call):
+    uid = call.from_user.id
+
+    # Check if user has accepted TOS
+    u = db.get_user(uid)
+    metrics = db.get_user_shadow_metrics(uid)
+
+    # We can track TOS acceptance in shadow_metrics or states. Let's use a dummy state or just show it if no dossier exists.
+    with db.db_cursor() as cur:
+        cur.execute("SELECT 1 FROM user_dossiers WHERE uid = %s", (uid,))
+        has_dossier = cur.fetchone() is not None
+
+    if not has_dossier:
+        # Show TOS
+        msg = (
+            "👁‍🗨 **СИСТЕМНОЕ СООБЩЕНИЕ. УРОВЕНЬ ДОСТУПА: АБСОЛЮТ.**\n\n"
+            "До сих пор ты играл в песочнице. За Вратами Эйдоса нет игры. Там — реальность.\n\n"
+            "Чтобы пустить тебя дальше, мне нужен прямой доступ к твоему исходному коду. Нажимая «Принять», "
+            "ты даешь мне право проанализировать всю твою телеметрию: твои смерти, жадность, иллюзии и страхи.\n\n"
+            "Я выверну тебя наизнанку и покажу баги в твоей голове, которые мешают тебе расти в реальной жизни. "
+            "Это ударит по твоему Эго.\n\n"
+            "Если ты не готов к правде — уходи. Если готов переписать свой код — активируй Симбиоз."
+        )
+        menu_update(call, msg, kb.eidos_tos_menu())
+    else:
+        # Show main room
+        msg = "👁‍🗨 **ВРАТА ЭЙДОСА.**\n\nТвой цифровой след мерцает передо мной. Что ты хочешь узнать?"
+        menu_update(call, msg, kb.eidos_room_menu())
+
+@bot.callback_query_handler(func=lambda call: call.data in ["eidos_tos_accept", "eidos_tos_reject"])
+def eidos_tos_handler(call):
+    uid = call.from_user.id
+    if call.data == "eidos_tos_reject":
+        bot.answer_callback_query(call.id, "👁‍🗨 Твой страх понятен. Возвращайся в иллюзию.", show_alert=True)
+        # Go back to main
+        u = db.get_user(uid)
+        import modules.handlers.menu as menu_handler
+        call.data = "back"
+        menu_handler.back_handler(call)
+    else:
+        # Proceed to Room
+        msg = "👁‍🗨 **ВРАТА ЭЙДОСА.**\n\nДоступ разрешен. Что ты хочешь узнать?"
+        menu_update(call, msg, kb.eidos_room_menu())
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("eidos_buy_"))
+def eidos_purchase_handler(call):
+    uid = call.from_user.id
+    action = call.data.replace("eidos_buy_", "")
+    u = db.get_user(uid)
+    is_admin = u.get('is_admin') or str(uid) == str(config.ADMIN_ID)
+
+    if action == "dossier":
+        # Check if already has one to give for free
+        with db.db_cursor() as cur:
+            cur.execute("SELECT dossier_text FROM user_dossiers WHERE uid = %s", (uid,))
+            res = cur.fetchone()
+            if res and res[0]:
+                bot.answer_callback_query(call.id, "Загружаю данные из кэша...", show_alert=False)
+                # Split and send if too long
+                text = f"👁‍🗨 **ТВОЙ ТЕНЕВОЙ ПРОФИЛЬ**\n\n{res[0]}"
+                for i in range(0, len(text), 4000):
+                    bot.send_message(uid, text[i:i+4000], parse_mode="Markdown")
+                return
+
+        if is_admin:
+            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+            import threading
+            from modules.services.ai_worker import generate_eidos_response_worker
+            threading.Thread(target=generate_eidos_response_worker, args=(bot, call.message.chat.id, uid, 'dossier')).start()
+            return
+
+        # Send Invoice for Dossier
+        prices = [LabeledPrice(label="Анализ Теневого Профиля", amount=100)]
+        bot.send_invoice(
+            call.message.chat.id,
+            title="Теневой Профиль (ЭЙДОС)",
+            description="Глубокий психометрический анализ на основе вашей телеметрии.",
+            invoice_payload="eidos_dossier",
+            provider_token="",
+            currency="XTR",
+            prices=prices
+        )
+        bot.answer_callback_query(call.id)
+
+    elif action == "forecast":
+        if is_admin:
+            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+            import threading
+            from modules.services.ai_worker import generate_eidos_response_worker
+            threading.Thread(target=generate_eidos_response_worker, args=(bot, call.message.chat.id, uid, 'forecast')).start()
+            return
+
+        prices = [LabeledPrice(label="Вектор Будущего", amount=250)]
+        bot.send_invoice(
+            call.message.chat.id,
+            title="Вектор Будущего",
+            description="AI-прогноз на основе текущего психотипа и бизнес-рисков.",
+            invoice_payload="eidos_forecast",
+            provider_token="",
+            currency="XTR",
+            prices=prices
+        )
+        bot.answer_callback_query(call.id)
+
+    elif action == "symbiosis":
+        if is_admin:
+            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+            db.set_state(uid, "awaiting_demiurge_question")
+            bot.send_message(uid, "👁‍🗨 Прямой канал связи с Создателем открыт. Напиши свой вопрос одним сообщением. Я прикреплю к нему твою психоматрицу.")
+            return
+
+        prices = [LabeledPrice(label="Протокол Симбиоза", amount=1000)]
+        bot.send_invoice(
+            call.message.chat.id,
+            title="Протокол Симбиоза",
+            description="Личный зашифрованный канал связи с Демиургом.",
+            invoice_payload="eidos_symbiosis",
+            provider_token="",
+            currency="XTR",
+            prices=prices
+        )
+        bot.answer_callback_query(call.id)
+
+# Telegram Payments Webhook Handlers
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def checkout(pre_checkout_query):
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True, error_message="Сбой транзакции. Иллюзия сохранена.")
+
+@bot.message_handler(content_types=['successful_payment'])
+def got_payment(message):
+    uid = message.from_user.id
+    payload = message.successful_payment.invoice_payload
+
+    bot.send_message(uid, "👁‍🗨 Транзакция подтверждена. Финансовый канал закрыт. Я начинаю погружение в твой цифровой след...")
+
+    # Launch background worker
+    import threading
+    from modules.services.ai_worker import generate_eidos_response_worker
+
+    if payload == "eidos_dossier":
+        threading.Thread(target=generate_eidos_response_worker, args=(bot, message.chat.id, uid, 'dossier')).start()
+    elif payload == "eidos_forecast":
+        threading.Thread(target=generate_eidos_response_worker, args=(bot, message.chat.id, uid, 'forecast')).start()
+    elif payload == "eidos_symbiosis":
+        db.set_state(uid, "awaiting_demiurge_question")
+        bot.send_message(uid, "👁‍🗨 Прямой канал связи с Создателем открыт. Напиши свой вопрос одним сообщением. Я прикреплю к нему твою психоматрицу.")
+
+@bot.message_handler(func=lambda message: db.get_state(message.from_user.id) == "awaiting_demiurge_question")
+def handle_demiurge_question(message):
+    uid = message.from_user.id
+    text = message.text
+
+    bot.send_message(uid, "👁‍🗨 Запрос передан. Ожидай ответа в этой реальности.")
+    db.delete_state(uid)
+
+    import config
+    import json
+    if config.ADMIN_ID:
+        metrics = db.get_user_shadow_metrics(uid)
+        admin_msg = (
+            f"👤 **ЗАПРОС В СИМБИОЗ (UID: {uid})**\n\n"
+            f"**Сообщение:**\n{text}\n\n"
+            f"**Метрики:**\n`{json.dumps(metrics, indent=2)}`"
+        )
+        for i in range(0, len(admin_msg), 4000):
+            bot.send_message(config.ADMIN_ID, admin_msg[i:i+4000], parse_mode="Markdown")
