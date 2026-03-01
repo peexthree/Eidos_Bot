@@ -227,6 +227,7 @@ def db_session():
         init_pool()
 
     conn = None
+    put_close = False
     try:
         if pg_pool:
             conn = pg_pool.getconn()
@@ -234,14 +235,26 @@ def db_session():
             conn.commit()
         else:
             yield None
+    except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+        put_close = True
+        try:
+            if conn: conn.rollback()
+        except Exception:
+            pass # Connection is likely already dead
+        print(f"/// DB CONNECTION ERROR (Discarding from pool): {e}")
+        print(traceback.format_exc())
+        raise e
     except Exception as e:
-        if conn: conn.rollback()
+        try:
+            if conn: conn.rollback()
+        except Exception:
+            pass
         print(f"/// DB ERROR: {e}")
         print(traceback.format_exc())
         raise e
     finally:
         if conn and pg_pool:
-            pg_pool.putconn(conn)
+            pg_pool.putconn(conn, close=put_close)
 
 @contextmanager
 def db_cursor(cursor_factory=None):

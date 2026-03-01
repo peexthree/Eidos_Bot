@@ -134,6 +134,15 @@ def stats_callback_middleware(bot_instance, call):
 
 @app.route('/health', methods=['GET'])
 def health_check():
+    try:
+        # Active keep-alive to prevent Supabase idle timeouts
+        with db.db_session() as conn:
+            if conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1")
+    except Exception as e:
+        print(f"/// HEALTH CHECK DB ERROR: {e}")
+        return 'DB_ERROR', 500
     return 'ALIVE', 200
 
 @app.route('/webhook', methods=['POST'])

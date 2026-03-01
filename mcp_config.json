@@ -7,7 +7,7 @@
         "@modelcontextprotocol/server-supabase"
       ],
       "env": {
-        "SUPABASE_URL": "https://mcp.supabase.com/mcp?project_ref=segtetsspiekdmywzyom",
+        "SUPABASE_URL": "https://segtetsspiekdmywzyom.supabase.co",
         "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlZ3RldHNzcGlla2RteXd6eW9tIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTk1NTk5OCwiZXhwIjoyMDg3NTMxOTk4fQ.ORhU8leCXo3IESDhbN4M9IWiJHSG9OoTtb_9Qxoeq_Q"
       }
     }
