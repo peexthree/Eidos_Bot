@@ -13,6 +13,120 @@ import time
 import traceback
 from telebot import types
 
+@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) and db.get_state(m.from_user.id).startswith("buying_qty_"), content_types=['text'])
+def shop_buy_quantity_handler(m):
+    uid = m.from_user.id
+    u = db.get_user(uid)
+    if not u: return
+
+    state = db.get_state(uid)
+    item_id = state.replace("buying_qty_", "")
+
+    try:
+        qty = int(m.text.strip())
+        if qty <= 0 or qty > 1000:
+            raise ValueError
+    except ValueError:
+        bot.send_message(uid, "❌ Введите корректное число (от 1 до 1000).", reply_markup=kb.back_button())
+        db.delete_state(uid)
+        return
+
+    cost = PRICES.get(item_id, EQUIPMENT_DB.get(item_id, {}).get('price', 9999))
+    currency = 'xp' if item_id in ['cryo', 'accel', 'proxy_server'] else 'biocoin'
+    total_cost = cost * qty
+
+    if currency == 'xp':
+        if u.get('xp', 0) >= total_cost:
+            if db.add_item(uid, item_id, qty=qty):
+                db.update_user(uid, xp=u['xp'] - total_cost)
+                db.increment_user_stat(uid, 'purchases')
+
+                ach_txt = ""
+                new_achs = check_achievements(uid)
+                if new_achs:
+                    for a in new_achs:
+                        ach_txt += f"\n🏆 ДОСТИЖЕНИЕ: {a['name']}"
+
+                bot.send_message(uid, strip_html(f"✅ Куплено: {item_id} (x{qty})\n📉 Потрачено: {total_cost} XP{ach_txt}"))
+            else:
+                bot.send_message(uid, "🎒 Рюкзак полон или превышен лимит предметов!", reply_markup=kb.back_button())
+        else:
+            bot.send_message(uid, "❌ Мало XP", reply_markup=kb.back_button())
+    else:
+        if u['biocoin'] >= total_cost:
+            if db.add_item(uid, item_id, qty=qty):
+                db.update_user(uid, biocoin=u['biocoin'] - total_cost, total_spent=u['total_spent']+total_cost)
+                db.increment_user_stat(uid, 'purchases')
+
+                ach_txt = ""
+                new_achs = check_achievements(uid)
+                if new_achs:
+                    for a in new_achs:
+                        ach_txt += f"\n🏆 ДОСТИЖЕНИЕ: {a['name']}"
+
+                bot.send_message(uid, strip_html(f"✅ Куплено: {item_id} (x{qty})\n📉 Потрачено: {total_cost} BC 🪙{ach_txt}"))
+            else:
+                bot.send_message(uid, "🎒 Рюкзак полон или превышен лимит предметов!", reply_markup=kb.back_button())
+        else:
+            bot.send_message(uid, "❌ Мало монет", reply_markup=kb.back_button())
+
+    db.delete_state(uid)
+
+@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) and db.get_state(m.from_user.id).startswith("buying_shadow_qty_"), content_types=['text'])
+def shadow_buy_quantity_handler(m):
+    uid = m.from_user.id
+    u = db.get_user(uid)
+    if not u: return
+
+    state = db.get_state(uid)
+    item_id = state.replace("buying_shadow_qty_", "")
+
+    try:
+        qty = int(m.text.strip())
+        if qty <= 0 or qty > 1000:
+            raise ValueError
+    except ValueError:
+        bot.send_message(uid, "❌ Введите корректное число (от 1 до 1000).", reply_markup=kb.back_button())
+        db.delete_state(uid)
+        return
+
+    items = get_shadow_shop_items(uid)
+    target = next((i for i in items if i['item_id'] == item_id), None)
+
+    if not target:
+        bot.send_message(uid, "❌ Товар исчез.", reply_markup=kb.back_button())
+        db.delete_state(uid)
+        return
+
+    price = target['price']
+    currency = target['currency']
+    total_cost = price * qty
+
+    if currency == 'xp':
+        if u.get('xp', 0) >= total_cost:
+            if db.add_item(uid, item_id, qty=qty):
+                db.update_user(uid, xp=u['xp'] - total_cost)
+                db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Qty: {qty}, Price: {total_cost} {currency}")
+                db.increment_user_stat(uid, 'purchases')
+                bot.send_message(uid, f"✅ Куплено: {target['name']} (x{qty})")
+            else:
+                bot.send_message(uid, "🎒 Рюкзак полон или превышен лимит предметов!", reply_markup=kb.back_button())
+        else:
+            bot.send_message(uid, f"❌ Недостаточно средств\nНужно: {total_cost} XP\nУ вас: {u.get('xp', 0)}", reply_markup=kb.back_button())
+    else:
+        if u['biocoin'] >= total_cost:
+            if db.add_item(uid, item_id, qty=qty):
+                db.update_user(uid, biocoin=u['biocoin'] - total_cost)
+                db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Qty: {qty}, Price: {total_cost} {currency}")
+                db.increment_user_stat(uid, 'purchases')
+                bot.send_message(uid, f"✅ Куплено: {target['name']} (x{qty})")
+            else:
+                bot.send_message(uid, "🎒 Рюкзак полон или превышен лимит предметов!", reply_markup=kb.back_button())
+        else:
+            bot.send_message(uid, f"❌ Недостаточно средств\nНужно: {total_cost} BC\nУ вас: {u['biocoin']}", reply_markup=kb.back_button())
+
+    db.delete_state(uid)
+
 @bot.callback_query_handler(func=lambda call: call.data == "shop_menu" or call.data.startswith("shop_cat_") or (call.data.startswith("buy_") and not call.data.startswith("buy_shadow_")) or call.data.startswith("view_shop_") or call.data == "shop_gacha_menu")
 def shop_handler(call):
     uid = call.from_user.id
@@ -33,6 +147,12 @@ def shop_handler(call):
         success, msg = process_gacha_purchase(uid)
         bot.answer_callback_query(call.id, strip_html(msg.split('\n')[0]), show_alert=True)
         menu_update(call, f"🎁 <b>СИСТЕМА ЛУТБОКСОВ</b>\n\n{msg}", kb.gacha_menu())
+
+    elif call.data.startswith("buy_qty_"):
+        item = call.data.replace("buy_qty_", "")
+        db.set_state(uid, f"buying_qty_{item}")
+        bot.send_message(uid, "🔢 Введите количество для покупки (число):")
+        bot.answer_callback_query(call.id)
 
     elif call.data.startswith("buy_"):
         item = call.data.replace("buy_", "")
@@ -133,6 +253,12 @@ def shadow_shop_handler(call):
             txt = f"🕶 <b>{target['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {u['xp']} XP | {u['biocoin']} BC"
             image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["shadow_shop_menu"]
             menu_update(call, txt, kb.shadow_item_details_keyboard(item_id, price, currency), image_url=image)
+
+    elif call.data.startswith("buy_shadow_qty_"):
+        item_id = call.data.replace("buy_shadow_qty_", "")
+        db.set_state(uid, f"buying_shadow_qty_{item_id}")
+        bot.send_message(uid, "🔢 Введите количество для покупки (число):")
+        bot.answer_callback_query(call.id)
 
     elif call.data.startswith("buy_shadow_"):
         item_id = call.data.replace("buy_shadow_", "")
