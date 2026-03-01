@@ -43,11 +43,25 @@ def protocol_handler(call):
         try: last_proto = float(last_proto)
         except: last_proto = 0
 
+        # [MODULE 2] Shadow Metrics: Fast Sync (ADHD check)
+        # If user clicks less than 3 seconds after cooldown expires
         cd = COOLDOWN_ACCEL if accel_exp > time.time() else COOLDOWN_BASE
+        if last_proto > 0 and time.time() - last_proto >= cd and time.time() - last_proto <= cd + 3:
+            db.update_shadow_metric(uid, 'fast_sync_clicks', 1)
+
         if time.time() - last_proto < cd:
             rem = int((cd - (time.time() - last_proto)) / 60)
             bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
         else:
+            # [MODULE 7] Micro-Glitch Hook
+            from modules.services.glitch_system import check_micro_glitch
+            micro_glitch = check_micro_glitch(uid, u.get('level', 1))
+            if micro_glitch:
+                bot.answer_callback_query(call.id)
+                db.update_user(uid, last_protocol_time=int(time.time()))
+                threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, micro_glitch, kb.back_button(), config.MENU_IMAGES["get_protocol"])).start()
+                return
+
             # GLITCH CHECK (Module 2)
             if random.random() < 0.05:
                 glitch_xp = random.randint(50, 150)
@@ -90,10 +104,23 @@ def protocol_handler(call):
         try: last_sig = float(last_sig)
         except: last_sig = 0
 
+        # [MODULE 2] Shadow Metrics: Fast Sync (ADHD check)
+        if last_sig > 0 and time.time() - last_sig >= cd and time.time() - last_sig <= cd + 3:
+            db.update_shadow_metric(uid, 'fast_sync_clicks', 1)
+
         if time.time() - last_sig < cd:
              rem = int((cd - (time.time() - last_sig)) / 60)
              bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
         else:
+             # [MODULE 7] Micro-Glitch Hook
+             from modules.services.glitch_system import check_micro_glitch
+             micro_glitch = check_micro_glitch(uid, u.get('level', 1))
+             if micro_glitch:
+                 bot.answer_callback_query(call.id)
+                 db.update_user(uid, last_signal_time=int(time.time()))
+                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, micro_glitch, kb.back_button(), config.MENU_IMAGES["get_signal"])).start()
+                 return
+
              # GLITCH CHECK (Module 2)
              if random.random() < 0.05:
                  glitch_xp = 50
@@ -250,12 +277,18 @@ def raid_handler(call):
     elif call.data == "raid_extract":
          with db.db_session() as conn:
              with conn.cursor() as cur:
-                 cur.execute("SELECT buffer_xp, buffer_coins FROM raid_sessions WHERE uid=%s", (uid,))
+                 cur.execute("SELECT buffer_xp, buffer_coins, signal FROM raid_sessions WHERE uid=%s", (uid,))
                  res = cur.fetchone()
                  if res:
                      db.add_xp_to_user(uid, res[0])
                      db.update_user(uid, biocoin=u['biocoin'] + res[1])
                      db.log_action(uid, 'raid_extract', f"XP: {res[0]}, Coins: {res[1]}")
+                     # [MODULE 2] Track escapes at full HP
+                     if res[2] and res[2] >= 80:
+                         db.update_shadow_metric(uid, 'escapes_at_full_hp', 1)
+
+         # [MODULE 2] Reset consecutive deaths on successful escape
+         db.update_shadow_metric(uid, 'consecutive_deaths', -db.get_user_shadow_metrics(uid).get('consecutive_deaths', 0))
 
          lvl, msg = check_level_up(uid)
          if lvl:

@@ -283,6 +283,9 @@ def process_combat_action(uid, action):
 
                 new_sig = max(0, current_signal - enemy_dmg)
 
+                if new_sig <= 0:
+                    db.update_shadow_metric(uid, 'consecutive_deaths', 1)
+
                 # --- AURA: CYBER HALO (Death Prevent) ---
                 if new_sig <= 0 and equipped_head == 'cyber_halo':
                     if random.random() < 0.20:
@@ -405,6 +408,9 @@ def process_combat_action(uid, action):
                                used_aegis = True
 
                  new_sig = max(0, current_signal - enemy_dmg)
+                 if new_sig <= 0:
+                     db.update_shadow_metric(uid, 'consecutive_deaths', 1)
+
                  cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_sig, uid))
 
                  if enemy_dmg > 0:

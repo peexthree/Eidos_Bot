@@ -332,6 +332,16 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 if depth == 0:
                     cur.execute("UPDATE players SET found_zero = TRUE WHERE uid = %s", (uid,))
 
+                # [MODULE 2] Shadow Metrics: Zonal raids
+                if depth == 0 or depth == 1:
+                    db.update_shadow_metric(uid, 'safe_zone_raids', 1)
+                else:
+                    db.update_shadow_metric(uid, 'high_risk_raids', 1)
+
+                # [MODULE 2] Shadow Metrics: Critical Entry
+                if s and s.get('signal', 100) < 20: # Should be tracked on next steps? Entering raid is always 100 signal. But let's track here for safety.
+                    pass # Handled on step, not on enter (since enter is always 100HP)
+
                 first_next = generate_random_event_type()
                 cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, event_streak, buffer_items, buffer_xp, buffer_coins) VALUES (%s, %s, 100, %s, 0, 0, %s, 1, '', 0, 0)",
                            (uid, depth, int(time.time()), first_next))
@@ -559,6 +569,10 @@ def process_raid_step(uid, answer=None, start_depth=None):
                            alert_txt = f"💉 СТИМУЛЯТОР ВВЕДЕН\nСигнал: {new_signal}%"
                            return True, "СТИМУЛЯТОР ИСПОЛЬЗОВАН", {'alert': alert_txt}, u, 'battery_used', 0
                  return False, "❌ НЕТ СТИМУЛЯТОРА", None, u, 'battery_error', 0
+
+            # [MODULE 2] Shadow Metrics: Critical entries without healing
+            if s['signal'] < 20 and answer is None:
+                db.update_shadow_metric(uid, 'entries_with_critical_hp', 1)
 
             # 3. ЦЕНА ШАГА
             step_cost = RAID_STEP_COST + (depth // 25)
@@ -959,6 +973,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 return True, interface, extra_ret, u, event['type'], next_step_cost
 
             # СМЕРТЬ
+            if new_sig <= 0:
+                db.update_shadow_metric(uid, 'consecutive_deaths', 1)
             if new_sig <= 0:
                  report = generate_raid_report(uid, s)
 

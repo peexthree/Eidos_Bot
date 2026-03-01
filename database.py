@@ -116,6 +116,38 @@ TABLE_SCHEMAS = {
         'state': ('TEXT', None),
         'data': ('TEXT', None)
     },
+    'user_shadow_metrics': {
+        'uid': ('BIGINT', None), # PK
+        'total_coins_earned': ('BIGINT', '0'),
+        'total_coins_spent': ('BIGINT', '0'),
+        'hoarded_consumables': ('INTEGER', '0'),
+        'shop_visits_without_purchase': ('INTEGER', '0'),
+        'safe_zone_raids': ('INTEGER', '0'),
+        'high_risk_raids': ('INTEGER', '0'),
+        'escapes_at_full_hp': ('INTEGER', '0'),
+        'items_lost_on_death': ('INTEGER', '0'),
+        'consecutive_deaths': ('INTEGER', '0'),
+        'entries_with_critical_hp': ('INTEGER', '0'),
+        'hack_random_uses': ('INTEGER', '0'),
+        'night_sessions_count': ('INTEGER', '0'),
+        'marathon_sessions_count': ('INTEGER', '0'),
+        'total_sessions': ('INTEGER', '0'),
+        'days_active': ('INTEGER', '0'),
+        'glitch_victim_answers': ('INTEGER', '0'),
+        'glitch_greed_answers': ('INTEGER', '0'),
+        'glitch_stoic_answers': ('INTEGER', '0'),
+        'glitch_chaos_answers': ('INTEGER', '0'),
+        'referrals_invited': ('INTEGER', '0'),
+        'syndicate_profit_collected': ('BIGINT', '0'),
+        'fast_sync_clicks': ('INTEGER', '0'),
+        'max_streak_achieved': ('INTEGER', '0'),
+        'streaks_broken_count': ('INTEGER', '0')
+    },
+    'user_dossiers': {
+        'uid': ('BIGINT', None), # PK
+        'dossier_text': ('TEXT', None),
+        'generated_at': ('TIMESTAMPTZ', 'CURRENT_TIMESTAMP')
+    },
     'villains': {
         'id': ('SERIAL', None), # PK
         'name': ('TEXT', None), # Unique
@@ -655,6 +687,8 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS inventory (id SERIAL PRIMARY KEY, uid BIGINT)")
             cur.execute("CREATE TABLE IF NOT EXISTS user_equipment (uid BIGINT, slot TEXT, PRIMARY KEY(uid, slot))")
             cur.execute("CREATE TABLE IF NOT EXISTS bot_states (uid BIGINT PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS user_shadow_metrics (uid BIGINT PRIMARY KEY)")
+            cur.execute("CREATE TABLE IF NOT EXISTS user_dossiers (uid BIGINT PRIMARY KEY)")
             cur.execute("CREATE TABLE IF NOT EXISTS villains (id SERIAL PRIMARY KEY, name TEXT UNIQUE)")
             cur.execute("CREATE TABLE IF NOT EXISTS achievements (uid BIGINT, ach_id TEXT, PRIMARY KEY(uid, ach_id))")
             cur.execute("CREATE TABLE IF NOT EXISTS content (id SERIAL PRIMARY KEY, text TEXT UNIQUE)")
@@ -759,6 +793,10 @@ def add_user(uid, username, first_name, referrer=None):
 
 def update_user(uid, cursor=None, **kwargs):
     if not kwargs: return
+
+    # [MODULE 2] Track specific changes dynamically if needed,
+    # but currently most things are tracked explicitly via update_shadow_metric.
+
     set_clause = ", ".join([f"{k} = %s" for k in kwargs.keys()])
     values = list(kwargs.values()) + [uid]
 
@@ -1578,3 +1616,25 @@ def mark_log_revenged(log_id):
     with db_session() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE pvp_logs SET is_revenged = TRUE WHERE id = %s", (log_id,))
+
+def update_shadow_metric(uid, metric_name, amount=1):
+    """Updates a specific metric in user_shadow_metrics. Amount can be negative or positive."""
+    if metric_name not in TABLE_SCHEMAS.get('user_shadow_metrics', {}):
+        print(f"/// ERROR: Invalid shadow metric '{metric_name}'")
+        return
+
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            # Ensure the row exists
+            cur.execute("INSERT INTO user_shadow_metrics (uid) VALUES (%s) ON CONFLICT DO NOTHING", (uid,))
+            # Update the metric
+            cur.execute(f"UPDATE user_shadow_metrics SET {metric_name} = {metric_name} + %s WHERE uid = %s", (amount, uid))
+            conn.commit()
+
+def get_user_shadow_metrics(uid):
+    """Returns the user shadow metrics dictionary."""
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return {}
+        cur.execute("SELECT * FROM user_shadow_metrics WHERE uid = %s", (uid,))
+        res = cur.fetchone()
+        return dict(res) if res else {}

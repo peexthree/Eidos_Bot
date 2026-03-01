@@ -57,6 +57,7 @@ def shop_buy_quantity_handler(m):
             if db.add_item(uid, item_id, qty=qty):
                 db.update_user(uid, biocoin=u['biocoin'] - total_cost, total_spent=u['total_spent']+total_cost)
                 db.increment_user_stat(uid, 'purchases')
+                db.update_shadow_metric(uid, 'total_coins_spent', total_cost)
 
                 ach_txt = ""
                 new_achs = check_achievements(uid)
@@ -117,6 +118,7 @@ def shadow_buy_quantity_handler(m):
         if u['biocoin'] >= total_cost:
             if db.add_item(uid, item_id, qty=qty):
                 db.update_user(uid, biocoin=u['biocoin'] - total_cost)
+                db.update_shadow_metric(uid, 'total_coins_spent', total_cost)
                 db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Qty: {qty}, Price: {total_cost} {currency}")
                 db.increment_user_stat(uid, 'purchases')
                 bot.send_message(uid, f"✅ Куплено: {target['name']} (x{qty})")
@@ -164,6 +166,7 @@ def shop_handler(call):
                 db.add_item(uid, item)
                 db.update_user(uid, xp=u['xp'] - cost)
                 db.increment_user_stat(uid, 'purchases')
+                db.update_shadow_metric(uid, 'total_coins_spent', cost) # We track XP spending here as well to simplify
 
                 ach_txt = ""
                 new_achs = check_achievements(uid)
@@ -181,6 +184,7 @@ def shop_handler(call):
             if u['biocoin'] >= cost:
                 if db.add_item(uid, item):
                     db.update_user(uid, biocoin=u['biocoin'] - cost, total_spent=u['total_spent']+cost)
+                    db.update_shadow_metric(uid, 'total_coins_spent', cost)
                     db.increment_user_stat(uid, 'purchases')
 
                     ach_txt = ""
@@ -283,6 +287,7 @@ def shadow_shop_handler(call):
 
             if can_buy:
                 if db.add_item(uid, item_id):
+                    db.update_shadow_metric(uid, 'total_coins_spent', price)
                     db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Price: {price} {currency}")
                     db.increment_user_stat(uid, 'purchases')
                     bot.answer_callback_query(call.id, f"✅ Куплено: {target['name']}", show_alert=True)

@@ -116,21 +116,42 @@ import modules.handlers.items
 import modules.handlers.gameplay
 import modules.handlers.onboarding
 import modules.handlers.pvp
+import modules.handlers.glitch_handler
+import modules.handlers.eidos_room
 
-# --- MIDDLEWARE FOR STATS TRACKING ---
+# --- MIDDLEWARE FOR STATS TRACKING & GLITCHES ---
 @bot.middleware_handler(update_types=['message'])
 def stats_message_middleware(bot_instance, message):
     try:
         uid = message.from_user.id
+        # [MODULE 3] Check Glitch State Lock
+        if message.text and not message.text.startswith('/start'):
+            from modules.handlers.glitch_handler import check_for_glitch_state
+            if check_for_glitch_state(uid, bot, message.chat.id):
+                from telebot.handler_backends import CancelUpdate
+                raise CancelUpdate()
         db.increment_user_stat(uid, 'messages')
-    except: pass
+    except Exception as e:
+        if e.__class__.__name__ == 'CancelUpdate':
+            raise e
+        pass
 
 @bot.middleware_handler(update_types=['callback_query'])
 def stats_callback_middleware(bot_instance, call):
     try:
         uid = call.from_user.id
+        # [MODULE 3] Check Glitch State Lock
+        from modules.handlers.glitch_handler import check_for_glitch_state
+        if not call.data.startswith('glitch_ans_'):
+            if check_for_glitch_state(uid, bot, call.message.chat.id):
+                bot.answer_callback_query(call.id, "👁‍🗨 Иллюзия выбора отключена.", show_alert=True)
+                from telebot.handler_backends import CancelUpdate
+                raise CancelUpdate()
         db.increment_user_stat(uid, 'clicks')
-    except: pass
+    except Exception as e:
+        if e.__class__.__name__ == 'CancelUpdate':
+            raise e
+        pass
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -270,3 +291,5 @@ threading.Thread(target=notification_loop, daemon=True).start()
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host="0.0.0.0", port=port)
+
+import modules.handlers.eidos_room
