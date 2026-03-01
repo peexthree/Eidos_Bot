@@ -569,6 +569,7 @@ def item_details_keyboard(item_id, is_owned=True, is_equipped=False, durability=
 def shop_item_details_keyboard(item_id, price, currency):
     m = types.InlineKeyboardMarkup(row_width=1)
     m.add(types.InlineKeyboardButton(f"💸 КУПИТЬ ({price} {currency.upper()})", callback_data=f"buy_{item_id}"))
+    m.add(types.InlineKeyboardButton("🛒 УКАЗАТЬ КОЛИЧЕСТВО", callback_data=f"buy_qty_{item_id}"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="shop_menu"))
     return m
 
@@ -585,6 +586,7 @@ def shadow_shop_menu(items):
 def shadow_item_details_keyboard(item_id, price, currency):
     m = types.InlineKeyboardMarkup(row_width=1)
     m.add(types.InlineKeyboardButton(f"💸 КУПИТЬ ({price} {currency.upper()})", callback_data=f"buy_shadow_{item_id}"))
+    m.add(types.InlineKeyboardButton("🛒 УКАЗАТЬ КОЛИЧЕСТВО", callback_data=f"buy_shadow_qty_{item_id}"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="shadow_broker_menu"))
     return m
 
