@@ -1,4 +1,5 @@
 from modules.bot_instance import bot
+import cache_db
 import database as db
 import config
 from config import TITLES, SCHOOLS, SCHOOLS_INFO, PATH_CHANGE_COST, ACHIEVEMENTS_LIST
@@ -289,7 +290,7 @@ def diary_handler(call):
         menu_update(call, "📓 <b>ЛИЧНЫЙ ДНЕВНИК</b>\nЗдесь ты можешь записывать свои мысли.", kb.diary_menu(), image_url=config.MENU_IMAGES["diary_menu"])
 
     elif call.data == "diary_new":
-        db.set_state(uid, "waiting_for_diary_entry")
+        db.set_state(uid, "waiting_for_diary_entry"); cache_db.clear_cache(uid)
         menu_update(call, "✍️ <b>НОВАЯ ЗАПИСЬ</b>\n\nНапиши свои мысли в чат. Я сохраню их в архиве.", kb.back_button())
 
     elif call.data.startswith("diary_read_"):
@@ -321,11 +322,11 @@ def diary_handler(call):
 
             menu_update(call, txt, markup)
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "waiting_for_diary_entry", content_types=['text'])
+@bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == 'waiting_for_diary_entry', content_types=['text'])
 def diary_text_handler(m):
     uid = m.from_user.id
     db.add_diary_entry(uid, m.text)
-    db.delete_state(uid)
+    db.delete_state(uid); cache_db.clear_cache(uid)
     bot.send_message(uid, "✅ <b>ЗАПИСЬ СОХРАНЕНА.</b>", parse_mode="HTML")
     bot.send_message(uid, "📓 ДНЕВНИК", reply_markup=kb.diary_menu())
 
@@ -458,7 +459,7 @@ def back_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data == "feedback_menu")
 def feedback_init_handler(call):
     uid = call.from_user.id
-    db.set_state(uid, "waiting_for_feedback")
+    db.set_state(uid, "waiting_for_feedback"); cache_db.clear_cache(uid)
     msg = (
         "✉️ <b>ОБРАТНАЯ СВЯЗЬ</b>\n\n"
         "Опиши найденный баг или предложение по улучшению.\n"
@@ -467,7 +468,7 @@ def feedback_init_handler(call):
     )
     menu_update(call, msg, kb.back_button())
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "waiting_for_feedback", content_types=['text'])
+@bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == 'waiting_for_feedback', content_types=['text'])
 def feedback_process_handler(m):
     uid = m.from_user.id
     text = m.text
@@ -488,7 +489,7 @@ def feedback_process_handler(m):
     except Exception as e:
         print(f"Feedback Error: {e}")
 
-    db.delete_state(uid)
+    db.delete_state(uid); cache_db.clear_cache(uid)
     bot.send_message(uid, "✅ <b>СООБЩЕНИЕ ОТПРАВЛЕНО.</b>\nСпасибо за вклад в развитие Системы.", parse_mode="HTML")
 
     # Return to menu

@@ -1,4 +1,5 @@
 from modules.bot_instance import bot
+import cache_db
 import database as db
 import config
 from config import PRICES, EQUIPMENT_DB, ITEMS_INFO, TITLES, SCHOOLS, ITEM_IMAGES, PVP_ITEMS
@@ -13,7 +14,7 @@ import time
 import traceback
 from telebot import types
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) and db.get_state(m.from_user.id).startswith("buying_qty_"), content_types=['text'])
+@bot.message_handler(func=lambda m: (cache_db.get_cached_user_state(m.from_user.id) or '').startswith('buying_qty_'), content_types=['text'])
 def shop_buy_quantity_handler(m):
     uid = m.from_user.id
     u = db.get_user(uid)
@@ -28,7 +29,7 @@ def shop_buy_quantity_handler(m):
             raise ValueError
     except ValueError:
         bot.send_message(uid, "❌ Введите корректное число (от 1 до 1000).", reply_markup=kb.back_button())
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         return
 
     cost = PRICES.get(item_id, EQUIPMENT_DB.get(item_id, {}).get('price', 9999))
@@ -71,9 +72,9 @@ def shop_buy_quantity_handler(m):
         else:
             bot.send_message(uid, "❌ Мало монет", reply_markup=kb.back_button())
 
-    db.delete_state(uid)
+    db.delete_state(uid); cache_db.clear_cache(uid)
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) and db.get_state(m.from_user.id).startswith("buying_shadow_qty_"), content_types=['text'])
+@bot.message_handler(func=lambda m: (cache_db.get_cached_user_state(m.from_user.id) or '').startswith('buying_shadow_qty_'), content_types=['text'])
 def shadow_buy_quantity_handler(m):
     uid = m.from_user.id
     u = db.get_user(uid)
@@ -88,7 +89,7 @@ def shadow_buy_quantity_handler(m):
             raise ValueError
     except ValueError:
         bot.send_message(uid, "❌ Введите корректное число (от 1 до 1000).", reply_markup=kb.back_button())
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         return
 
     items = get_shadow_shop_items(uid)
@@ -96,7 +97,7 @@ def shadow_buy_quantity_handler(m):
 
     if not target:
         bot.send_message(uid, "❌ Товар исчез.", reply_markup=kb.back_button())
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         return
 
     price = target['price']
@@ -127,7 +128,7 @@ def shadow_buy_quantity_handler(m):
         else:
             bot.send_message(uid, f"❌ Недостаточно средств\nНужно: {total_cost} BC\nУ вас: {u['biocoin']}", reply_markup=kb.back_button())
 
-    db.delete_state(uid)
+    db.delete_state(uid); cache_db.clear_cache(uid)
 
 @bot.callback_query_handler(func=lambda call: call.data == "shop_menu" or call.data.startswith("shop_cat_") or (call.data.startswith("buy_") and not call.data.startswith("buy_shadow_")) or call.data.startswith("view_shop_") or call.data == "shop_gacha_menu")
 def shop_handler(call):
@@ -260,7 +261,7 @@ def shadow_shop_handler(call):
 
     elif call.data.startswith("buy_shadow_qty_"):
         item_id = call.data.replace("buy_shadow_qty_", "")
-        db.set_state(uid, f"buying_shadow_qty_{item_id}")
+        db.set_state(uid, f"buying_shadow_qty_{item_id}"); cache_db.clear_cache(uid)
         bot.send_message(uid, "🔢 Введите количество для покупки (число):")
         bot.answer_callback_query(call.id)
 
