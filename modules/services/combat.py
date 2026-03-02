@@ -67,7 +67,7 @@ def process_combat_action(uid, action):
 
         # --- MECHANICS: MARTYR'S HALO ---
         if equipped_head == 'martyr_halo':
-            if current_signal <= 10:
+            if int(current_signal) <= 10:
                 bonus_luck = 200
                 msg += "🕯 <b>МУЧЕНИК:</b> Смертельная удача (+200)!\n"
             else:
@@ -78,7 +78,7 @@ def process_combat_action(uid, action):
             # --- ADRENALINE LOGIC ---
             dmg_mult = 1.0
             is_adrenaline = False
-            if current_signal < 20:
+            if int(current_signal) < 20:
                 dmg_mult = 2.0
                 is_adrenaline = True
                 msg += "🩸 <b>АДРЕНАЛИН:</b> Урон удвоен!\n"
@@ -138,7 +138,7 @@ def process_combat_action(uid, action):
                     msg += "🔨 <b>БАН-ХАММЕР:</b> УДАЛЕНИЕ ОБЪЕКТА ИЗ РЕАЛЬНОСТИ.\n"
 
             # EXECUTION
-            if enemy_hp < (villain['hp'] * 0.1):
+            if int(enemy_hp) < (int(villain['hp']) * 0.1):
                 dmg = 999999
                 msg += "💀 <b>КАЗНЬ:</b> Вы жестоко добиваете врага.\n"
 
@@ -455,7 +455,7 @@ def perform_hack(attacker_uid):
     # (Int + Luck) vs (Defense + Level*2)
     # Using ATK as Int equivalent for hacking context + Luck
     atk_score = stats['atk'] + stats['luck'] + random.randint(1, 20)
-    def_score = def_stats['def'] + (def_u['level'] * 2) + random.randint(1, 20)
+    def_score = def_stats['def'] + (int(def_u['level']) * 2) + random.randint(1, 20)
 
     # Check for Firewall (Target Item)
     has_firewall = db.get_item_count(target_uid, 'firewall') > 0

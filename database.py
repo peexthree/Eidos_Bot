@@ -248,7 +248,7 @@ def init_pool():
                         keepalives_interval=10,
                         keepalives_count=5,
                         connect_timeout=5,
-                        options='-c lock_timeout=2000 -c statement_timeout=2000'
+                        options='-c lock_timeout=5000 -c statement_timeout=5000'
                     )
                     print("/// DB POOL INITIALIZED (SUPABASE)")
                 except Exception as e:
@@ -1390,7 +1390,7 @@ def admin_get_users_dossier(limit=50):
         for u in users:
             active = u['last_active'].strftime('%d.%m') if u['last_active'] else "N/A"
             safe_name = html.escape(u['first_name'] or "Unknown")
-            path_str = (u.get('path') or 'general').upper()
+            path_str = str(u.get('path') or 'general').upper()
             report += (f"👤 <b>{safe_name}</b> (@{u['username']})\n"
                        f"   Lvl {u['level']} | {u['xp']} XP | {path_str}\n"
                        f"   Streak: {u['streak']} | Depth: {u['max_depth']}m | Last: {active}\n"

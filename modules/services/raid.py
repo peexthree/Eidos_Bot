@@ -290,7 +290,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 if k_steps > 10:
                     # Penalty: Lose Level
                     new_lvl = max(1, u['level'] - 1)
-                    if new_lvl < u['level']:
+                    if int(new_lvl) < int(u['level']):
                         cur.execute("UPDATE players SET level = %s, xp = 0 WHERE uid = %s", (new_lvl, uid))
                         msg_prefix += "💣 <b>КАМИКАДЗЕ:</b> Ядро расплавилось! Уровень понижен.\n"
                         # Reset steps or just keep punishing? Usually resets or kills.
@@ -314,7 +314,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                 # Проверка баланса
                 cost = get_raid_entry_cost(uid)
-                if u['xp'] < cost:
+                if int(u['xp']) < int(cost):
                     return False, f"🪫 <b>НЕДОСТАТОЧНО ЭНЕРГИИ</b>\nВход: {cost} XP\nУ вас: {u['xp']} XP", None, u, 'neutral', 0
 
                 # Списание XP и вход (ПРЯМОЙ SQL)
@@ -571,7 +571,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                  return False, "❌ НЕТ СТИМУЛЯТОРА", None, u, 'battery_error', 0
 
             # [MODULE 2] Shadow Metrics: Critical entries without healing
-            if s['signal'] < 20 and answer is None:
+            if int(s['signal']) < 20 and answer is None:
                 db.update_shadow_metric(uid, 'entries_with_critical_hp', 1)
 
             # 3. ЦЕНА ШАГА
@@ -582,7 +582,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 step_cost *= 2
 
             if not is_new and answer != 'open_chest' and answer != 'use_battery' and answer != 'hack_chest' and answer != 'claim_body' and answer != 'use_stimulator':
-                if u['xp'] < step_cost:
+                if int(u['xp']) < int(step_cost):
                     return False, f"🪫 <b>НЕТ ЭНЕРГИИ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
 
                 cur.execute("UPDATE players SET xp = xp - %s WHERE uid=%s", (step_cost, uid))
@@ -617,7 +617,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
             if current_type_code == 'combat':
                 # Mob Scaling (Module 5)
                 # Cap mob level at User Level + 1 (was +5) to prevent impossible mechanical fights for low levels deep diving
-                mob_level = min(30, (depth // 20) + 1, u['level'] + 1)
+                mob_level = min(30, (depth // 20) + 1, int(u['level']) + 1)
                 villain = db.get_random_villain(mob_level, cursor=cur)
 
                 if villain:
