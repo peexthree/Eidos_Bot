@@ -18,7 +18,7 @@ from modules.bot_instance import bot, app, TOKEN, WEBHOOK_URL
 QUARANTINE_CACHE = {}
 
 # Initialization Flag
-DB_READY = threading.Event()
+# DB_READY removed in favor of direct DB pool check
 
 def check_quarantine(user):
     # SIMPLE CHECK: Skip DB for bots or system messages
@@ -157,11 +157,8 @@ def webhook():
     print("/// WEBHOOK ENDPOINT HIT")
     if flask.request.method == 'POST':
         try:
-            wait_res = DB_READY.wait(timeout=60)
-            if not wait_res:
-                print("/// WEBHOOK WARNING: DB_READY wait timed out (60s)")
-            else:
-                print("/// WEBHOOK: DB_READY signal received")
+            if getattr(db, 'pg_pool', None) is None:
+                db.init_pool()
 
             # 1. Get raw data
             json_string = flask.request.get_data().decode('utf-8')
@@ -200,22 +197,10 @@ def system_startup():
     try:
         with app.app_context():
             print("/// SYSTEM STARTUP INITIATED...")
-            db.init_db()
-            print("/// DB INIT COMPLETE")
 
-            # FIX: Broken Riddle
-            try:
-                db.admin_exec_query("UPDATE raid_content SET text = 'Я даю тебе то, что ты боишься потерять... (Ответ: Жизнь)' WHERE text LIKE '%я даю тебе то%' AND text NOT LIKE '%(Ответ:%'")
-                print("/// RIDDLE FIX APPLIED")
-            except Exception as e:
-                print(f"/// RIDDLE FIX ERR: {e}")
-
-            # Sync Admin from Config
-            try:
-                db.set_user_admin(config.ADMIN_ID, True)
-                print(f"/// ADMIN SYNC: {config.ADMIN_ID} rights granted.")
-            except Exception as e:
-                print(f"/// ADMIN SYNC ERROR: {e}")
+            # Ensure DB is ready before executing webhook logic
+            if getattr(db, 'pg_pool', None) is None:
+                db.init_pool()
 
             if WEBHOOK_URL:
                 try:
@@ -228,18 +213,12 @@ def system_startup():
             else:
                 print("/// WARNING: WEBHOOK_URL not set. Bot will not receive updates via Webhook.")
 
-            # Signal DB is ready
-            DB_READY.set()
-            print("/// DB_READY SIGNAL SET")
-
     except Exception as e:
         print(f"/// SYSTEM STARTUP FATAL ERROR: {e}")
 
 def notification_loop():
-    # Wait for DB to be initialized
-    if not DB_READY.wait(timeout=300): # Wait up to 5 mins
-        print("/// NOTIFICATION LOOP TIMEOUT: DB NOT READY")
-        return
+    if getattr(db, 'pg_pool', None) is None:
+        db.init_pool()
 
     while True:
         try:
