@@ -67,22 +67,6 @@ def eidos_purchase_handler(call):
     is_admin = cache_db.get_cached_admin_status(uid)
 
     if action == "dossier":
-        # Check if already has one to give for free
-        with db.db_cursor() as cur:
-            cur.execute("SELECT dossier_text FROM user_dossiers WHERE uid = %s", (uid,))
-            res = cur.fetchone()
-            if res and res[0]:
-                bot.answer_callback_query(call.id, "Загружаю данные из кэша...", show_alert=False)
-                # Split and send if too long
-                text = f"👁‍🗨 <b>ТВОЙ ТЕНЕВОЙ ПРОФИЛЬ</b>\n\n{res[0]}"
-                for i in range(0, len(text), 4000):
-                    try:
-                        bot.send_message(uid, text[i:i+4000], parse_mode="HTML")
-                    except Exception as e:
-                        print(f"/// EIDOS ROOM MARKDOWN ERROR: {e}")
-                        bot.send_message(uid, text[i:i+4000])
-                return
-
         if is_admin:
             bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             import threading
