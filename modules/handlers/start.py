@@ -27,7 +27,9 @@ def start_handler(m):
         ref = m.text.split()[1] if len(m.text.split()) > 1 else None
 
         print(f"/// START_HANDLER: check user {uid} existence")
+        print("/// DB CALL START (get_user in start)")
         u_exists = db.get_user(uid)
+        print("/// DB CALL END (get_user in start)")
         print(f"/// START_HANDLER: check user {uid} existence complete")
 
         if not u_exists:
@@ -35,16 +37,22 @@ def start_handler(m):
             first_name = m.from_user.first_name or "User"
 
             print(f"/// START_HANDLER: add user {uid}")
+            print("/// DB CALL START (add_user in start)")
             db.add_user(uid, username, first_name, ref)
+            print("/// DB CALL END (add_user in start)")
             print(f"/// START_HANDLER: add user {uid} complete")
 
             print(f"/// START_HANDLER: log action for {uid}")
+            print("/// DB CALL START (log_action in start)")
             db.log_action(uid, 'register', f"User {username} joined via {ref}")
+            print("/// DB CALL END (log_action in start)")
             print(f"/// START_HANDLER: log action for {uid} complete")
 
             if ref:
                  print(f"/// START_HANDLER: add xp to user {ref}")
+                 print("/// DB CALL START (add_xp in start)")
                  db.add_xp_to_user(int(ref), REFERRAL_BONUS)
+                 print("/// DB CALL END (add_xp in start)")
                  print(f"/// START_HANDLER: add xp to user {ref} complete")
                  try:
                      safe_name = html.escape(first_name)
@@ -53,7 +61,9 @@ def start_handler(m):
 
             # INIT ONBOARDING
             import time
+            print("/// DB CALL START (update_user onboarding in start)")
             db.update_user(uid, onboarding_stage=1, onboarding_start_time=int(time.time()))
+            print("/// DB CALL END (update_user onboarding in start)")
 
             msg = (
                 "👁 <b>СВЯЗЬ УСТАНОВЛЕНА.</b>\n\n"
@@ -68,14 +78,18 @@ def start_handler(m):
                 "3. Возвращайся сюда и <b>напиши мне текстом одно слово</b>: кто ты сейчас в этой системе?"
             )
             # Show main menu immediately so they can see Profile
+            print("/// DB CALL START (get_user second in start)")
             u = db.get_user(uid)
+            print("/// DB CALL END (get_user second in start)")
             try:
                 bot.send_photo(uid, get_menu_image(u), caption=msg, reply_markup=kb.main_menu(u), parse_mode="HTML")
             except:
                 bot.send_message(uid, msg, reply_markup=kb.main_menu(u), parse_mode="HTML")
         else:
             check_daily_streak(uid)
+            print("/// DB CALL START (get_user second in start)")
             u = db.get_user(uid)
+            print("/// DB CALL END (get_user second in start)")
             bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
     except Exception as e:
         print(f"/// ERROR IN START HANDLER: {e}")
