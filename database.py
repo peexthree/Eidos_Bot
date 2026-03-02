@@ -925,7 +925,8 @@ def get_inventory(uid, cursor=None):
         return cursor.fetchall()
 
     with db_cursor(cursor_factory=RealDictCursor) as cur:
-        if not cur: return []
+        if not cur:
+            return []
         cur.execute(query, (uid,))
         return cur.fetchall()
 
@@ -1134,7 +1135,8 @@ def get_item_count(uid, item_id, cursor=None):
     query = "SELECT SUM(quantity) as total FROM inventory WHERE uid=%s AND item_id=%s"
 
     def _extract(res):
-        if not res: return 0
+        if not res:
+            return 0
         if isinstance(res, dict):
             val = res.get('total')
         else:
@@ -1143,14 +1145,13 @@ def get_item_count(uid, item_id, cursor=None):
 
     if cursor:
         cursor.execute(query, (uid, item_id))
-        res = cursor.fetchone()
-        return _extract(res)
+        return _extract(cursor.fetchone())
 
     with db_cursor() as cur:
-        if not cur: return 0
+        if not cur:
+            return 0
         cur.execute(query, (uid, item_id))
-        res = cur.fetchone()
-        return _extract(res)
+        return _extract(cur.fetchone())
 
 def check_achievement_exists(uid, ach_id):
     with db_cursor() as cur:
@@ -1309,7 +1310,8 @@ def get_villain_by_id(vid, cursor=None):
         return cursor.fetchone()
 
     with db_cursor(cursor_factory=RealDictCursor) as cur:
-        if not cur: return None
+        if not cur:
+            return None
         cur.execute("SELECT * FROM villains WHERE id = %s", (vid,))
         return cur.fetchone()
 
@@ -1452,11 +1454,15 @@ def claim_death_loot(loot_id):
         cur.execute("DELETE FROM death_loot WHERE id = %s", (loot_id,))
         return cur.rowcount > 0
 
-def log_death_loot(depth, amount, owner_name):
-    with db_cursor() as cur:
-        if not cur: return
-        cur.execute("INSERT INTO death_loot (depth, amount, created_at, original_owner_name) VALUES (%s, %s, %s, %s)",
+def log_death_loot(depth, amount, owner_name, cursor=None):
+    if cursor:
+        cursor.execute("INSERT INTO death_loot (depth, amount, created_at, original_owner_name) VALUES (%s, %s, %s, %s)",
                     (depth, amount, int(time.time()), owner_name))
+    else:
+        with db_cursor() as cur:
+            if not cur: return
+            cur.execute("INSERT INTO death_loot (depth, amount, created_at, original_owner_name) VALUES (%s, %s, %s, %s)",
+                        (depth, amount, int(time.time()), owner_name))
 
 def get_shadow_broker_status(uid):
     u = get_user(uid)
@@ -1466,10 +1472,13 @@ def get_shadow_broker_status(uid):
 def set_shadow_broker(uid, expiry):
     update_user(uid, shadow_broker_expiry=expiry)
 
-def log_action(uid, action, details):
-    with db_session() as conn:
-        with conn.cursor() as cur:
-            cur.execute("INSERT INTO logs (uid, action, details, timestamp) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", (uid, action, details))
+def log_action(uid, action, details, cursor=None):
+    if cursor:
+        cursor.execute("INSERT INTO logs (uid, action, details, timestamp) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", (uid, action, details))
+    else:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO logs (uid, action, details, timestamp) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", (uid, action, details))
 
 def save_raid_grave(depth, loot_json, owner_name, message=""):
     with db_session() as conn:

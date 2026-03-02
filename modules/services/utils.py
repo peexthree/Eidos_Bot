@@ -284,13 +284,13 @@ def generate_raid_report(uid, s, success=False):
             f"⏱ Время: {mins}м {secs}с"
         )
 
-def handle_death_log(uid, depth, u_level, username, buffer_coins):
+def handle_death_log(uid, depth, u_level, username, buffer_coins, cursor=None):
     broadcast_msg = None
     # Level 5+ and Depth 50+ (Lowered for visibility)
     if u_level >= 5 and depth >= 50:
          # Log loot (only if worth it)
          if buffer_coins > 10:
-             db.log_death_loot(depth, buffer_coins, username)
+             db.log_death_loot(depth, buffer_coins, username, cursor=cursor)
 
          broadcast_msg = (f"💀 <b>СИСТЕМНЫЙ НЕКРОЛОГ</b>\n"
                           f"Искатель @{username} (Lvl {u_level}) уничтожен на глубине {depth}м.\n"
