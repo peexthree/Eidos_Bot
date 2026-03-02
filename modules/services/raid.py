@@ -199,7 +199,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             is_new = False
 
-            # --- PASSIVE ITEM EFFECTS (START OF STEP) ---
+                        # --- PASSIVE ITEM EFFECTS (START OF STEP) ---
             # Retrieve equipped items once for efficiency (using shared cursor)
             eq_items = db.get_equipped_items(uid, cursor=cur)
             head_item = eq_items.get('head')
@@ -207,13 +207,13 @@ def process_raid_step(uid, answer=None, start_depth=None):
             armor_item = eq_items.get('armor')
             weapon_item = eq_items.get('weapon')
 
+            s_changed = False # Track if we need to update raid_sessions
+
             # 1. BLOOD MINER (Chip)
-            if chip_item == 'blood_miner' and s: # Apply only if session exists
-                cur.execute("UPDATE raid_sessions SET buffer_coins = buffer_coins + 50, signal = GREATEST(0, signal - 2) WHERE uid = %s", (uid,))
+            if chip_item == 'blood_miner' and s:
                 s['buffer_coins'] += 50
                 s['signal'] = max(0, s['signal'] - 2)
-                # If signal drops to 0 here, death check handles it later or needs immediate check?
-                # Usually processed at event end, but if this kills, we should know.
+                s_changed = True
 
             # 2. SCHRODINGER'S ARMOR (Armor)
             if armor_item == 'schrodinger_armor' and s:
@@ -221,10 +221,9 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 try:
                     mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
                 except: mech_data = {}
-
-                # Randomize DEF for this step (-50 to +200)
                 mech_data['schrodinger_def'] = random.randint(-50, 200)
-                cur.execute("UPDATE raid_sessions SET mechanic_data = %s WHERE uid = %s", (json.dumps(mech_data), uid))
+                s['mechanic_data'] = json.dumps(mech_data)
+                s_changed = True
 
             # 3. GRANDFATHER PARADOX (Weapon) - Delayed Damage
             if weapon_item == 'grandfather_paradox' and s:
@@ -232,17 +231,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 try:
                     mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
                 except: mech_data = {}
-
-                # Process Queue
                 dmg_queue = mech_data.get('paradox_queue', [])
                 if dmg_queue:
-                    # Pop first element if its time
-                    # Logic: Each step we shift queue.
-                    # Assuming queue is list of damage values.
-                    # Actually we need to track "turns remaining".
-                    # Simplified: Queue is list of {dmg: X, turns: Y}.
-                    # Decrement turns. If 0, apply damage.
-
                     incoming_dmg = 0
                     new_queue = []
                     for entry in dmg_queue:
@@ -251,15 +241,38 @@ def process_raid_step(uid, answer=None, start_depth=None):
                             incoming_dmg += entry['dmg']
                         else:
                             new_queue.append(entry)
-
                     mech_data['paradox_queue'] = new_queue
-                    cur.execute("UPDATE raid_sessions SET mechanic_data = %s WHERE uid = %s", (json.dumps(mech_data), uid))
-
+                    s['mechanic_data'] = json.dumps(mech_data)
+                    s_changed = True
                     if incoming_dmg > 0:
                         s['signal'] = max(0, s['signal'] - incoming_dmg)
-                        cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid = %s", (s['signal'], uid))
-                        # We need to notify user about this damage?
-                        # It will appear as sudden signal loss in UI.
+                        s_changed = True
+
+            # 5. KAMIKAZE PROTOCOL (Chip)
+            if chip_item == 'kamikaze_protocol' and s:
+                import json
+                try:
+                    mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
+                except: mech_data = {}
+                k_steps = mech_data.get('kami_steps', 0) + 1
+                mech_data['kami_steps'] = k_steps
+                s['mechanic_data'] = json.dumps(mech_data)
+                s_changed = True
+                if k_steps > 10:
+                    new_lvl = max(1, u['level'] - 1)
+                    if int(new_lvl) < int(u['level']):
+                        cur.execute("UPDATE players SET level = %s, xp = 0 WHERE uid = %s", (new_lvl, uid))
+                        msg_prefix += "💣 <b>КАМИКАДЗЕ:</b> Ядро расплавилось! Уровень понижен.\n"
+                        s['signal'] = 0
+                        s_changed = True
+
+            # BATCH UPDATE PASSIVE EFFECTS
+            if s_changed:
+                cur.execute("""
+                    UPDATE raid_sessions
+                    SET signal = %s, buffer_coins = %s, mechanic_data = %s
+                    WHERE uid = %s
+                """, (s['signal'], s['buffer_coins'], s.get('mechanic_data', '{}'), uid))
 
             # 4. MARTYR'S HALO (Head) - Dynamic Luck
             if head_item == 'martyr_halo' and s:
@@ -268,36 +281,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 if hp_perc <= 10:
                     bonus_luck = 200
                 else:
-                    # Scale: Lower HP = Higher Luck. e.g. 100 HP = 0, 10 HP = 200?
-                    # "The lower your signal, the higher your luck".
-                    # Let's say +1 LUCK per 1% missing HP?
                     bonus_luck = 100 - hp_perc
-
                 stats['luck'] += bonus_luck
-
-            # 5. KAMIKAZE PROTOCOL (Chip)
-            if chip_item == 'kamikaze_protocol' and s:
-                import json
-                try:
-                    mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
-                except: mech_data = {}
-
-                k_steps = mech_data.get('kami_steps', 0) + 1
-                mech_data['kami_steps'] = k_steps
-                cur.execute("UPDATE raid_sessions SET mechanic_data = %s WHERE uid = %s", (json.dumps(mech_data), uid))
-
-                # Check Timer (10 steps max)
-                if k_steps > 10:
-                    # Penalty: Lose Level
-                    new_lvl = max(1, u['level'] - 1)
-                    if int(new_lvl) < int(u['level']):
-                        cur.execute("UPDATE players SET level = %s, xp = 0 WHERE uid = %s", (new_lvl, uid))
-                        msg_prefix += "💣 <b>КАМИКАДЗЕ:</b> Ядро расплавилось! Уровень понижен.\n"
-                        # Reset steps or just keep punishing? Usually resets or kills.
-                        # Let's kill the player too to end the raid.
-                        s['signal'] = 0
-                        cur.execute("UPDATE raid_sessions SET signal = 0 WHERE uid = %s", (uid,))
-                        # Logic will proceed to death check
 
             # --- ЛОГИКА ВХОДА ---
             if not s:
@@ -366,19 +351,21 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                 if glitch_roll < 0.4: # Positive
                     bonus = int(depth * 10) + 100
-                    cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s WHERE uid=%s", (bonus, uid))
+                    s['buffer_xp'] += bonus
                     glitch_text = f"✨ <b>СБОЙ РЕАЛЬНОСТИ (ПОЗИТИВ):</b> Вы нашли потерянный фрагмент памяти. +{bonus} XP."
-
                 elif glitch_roll < 0.7: # Heal
-                    cur.execute("UPDATE raid_sessions SET signal=LEAST(100, signal+50) WHERE uid=%s", (uid,))
+                    s['signal'] = min(100, s['signal'] + 50)
                     glitch_text = f"❤️ <b>СБОЙ РЕАЛЬНОСТИ (ЛЕЧЕНИЕ):</b> Сигнал внезапно восстановился. +50%."
-
                 else: # Negative
                     loss = int(depth * 5)
-                    cur.execute("UPDATE raid_sessions SET buffer_coins=GREATEST(0, buffer_coins-%s) WHERE uid=%s", (loss, uid))
+                    s['buffer_coins'] = max(0, s['buffer_coins'] - loss)
                     glitch_text = f"⚠️ <b>ГЛИТЧ (ОШИБКА):</b> Часть данных повреждена. -{loss} BC из буфера."
 
-                # We just return this as an event
+                cur.execute("""
+                    UPDATE raid_sessions
+                    SET buffer_xp = %s, signal = %s, buffer_coins = %s
+                    WHERE uid = %s
+                """, (s['buffer_xp'], s['signal'], s['buffer_coins'], uid))
                 cur.execute("UPDATE players SET is_glitched = TRUE WHERE uid = %s", (uid,))
                 return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", {'alert': strip_html(glitch_text), 'image': RAID_EVENT_IMAGES.get('glitch')}, u, 'glitch', 0
 
