@@ -157,9 +157,6 @@ def webhook():
     print("/// WEBHOOK ENDPOINT HIT")
     if flask.request.method == 'POST':
         try:
-            if getattr(db, 'pg_pool', None) is None:
-                db.init_pool()
-
             # 1. Get raw data
             json_string = flask.request.get_data().decode('utf-8')
             print(f"/// WEBHOOK RECEIVED PAYLOAD: {json_string}")
@@ -197,10 +194,6 @@ def system_startup():
     try:
         with app.app_context():
             print("/// SYSTEM STARTUP INITIATED...")
-
-            # Ensure DB is ready before executing webhook logic
-            if getattr(db, 'pg_pool', None) is None:
-                db.init_pool()
 
             if WEBHOOK_URL:
                 try:
