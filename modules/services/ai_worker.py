@@ -138,18 +138,6 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
 
     if result_text:
         result_text = sanitize_for_telegram(result_text)
-        # Cache dossier if it's a base dossier
-        if analysis_type == 'dossier':
-            try:
-                with db.db_session() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            "INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) "
-                            "ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP",
-                            (uid, result_text)
-                        )
-            except Exception as e:
-                print(f"/// DB ERROR CACHING DOSSIER: {e}")
 
         # Send result
         final_msg = f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}"
