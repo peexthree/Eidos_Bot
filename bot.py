@@ -219,31 +219,51 @@ def notification_loop():
                 with conn.cursor() as cur:
                     now = int(time.time())
                     # Check Protocol Cooldowns
-                    cur.execute("""
-                        SELECT uid FROM players
-                        WHERE last_protocol_time > 0
-                        AND (last_protocol_time + 1800) < %s
-                        AND notified = FALSE
-                        AND is_active = TRUE
-                        LIMIT 50
-                    """, (now,))
-                    users = cur.fetchall()
+                    try:
+                        cur.execute("""
+                            SELECT uid FROM players
+                            WHERE last_protocol_time > 0
+                            AND (last_protocol_time + 1800) < %s
+                            AND notified = FALSE
+                            AND is_active = TRUE
+                            LIMIT 50
+                        """, (now,))
+                        users = cur.fetchall()
 
-                    for row in users:
-                        uid = row[0]
-                        try:
-                            bot.send_message(uid, "🔄 <b>СИНХРОНИЗАЦИЯ ГОТОВА</b>\nНовые знания ждут тебя.", parse_mode="HTML")
-                            # Update immediately to prevent duplicate sends if loop crashes or slow
-                            with db.db_session() as conn2:
-                                with conn2.cursor() as cur2:
-                                    cur2.execute("UPDATE players SET notified = TRUE WHERE uid = %s", (uid,))
-                            time.sleep(0.2)
-                        except Exception as e:
-                            print(f"Notify Error {uid}: {e}")
-                            if "forbidden" in str(e).lower() or "blocked" in str(e).lower():
-                                with db.db_session() as conn3:
-                                    with conn3.cursor() as cur3:
-                                        cur3.execute("UPDATE players SET is_active = FALSE WHERE uid = %s", (uid,))
+                        for row in users:
+                            uid = row[0]
+                            try:
+                                bot.send_message(uid, "🔄 <b>СИНХРОНИЗАЦИЯ ГОТОВА</b>\nНовые знания ждут тебя.", parse_mode="HTML")
+                                # Update immediately to prevent duplicate sends if loop crashes or slow
+                                try:
+                                    with db.db_session() as conn2:
+                                        if conn2:
+                                            with conn2.cursor() as cur2:
+                                                cur2.execute("UPDATE players SET notified = TRUE WHERE uid = %s", (uid,))
+                                                conn2.commit()
+                                except Exception as update_err:
+                                    print(f"/// DB UPDATE ERROR {uid}: {update_err}")
+
+                                time.sleep(0.2)
+                            except Exception as e:
+                                print(f"Notify Error {uid}: {e}")
+                                if "forbidden" in str(e).lower() or "blocked" in str(e).lower():
+                                    try:
+                                        with db.db_session() as conn3:
+                                            if conn3:
+                                                with conn3.cursor() as cur3:
+                                                    cur3.execute("UPDATE players SET is_active = FALSE WHERE uid = %s", (uid,))
+                                                    conn3.commit()
+                                    except Exception as block_err:
+                                        print(f"/// DB BLOCK ERROR {uid}: {block_err}")
+                    except Exception as db_err:
+                        print(f"/// NOTIFICATION LOOP DB ERROR: {db_err}")
+                        if conn:
+                            try:
+                                conn.rollback()
+                            except Exception:
+                                pass
+                        time.sleep(5)
         except Exception as e:
             print(f"/// NOTIFICATION LOOP ERROR: {e}")
 
