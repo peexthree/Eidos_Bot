@@ -147,25 +147,29 @@ def health_check():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
+    print("/// WEBHOOK ENDPOINT HIT")
     if flask.request.method == 'POST':
         try:
-            DB_READY.wait(timeout=10)
-            print("/// WEBHOOK RECEIVED")
+            wait_res = DB_READY.wait(timeout=10)
+            if not wait_res:
+                print("/// WEBHOOK WARNING: DB_READY wait timed out (10s)")
+            else:
+                print("/// WEBHOOK: DB_READY signal received")
+
             # 1. Get raw data
             json_string = flask.request.get_data().decode('utf-8')
-            print(f"/// WEBHOOK JSON: {json_string}")
+            print(f"/// WEBHOOK RECEIVED PAYLOAD: {json_string}")
             if not json_string:
+                print("/// WEBHOOK ERROR: Received empty payload")
                 return 'Empty Data', 200
 
             # 2. Parse JSON safely
             try:
                 update = telebot.types.Update.de_json(json_string)
-                # Check if de_json returned None (unlikely for valid JSON string but possible)
                 if update is None:
+                    print("/// WEBHOOK ERROR: telebot.types.Update.de_json returned None")
                     return 'Invalid JSON', 200
             except TypeError:
-                # Catches "TypeError: 'NoneType' object is not subscriptable" when input is "null"
-                # Log as warning but return 200 to stop retries
                 print(f"/// WEBHOOK WARNING: Received 'null' or invalid payload.")
                 return 'Invalid Payload', 200
             except Exception as e:
@@ -173,14 +177,11 @@ def webhook():
                 return 'Parse Error', 200
 
             # 3. Process Update
-            print("/// WEBHOOK: STARTING THREAD TO PROCESS UPDATE")
-            print("/// WEBHOOK: --- THREAD CREATION TRIGGERED ---")
+            print(f"/// WEBHOOK: STARTING THREAD TO PROCESS UPDATE {update.update_id}")
             threading.Thread(target=process_update_safe, args=(update,)).start()
-            print("/// WEBHOOK: --- THREAD CREATION SUCCESS ---")
-            print("/// WEBHOOK: THREAD STARTED")
             return 'ALIVE', 200
         except Exception as e:
-            print(f"/// WEBHOOK ERROR: {e}")
+            print(f"/// WEBHOOK CRITICAL ERROR: {e}")
             traceback.print_exc()
             return 'Error', 500
 
@@ -191,7 +192,6 @@ def index():
 def system_startup():
     try:
         with app.app_context():
-            # time.sleep(2)  # Removed for faster startup on Render
             print("/// SYSTEM STARTUP INITIATED...")
             db.init_db()
             print("/// DB INIT COMPLETE")
@@ -213,10 +213,10 @@ def system_startup():
             if WEBHOOK_URL:
                 try:
                     bot.remove_webhook()
-                    bot.set_webhook(url=WEBHOOK_URL + "/webhook")
-                    print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
+                    res = bot.set_webhook(url=WEBHOOK_URL + "/webhook")
+                    print(f"/// WEBHOOK SET: {WEBHOOK_URL} (Result: {res})")
                 except Exception as e:
-                    print(f"/// WEBHOOK ERROR: {e}")
+                    print(f"/// WEBHOOK SET ERROR: {e}")
                     traceback.print_exc()
             else:
                 print("/// WARNING: WEBHOOK_URL not set. Bot will not receive updates via Webhook.")
@@ -278,3 +278,16 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=port)
 
 import modules.handlers.eidos_room
+
+# --- FALLBACK HANDLERS ---
+@bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker'])
+def fallback_message(m):
+    uid = m.from_user.id
+    text = m.text or "Media/Non-text"
+    print(f"/// FALLBACK: Unhandled message from {uid}: {text}")
+    # Don't send anything to user in production to avoid spam, just log it.
+
+@bot.callback_query_handler(func=lambda call: True)
+def fallback_callback(call):
+    uid = call.from_user.id
+    print(f"/// FALLBACK: Unhandled callback from {uid}: {call.data}")

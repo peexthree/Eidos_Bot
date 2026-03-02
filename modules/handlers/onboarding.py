@@ -40,7 +40,7 @@ def neophyte_handler(m):
         bot.send_message(uid, msg, reply_markup=kb.onboarding_phase2_keyboard(), parse_mode="HTML")
     except: pass
 
-@bot.message_handler(func=lambda m: (cache_db.get_cached_user(m.from_user.id) or {}).get('onboarding_stage', 0) == 1 and m.text and m.text.lower().strip() != 'неофит', content_types=['text'])
+@bot.message_handler(func=lambda m: (cache_db.get_cached_user(m.from_user.id) or {}).get('onboarding_stage', 0) == 1 and m.text and not m.text.startswith('/') and m.text.lower().strip() != 'неофит', content_types=['text'])
 def phase1_wrong_text_handler(m):
     uid = m.from_user.id
     bot.send_message(uid, "Ты не видишь очевидного. Твой статус в Профиле. Прочти его и вернись.", parse_mode="HTML")
