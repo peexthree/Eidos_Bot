@@ -5,7 +5,7 @@ import requests
 import database as db
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it:free")
 
 PROMPTS = {
     'dossier': (
@@ -54,8 +54,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Сырые метрики (shadow_metrics): {json.dumps(metrics)}"}
-        ],
-        "reasoning": {"enabled": True}
+        ]
     }
 
     retries = 3
@@ -63,7 +62,9 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
     result_text = None
 
     for attempt in range(retries):
+        response = None
         try:
+            print(f"/// DEBUG AI CALL: URL='https://openrouter.ai/api/v1/chat/completions', MODEL='{OPENROUTER_MODEL}'")
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers=headers,
@@ -75,7 +76,8 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
             result_text = data['choices'][0]['message']['content']
             break
         except Exception as e:
-            print(f"/// AI WORKER ERROR (Attempt {attempt+1}/{retries}): {e}")
+            error_body = getattr(response, 'text', 'No Response Body')
+            print(f"/// AI WORKER ERROR (Attempt {attempt+1}/{retries}): {e} | Body: {error_body}")
             if attempt < retries - 1:
                 time.sleep(delay)
             else:
