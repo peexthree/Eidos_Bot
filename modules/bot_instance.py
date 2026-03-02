@@ -13,7 +13,7 @@ if not TOKEN:
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 
 # Enable Middleware
-# telebot.apihelper.ENABLE_MIDDLEWARE = True # DISABLED: Can cause blocking in some pyTelegramBotAPI versions
+telebot.apihelper.ENABLE_MIDDLEWARE = True
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = flask.Flask(__name__)
