@@ -460,7 +460,7 @@ def perform_hack(attacker_uid):
         return f"🪫 Не хватает энергии. Нужно {HACK_COST_XP} XP."
 
     # 2. Get Random Target
-    target_uid = db.get_random_user_for_hack(attacker_uid)
+    target_uid = int(db.get_random_user_for_hack(attacker_uid))
     if not target_uid: return "❌ Некого взламывать."
 
     def_stats, def_u = get_user_stats(target_uid)

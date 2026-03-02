@@ -741,9 +741,9 @@ def init_db():
 
     # 4. POPULATE DATA (New Transactions)
     print("/// DEBUG: populating villains")
-    populate_villains()
+    fast_populate_villains()
     print("/// DEBUG: populating content")
-    populate_content()
+    fast_populate_content()
     print("/// DEBUG: init_db finished")
 
 # --- STATE MANAGEMENT ---
@@ -1357,17 +1357,6 @@ def admin_add_content(c_type, text):
         else:
             cur.execute("INSERT INTO content (type, path, text) VALUES (%s, 'general', %s)", (c_type, text))
 
-def populate_content():
-    with db_session() as conn:
-        with conn.cursor() as cur:
-            for level, items in CONTENT_DATA.items():
-                for item in items:
-                    cur.execute("""
-                        INSERT INTO content (type, path, level, text)
-                        SELECT %s, %s, %s, %s
-                        WHERE NOT EXISTS (SELECT 1 FROM content WHERE text = %s)
-                    """, (item['type'], item['path'], level, item['text'], item['text']))
-
 def get_archived_protocols_paginated(uid, limit=5, offset=0):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
@@ -1685,3 +1674,31 @@ def get_user_shadow_metrics(uid):
         cur.execute("SELECT * FROM user_shadow_metrics WHERE uid = %s", (uid,))
         res = cur.fetchone()
         return dict(res) if res else {}
+
+def fast_populate_villains():
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM villains")
+                res = cur.fetchone()
+                count = res[0] if res else 0
+                if count > 0:
+                    print(f"/// DEBUG: Skipping populate_villains (found {count} entries)")
+                    return
+                populate_villains()
+    except Exception as e:
+        print(f"/// ERR fast_populate_villains: {e}")
+
+def fast_populate_content():
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM content")
+                res = cur.fetchone()
+                count = res[0] if res else 0
+                if count > 0:
+                    print(f"/// DEBUG: Skipping populate_content (found {count} entries)")
+                    return
+                populate_content()
+    except Exception as e:
+        print(f"/// ERR fast_populate_content: {e}")

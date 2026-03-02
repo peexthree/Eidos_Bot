@@ -15,7 +15,7 @@ import random
 @bot.message_handler(func=lambda m: m.text and m.text.lower().strip() == "неофит")
 def neophyte_handler(m):
     print(f"/// DEBUG: Entering neophyte_handler for user {m.from_user.id}")
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     u = db.get_user(uid)
     if not u or u.get('onboarding_stage', 0) != 1:
         return # Not in Phase 1
@@ -42,7 +42,7 @@ def neophyte_handler(m):
 
 @bot.message_handler(func=lambda m: (cache_db.get_cached_user(m.from_user.id) or {}).get('onboarding_stage', 0) == 1 and m.text and not m.text.startswith('/') and m.text.lower().strip() != 'неофит', content_types=['text'])
 def phase1_wrong_text_handler(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     bot.send_message(uid, "Ты не видишь очевидного. Твой статус в Профиле. Прочти его и вернись.", parse_mode="HTML")
 
 # =============================================================
@@ -51,7 +51,7 @@ def phase1_wrong_text_handler(m):
 
 @bot.callback_query_handler(func=lambda call: call.data in ["onboarding_signal", "onboarding_synch"])
 def phase2_selection_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u or u.get('onboarding_stage', 0) != 2:
         return
@@ -84,7 +84,7 @@ def phase2_selection_handler(call):
 @bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == 'waiting_for_thought', content_types=['text'])
 def thought_handler(m):
     print(f"/// DEBUG: Entering thought_handler for user {m.from_user.id}")
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     text = m.text.strip()
 
     # Basic Spam Filter
@@ -119,7 +119,7 @@ def thought_handler(m):
 
 @bot.callback_query_handler(func=lambda call: call.data == "onboarding_understood")
 def phase3_anchor_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u or u.get('onboarding_stage', 0) != 3:
         bot.answer_callback_query(call.id, "❌ Доступно только на этапе Якоря.", show_alert=True)
@@ -153,7 +153,7 @@ QUESTIONS = [
 
 @bot.callback_query_handler(func=lambda call: call.data == "onboarding_start_exam")
 def exam_start_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u or u.get('onboarding_stage', 0) != 4:
          bot.answer_callback_query(call.id, "❌ Рано.", show_alert=True)
@@ -174,7 +174,7 @@ def exam_start_handler(call):
 @bot.message_handler(func=lambda m: (cache_db.get_cached_user_state(m.from_user.id) or '').startswith('waiting_for_exam_answer'), content_types=['text'])
 def exam_answer_handler(m):
     print(f"/// DEBUG: Entering exam_answer_handler for user {m.from_user.id}")
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     user_ans = m.text.strip().lower()
 
     state_str = db.get_state(uid)

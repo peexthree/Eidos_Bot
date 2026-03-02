@@ -16,7 +16,7 @@ from telebot import types
 
 @bot.message_handler(func=lambda m: (cache_db.get_cached_user_state(m.from_user.id) or '').startswith('buying_qty_'), content_types=['text'])
 def shop_buy_quantity_handler(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     u = db.get_user(uid)
     if not u: return
 
@@ -76,7 +76,7 @@ def shop_buy_quantity_handler(m):
 
 @bot.message_handler(func=lambda m: (cache_db.get_cached_user_state(m.from_user.id) or '').startswith('buying_shadow_qty_'), content_types=['text'])
 def shadow_buy_quantity_handler(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     u = db.get_user(uid)
     if not u: return
 
@@ -132,7 +132,7 @@ def shadow_buy_quantity_handler(m):
 
 @bot.callback_query_handler(func=lambda call: call.data == "shop_menu" or call.data.startswith("shop_cat_") or (call.data.startswith("buy_") and not call.data.startswith("buy_shadow_")) or call.data.startswith("view_shop_") or call.data == "shop_gacha_menu")
 def shop_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u: return
 
@@ -221,7 +221,7 @@ def shop_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "shadow_broker_menu" or call.data.startswith("view_shadow_") or call.data.startswith("buy_shadow_"))
 def shadow_shop_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u: return
 
@@ -306,7 +306,7 @@ def shadow_shop_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "inventory" or call.data.startswith("inv_") or call.data == "convert_legacy")
 def inventory_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
 
     def get_filtered_items(uid):
         all_items = db.get_inventory(uid)
@@ -354,7 +354,7 @@ def inventory_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("equip_") or call.data.startswith("unequip_") or call.data.startswith("use_item_") or call.data.startswith("dismantle_") or call.data.startswith("view_item_") or call.data.startswith("craft_") or call.data.startswith("repair_"))
 def item_action_handler(call):
     print(f"/// DEBUG ACTION: {call.data} | User: {call.from_user.id}")
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
 
     if call.data.startswith("equip_"):
@@ -629,7 +629,7 @@ def item_action_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_hard_reset")
 def hard_reset_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     if db.get_item_count(uid, 'purification_sync') > 0:
         if perform_hard_reset(uid):
             bot.answer_callback_query(call.id, "♻️ ЛИЧНОСТЬ СТЕРТА.", show_alert=True)

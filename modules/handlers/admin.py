@@ -13,13 +13,13 @@ from datetime import datetime
 
 @bot.message_handler(commands=['admin'])
 def admin_command(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     if db.is_user_admin(uid):
         bot.send_message(uid, "⚡️ <b>GOD MODE: ACCESS GRANTED</b>", reply_markup=kb.admin_main_menu(), parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_panel" or call.data.startswith("admin_"))
 def admin_callbacks(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
 
     if call.data == "admin_panel":
          if db.is_user_admin(uid):
@@ -123,7 +123,7 @@ def admin_callbacks(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("adm_give_"))
 def admin_give_item(call):
-     uid = call.from_user.id
+     uid = int(call.from_user.id)
      if not db.is_user_admin(uid): return
      item = call.data.replace("adm_give_", "")
      db.set_state(uid, f"wait_give_item_id|{item}"); cache_db.clear_cache(uid)
@@ -136,13 +136,13 @@ def admin_give_item(call):
 # I'll create a specific handler for admin states.
 
 def is_admin_state(message):
-    uid = message.from_user.id
+    uid = int(message.from_user.id)
     state = cache_db.get_cached_user_state(uid)
     return state and (state.startswith("wait_") or state.startswith("admin_")) and cache_db.get_cached_admin_status(uid)
 
 @bot.message_handler(func=is_admin_state, content_types=['text'])
 def admin_text_handler(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     state = db.get_state(uid)
 
     if state == "wait_grant_admin":
@@ -309,7 +309,7 @@ def admin_text_handler(m):
 # Команда для выгрузки базы
 @bot.message_handler(commands=['backup_content'])
 def send_content_backup(message):
-    uid = message.from_user.id
+    uid = int(message.from_user.id)
     # Проверка, что это админ
     if not db.is_user_admin(uid):
         return
@@ -373,7 +373,7 @@ def send_content_backup(message):
 
 @bot.message_handler(commands=['backup_full'])
 def send_full_backup(message):
-    uid = message.from_user.id
+    uid = int(message.from_user.id)
     if not db.is_user_admin(uid):
         return
 

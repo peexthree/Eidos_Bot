@@ -32,7 +32,7 @@ BATTLE_LORE_FAIL = [
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_menu")
 def pvp_menu_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u: return
 
@@ -67,7 +67,7 @@ def pvp_menu_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_inventory" or call.data.startswith("pvp_hw_") or call.data.startswith("pvp_dismantle_"))
 def pvp_inventory_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
 
     if not u or u['level'] <= config.QUARANTINE_LEVEL:
@@ -133,7 +133,7 @@ def pvp_inventory_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_config")
 def pvp_config_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     deck = pvp.get_deck(uid)
 
     msg = (
@@ -145,7 +145,7 @@ def pvp_config_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_slot_"))
 def pvp_slot_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     slot_id = call.data.split('_')[2]
 
     if slot_id == "locked":
@@ -162,7 +162,7 @@ def pvp_equip_handler(call):
     slot_id = parts[2]
     sid = "_".join(parts[3:])
 
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
 
     if sid == "empty":
         sid = None
@@ -176,7 +176,7 @@ def pvp_equip_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_upgrade_deck")
 def pvp_upgrade_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     success, msg = pvp.upgrade_deck(uid)
     bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
     pvp_config_handler(call)
@@ -187,7 +187,7 @@ def pvp_upgrade_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_shop")
 def pvp_shop_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     msg = (
         f"🏪 <b>МАГАЗИН СОФТА</b>\n"
@@ -198,7 +198,7 @@ def pvp_shop_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_buy_"))
 def pvp_buy_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     action = call.data
 
     # 1. Parse Data
@@ -275,7 +275,7 @@ def show_item_info(call, sid, is_hardware):
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_search")
 def pvp_search_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
 
     if u['xp'] < config.PVP_FIND_COST:
@@ -349,7 +349,7 @@ def _show_attack_screen(call, target, slots):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_atk_slot_"))
 def pvp_atk_slot_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     slot_id = call.data.split('_')[3]
 
     inventory = pvp.get_software_inventory(uid)
@@ -362,7 +362,7 @@ def pvp_atk_sel_handler(call):
     slot_id = parts[3]
     sid = "_".join(parts[4:])
 
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
 
     if sid == "empty": sid = None
 
@@ -386,7 +386,7 @@ def pvp_atk_sel_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_atk_random")
 def pvp_atk_random(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     inventory = pvp.get_software_inventory(uid)
     if not inventory:
         bot.answer_callback_query(call.id, "❌ Нет программ!", show_alert=True)
@@ -409,7 +409,7 @@ def pvp_atk_random(call):
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_attack_prep")
 def pvp_attack_prep_back(call):
     # Back button from selection screen
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     state_tuple = db.get_full_state(uid)
     if not state_tuple: return pvp_menu_handler(call)
 
@@ -418,14 +418,14 @@ def pvp_attack_prep_back(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_execute_attack")
 def pvp_execute_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     state_tuple = db.get_full_state(uid)
     if not state_tuple:
         bot.answer_callback_query(call.id, "❌ Ошибка состояния.", show_alert=True)
         return
 
     data = json.loads(state_tuple[1])
-    target_uid = data['target_uid']
+    target_uid = int(data['target_uid'])
     selected_slots = data['slots']
 
     # Extract Revenge Params
@@ -534,7 +534,7 @@ def pvp_log_details_handler(call):
         return
 
     # Fetch attacker info
-    attacker_uid = log['attacker_uid']
+    attacker_uid = int(log['attacker_uid'])
     attacker = db.get_user(attacker_uid)
 
     attacker_name = "НЕИЗВЕСТНЫЙ"
@@ -588,7 +588,7 @@ def pvp_log_details_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "pvp_vendetta")
 def pvp_vendetta_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     history = db.get_pvp_history(uid)
 
     # Calculate Stats
@@ -627,7 +627,7 @@ def pvp_revenge_confirm_handler(call):
     log = db.get_revenge_target(log_id)
     if not log: return
 
-    target_uid = log['attacker_uid']
+    target_uid = int(log['attacker_uid'])
 
     # Check if already revenged
     if log['is_revenged']:
