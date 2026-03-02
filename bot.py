@@ -31,7 +31,9 @@ def check_quarantine(user):
         if time.time() < expiry:
             return is_q
 
+    print("/// DB CALL START (check_quarantine)")
     u = db.get_user(uid)
+    print("/// DB CALL END (check_quarantine)")
     if not u:
         QUARANTINE_CACHE[uid] = (False, time.time() + 60)
         return False
@@ -130,7 +132,9 @@ def stats_message_middleware(bot_instance, message):
             if check_for_glitch_state(uid, bot, message.chat.id):
                 from telebot.handler_backends import CancelUpdate
                 raise CancelUpdate()
+        print("/// DB CALL START (stats middleware)")
         db.increment_user_stat(uid, 'messages')
+        print("/// DB CALL END (stats middleware)")
     except Exception as e:
         if e.__class__.__name__ == 'CancelUpdate':
             raise e
@@ -164,6 +168,7 @@ def webhook():
             print("/// WEBHOOK RECEIVED")
             # 1. Get raw data
             json_string = flask.request.get_data().decode('utf-8')
+            print(f"/// WEBHOOK JSON: {json_string}")
             if not json_string:
                 return 'Empty Data', 200
 
@@ -183,7 +188,11 @@ def webhook():
                 return 'Parse Error', 200
 
             # 3. Process Update
+            print("/// WEBHOOK: STARTING THREAD TO PROCESS UPDATE")
+            print("/// WEBHOOK: --- THREAD CREATION TRIGGERED ---")
             threading.Thread(target=bot.process_new_updates, args=([update],)).start()
+            print("/// WEBHOOK: --- THREAD CREATION SUCCESS ---")
+            print("/// WEBHOOK: THREAD STARTED")
             return 'ALIVE', 200
         except Exception as e:
             print(f"/// WEBHOOK ERROR: {e}")
