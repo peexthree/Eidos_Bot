@@ -5,21 +5,15 @@ import database as db
 import keyboards as kb
 from modules.services.utils import menu_update
 
-@bot.callback_query_handler(func=lambda call: call.data == "eidos_room_menu")
-def eidos_room_handler(call):
-    uid = call.from_user.id
-
-    # Check if user has accepted TOS
+def process_eidos_room_menu(uid, is_callback=False, call=None, chat_id=None):
     u = db.get_user(uid)
     metrics = db.get_user_shadow_metrics(uid)
 
-    # We can track TOS acceptance in shadow_metrics or states. Let's use a dummy state or just show it if no dossier exists.
     with db.db_cursor() as cur:
         cur.execute("SELECT 1 FROM user_dossiers WHERE uid = %s", (uid,))
         has_dossier = cur.fetchone() is not None
 
     if not has_dossier:
-        # Show TOS
         msg = (
             "👁‍🗨 **СИСТЕМНОЕ СООБЩЕНИЕ. УРОВЕНЬ ДОСТУПА: АБСОЛЮТ.**\n\n"
             "До сих пор ты играл в песочнице. За Вратами Эйдоса нет игры. Там — реальность.\n\n"
@@ -29,11 +23,24 @@ def eidos_room_handler(call):
             "Это ударит по твоему Эго.\n\n"
             "Если ты не готов к правде — уходи. Если готов переписать свой код — активируй Симбиоз."
         )
-        menu_update(call, msg, kb.eidos_tos_menu())
+        if is_callback:
+            menu_update(call, msg, kb.eidos_tos_menu())
+        else:
+            bot.send_message(chat_id, msg, reply_markup=kb.eidos_tos_menu())
     else:
-        # Show main room
         msg = "👁‍🗨 **ВРАТА ЭЙДОСА.**\n\nТвой цифровой след мерцает передо мной. Что ты хочешь узнать?"
-        menu_update(call, msg, kb.eidos_room_menu())
+        if is_callback:
+            menu_update(call, msg, kb.eidos_room_menu())
+        else:
+            bot.send_message(chat_id, msg, reply_markup=kb.eidos_room_menu())
+
+@bot.callback_query_handler(func=lambda call: call.data == "eidos_room_menu")
+def eidos_room_handler(call):
+    process_eidos_room_menu(call.from_user.id, is_callback=True, call=call)
+
+@bot.message_handler(func=lambda message: message.text == "👁‍🗨 Врата Эйдоса")
+def eidos_room_text_handler(message):
+    process_eidos_room_menu(message.from_user.id, is_callback=False, chat_id=message.chat.id)
 
 @bot.callback_query_handler(func=lambda call: call.data in ["eidos_tos_accept", "eidos_tos_reject"])
 def eidos_tos_handler(call):

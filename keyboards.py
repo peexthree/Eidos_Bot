@@ -943,3 +943,12 @@ def eidos_room_menu():
         telebot.types.InlineKeyboardButton("⬅️ В ИЛЛЮЗИЮ", callback_data="back")
     )
     return markup
+
+def get_main_reply_keyboard(user):
+    from telebot import types
+    m = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    if user.get('level', 1) >= 10:
+        m.add(types.KeyboardButton('👁‍🗨 Врата Эйдоса'))
+    else:
+        m = types.ReplyKeyboardRemove()
+    return m

@@ -248,7 +248,7 @@ def init_pool():
                         keepalives_interval=10,
                         keepalives_count=5,
                         connect_timeout=5,
-                        options='-c lock_timeout=10000 -c statement_timeout=5000'
+                        options='-c lock_timeout=2000 -c statement_timeout=2000'
                     )
                     print("/// DB POOL INITIALIZED (SUPABASE)")
                 except Exception as e:
@@ -776,14 +776,23 @@ def populate_villains():
                 """, v)
 
 def get_user(uid, cursor=None):
-    if cursor:
-        cursor.execute("SELECT * FROM players WHERE uid = %s", (uid,))
-        return cursor.fetchone()
-
-    with db_cursor(cursor_factory=RealDictCursor) as cur:
-        if not cur: return None
+    def _execute_logic(cur, uid):
         cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
-        return cur.fetchone()
+        res = cur.fetchone()
+        if res:
+            if hasattr(res, 'keys'):
+                return dict(res)
+            else:
+                cols = [desc[0] for desc in cur.description]
+                return dict(zip(cols, res))
+        return None
+
+    if cursor:
+        return _execute_logic(cursor, uid)
+    else:
+        with db_cursor(cursor_factory=RealDictCursor) as cur:
+            if not cur: return None
+            return _execute_logic(cur, uid)
 
 def add_user(uid, username, first_name, referrer=None):
     with db_session() as conn:
@@ -829,14 +838,16 @@ def increment_user_stat(uid, stat, amount=1, cursor=None):
     ALLOWED_STATS = ['kills', 'raids_done', 'perfect_raids', 'quiz_wins', 'messages', 'likes', 'purchases', 'night_visits', 'clicks']
     if stat not in ALLOWED_STATS: return False
 
-    if cursor:
-        cursor.execute(f"UPDATE players SET {stat} = {stat} + %s WHERE uid = %s", (amount, uid))
-        return cursor.rowcount > 0
+    def _execute_logic(cur, uid, amount):
+        cur.execute(f"UPDATE players SET {stat} = {stat} + %s WHERE uid = %s", (amount, uid))
+        return cur.rowcount > 0
 
-    with db_session() as conn:
-        with conn.cursor() as cur:
-            cur.execute(f"UPDATE players SET {stat} = {stat} + %s WHERE uid = %s", (amount, uid))
-            return cur.rowcount > 0
+    if cursor:
+        return _execute_logic(cursor, uid, amount)
+    else:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                return _execute_logic(cur, uid, amount)
 
 def set_user_stat(uid, stat, value):
     # Safe allow-list for boolean flags
@@ -920,15 +931,21 @@ def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
 def get_inventory(uid, cursor=None):
     # Returns list including 'id' for handling individual items
     query = "SELECT id, uid, item_id, quantity, durability FROM inventory WHERE quantity > 0 AND uid = %s ORDER BY item_id ASC"
-    if cursor:
-        cursor.execute(query, (uid,))
-        return cursor.fetchall()
 
-    with db_cursor(cursor_factory=RealDictCursor) as cur:
-        if not cur:
-            return []
+    def _execute_logic(cur, uid):
         cur.execute(query, (uid,))
-        return cur.fetchall()
+        res = cur.fetchall()
+        if res and not hasattr(res[0], 'keys'):
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in res]
+        return [dict(row) for row in res] if res else []
+
+    if cursor:
+        return _execute_logic(cursor, uid)
+    else:
+        with db_cursor(cursor_factory=RealDictCursor) as cur:
+            if not cur: return []
+            return _execute_logic(cur, uid)
 
 def use_item(uid, item_id, qty=1, cursor=None):
     # This function is mostly used for consumables/currencies/logic
@@ -1473,12 +1490,15 @@ def set_shadow_broker(uid, expiry):
     update_user(uid, shadow_broker_expiry=expiry)
 
 def log_action(uid, action, details, cursor=None):
+    def _execute_logic(cur, uid, action, details):
+        cur.execute("INSERT INTO logs (uid, action, details, timestamp) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", (uid, action, details))
+
     if cursor:
-        cursor.execute("INSERT INTO logs (uid, action, details, timestamp) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", (uid, action, details))
+        return _execute_logic(cursor, uid, action, details)
     else:
         with db_session() as conn:
             with conn.cursor() as cur:
-                cur.execute("INSERT INTO logs (uid, action, details, timestamp) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", (uid, action, details))
+                return _execute_logic(cur, uid, action, details)
 
 def save_raid_grave(depth, loot_json, owner_name, message=""):
     with db_session() as conn:
