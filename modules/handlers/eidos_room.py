@@ -74,9 +74,13 @@ def eidos_purchase_handler(call):
             if res and res[0]:
                 bot.answer_callback_query(call.id, "Загружаю данные из кэша...", show_alert=False)
                 # Split and send if too long
-                text = f"👁‍🗨 **ТВОЙ ТЕНЕВОЙ ПРОФИЛЬ**\n\n{res[0]}"
+                text = f"👁‍🗨 <b>ТВОЙ ТЕНЕВОЙ ПРОФИЛЬ</b>\n\n{res[0]}"
                 for i in range(0, len(text), 4000):
-                    bot.send_message(uid, text[i:i+4000], parse_mode="Markdown")
+                    try:
+                        bot.send_message(uid, text[i:i+4000], parse_mode="HTML")
+                    except Exception as e:
+                        print(f"/// EIDOS ROOM MARKDOWN ERROR: {e}")
+                        bot.send_message(uid, text[i:i+4000])
                 return
 
         if is_admin:

@@ -5,7 +5,7 @@ import requests
 import database as db
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3-flash-preview")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it")
 
 PROMPTS = {
     'dossier': (
@@ -25,6 +25,50 @@ PROMPTS = {
         "кризисы его ждут? Говори прямо и холодно. Выдай прогноз в виде 3 маркированных пунктов. Форматируй ответ СТРОГО используя HTML теги <b>, <i>, <code>."
     )
 }
+
+import re
+
+def sanitize_for_telegram(text: str) -> str:
+    """
+    Удаляет неподдерживаемые теги (например, списки, абзацы)
+    и конвертирует базовый маркдаун в HTML.
+    """
+    if not text:
+        return ""
+
+    # Заменяем markdown жирный шрифт на HTML
+    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+    # Заменяем markdown курсив на HTML
+    text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
+
+    # Заменяем <br> и <p> на переносы строк
+    text = re.sub(r'</?(br|p|div)>', '\n', text, flags=re.IGNORECASE)
+
+    # Убираем списки, заменяя <li> на маркер
+    text = re.sub(r'<li>(.*?)</li>', r'• \1\n', text, flags=re.IGNORECASE|re.DOTALL)
+    text = re.sub(r'</?(ul|ol|li)>', '', text, flags=re.IGNORECASE)
+
+    # Удаляем все теги, кроме разрешенных Telegram (b, strong, i, em, u, ins, s, strike, del, a, code, pre)
+    # Удаляем любые теги, которых нет в белом списке:
+    allowed_tags = ['b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del', 'a', 'code', 'pre']
+    tag_pattern = r'</?([a-zA-Z0-9]+)[^>]*>'
+
+    def replacer(match):
+        tag_name = match.group(1).lower()
+        if tag_name in allowed_tags:
+            return match.group(0)
+        return ''
+
+    text = re.sub(tag_pattern, replacer, text)
+
+    # Защита от незакрытых тегов (базовая)
+    for tag in ['b', 'i', 'code', 'u', 's', 'strong', 'em']:
+        open_count = text.lower().count(f'<{tag}>')
+        close_count = text.lower().count(f'</{tag}>')
+        if open_count > close_count:
+            text += f'</{tag}>' * (open_count - close_count)
+
+    return text.strip()
 
 def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
     """
@@ -91,6 +135,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
                 pass
 
     if result_text:
+        result_text = sanitize_for_telegram(result_text)
         # Cache dossier if it's a base dossier
         if analysis_type == 'dossier':
             try:
