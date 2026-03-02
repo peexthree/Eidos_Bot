@@ -32,7 +32,14 @@ def check_quarantine(user):
             return is_q
 
     print("/// DB CALL START (check_quarantine)")
-    u = db.get_user(uid)
+    try:
+        # statement_timeout is set to 2s in DB connection pool
+        u = db.get_user(uid)
+    except Exception as e:
+        print("/// TIMEOUT/ERROR: check_quarantine DB CALL FAILED")
+        import traceback; traceback.print_exc()
+        QUARANTINE_CACHE[uid] = (False, time.time() + 5) # Short cache on error
+        return False
     print("/// DB CALL END (check_quarantine)")
     if not u:
         QUARANTINE_CACHE[uid] = (False, time.time() + 60)
@@ -133,7 +140,19 @@ def stats_message_middleware(bot_instance, message):
                 from telebot.handler_backends import CancelUpdate
                 raise CancelUpdate()
         print("/// DB CALL START (stats middleware)")
-        # db.increment_user_stat(uid, 'messages')  # TEMP DISABLED TO FIX DEADLOCK
+        import threading
+
+        def inc_stat():
+            db.increment_user_stat(uid, 'messages')
+
+        t = threading.Thread(target=inc_stat)
+        t.start()
+        t.join(timeout=2.0)
+
+        if t.is_alive():
+            print("/// TIMEOUT: stats middleware DB CALL EXCEEDED 2 SECONDS")
+            import traceback; traceback.print_exc()
+
         print("/// DB CALL END (stats middleware)")
     except Exception as e:
         if e.__class__.__name__ == 'CancelUpdate':
@@ -151,7 +170,12 @@ def stats_callback_middleware(bot_instance, call):
                 bot.answer_callback_query(call.id, "👁‍🗨 Иллюзия выбора отключена.", show_alert=True)
                 from telebot.handler_backends import CancelUpdate
                 raise CancelUpdate()
-        # db.increment_user_stat(uid, 'clicks')  # TEMP DISABLED TO FIX DEADLOCK
+        try:
+            db.increment_user_stat(uid, 'clicks')
+        except Exception as e:
+            print("/// TIMEOUT/ERROR: stats callback middleware DB CALL FAILED")
+            import traceback; traceback.print_exc()
+
     except Exception as e:
         if e.__class__.__name__ == 'CancelUpdate':
             raise e

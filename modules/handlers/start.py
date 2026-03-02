@@ -90,6 +90,7 @@ def start_handler(m):
             print("/// DB CALL START (get_user second in start)")
             u = db.get_user(uid)
             print("/// DB CALL END (get_user second in start)")
+            msg_obj = bot.send_message(uid, "Инициализация интерфейса...", reply_markup=kb.get_main_reply_keyboard(u))
             bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
     except Exception as e:
         print(f"/// ERROR IN START HANDLER: {e}")
