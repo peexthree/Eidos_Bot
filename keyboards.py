@@ -51,6 +51,9 @@ def main_menu(u):
     if u['level'] > config.QUARANTINE_LEVEL:
         m.add(types.InlineKeyboardButton("🌐 СЕТЕВАЯ ВОЙНА", callback_data="pvp_menu"))
     
+    if u['level'] >= 10:
+        m.add(types.InlineKeyboardButton("👁‍🗨 Врата Эйдоса", callback_data="eidos_room_menu"))
+
     # 3. Персонаж
     current_lvl = u['level']
     next_lvl_xp = LEVELS.get(current_lvl + 1, 999999)

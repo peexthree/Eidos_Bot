@@ -315,10 +315,10 @@ def process_combat_action(uid, action):
 
                 if new_sig <= 0:
                     report = generate_raid_report(uid, full_s)
-                    db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
+                    cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
 
                     extra_death = {}
-                    broadcast = handle_death_log(uid, full_s['depth'], u['level'], u['username'], full_s['buffer_coins'])
+                    broadcast = handle_death_log(uid, full_s['depth'], u['level'], u['username'], full_s['buffer_coins'], cursor=cur)
                     if broadcast: extra_death['broadcast'] = broadcast
 
                     return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}", extra_death
@@ -422,10 +422,10 @@ def process_combat_action(uid, action):
 
                  if new_sig <= 0:
                     report = generate_raid_report(uid, full_s)
-                    db.admin_exec_query("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
+                    cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
 
                     extra_death = {}
-                    broadcast = handle_death_log(uid, full_s['depth'], u['level'], u['username'], full_s['buffer_coins'])
+                    broadcast = handle_death_log(uid, full_s['depth'], u['level'], u['username'], full_s['buffer_coins'], cursor=cur)
                     if broadcast: extra_death['broadcast'] = broadcast
 
                     return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}", extra_death

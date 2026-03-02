@@ -16,13 +16,14 @@ sys.modules['psycopg2'] = mock_psycopg2
 mock_extras = MagicMock()
 sys.modules['psycopg2.extras'] = mock_extras
 
+# Import database AFTER mocking psycopg2
 import database as db
 
 class TestDBRefactor(unittest.TestCase):
     def test_get_item_count_reuses_cursor(self):
         # Create a mock cursor
         mock_cursor = MagicMock()
-        # Simulate RealDictCursor result (dict)
+        # Simulate RealDictCursor result (dict) as database.py uses `val = res.get('total')` for dicts
         mock_cursor.fetchone.return_value = {'total': 10}
 
         # Call get_item_count with the mock cursor
@@ -30,7 +31,7 @@ class TestDBRefactor(unittest.TestCase):
         item_id = 'test_item'
         result = db.get_item_count(uid, item_id, cursor=mock_cursor)
 
-        # Verify result
+        # Verify result is 10
         self.assertEqual(result, 10)
 
         # Verify execute was called on the PASSED cursor
@@ -39,15 +40,14 @@ class TestDBRefactor(unittest.TestCase):
         self.assertIn("SELECT SUM(quantity) as total FROM inventory", args[0])
         self.assertEqual(args[1], (uid, item_id))
 
-        # Verify db_cursor is NOT called
         with patch('database.db_cursor') as mock_db_cursor:
             db.get_item_count(uid, item_id, cursor=mock_cursor)
             mock_db_cursor.assert_not_called()
 
     def test_get_item_count_creates_cursor_if_none(self):
-        # Mock db_cursor context manager
+        # Mock db_cursor context manager to return a tuple cursor (e.g. from pool)
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = (5,) # Tuple cursor default
+        mock_cursor.fetchone.return_value = (5,) # Tuple cursor default, val = res[0]
 
         mock_ctx = MagicMock()
         mock_ctx.__enter__.return_value = mock_cursor
@@ -60,12 +60,14 @@ class TestDBRefactor(unittest.TestCase):
 
     def test_get_villain_by_id_reuses_cursor(self):
         mock_cursor = MagicMock()
-        expected_villain = {'name': 'Test Villain'}
+        expected_villain = {'name': 'Test Villain', 'hp': 100}
         mock_cursor.fetchone.return_value = expected_villain
 
         result = db.get_villain_by_id(1, cursor=mock_cursor)
         self.assertEqual(result, expected_villain)
         mock_cursor.execute.assert_called_once()
+        args, _ = mock_cursor.execute.call_args
+        self.assertIn("SELECT * FROM villains", args[0])
 
         with patch('database.db_cursor') as mock_db_cursor:
             db.get_villain_by_id(1, cursor=mock_cursor)
@@ -79,6 +81,8 @@ class TestDBRefactor(unittest.TestCase):
         result = db.get_inventory(123, cursor=mock_cursor)
         self.assertEqual(result, expected_inv)
         mock_cursor.execute.assert_called_once()
+        args, _ = mock_cursor.execute.call_args
+        self.assertIn("SELECT id, uid, item_id, quantity, durability", args[0])
 
         with patch('database.db_cursor') as mock_db_cursor:
             db.get_inventory(123, cursor=mock_cursor)

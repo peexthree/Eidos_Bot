@@ -997,7 +997,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                  if allow_grave and (s['buffer_coins'] > 0 or s.get('buffer_items')):
                      db.save_raid_grave(depth, json.dumps(grave_loot), u['username'] or "Unknown")
 
-                 db.log_action(uid, 'death', f"Depth: {depth}, Reason: {death_reason}")
+                 db.log_action(uid, 'death', f"Depth: {depth}, Reason: {death_reason}", cursor=cur)
                  conn.commit()
 
                  extra_death = {}
@@ -1006,7 +1006,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                      extra_death['image'] = RAID_EVENT_IMAGES['death']
 
                  # Broadcast Check
-                 broadcast = handle_death_log(uid, depth, u['level'], u['username'], s['buffer_coins'])
+                 broadcast = handle_death_log(uid, depth, u['level'], u['username'], s['buffer_coins'], cursor=cur)
                  if broadcast: extra_death['broadcast'] = broadcast
 
                  cur.execute("UPDATE players SET raids_done = raids_done + 1 WHERE uid = %s", (uid,))
