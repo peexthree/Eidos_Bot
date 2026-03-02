@@ -133,12 +133,12 @@ def stats_message_middleware(bot_instance, message):
                 from telebot.handler_backends import CancelUpdate
                 raise CancelUpdate()
         print("/// DB CALL START (stats middleware)")
-        db.increment_user_stat(uid, 'messages')
+        # db.increment_user_stat(uid, 'messages')  # TEMP DISABLED TO FIX DEADLOCK
         print("/// DB CALL END (stats middleware)")
     except Exception as e:
         if e.__class__.__name__ == 'CancelUpdate':
             raise e
-        pass
+        import traceback; traceback.print_exc()
 
 @bot.middleware_handler(update_types=['callback_query'])
 def stats_callback_middleware(bot_instance, call):
@@ -151,11 +151,19 @@ def stats_callback_middleware(bot_instance, call):
                 bot.answer_callback_query(call.id, "👁‍🗨 Иллюзия выбора отключена.", show_alert=True)
                 from telebot.handler_backends import CancelUpdate
                 raise CancelUpdate()
-        db.increment_user_stat(uid, 'clicks')
+        # db.increment_user_stat(uid, 'clicks')  # TEMP DISABLED TO FIX DEADLOCK
     except Exception as e:
         if e.__class__.__name__ == 'CancelUpdate':
             raise e
-        pass
+        import traceback; traceback.print_exc()
+
+
+def process_update_safe(update):
+    try:
+        bot.process_new_updates([update])
+    except Exception as e:
+        print(f"/// UNHANDLED EXCEPTION IN UPDATE THREAD: {e}")
+        import traceback; traceback.print_exc()
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -190,7 +198,7 @@ def webhook():
             # 3. Process Update
             print("/// WEBHOOK: STARTING THREAD TO PROCESS UPDATE")
             print("/// WEBHOOK: --- THREAD CREATION TRIGGERED ---")
-            threading.Thread(target=bot.process_new_updates, args=([update],)).start()
+            threading.Thread(target=process_update_safe, args=(update,)).start()
             print("/// WEBHOOK: --- THREAD CREATION SUCCESS ---")
             print("/// WEBHOOK: THREAD STARTED")
             return 'ALIVE', 200
