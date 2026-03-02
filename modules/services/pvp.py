@@ -285,7 +285,7 @@ def find_target(attacker_uid):
     Finds a random target for PVP (v2.0 Logic).
     """
     for _ in range(15):
-        target_uid = db.get_random_user_for_hack(attacker_uid)
+        target_uid = int(db.get_random_user_for_hack(attacker_uid))
         if not target_uid: continue
 
         target = db.get_user(target_uid)

@@ -24,7 +24,7 @@ def check_for_glitch_state(uid, bot, chat_id):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('glitch_ans_'))
 def handle_glitch_answer(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     state_tuple = db.get_full_state(uid)
 
     if not state_tuple or state_tuple[0] != 'glitch_question':

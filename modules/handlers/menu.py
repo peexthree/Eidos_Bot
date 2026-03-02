@@ -14,7 +14,7 @@ from telebot import types
 
 @bot.callback_query_handler(func=lambda call: call.data == "profile" or call.data.startswith("set_path_") or call.data.startswith("confirm_path_") or call.data == "change_path_menu" or call.data == "use_accelerator" or call.data == "activate_purification")
 def profile_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u: return
 
@@ -137,7 +137,7 @@ def profile_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("achievements_list"))
 def achievements_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     if call.data == "achievements_list":
          # Redirect to page 0
          call.data = "achievements_list_0"
@@ -233,7 +233,7 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
 
 @bot.callback_query_handler(func=lambda call: call.data == "leaderboard" or call.data.startswith("lb_") or call.data == "referral")
 def social_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
 
     if call.data == "leaderboard" or call.data.startswith("lb_"):
@@ -262,7 +262,7 @@ def social_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "guide" or call.data.startswith("guide_page_"))
 def guide_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     markup = None
 
@@ -284,7 +284,7 @@ def guide_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("diary_"))
 def diary_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
 
     if call.data == "diary_menu":
         menu_update(call, "📓 <b>ЛИЧНЫЙ ДНЕВНИК</b>\nЗдесь ты можешь записывать свои мысли.", kb.diary_menu(), image_url=config.MENU_IMAGES["diary_menu"])
@@ -324,7 +324,7 @@ def diary_handler(call):
 
 @bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == 'waiting_for_diary_entry', content_types=['text'])
 def diary_text_handler(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     db.add_diary_entry(uid, m.text)
     db.delete_state(uid); cache_db.clear_cache(uid)
     bot.send_message(uid, "✅ <b>ЗАПИСЬ СОХРАНЕНА.</b>", parse_mode="HTML")
@@ -332,7 +332,7 @@ def diary_text_handler(m):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("archive_list"))
 def archive_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
 
     if call.data == "archive_list":
@@ -364,7 +364,7 @@ def archive_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "start_quiz" or call.data.startswith("quiz_ans_"))
 def quiz_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
 
     # Questions with IDs
@@ -420,7 +420,7 @@ def quiz_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "send_like")
 def like_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     target = db.get_random_user_for_hack(uid) # Re-use this function to get random ID
 
     if target:
@@ -433,7 +433,7 @@ def like_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "back")
 def back_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
 
     # --- PHASE 1 RESTORATION ---
@@ -458,7 +458,7 @@ def back_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "feedback_menu")
 def feedback_init_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     db.set_state(uid, "waiting_for_feedback"); cache_db.clear_cache(uid)
     msg = (
         "✉️ <b>ОБРАТНАЯ СВЯЗЬ</b>\n\n"
@@ -470,7 +470,7 @@ def feedback_init_handler(call):
 
 @bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == 'waiting_for_feedback', content_types=['text'])
 def feedback_process_handler(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     text = m.text
     u = db.get_user(uid)
     username = u.get('username', 'NoUsername')

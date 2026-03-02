@@ -91,8 +91,8 @@ def get_legendary_drops():
     return random.choice(LEGENDARY_DROPS)
 
 def process_riddle_answer(uid, user_answer):
-    with db.db_session() as conn:
-        with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+    if True: # Refactored session block
+        with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
             cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
             s = cur.fetchone()
             if not s or not s.get('current_riddle_answer'):
@@ -134,8 +134,8 @@ def process_riddle_answer(uid, user_answer):
                 return False, msg
 
 def process_anomaly_bet(uid, bet_type):
-    with db.db_session() as conn:
-        with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+    if True: # Refactored session block
+        with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
             cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
             s = cur.fetchone()
             if not s: return False, "Нет активной сессии.", None
@@ -191,8 +191,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
     msg_prefix = ""
 
     # ИСПОЛЬЗУЕМ ОДНО СОЕДИНЕНИЕ (чтобы избежать зависания бота)
-    with db.db_session() as conn:
-        with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+    # Refactored: Session moved into smaller blocks
+    with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
             # 1. ПОЛУЧАЕМ СЕССИЮ
             cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
             s = cur.fetchone()
@@ -331,7 +331,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 cur.execute("INSERT INTO raid_sessions (uid, depth, signal, start_time, kills, riddles_solved, next_event_type, event_streak, buffer_items, buffer_xp, buffer_coins) VALUES (%s, %s, 100, %s, 0, 0, %s, 1, '', 0, 0)",
                            (uid, depth, int(time.time()), first_next))
 
-                conn.commit() # ВАЖНО: Сохраняем вход
+                # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+ # ВАЖНО: Сохраняем вход
 
                 cur.execute("SELECT * FROM raid_sessions WHERE uid = %s", (uid,))
                 s = cur.fetchone()
@@ -419,7 +420,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     return True, header + format_combat_screen(villain, v_hp, s['signal'], stats, s, win_chance=win_chance), extra_data, u, 'combat', 0
                 else:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
-                    conn.commit()
+                    # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
 
             # 2. ДЕЙСТВИЕ: ОТКРЫТИЕ СУНДУКА (ИСПРАВЛЕНО)
             if answer == 'open_chest' or answer == 'hack_chest':
@@ -461,7 +463,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                         if random.random() > 0.8: success = False
 
                 if not success:
-                    conn.commit()
+                    # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
                     ret_type = 'cursed_chest' if is_cursed else 'locked_chest'
                     extra_d = {'has_data_spike': (db.get_item_count(uid, 'data_spike', cursor=cur) > 0)}
                     return False, "❌ <b>ВЗЛОМ ПРОВАЛЕН</b>\nДата-шип сломался.", extra_d, u, ret_type, 0
@@ -502,7 +505,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                          loot_item_txt = f"\n📦 Предмет: {ITEMS_INFO.get(l_item, {}).get('name')}"
 
                 cur.execute("UPDATE raid_sessions SET buffer_xp=buffer_xp+%s, buffer_coins=buffer_coins+%s WHERE uid=%s", (bonus_xp, bonus_coins, uid))
-                conn.commit()
+                # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
 
                 alert_txt = f"🔓 УСПЕХ!\nXP: +{bonus_xp}\nCoins: +{bonus_coins}{loot_item_txt}"
 
@@ -530,7 +534,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                          if items_str:
                              cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (items_str, uid))
 
-                         conn.commit()
+                         # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
                          return True, f"💰 <b>МАРОДЕРСТВО:</b> Вы забрали {coins} BC и снаряжение.", {'alert': f"💰 +{coins} BC"}, u, 'loot_claimed', 0
                  return False, "❌ Останки уже разграблены или исчезли.", None, u, 'neutral', 0
 
@@ -540,7 +545,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                       if db.use_item(uid, 'battery', cursor=cur):
                            new_signal = min(100, s['signal'] + 30)
                            cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_signal, uid))
-                           conn.commit()
+                           # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
                            s['signal'] = new_signal
                            alert_txt = f"🔋 ЭНЕРГИЯ ВОССТАНОВЛЕНА\nСигнал: {new_signal}%"
                            return True, "ЗАРЯД ИСПОЛЬЗОВАН", {'alert': alert_txt}, u, 'battery_used', 0
@@ -551,7 +557,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                       if db.use_item(uid, 'neural_stimulator', cursor=cur):
                            new_signal = min(100, s['signal'] + 60)
                            cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_signal, uid))
-                           conn.commit()
+                           # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
                            s['signal'] = new_signal
                            alert_txt = f"💉 СТИМУЛЯТОР ВВЕДЕН\nСигнал: {new_signal}%"
                            return True, "СТИМУЛЯТОР ИСПОЛЬЗОВАН", {'alert': alert_txt}, u, 'battery_used', 0
@@ -623,7 +630,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                     next_preview = generate_random_event_type()
                     cur.execute("UPDATE raid_sessions SET next_event_type=%s WHERE uid=%s", (next_preview, uid))
-                    conn.commit()
+                    # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
 
                     # TACTICAL SCANNER LOGIC
                     win_chance = None
@@ -669,7 +677,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     return True, header + format_combat_screen(villain, villain['hp'], s['signal'], stats, s, win_chance=win_chance), extra_data, u, 'combat', 0
                 else:
                     cur.execute("UPDATE raid_sessions SET current_enemy_id=NULL WHERE uid=%s", (uid,))
-                    conn.commit()
+                    # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
                     event = {'type': 'neutral', 'text': 'Враг скрылся в тенях.', 'val': 0}
 
             # СУНДУК
@@ -865,7 +874,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
             if new_depth > u.get('max_depth', 0):
                 cur.execute("UPDATE players SET max_depth=%s WHERE uid=%s", (new_depth, uid))
 
-            conn.commit() # ФИКСИРУЕМ ШАГ
+            # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+ # ФИКСИРУЕМ ШАГ
 
             if riddle_data:
                 if alert_msg: riddle_data['alert'] = alert_msg # Override if needed, but riddle_data is separate
@@ -922,7 +932,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                  prefix = "🧿 <b>ОКО (Дальше):</b>" if is_architect else "🧭 <b>КОМПАС (Дальше):</b>"
                  comp_txt = f"{prefix} {comp_res}"
-                 conn.commit()
+                 # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
 
             # ЛОР / СОВЕТЫ
             advice_text = ""
@@ -985,7 +996,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                      db.save_raid_grave(depth, json.dumps(grave_loot), u['username'] or "Unknown")
 
                  db.log_action(uid, 'death', f"Depth: {depth}, Reason: {death_reason}", cursor=cur)
-                 conn.commit()
+                 # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
+
 
                  extra_death = {}
                  if death_reason: extra_death['death_reason'] = death_reason

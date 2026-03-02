@@ -16,7 +16,7 @@ from telebot import types
 
 # Helper for Shadow Broker (Middleware-ish)
 def check_sb(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     check_daily_streak(uid)
     sb_triggered, sb_expiry = check_shadow_broker_trigger(uid)
     if sb_triggered:
@@ -25,7 +25,7 @@ def check_sb(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "get_protocol" or call.data == "get_signal")
 def protocol_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     check_sb(call)
 
@@ -208,7 +208,7 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("raid_") or call.data == "zero_layer_menu" or call.data.startswith("r_check_") or call.data == "use_admin_key")
 def raid_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     u = db.get_user(uid)
     check_sb(call)
 
@@ -330,7 +330,7 @@ def raid_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("combat_"))
 def combat_handler(call):
-     uid = call.from_user.id
+     uid = int(call.from_user.id)
      check_sb(call)
      action = call.data.replace("combat_", "")
 
@@ -386,7 +386,7 @@ def combat_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("anomaly_bet_"))
 def anomaly_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     check_sb(call)
     bet_type = call.data.replace("anomaly_bet_", "")
     res, msg, extra = process_anomaly_bet(uid, bet_type)
@@ -406,7 +406,7 @@ def anomaly_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("decrypt_"))
 def decrypt_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     check_sb(call)
 
     if call.data == "decrypt_menu":

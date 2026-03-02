@@ -40,7 +40,7 @@ def check_quarantine(uid):
 
 @bot.message_handler(commands=['hack_random'])
 def hack_command(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     try:
         db.update_shadow_metric(uid, 'hack_random_uses', 1)
         msg = perform_hack(uid)
@@ -50,7 +50,7 @@ def hack_command(m):
 
 @bot.message_handler(commands=['start'])
 def start_handler(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     print(f"/// DEBUG: Entering start_handler for user {uid}")
     try:
         # --- QUARANTINE CHECK ---
@@ -129,7 +129,7 @@ def start_handler(m):
 # ==========================================
 @bot.message_handler(content_types=['photo'])
 def grab_file_id(message):
-    uid = message.from_user.id
+    uid = int(message.from_user.id)
     if not db.is_user_admin(uid):
         return
 

@@ -46,7 +46,7 @@ def eidos_room_text_handler(message):
 
 @bot.callback_query_handler(func=lambda call: call.data in ["eidos_tos_accept", "eidos_tos_reject"])
 def eidos_tos_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     if call.data == "eidos_tos_reject":
         bot.answer_callback_query(call.id, "👁‍🗨 Твой страх понятен. Возвращайся в иллюзию.", show_alert=True)
         # Go back to main
@@ -61,7 +61,7 @@ def eidos_tos_handler(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("eidos_buy_"))
 def eidos_purchase_handler(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     action = call.data.replace("eidos_buy_", "")
     u = cache_db.get_cached_user(uid)
     is_admin = cache_db.get_cached_admin_status(uid)
@@ -145,7 +145,7 @@ def checkout(pre_checkout_query):
 
 @bot.message_handler(content_types=['successful_payment'])
 def got_payment(message):
-    uid = message.from_user.id
+    uid = int(message.from_user.id)
     payload = message.successful_payment.invoice_payload
 
     bot.send_message(uid, "👁‍🗨 Транзакция подтверждена. Финансовый канал закрыт. Я начинаю погружение в твой цифровой след...")
@@ -164,7 +164,7 @@ def got_payment(message):
 
 @bot.message_handler(func=lambda message: cache_db.get_cached_user_state(message.from_user.id) == 'awaiting_demiurge_question')
 def handle_demiurge_question(message):
-    uid = message.from_user.id
+    uid = int(message.from_user.id)
     text = message.text
 
     bot.send_message(uid, "👁‍🗨 Запрос передан. Ожидай ответа в этой реальности.")

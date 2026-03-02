@@ -104,36 +104,43 @@ import modules.handlers.pvp
 import modules.handlers.glitch_handler
 import modules.handlers.eidos_room
 
+
+import queue
+STATS_QUEUE = queue.Queue()
+
+def stats_worker():
+    print("/// STATS WORKER STARTED")
+    while True:
+        try:
+            task = STATS_QUEUE.get()
+            if task is None: break
+            uid, stat_type = task
+            import database as db
+            db.increment_user_stat(uid, stat_type)
+        except Exception as e:
+            print(f"/// STATS WORKER ERR: {e}")
+        finally:
+            STATS_QUEUE.task_done()
+
+threading.Thread(target=stats_worker, daemon=True).start()
+
 # --- MIDDLEWARE FOR STATS TRACKING & GLITCHES ---
 @bot.middleware_handler(update_types=['message'])
 def stats_message_middleware(bot_instance, message):
-    # RUN IN THREAD TO PREVENT BLOCKING
-    def run_middleware():
-        try:
-            uid = message.from_user.id
-            # db.increment_user_stat(uid, 'messages')
-            import database as db
-            db.increment_user_stat(uid, 'messages')
-        except: pass
-
-    import threading
-    threading.Thread(target=run_middleware, daemon=True).start()
+    try:
+        uid = int(message.from_user.id)
+        STATS_QUEUE.put((uid, 'messages'))
+    except: pass
 @bot.middleware_handler(update_types=['callback_query'])
 def stats_callback_middleware(bot_instance, call):
-    # RUN IN THREAD TO PREVENT BLOCKING
-    def run_middleware():
-        try:
-            uid = call.from_user.id
-            import database as db
-            db.increment_user_stat(uid, 'clicks')
-        except: pass
-
-    import threading
-    threading.Thread(target=run_middleware, daemon=True).start()
+    try:
+        uid = int(call.from_user.id)
+        STATS_QUEUE.put((uid, 'clicks'))
+    except: pass
 def process_update_safe(update):
     try:
         uid = getattr(update.message or update.callback_query, "from_user", None)
-        uid = uid.id if uid else "Unknown"
+        uid = int(uid.id) if uid else 0
         print(f"/// DEBUG: Starting process_new_updates for update {update.update_id} (User: {uid})")
         bot.process_new_updates([update])
         print(f"/// DEBUG: Finished process_new_updates for update {update.update_id}")
@@ -150,9 +157,9 @@ def webhook():
     print("/// WEBHOOK ENDPOINT HIT")
     if flask.request.method == 'POST':
         try:
-            wait_res = DB_READY.wait(timeout=10)
+            wait_res = DB_READY.wait(timeout=60)
             if not wait_res:
-                print("/// WEBHOOK WARNING: DB_READY wait timed out (10s)")
+                print("/// WEBHOOK WARNING: DB_READY wait timed out (60s)")
             else:
                 print("/// WEBHOOK: DB_READY signal received")
 
@@ -282,12 +289,12 @@ import modules.handlers.eidos_room
 # --- FALLBACK HANDLERS ---
 @bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker'])
 def fallback_message(m):
-    uid = m.from_user.id
+    uid = int(m.from_user.id)
     text = m.text or "Media/Non-text"
     print(f"/// FALLBACK: Unhandled message from {uid}: {text}")
     # Don't send anything to user in production to avoid spam, just log it.
 
 @bot.callback_query_handler(func=lambda call: True)
 def fallback_callback(call):
-    uid = call.from_user.id
+    uid = int(call.from_user.id)
     print(f"/// FALLBACK: Unhandled callback from {uid}: {call.data}")
