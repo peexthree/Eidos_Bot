@@ -8,6 +8,32 @@ from modules.services.utils import get_menu_text, get_menu_image
 from modules.services.user import check_daily_streak
 import html
 
+
+def check_quarantine(uid):
+    import database as db
+    import time
+    u = db.get_user(uid)
+    if not u: return False, 0
+
+    if u.get('is_quarantined'):
+        end_time = u.get('quarantine_end_time', 0)
+        if time.time() < float(end_time or 0):
+            return True, int((float(end_time) - time.time()) / 3600)
+        else:
+            db.update_user(uid, is_quarantined=False)
+            return False, 0
+
+    level = int(u.get('level', 1))
+    stage = int(u.get('onboarding_stage', 0))
+    if level < 2 and stage > 0:
+        start_time = float(u.get('onboarding_start_time', 0))
+        if start_time > 0 and (time.time() - start_time) > 86400:
+            db.quarantine_user(uid)
+            return True, 24
+
+    return False, 0
+
+
 @bot.message_handler(commands=['hack_random'])
 def hack_command(m):
     uid = m.from_user.id
@@ -24,6 +50,18 @@ import traceback
 def start_handler(m):
     try:
         uid = m.from_user.id
+        # --- QUARANTINE CHECK ---
+        is_q, rem_hours = check_quarantine(uid)
+        if is_q:
+            msg = (
+                "⛔️ <b>ДОСТУП ЗАБЛОКИРОВАН</b>\n\n"
+                "Ты упустил окно возможностей. Система распознала в тебе спящий NPC.\n"
+                "Возвращайся в свой сон.\n\n"
+                f"⏳ Повторная попытка Сборки будет доступна через <b>{rem_hours} часов</b>."
+            )
+            bot.send_message(uid, msg, parse_mode="HTML")
+            return
+
         ref = m.text.split()[1] if len(m.text.split()) > 1 else None
 
         print(f"/// START_HANDLER: check user {uid} existence")
