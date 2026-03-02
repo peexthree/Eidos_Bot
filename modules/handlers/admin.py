@@ -1,3 +1,4 @@
+import cache_db
 from modules.bot_instance import bot
 import database as db
 import config
@@ -125,7 +126,7 @@ def admin_give_item(call):
      uid = call.from_user.id
      if not db.is_user_admin(uid): return
      item = call.data.replace("adm_give_", "")
-     db.set_state(uid, f"wait_give_item_id|{item}")
+     db.set_state(uid, f"wait_give_item_id|{item}"); cache_db.clear_cache(uid)
      menu_update(call, f"🆔 <b>GIVING {item.upper()}\nENTER USER ID:</b>", kb.back_button())
 
 # We need a separate handler for admin text input
@@ -136,8 +137,8 @@ def admin_give_item(call):
 
 def is_admin_state(message):
     uid = message.from_user.id
-    state = db.get_state(uid)
-    return state and (state.startswith("wait_") or state.startswith("admin_")) and db.is_user_admin(uid)
+    state = cache_db.get_cached_user_state(uid)
+    return state and (state.startswith("wait_") or state.startswith("admin_")) and cache_db.get_cached_admin_status(uid)
 
 @bot.message_handler(func=is_admin_state, content_types=['text'])
 def admin_text_handler(m):
@@ -150,7 +151,7 @@ def admin_text_handler(m):
             db.set_user_admin(tid, True)
             bot.send_message(uid, f"✅ ADMIN GRANTED TO {tid}")
         except: bot.send_message(uid, "❌ INVALID ID")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_revoke_admin":
         try:
@@ -161,7 +162,7 @@ def admin_text_handler(m):
                  db.set_user_admin(tid, False)
                  bot.send_message(uid, f"✅ ADMIN REVOKED FROM {tid}")
         except: bot.send_message(uid, "❌ INVALID ID")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_reset_user_id":
         try:
@@ -175,7 +176,7 @@ def admin_text_handler(m):
             else:
                 bot.send_message(uid, "❌ USER NOT FOUND")
         except: bot.send_message(uid, "❌ INVALID ID / ERROR")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_delete_user_id":
         try:
@@ -189,16 +190,16 @@ def admin_text_handler(m):
             else:
                 bot.send_message(uid, "❌ USER NOT FOUND")
         except: bot.send_message(uid, "❌ INVALID ID / ERROR")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_give_res_id":
         try:
             tid = int(m.text)
-            db.set_state(uid, f"wait_give_res_val|{tid}")
+            db.set_state(uid, f"wait_give_res_val|{tid}"); cache_db.clear_cache(uid)
             bot.send_message(uid, "💰 <b>ENTER AMOUNT:</b>\nExamples: '1000' (Coins), '500 xp' (XP)")
         except:
             bot.send_message(uid, "❌ INVALID ID")
-            db.delete_state(uid)
+            db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state.startswith("wait_give_res_val|"):
         tid = int(state.split("|")[1])
@@ -220,7 +221,7 @@ def admin_text_handler(m):
                     except: pass
                 else: bot.send_message(uid, "❌ USER NOT FOUND")
         except: bot.send_message(uid, "❌ ERROR")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state.startswith("wait_give_item_id|"):
         item = state.split("|")[1]
@@ -234,16 +235,16 @@ def admin_text_handler(m):
             else:
                 bot.send_message(uid, "❌ INVENTORY FULL OR ERROR")
         except: bot.send_message(uid, "❌ INVALID ID")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_dm_user_id":
         try:
             tid = int(m.text)
-            db.set_state(uid, f"wait_dm_text|{tid}")
+            db.set_state(uid, f"wait_dm_text|{tid}"); cache_db.clear_cache(uid)
             bot.send_message(uid, "✉️ <b>ENTER MESSAGE TEXT (HTML Supported):</b>")
         except:
             bot.send_message(uid, "❌ INVALID ID")
-            db.delete_state(uid)
+            db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state.startswith("wait_dm_text|"):
         tid = int(state.split("|")[1])
@@ -252,7 +253,7 @@ def admin_text_handler(m):
             bot.send_message(uid, f"✅ SENT TO {tid}")
         except Exception as e:
             bot.send_message(uid, f"❌ ERROR: {e}")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_broadcast_text":
         count = 0
@@ -268,7 +269,7 @@ def admin_text_handler(m):
                     except: pass
             bot.send_message(uid, f"✅ SENT TO {count} USERS")
         except Exception as e: bot.send_message(uid, f"❌ ERROR: {e}")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_channel_post":
         try:
@@ -276,25 +277,25 @@ def admin_text_handler(m):
             bot.send_message(uid, f"✅ POSTED TO {config.CHANNEL_ID}")
         except Exception as e:
             bot.send_message(uid, f"❌ ERROR: {e}\nCheck if bot is admin in channel.")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_add_riddle":
         if db.admin_add_riddle_to_db(m.text):
             bot.send_message(uid, "✅ RIDDLE ADDED")
         else: bot.send_message(uid, "❌ ERROR")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_add_protocol":
         if db.admin_add_signal_to_db(m.text, c_type='protocol'):
              bot.send_message(uid, "✅ PROTOCOL ADDED")
         else: bot.send_message(uid, "❌ ERROR")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_add_signal":
         if db.admin_add_signal_to_db(m.text, c_type='signal'):
              bot.send_message(uid, "✅ SIGNAL ADDED")
         else: bot.send_message(uid, "❌ ERROR")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
     elif state == "wait_sql":
         res = db.admin_exec_query(m.text)
@@ -302,7 +303,7 @@ def admin_text_handler(m):
             bot.send_message(uid, f"<code>{str(res)[:4000]}</code>", parse_mode="HTML")
         except:
             bot.send_message(uid, "RESULT TOO LONG / ERROR")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
 
 
 # Команда для выгрузки базы

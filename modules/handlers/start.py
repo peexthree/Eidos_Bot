@@ -1,3 +1,4 @@
+import cache_db
 from modules.bot_instance import bot
 import database as db
 import config
@@ -12,7 +13,7 @@ import html
 def check_quarantine(uid):
     import database as db
     import time
-    u = db.get_user(uid)
+    u = cache_db.get_cached_user(uid)
     if not u: return False, 0
 
     if u.get('is_quarantined'):
@@ -48,6 +49,7 @@ import traceback
 
 @bot.message_handler(commands=['start'])
 def start_handler(m):
+    print(f"/// DEBUG: Entering start_handler for user {m.from_user.id}")
     try:
         uid = m.from_user.id
         # --- QUARANTINE CHECK ---
@@ -76,7 +78,7 @@ def start_handler(m):
 
             print(f"/// START_HANDLER: add user {uid}")
             print("/// DB CALL START (add_user in start)")
-            db.add_user(uid, username, first_name, ref)
+            db.add_user(uid, username, first_name, ref); cache_db.clear_cache(uid)
             print("/// DB CALL END (add_user in start)")
             print(f"/// START_HANDLER: add user {uid} complete")
 
@@ -104,7 +106,7 @@ def start_handler(m):
             # INIT ONBOARDING
             import time
             print("/// DB CALL START (update_user onboarding in start)")
-            db.update_user(uid, onboarding_stage=1, onboarding_start_time=int(time.time()))
+            db.update_user(uid, onboarding_stage=1, onboarding_start_time=int(time.time())); cache_db.clear_cache(uid)
             print("/// DB CALL END (update_user onboarding in start)")
 
             msg = (
@@ -121,7 +123,7 @@ def start_handler(m):
             )
             # Show main menu immediately so they can see Profile
             print("/// DB CALL START (get_user second in start)")
-            u = db.get_user(uid)
+            u = cache_db.get_cached_user(uid)
             print("/// DB CALL END (get_user second in start)")
             try:
                 bot.send_photo(uid, get_menu_image(u), caption=msg, reply_markup=kb.main_menu(u), parse_mode="HTML")
@@ -130,7 +132,7 @@ def start_handler(m):
         else:
             check_daily_streak(uid)
             print("/// DB CALL START (get_user second in start)")
-            u = db.get_user(uid)
+            u = cache_db.get_cached_user(uid)
             print("/// DB CALL END (get_user second in start)")
             msg_obj = bot.send_message(uid, "Инициализация интерфейса...", reply_markup=kb.get_main_reply_keyboard(u))
             bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")

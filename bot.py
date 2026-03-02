@@ -1,3 +1,4 @@
+import cache_db
 import telebot
 import flask
 import os
@@ -34,7 +35,7 @@ def check_quarantine(user):
     print("/// DB CALL START (check_quarantine)")
     try:
         # statement_timeout is set to 2s in DB connection pool
-        u = db.get_user(uid)
+        u = cache_db.get_cached_user(uid)
     except Exception as e:
         print("/// TIMEOUT/ERROR: check_quarantine DB CALL FAILED")
         import traceback; traceback.print_exc()
@@ -131,7 +132,11 @@ def stats_callback_middleware(bot_instance, call):
     threading.Thread(target=run_middleware, daemon=True).start()
 def process_update_safe(update):
     try:
+        uid = getattr(update.message or update.callback_query, "from_user", None)
+        uid = uid.id if uid else "Unknown"
+        print(f"/// DEBUG: Starting process_new_updates for update {update.update_id} (User: {uid})")
         bot.process_new_updates([update])
+        print(f"/// DEBUG: Finished process_new_updates for update {update.update_id}")
     except Exception as e:
         print(f"/// UNHANDLED EXCEPTION IN UPDATE THREAD: {e}")
         import traceback; traceback.print_exc()

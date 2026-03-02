@@ -1,4 +1,5 @@
 from modules.bot_instance import bot
+import cache_db
 import telebot
 from telebot.types import LabeledPrice
 import database as db
@@ -120,7 +121,7 @@ def eidos_purchase_handler(call):
     elif action == "symbiosis":
         if is_admin:
             bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
-            db.set_state(uid, "awaiting_demiurge_question")
+            db.set_state(uid, "awaiting_demiurge_question"); cache_db.clear_cache(uid)
             bot.send_message(uid, "👁‍🗨 Прямой канал связи с Создателем открыт. Напиши свой вопрос одним сообщением. Я прикреплю к нему твою психоматрицу.")
             return
 
@@ -157,16 +158,16 @@ def got_payment(message):
     elif payload == "eidos_forecast":
         threading.Thread(target=generate_eidos_response_worker, args=(bot, message.chat.id, uid, 'forecast')).start()
     elif payload == "eidos_symbiosis":
-        db.set_state(uid, "awaiting_demiurge_question")
+        db.set_state(uid, "awaiting_demiurge_question"); cache_db.clear_cache(uid)
         bot.send_message(uid, "👁‍🗨 Прямой канал связи с Создателем открыт. Напиши свой вопрос одним сообщением. Я прикреплю к нему твою психоматрицу.")
 
-@bot.message_handler(func=lambda message: db.get_state(message.from_user.id) == "awaiting_demiurge_question")
+@bot.message_handler(func=lambda message: cache_db.get_cached_user_state(message.from_user.id) == 'awaiting_demiurge_question')
 def handle_demiurge_question(message):
     uid = message.from_user.id
     text = message.text
 
     bot.send_message(uid, "👁‍🗨 Запрос передан. Ожидай ответа в этой реальности.")
-    db.delete_state(uid)
+    db.delete_state(uid); cache_db.clear_cache(uid)
 
     import config
     import json

@@ -1,4 +1,5 @@
 from modules.bot_instance import bot
+import cache_db
 import database as db
 import config
 import keyboards as kb
@@ -13,6 +14,7 @@ import random
 
 @bot.message_handler(func=lambda m: m.text and m.text.lower().strip() == "неофит")
 def neophyte_handler(m):
+    print(f"/// DEBUG: Entering neophyte_handler for user {m.from_user.id}")
     uid = m.from_user.id
     u = db.get_user(uid)
     if not u or u.get('onboarding_stage', 0) != 1:
@@ -20,7 +22,7 @@ def neophyte_handler(m):
 
     # Reward
     db.add_xp_to_user(uid, 100)
-    db.set_onboarding_stage(uid, 2)
+    db.set_onboarding_stage(uid, 2); cache_db.clear_cache(uid)
 
     msg = (
         "✅ <b>ИСТИНА. +100 XP.</b>\n\n"
@@ -38,7 +40,7 @@ def neophyte_handler(m):
         bot.send_message(uid, msg, reply_markup=kb.onboarding_phase2_keyboard(), parse_mode="HTML")
     except: pass
 
-@bot.message_handler(func=lambda m: db.get_user(m.from_user.id) and db.get_user(m.from_user.id).get('onboarding_stage', 0) == 1 and m.text.lower().strip() != "неофит", content_types=['text'])
+@bot.message_handler(func=lambda m: (cache_db.get_cached_user(m.from_user.id) or {}).get('onboarding_stage', 0) == 1 and m.text and m.text.lower().strip() != 'неофит', content_types=['text'])
 def phase1_wrong_text_handler(m):
     uid = m.from_user.id
     bot.send_message(uid, "Ты не видишь очевидного. Твой статус в Профиле. Прочти его и вернись.", parse_mode="HTML")
@@ -79,8 +81,9 @@ def phase2_selection_handler(call):
     db.set_state(uid, "waiting_for_thought")
     menu_update(call, txt, None) # No keyboard, waiting for text
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "waiting_for_thought", content_types=['text'])
+@bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == 'waiting_for_thought', content_types=['text'])
 def thought_handler(m):
+    print(f"/// DEBUG: Entering thought_handler for user {m.from_user.id}")
     uid = m.from_user.id
     text = m.text.strip()
 
@@ -91,11 +94,11 @@ def thought_handler(m):
 
     # Success
     db.add_diary_entry(uid, text)
-    db.delete_state(uid)
+    db.delete_state(uid); cache_db.clear_cache(uid)
 
     # Reward
     db.add_xp_to_user(uid, 150)
-    db.set_onboarding_stage(uid, 3)
+    db.set_onboarding_stage(uid, 3); cache_db.clear_cache(uid)
 
     msg = (
         "✅ <b>АНАЛИЗ ЗАВЕРШЕН. +150 XP.</b>\n\n"
@@ -124,7 +127,7 @@ def phase3_anchor_handler(call):
 
     # Reward
     db.add_xp_to_user(uid, 50)
-    db.set_onboarding_stage(uid, 4)
+    db.set_onboarding_stage(uid, 4); cache_db.clear_cache(uid)
 
     bot.answer_callback_query(call.id, "✅ СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА. +50 XP", show_alert=True)
 
@@ -158,7 +161,7 @@ def exam_start_handler(call):
 
     q = random.choice(QUESTIONS)
     # Store correct answer in state string to retrieve it later
-    db.set_state(uid, f"waiting_for_exam_answer|{q['a']}")
+    db.set_state(uid, f"waiting_for_exam_answer|{q['a']}"); cache_db.clear_cache(uid)
 
     txt = (
         "⚔️ <b>КОНТРОЛЬНЫЙ ВОПРОС</b>\n\n"
@@ -168,8 +171,9 @@ def exam_start_handler(call):
 
     menu_update(call, txt, kb.back_button())
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) and db.get_state(m.from_user.id).startswith("waiting_for_exam_answer"), content_types=['text'])
+@bot.message_handler(func=lambda m: (cache_db.get_cached_user_state(m.from_user.id) or '').startswith('waiting_for_exam_answer'), content_types=['text'])
 def exam_answer_handler(m):
+    print(f"/// DEBUG: Entering exam_answer_handler for user {m.from_user.id}")
     uid = m.from_user.id
     user_ans = m.text.strip().lower()
 
@@ -181,14 +185,14 @@ def exam_answer_handler(m):
 
     if user_ans == correct_ans.lower():
         # SUCCESS
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         db.add_xp_to_user(uid, 200)
 
         # Force Level 2 if not already
         check_level_up(uid)
 
         # Ensure Phase 5 (Done)
-        db.set_onboarding_stage(uid, 5)
+        db.set_onboarding_stage(uid, 5); cache_db.clear_cache(uid)
 
         # Give Keys
         db.add_item(uid, 'master_key', 2)
