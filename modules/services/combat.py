@@ -54,9 +54,7 @@ def process_combat_action(uid, action):
         equipped_armor = eq_items.get('armor')
         equipped_chip = eq_items.get('chip')
 
-        try:
-            mech_data = json.loads(full_s.get('mechanic_data', '{}') or '{}')
-        except: mech_data = {}
+        mech_data = full_s.get('mechanic_data') or {}
 
         # --- MECHANICS: SCHRODINGER'S ARMOR ---
         if equipped_armor == 'schrodinger_armor':
