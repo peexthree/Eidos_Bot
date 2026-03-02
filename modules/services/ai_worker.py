@@ -107,7 +107,12 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
         # Send result
         final_msg = f"👁‍🗨 **РЕЗУЛЬТАТ АНАЛИЗА**\n\n{result_text}"
         for i in range(0, len(final_msg), 4000):
-            bot.send_message(chat_id, final_msg[i:i+4000], parse_mode="Markdown")
+            chunk = final_msg[i:i+4000]
+            try:
+                bot.send_message(chat_id, chunk, parse_mode="Markdown")
+            except Exception as e:
+                print(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
+                bot.send_message(chat_id, chunk)
     elif auth_failed:
         bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро отклонило запрос авторизации. Администратор уведомлен.")
     else:
