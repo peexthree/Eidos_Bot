@@ -90,32 +90,6 @@ def check_quarantine(user):
     QUARANTINE_CACHE[uid] = (False, time.time() + 60)
     return False
 
-@bot.message_handler(func=lambda m: check_quarantine(m.from_user))
-def quarantine_message_handler(m):
-    u = db.get_user(m.from_user.id)
-    quarantine_end_time = u.get('quarantine_end_time', 0)
-    try:
-        quarantine_end_time = float(quarantine_end_time)
-    except (ValueError, TypeError):
-        quarantine_end_time = 0
-
-    rem_time = int((quarantine_end_time - time.time()) / 3600)
-    if rem_time < 0: rem_time = 0
-    msg = (
-        "⛔️ <b>ДОСТУП ЗАБЛОКИРОВАН</b>\n\n"
-        "Ты упустил окно возможностей. Система распознала в тебе спящий NPC.\n"
-        "Возвращайся в свой сон.\n\n"
-        f"⏳ Повторная попытка Сборки будет доступна через <b>{rem_time} часов</b>."
-    )
-    try:
-        bot.send_message(m.chat.id, msg, parse_mode="HTML")
-    except: pass
-
-@bot.callback_query_handler(func=lambda c: check_quarantine(c.from_user))
-def quarantine_callback_handler(c):
-    try:
-        bot.answer_callback_query(c.id, "⛔️ ТЫ СПИШЬ. ДОСТУП ЗАПРЕЩЕН.", show_alert=True)
-    except: pass
 
 # Import Handlers (Registers them)
 # Handlers Order Preserved
@@ -132,57 +106,29 @@ import modules.handlers.eidos_room
 # --- MIDDLEWARE FOR STATS TRACKING & GLITCHES ---
 @bot.middleware_handler(update_types=['message'])
 def stats_message_middleware(bot_instance, message):
-    try:
-        uid = message.from_user.id
-        # [MODULE 3] Check Glitch State Lock
-        if message.text and not message.text.startswith('/start'):
-            from modules.handlers.glitch_handler import check_for_glitch_state
-            if check_for_glitch_state(uid, bot, message.chat.id):
-                from telebot.handler_backends import CancelUpdate
-                raise CancelUpdate()
-        print("/// DB CALL START (stats middleware)")
-        import threading
-
-        def inc_stat():
+    # RUN IN THREAD TO PREVENT BLOCKING
+    def run_middleware():
+        try:
+            uid = message.from_user.id
+            # db.increment_user_stat(uid, 'messages')
+            import database as db
             db.increment_user_stat(uid, 'messages')
+        except: pass
 
-        t = threading.Thread(target=inc_stat)
-        t.start()
-        t.join(timeout=2.0)
-
-        if t.is_alive():
-            print("/// TIMEOUT: stats middleware DB CALL EXCEEDED 2 SECONDS")
-            import traceback; traceback.print_exc()
-
-        print("/// DB CALL END (stats middleware)")
-    except Exception as e:
-        if e.__class__.__name__ == 'CancelUpdate':
-            raise e
-        import traceback; traceback.print_exc()
-
+    import threading
+    threading.Thread(target=run_middleware, daemon=True).start()
 @bot.middleware_handler(update_types=['callback_query'])
 def stats_callback_middleware(bot_instance, call):
-    try:
-        uid = call.from_user.id
-        # [MODULE 3] Check Glitch State Lock
-        from modules.handlers.glitch_handler import check_for_glitch_state
-        if not call.data.startswith('glitch_ans_'):
-            if check_for_glitch_state(uid, bot, call.message.chat.id):
-                bot.answer_callback_query(call.id, "👁‍🗨 Иллюзия выбора отключена.", show_alert=True)
-                from telebot.handler_backends import CancelUpdate
-                raise CancelUpdate()
+    # RUN IN THREAD TO PREVENT BLOCKING
+    def run_middleware():
         try:
+            uid = call.from_user.id
+            import database as db
             db.increment_user_stat(uid, 'clicks')
-        except Exception as e:
-            print("/// TIMEOUT/ERROR: stats callback middleware DB CALL FAILED")
-            import traceback; traceback.print_exc()
+        except: pass
 
-    except Exception as e:
-        if e.__class__.__name__ == 'CancelUpdate':
-            raise e
-        import traceback; traceback.print_exc()
-
-
+    import threading
+    threading.Thread(target=run_middleware, daemon=True).start()
 def process_update_safe(update):
     try:
         bot.process_new_updates([update])
@@ -198,6 +144,7 @@ def health_check():
 def webhook():
     if flask.request.method == 'POST':
         try:
+            DB_READY.wait(timeout=10)
             print("/// WEBHOOK RECEIVED")
             # 1. Get raw data
             json_string = flask.request.get_data().decode('utf-8')

@@ -263,7 +263,9 @@ def db_session():
     put_close = False
     try:
         if pg_pool:
+            print(f"/// DB POOL: GETTING CONNECTION")
             conn = pg_pool.getconn()
+            print(f"/// DB POOL: CONNECTION ACQUIRED")
             yield conn
             conn.commit()
         else:
@@ -273,7 +275,7 @@ def db_session():
         try:
             if conn: conn.rollback()
         except Exception:
-            pass # Connection is likely already dead
+            pass
         print(f"/// DB CONNECTION ERROR (Discarding from pool): {e}")
         print(traceback.format_exc())
         raise e
@@ -287,6 +289,7 @@ def db_session():
         raise e
     finally:
         if conn and pg_pool:
+            print(f"/// DB POOL: RETURNING CONNECTION (Close: {put_close})")
             pg_pool.putconn(conn, close=put_close)
 
 @contextmanager
