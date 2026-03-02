@@ -97,7 +97,8 @@ def process_combat_action(uid, action):
             if is_crit and equipped_head == 'overclock_crown':
                  # Self damage
                  current_signal = max(1, current_signal - 2)
-                 cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (current_signal, uid))
+                 # Update signal in session dict for later batch update
+                 full_s['signal'] = current_signal
                  msg += "👑 <b>ВЕНЕЦ:</b> Перегрузка! -2% Сигнала.\n"
 
             base_dmg = int(stats['atk'] * (1.5 if is_crit else 1.0) * dmg_mult)
@@ -161,7 +162,7 @@ def process_combat_action(uid, action):
             if equipped_head == 'relic_vampire':
                 heal = 2
                 current_signal = min(100, current_signal + heal)
-                cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (current_signal, uid))
+                # Deferred: signal update
                 msg += f"🦇 <b>ВАМПИРИЗМ:</b> +{heal}% Сигнала.\n"
 
             if new_enemy_hp <= 0:
@@ -188,7 +189,7 @@ def process_combat_action(uid, action):
                 if equipped_head == 'vampire_visor':
                     heal = 5
                     current_signal = min(100, current_signal + heal)
-                    cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (current_signal, uid))
+                    # Deferred: signal update
                     msg += f"🩸 <b>ПОГЛОЩЕНИЕ:</b> +{heal}% Сигнала.\n"
 
                 # FACTION SYNERGY (MONEY)
@@ -209,11 +210,13 @@ def process_combat_action(uid, action):
 
                 db.increment_user_stat(uid, 'kills', cursor=cur)
 
+                # Sync deferred updates
+                cur.execute('UPDATE raid_sessions SET signal=%s, current_enemy_hp=%s, mechanic_data=%s WHERE uid=%s', (current_signal, new_enemy_hp if 'new_enemy_hp' in locals() else full_s.get('current_enemy_hp'), json.dumps(mech_data), uid))
                 return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен.\nПолучено: +{xp_gain} XP | +{coin_gain} BC", None
 
             else:
                 # db.update_raid_enemy(uid, enemy_id, new_enemy_hp) -> Inline
-                cur.execute("UPDATE raid_sessions SET current_enemy_id = %s, current_enemy_hp = %s WHERE uid = %s", (enemy_id, new_enemy_hp, uid))
+                # Deferred: enemy update
 
                 msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n"
 
@@ -246,7 +249,7 @@ def process_combat_action(uid, action):
                         # Assume self=0, monster takes enemy_dmg
                         new_enemy_hp = max(0, new_enemy_hp - enemy_dmg)
                         # db.update_raid_enemy(uid, enemy_id, new_enemy_hp) -> Inline
-                        cur.execute("UPDATE raid_sessions SET current_enemy_id = %s, current_enemy_hp = %s WHERE uid = %s", (enemy_id, new_enemy_hp, uid))
+                        # Deferred: enemy update
 
                         enemy_dmg = 0
                         msg += "🪞 <b>404:</b> Удар прошел сквозь текстуры и задел врага!\n"
@@ -257,7 +260,7 @@ def process_combat_action(uid, action):
                     if reflect > 0:
                         new_enemy_hp = max(0, new_enemy_hp - reflect)
                         # db.update_raid_enemy(uid, enemy_id, new_enemy_hp) -> Inline
-                        cur.execute("UPDATE raid_sessions SET current_enemy_id = %s, current_enemy_hp = %s WHERE uid = %s", (enemy_id, new_enemy_hp, uid))
+                        # Deferred: enemy update
 
                         msg += f"🎭 <b>ЗЕРКАЛО:</b> Отражено {reflect} урона.\n"
 
@@ -297,14 +300,14 @@ def process_combat_action(uid, action):
                     new_sig = 1
                     new_enemy_hp = 0 # Kill enemy
                     # db.update_raid_enemy(uid, enemy_id, 0) -> Inline
-                    cur.execute("UPDATE raid_sessions SET current_enemy_id = %s, current_enemy_hp = %s WHERE uid = %s", (enemy_id, 0, uid))
+                    # Deferred: enemy update (death)
 
                     # Wipe Loot
                     cur.execute("UPDATE raid_sessions SET buffer_xp = 0, buffer_coins = 0, buffer_items = '' WHERE uid=%s", (uid,))
 
                     msg += "☢️ <b>САВАН:</b> ВЗРЫВ ЯДРА! Враг уничтожен, лут уничтожен, вы живы.\n"
 
-                cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_sig, uid))
+                # Deferred: signal update
 
                 if enemy_dmg > 0:
                     msg += f"🔻 <b>УДАР:</b> Вы получили -{enemy_dmg}% Сигнала.\n"
@@ -323,6 +326,8 @@ def process_combat_action(uid, action):
 
                     return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}", extra_death
 
+                # Sync deferred updates
+                cur.execute('UPDATE raid_sessions SET signal=%s, current_enemy_hp=%s, mechanic_data=%s WHERE uid=%s', (current_signal, new_enemy_hp if 'new_enemy_hp' in locals() else full_s.get('current_enemy_hp'), json.dumps(mech_data), uid))
                 return 'combat', msg, None
 
         elif action == 'use_emp':
@@ -343,10 +348,12 @@ def process_combat_action(uid, action):
 
                     db.increment_user_stat(uid, 'kills', cursor=cur)
 
+                    # Sync deferred updates
+                    cur.execute('UPDATE raid_sessions SET signal=%s, current_enemy_hp=%s, mechanic_data=%s WHERE uid=%s', (current_signal, new_enemy_hp if 'new_enemy_hp' in locals() else full_s.get('current_enemy_hp'), json.dumps(mech_data), uid))
                     return 'win', f"{msg}💀 <b>ПОБЕДА:</b> Враг уничтожен взрывом.\nПолучено: +{xp_gain} XP | +{coin_gain} BC", None
                 else:
                     # db.update_raid_enemy(uid, enemy_id, new_enemy_hp) -> Inline
-                    cur.execute("UPDATE raid_sessions SET current_enemy_id = %s, current_enemy_hp = %s WHERE uid = %s", (enemy_id, new_enemy_hp, uid))
+                    # Deferred: enemy update
                     msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n"
             else:
                  return 'error', "Нет EMP гранаты.", None
@@ -356,6 +363,8 @@ def process_combat_action(uid, action):
                 db.use_item(uid, 'stealth_spray', 1, cursor=cur)
                 # db.clear_raid_enemy(uid) -> Inline
                 cur.execute("UPDATE raid_sessions SET current_enemy_id = NULL, current_enemy_hp = NULL WHERE uid = %s", (uid,))
+                # Sync deferred updates
+                cur.execute('UPDATE raid_sessions SET signal=%s, current_enemy_hp=%s, mechanic_data=%s WHERE uid=%s', (current_signal, new_enemy_hp if 'new_enemy_hp' in locals() else full_s.get('current_enemy_hp'), json.dumps(mech_data), uid))
                 return 'escaped', "👻 <b>СТЕЛС:</b> Вы растворились в тумане. 100% побег.", None
             else:
                  return 'error', "Нет спрея.", None
@@ -365,6 +374,8 @@ def process_combat_action(uid, action):
                 db.use_item(uid, 'memory_wiper', 1, cursor=cur)
                 # db.clear_raid_enemy(uid) -> Inline
                 cur.execute("UPDATE raid_sessions SET current_enemy_id = NULL, current_enemy_hp = NULL WHERE uid = %s", (uid,))
+                # Sync deferred updates
+                cur.execute('UPDATE raid_sessions SET signal=%s, current_enemy_hp=%s, mechanic_data=%s WHERE uid=%s', (current_signal, new_enemy_hp if 'new_enemy_hp' in locals() else full_s.get('current_enemy_hp'), json.dumps(mech_data), uid))
                 return 'escaped', "🧹 <b>СТИРАТЕЛЬ:</b> Память врага очищена. Он забыл о вас.", None
             else:
                  return 'error', "Нет стирателя памяти.", None
@@ -382,6 +393,8 @@ def process_combat_action(uid, action):
                  cur.execute("UPDATE raid_sessions SET current_enemy_id = NULL, current_enemy_hp = NULL WHERE uid = %s", (uid,))
 
                  extra_msg = " (Сила Мысли)" if bonus_dodge > 0 else ""
+                 # Sync deferred updates
+                 cur.execute('UPDATE raid_sessions SET signal=%s, current_enemy_hp=%s, mechanic_data=%s WHERE uid=%s', (current_signal, new_enemy_hp if 'new_enemy_hp' in locals() else full_s.get('current_enemy_hp'), json.dumps(mech_data), uid))
                  return 'escaped', f"🏃 <b>ПОБЕГ:</b> Вы успешно скрылись в тенях.{extra_msg}", None
             else:
                  msg += "🚫 <b>ПОБЕГ НЕ УДАЛСЯ.</b> Враг атакует!\n"
@@ -411,7 +424,7 @@ def process_combat_action(uid, action):
                  if new_sig <= 0:
                      db.update_shadow_metric(uid, 'consecutive_deaths', 1)
 
-                 cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_sig, uid))
+                 # Deferred: signal update
 
                  if enemy_dmg > 0:
                      msg += f"🔻 <b>УДАР:</b> -{enemy_dmg}% Сигнала.\n"
@@ -430,6 +443,8 @@ def process_combat_action(uid, action):
 
                     return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}", extra_death
 
+                 # Sync deferred updates
+                 cur.execute('UPDATE raid_sessions SET signal=%s, current_enemy_hp=%s, mechanic_data=%s WHERE uid=%s', (current_signal, new_enemy_hp if 'new_enemy_hp' in locals() else full_s.get('current_enemy_hp'), json.dumps(mech_data), uid))
                  return 'combat', msg, None
 
     return res_type, msg, None

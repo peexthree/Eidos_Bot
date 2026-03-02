@@ -325,7 +325,7 @@ def get_all_tables():
         cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         return [row[0] for row in cur.fetchall()]
 
-def ensure_table_schema(table_name, schema_def):
+def ensure_table_schema(table_name, schema_def, current_cols=None):
     """
     Ensures that a table has all required columns with correct types.
     Does NOT handle constraints (PK, UK) - those should be handled by fix_ functions or initial CREATE.
@@ -333,15 +333,16 @@ def ensure_table_schema(table_name, schema_def):
     print(f"/// DEBUG: Ensuring schema for table '{table_name}'...")
     with db_session() as conn:
         with conn.cursor() as cur:
-            # 1. Check if table exists
-            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name=%s", (table_name,))
-            if not cur.fetchone():
-                print(f"/// TABLE MISSING: {table_name}. Creating via init_db logic later if not covered.")
-                return
+            if current_cols is None:
+                cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s", (table_name,))
+                current_cols = {row[0]: row[1].lower() for row in cur.fetchall()}
 
-            # 2. Get current columns
-            cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s", (table_name,))
-            current_cols = {row[0]: row[1].lower() for row in cur.fetchall()}
+            if not current_cols and table_name != 'players': # players is created first
+                 # Check existence if no columns found
+                 cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name=%s", (table_name,))
+                 if not cur.fetchone():
+                     print(f"/// TABLE MISSING: {table_name}")
+                     return
 
             for col_name, (target_type, default_val) in schema_def.items():
                 target_type_clean = target_type.lower()
@@ -706,11 +707,24 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS pvp_logs (id SERIAL PRIMARY KEY)")
             cur.execute("CREATE TABLE IF NOT EXISTS history (id SERIAL PRIMARY KEY)")
 
-    # 2. ROBUST SCHEMA FIX (New Transactions)
-    # Check every table against TABLE_SCHEMAS
+    # 2. ROBUST SCHEMA FIX (Optimized)
+    print("/// DEBUG: Fetching all column info...")
+    all_current_cols = {}
+    with db_cursor() as cur:
+        cur.execute("""
+            SELECT table_name, column_name, data_type
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+        """)
+        for row in cur.fetchall():
+            t_name, c_name, d_type = row[0], row[1], row[2].lower()
+            if t_name not in all_current_cols:
+                all_current_cols[t_name] = {}
+            all_current_cols[t_name][c_name] = d_type
+
     for table, schema in TABLE_SCHEMAS.items():
         try:
-            ensure_table_schema(table, schema)
+            ensure_table_schema(table, schema, current_cols=all_current_cols.get(table))
         except Exception as e:
             print(f"/// CRITICAL ERROR ensuring schema for {table}: {e}")
 
