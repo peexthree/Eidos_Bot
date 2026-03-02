@@ -49,16 +49,19 @@ def start_handler(m):
             print(f"/// START_HANDLER: log action for {uid} complete")
 
             if ref:
-                 print(f"/// START_HANDLER: add xp to user {ref}")
-                 print("/// DB CALL START (add_xp in start)")
-                 try: db.add_xp_to_user(int(ref), REFERRAL_BONUS)
-             except: pass
-                 print("/// DB CALL END (add_xp in start)")
-                 print(f"/// START_HANDLER: add xp to user {ref} complete")
-                 try:
-                     safe_name = html.escape(first_name)
-                     bot.send_message(int(ref), f"👤 <b>НОВЫЙ АГЕНТ:</b> {safe_name}\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
-                 except: pass
+                print(f"/// START_HANDLER: add xp to user {ref}")
+                print("/// DB CALL START (add_xp in start)")
+                try:
+                    db.add_xp_to_user(int(ref), REFERRAL_BONUS)
+                except:
+                    pass
+                print("/// DB CALL END (add_xp in start)")
+                print(f"/// START_HANDLER: add xp to user {ref} complete")
+                try:
+                    safe_name = html.escape(first_name)
+                    bot.send_message(int(ref), f"👤 <b>НОВЫЙ АГЕНТ:</b> {safe_name}\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
+                except:
+                    pass
 
             # INIT ONBOARDING
             import time
