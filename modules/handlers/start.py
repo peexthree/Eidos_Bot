@@ -8,29 +8,32 @@ from modules.services.combat import perform_hack
 from modules.services.utils import get_menu_text, get_menu_image
 from modules.services.user import check_daily_streak
 import html
-
+import traceback
+import time
 
 def check_quarantine(uid):
-    import database as db
-    import time
-    u = cache_db.get_cached_user(uid)
-    if not u: return False, 0
+    try:
+        u = cache_db.get_cached_user(uid)
+        if not u: return False, 0
 
-    if u.get('is_quarantined'):
-        end_time = u.get('quarantine_end_time', 0)
-        if time.time() < float(end_time or 0):
-            return True, int((float(end_time) - time.time()) / 3600)
-        else:
-            db.update_user(uid, is_quarantined=False)
-            return False, 0
+        if u.get('is_quarantined'):
+            end_time = u.get('quarantine_end_time', 0)
+            if time.time() < float(end_time or 0):
+                return True, int((float(end_time) - time.time()) / 3600)
+            else:
+                db.update_user(uid, is_quarantined=False)
+                return False, 0
 
-    level = int(u.get('level', 1))
-    stage = int(u.get('onboarding_stage', 0))
-    if level < 2 and stage > 0:
-        start_time = float(u.get('onboarding_start_time', 0))
-        if start_time > 0 and (time.time() - start_time) > 86400:
-            db.quarantine_user(uid)
-            return True, 24
+        level = int(u.get('level', 1))
+        stage = int(u.get('onboarding_stage', 0))
+        if level < 2 and stage > 0:
+            start_time = float(u.get('onboarding_start_time', 0))
+            if start_time > 0 and (time.time() - start_time) > 86400:
+                db.quarantine_user(uid)
+                return True, 24
+    except Exception as e:
+        print(f"/// ERROR IN check_quarantine: {e}")
+        traceback.print_exc()
 
     return False, 0
 
@@ -45,16 +48,16 @@ def hack_command(m):
     except Exception as e:
         bot.send_message(uid, f"⚠️ ERROR: {e}")
 
-import traceback
-
 @bot.message_handler(commands=['start'])
 def start_handler(m):
-    print(f"/// DEBUG: Entering start_handler for user {m.from_user.id}")
+    uid = m.from_user.id
+    print(f"/// DEBUG: Entering start_handler for user {uid}")
     try:
-        uid = m.from_user.id
         # --- QUARANTINE CHECK ---
+        print(f"/// START_HANDLER: Performing quarantine check for {uid}")
         is_q, rem_hours = check_quarantine(uid)
         if is_q:
+            print(f"/// START_HANDLER: User {uid} is quarantined")
             msg = (
                 "⛔️ <b>ДОСТУП ЗАБЛОКИРОВАН</b>\n\n"
                 "Ты упустил окно возможностей. Система распознала в тебе спящий NPC.\n"
@@ -66,48 +69,30 @@ def start_handler(m):
 
         ref = m.text.split()[1] if len(m.text.split()) > 1 else None
 
-        print(f"/// START_HANDLER: check user {uid} existence")
-        print("/// DB CALL START (get_user in start)")
+        print(f"/// START_HANDLER: Checking user {uid} existence in DB")
         u_exists = db.get_user(uid)
-        print("/// DB CALL END (get_user in start)")
-        print(f"/// START_HANDLER: check user {uid} existence complete")
+        print(f"/// START_HANDLER: User exists: {bool(u_exists)}")
 
         if not u_exists:
             username = m.from_user.username or "Anon"
             first_name = m.from_user.first_name or "User"
 
-            print(f"/// START_HANDLER: add user {uid}")
-            print("/// DB CALL START (add_user in start)")
+            print(f"/// START_HANDLER: Adding new user {uid}")
             db.add_user(uid, username, first_name, ref); cache_db.clear_cache(uid)
-            print("/// DB CALL END (add_user in start)")
-            print(f"/// START_HANDLER: add user {uid} complete")
-
-            print(f"/// START_HANDLER: log action for {uid}")
-            print("/// DB CALL START (log_action in start)")
             db.log_action(uid, 'register', f"User {username} joined via {ref}")
-            print("/// DB CALL END (log_action in start)")
-            print(f"/// START_HANDLER: log action for {uid} complete")
 
             if ref:
-                print(f"/// START_HANDLER: add xp to user {ref}")
-                print("/// DB CALL START (add_xp in start)")
+                print(f"/// START_HANDLER: Applying referral bonus for {ref}")
                 try:
                     db.add_xp_to_user(int(ref), REFERRAL_BONUS)
-                except:
-                    pass
-                print("/// DB CALL END (add_xp in start)")
-                print(f"/// START_HANDLER: add xp to user {ref} complete")
-                try:
                     safe_name = html.escape(first_name)
                     bot.send_message(int(ref), f"👤 <b>НОВЫЙ АГЕНТ:</b> {safe_name}\n+{REFERRAL_BONUS} XP", parse_mode="HTML")
-                except:
-                    pass
+                except Exception as ref_err:
+                    print(f"/// START_HANDLER: Referral error: {ref_err}")
 
             # INIT ONBOARDING
-            import time
-            print("/// DB CALL START (update_user onboarding in start)")
+            print(f"/// START_HANDLER: Initializing onboarding for {uid}")
             db.update_user(uid, onboarding_stage=1, onboarding_start_time=int(time.time())); cache_db.clear_cache(uid)
-            print("/// DB CALL END (update_user onboarding in start)")
 
             msg = (
                 "👁 <b>СВЯЗЬ УСТАНОВЛЕНА.</b>\n\n"
@@ -121,23 +106,22 @@ def start_handler(m):
                 "2. Найди там строку <b>«Статус»</b> (или Титул).\n"
                 "3. Возвращайся сюда и <b>напиши мне текстом одно слово</b>: кто ты сейчас в этой системе?"
             )
-            # Show main menu immediately so they can see Profile
-            print("/// DB CALL START (get_user second in start)")
+
             u = cache_db.get_cached_user(uid)
-            print("/// DB CALL END (get_user second in start)")
             try:
                 bot.send_photo(uid, get_menu_image(u), caption=msg, reply_markup=kb.main_menu(u), parse_mode="HTML")
-            except:
+            except Exception as e:
+                print(f"/// START_HANDLER: Photo send failed, falling back to message: {e}")
                 bot.send_message(uid, msg, reply_markup=kb.main_menu(u), parse_mode="HTML")
         else:
+            print(f"/// START_HANDLER: Returning user {uid}, checking streak")
             check_daily_streak(uid)
-            print("/// DB CALL START (get_user second in start)")
             u = cache_db.get_cached_user(uid)
-            print("/// DB CALL END (get_user second in start)")
-            msg_obj = bot.send_message(uid, "Инициализация интерфейса...", reply_markup=kb.get_main_reply_keyboard(u))
+            bot.send_message(uid, "Инициализация интерфейса...", reply_markup=kb.get_main_reply_keyboard(u))
             bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
+            print(f"/// START_HANDLER: Interface initialized for user {uid}")
     except Exception as e:
-        print(f"/// ERROR IN START HANDLER: {e}")
+        print(f"/// CRITICAL ERROR IN START HANDLER for user {getattr(m.from_user, 'id', 'Unknown')}: {e}")
         traceback.print_exc()
 
 # ==========================================
@@ -146,19 +130,14 @@ def start_handler(m):
 @bot.message_handler(content_types=['photo'])
 def grab_file_id(message):
     uid = message.from_user.id
-    # SECURITY: Prevent unauthorized access to file IDs. Only admins allowed.
     if not db.is_user_admin(uid):
         return
 
-    # Берем самую качественную версию картинки (она всегда последняя в списке)
     file_id = message.photo[-1].file_id
-
-    # Формируем ответ, делаем ID моноширинным, чтобы он копировался по клику
     text = (
         "✅ **Медиа-файл загружен в кэш Telegram.**\n\n"
         "Твой `file_id`:\n"
         f"`{file_id}`\n\n"
         "_(Нажми на код, чтобы скопировать)_"
     )
-
     bot.reply_to(message, text, parse_mode="Markdown")
