@@ -96,7 +96,7 @@ if "Урон отложен" in msg:
         cur.execute("SELECT mechanic_data FROM raid_sessions WHERE uid=%s", (uid,))
         md = cur.fetchone()[0]
         print(f"Mechanic Data: {md}")
-        assert_true("paradox_queue" in md, "Paradox Queue exists in DB")
+        assert_true("paradox_queue" in str(md), "Paradox Queue exists in DB")
 else:
     print("⚠️ Enemy might not have hit (dodged/blocked/dead/stunned). Retry recommended.")
 

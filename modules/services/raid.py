@@ -1,3 +1,4 @@
+import json
 import random
 import time
 import copy
@@ -217,20 +218,16 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             # 2. SCHRODINGER'S ARMOR (Armor)
             if armor_item == 'schrodinger_armor' and s:
-                import json
-                try:
-                    mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
-                except: mech_data = {}
+
+                mech_data = s.get('mechanic_data') or {}
                 mech_data['schrodinger_def'] = random.randint(-50, 200)
-                s['mechanic_data'] = json.dumps(mech_data)
+                s['mechanic_data'] = mech_data
                 s_changed = True
 
             # 3. GRANDFATHER PARADOX (Weapon) - Delayed Damage
             if weapon_item == 'grandfather_paradox' and s:
-                import json
-                try:
-                    mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
-                except: mech_data = {}
+
+                mech_data = s.get('mechanic_data') or {}
                 dmg_queue = mech_data.get('paradox_queue', [])
                 if dmg_queue:
                     incoming_dmg = 0
@@ -242,7 +239,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                         else:
                             new_queue.append(entry)
                     mech_data['paradox_queue'] = new_queue
-                    s['mechanic_data'] = json.dumps(mech_data)
+                    s['mechanic_data'] = mech_data
                     s_changed = True
                     if incoming_dmg > 0:
                         s['signal'] = max(0, s['signal'] - incoming_dmg)
@@ -250,13 +247,11 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
             # 5. KAMIKAZE PROTOCOL (Chip)
             if chip_item == 'kamikaze_protocol' and s:
-                import json
-                try:
-                    mech_data = json.loads(s.get('mechanic_data', '{}') or '{}')
-                except: mech_data = {}
+
+                mech_data = s.get('mechanic_data') or {}
                 k_steps = mech_data.get('kami_steps', 0) + 1
                 mech_data['kami_steps'] = k_steps
-                s['mechanic_data'] = json.dumps(mech_data)
+                s['mechanic_data'] = mech_data
                 s_changed = True
                 if k_steps > 10:
                     new_lvl = max(1, u['level'] - 1)
@@ -272,7 +267,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     UPDATE raid_sessions
                     SET signal = %s, buffer_coins = %s, mechanic_data = %s
                     WHERE uid = %s
-                """, (s['signal'], s['buffer_coins'], s.get('mechanic_data', '{}'), uid))
+                """, (s['signal'], s['buffer_coins'], json.dumps(s.get('mechanic_data') or {}), uid))
 
             # 4. MARTYR'S HALO (Head) - Dynamic Luck
             if head_item == 'martyr_halo' and s:
@@ -521,7 +516,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                  grave = db.get_random_grave(depth)
                  if grave:
                      if db.delete_grave(grave['id']):
-                         import json
+
                          try:
                              loot = json.loads(grave['loot_json'])
                              coins = loot.get('coins', 0)
@@ -723,7 +718,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 # --- SCAVENGING (Found Body) ---
                 elif grave and random.random() < grave_chance:
                      # Load loot to show value?
-                     import json
+
                      try:
                          loot = json.loads(grave['loot_json'])
                          coins = loot.get('coins', 0)
@@ -989,7 +984,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                  # DEATH MASK: No Grave if equipped
                  allow_grave = (head_item != 'death_mask')
 
-                 import json
+
                  grave_loot = {'coins': s['buffer_coins'], 'items': s.get('buffer_items', '')}
 
                  if allow_grave and (s['buffer_coins'] > 0 or s.get('buffer_items')):

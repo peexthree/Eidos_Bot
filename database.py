@@ -96,7 +96,7 @@ TABLE_SCHEMAS = {
         'event_streak': ('INTEGER', '0'),
         'buffer_items': ('TEXT', "''"),
         'is_elite': ('BOOLEAN', 'FALSE'),
-        'mechanic_data': ('TEXT', "'{}'")
+        'mechanic_data': ('JSONB', "'{}'")
     },
     'inventory': {
         'id': ('SERIAL', None), # PK
@@ -382,6 +382,7 @@ def ensure_table_schema(table_name, schema_def, current_cols=None):
                     if 'bigint' in target_type_clean and 'bigint' not in current_type: needs_fix = True # upgrade int to bigint
                     if 'bool' in target_type_clean and 'bool' not in current_type: needs_fix = True
                     if 'timestamp' in target_type_clean and 'timestamp' not in current_type: needs_fix = True
+                    if 'jsonb' in target_type_clean and 'jsonb' not in current_type: needs_fix = True
 
                     # Specific check: Upgrade INTEGER to BIGINT
                     if target_type_clean == 'bigint' and current_type == 'integer':
@@ -398,6 +399,9 @@ def ensure_table_schema(table_name, schema_def, current_cols=None):
                                 using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type_clean})"
                             elif 'timestamp' in target_type_clean:
                                 using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type_clean})"
+                            elif 'json' in target_type_clean:
+                                using_clause = f"USING {col_name}::{target_type_clean}"
+
 
                             # Use target_type_clean to avoid 'SERIAL' type error
                             stmt = f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {target_type_clean} {using_clause}"
