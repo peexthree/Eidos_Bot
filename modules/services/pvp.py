@@ -212,7 +212,7 @@ def buy_software(uid, software_id, is_hardware=False):
                     cur.execute("UPDATE players SET xp = xp - %s WHERE uid = %s AND xp >= %s", (cost, uid, cost))
 
                 if cur.rowcount == 0:
-                    return False, f"❌ Не хватает средств ({cost} {currency.upper()} нужно)."
+                    return False, f"❌ Не хватает средств ({cost} {str(currency or 'BC').upper()} нужно)."
 
                 # Special logic for Proxy
                 if software_id == 'proxy_server':
@@ -292,10 +292,10 @@ def find_target(attacker_uid):
         if not target: continue
 
         # V2 Checks:
-        if (target.get('biocoin') or 0) < config.PVP_CONSTANTS['PROTECTION_LIMIT']: continue
+        if int(target.get('biocoin') or 0) < int(config.PVP_CONSTANTS['PROTECTION_LIMIT']): continue
         if (target.get('shield_until') or 0) > time.time(): continue
 
-        if (target.get('level') or 1) <= config.QUARANTINE_LEVEL: continue
+        if int(target.get('level') or 1) <= int(config.QUARANTINE_LEVEL): continue
         # Cooldown Check (v2.0)
         if db.check_pvp_cooldown(attacker_uid, target_uid, duration=config.PVP_COOLDOWN): continue
         if target.get('is_quarantined'): continue

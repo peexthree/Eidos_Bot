@@ -41,7 +41,7 @@ def parse_riddle(text):
     match = strict_match
 
     # 2. Мягкий поиск (fallback), если это явно загадка
-    if not match and "ЗАГАДКА" in text.upper():
+    if not match and "ЗАГАДКА" in str(text or '').upper():
          # Ищем содержимое скобок (берем ПОСЛЕДНЕЕ вхождение)
          all_matches = list(re.finditer(r'\(([^()]+)\)', text))
          if all_matches:

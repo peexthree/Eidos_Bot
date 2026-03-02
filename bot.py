@@ -118,6 +118,7 @@ def quarantine_callback_handler(c):
     except: pass
 
 # Import Handlers (Registers them)
+# Handlers Order Preserved
 import modules.handlers.start
 import modules.handlers.admin
 import modules.handlers.menu

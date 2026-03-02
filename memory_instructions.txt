@@ -1,0 +1,6 @@
+- Fixed null value in column "id" of relation "villains" by synchronizing the villains_id_seq_2 sequence and updating fix_villains_schema in database.py to ensure it's always attached and synced.
+- Fixed 'TypeError' between 'str' and 'int' in raid, combat, and pvp services by adding explicit int() casting for level, xp, biocoin, and signal comparisons.
+- Safeguarded .upper() calls by wrapping targets in str() and providing defaults (e.g., str(u.get('path') or 'general').upper()) to prevent 'NoneType' errors.
+- Increased database timeouts (lock_timeout and statement_timeout) to 5000ms in database.py's init_pool to handle load and reduce cancellations.
+- Disabled telebot middleware for performance and reduced blocking in bot_instance.py.
+- Patched start handler in modules/handlers/start.py to handle malformed referral IDs safely.

@@ -51,7 +51,8 @@ def start_handler(m):
             if ref:
                  print(f"/// START_HANDLER: add xp to user {ref}")
                  print("/// DB CALL START (add_xp in start)")
-                 db.add_xp_to_user(int(ref), REFERRAL_BONUS)
+                 try: db.add_xp_to_user(int(ref), REFERRAL_BONUS)
+             except: pass
                  print("/// DB CALL END (add_xp in start)")
                  print(f"/// START_HANDLER: add xp to user {ref} complete")
                  try:

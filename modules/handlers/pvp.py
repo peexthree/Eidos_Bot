@@ -256,7 +256,7 @@ def show_item_info(call, sid, is_hardware):
         desc = info['desc']
         icon = info['icon']
         pwr = info['power']
-        type_str = info['type'].upper()
+        type_str = str(info.get('type') or 'ITEM').upper()
 
         image_url = config.ITEM_IMAGES.get(sid)
 
