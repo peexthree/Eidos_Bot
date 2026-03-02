@@ -5,10 +5,11 @@ from telebot.types import LabeledPrice
 import database as db
 import keyboards as kb
 from modules.services.utils import menu_update
+import config
 
 def process_eidos_room_menu(uid, is_callback=False, call=None, chat_id=None):
-    u = db.get_user(uid)
-    metrics = db.get_user_shadow_metrics(uid)
+    # u = cache_db.get_cached_user(uid) - REMOVED UNUSED
+    # metrics = db.get_user_shadow_metrics(uid) - REMOVED UNUSED
 
     with db.db_cursor() as cur:
         cur.execute("SELECT 1 FROM user_dossiers WHERE uid = %s", (uid,))
@@ -49,7 +50,7 @@ def eidos_tos_handler(call):
     if call.data == "eidos_tos_reject":
         bot.answer_callback_query(call.id, "👁‍🗨 Твой страх понятен. Возвращайся в иллюзию.", show_alert=True)
         # Go back to main
-        u = db.get_user(uid)
+        u = cache_db.get_cached_user(uid)
         import modules.handlers.menu as menu_handler
         call.data = "back"
         menu_handler.back_handler(call)
@@ -62,8 +63,8 @@ def eidos_tos_handler(call):
 def eidos_purchase_handler(call):
     uid = call.from_user.id
     action = call.data.replace("eidos_buy_", "")
-    u = db.get_user(uid)
-    is_admin = u.get('is_admin') or str(uid) == str(config.ADMIN_ID)
+    u = cache_db.get_cached_user(uid)
+    is_admin = cache_db.get_cached_admin_status(uid)
 
     if action == "dossier":
         # Check if already has one to give for free

@@ -60,6 +60,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
     retries = 3
     delay = 5
     result_text = None
+    auth_failed = False
 
     for attempt in range(retries):
         response = None
@@ -71,6 +72,12 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
                 json=payload,
                 timeout=45
             )
+
+            if response.status_code == 401:
+                auth_failed = True
+                print("/// AI WORKER CRITICAL: OpenRouter 401 Unauthorized. Check OPENROUTER_API_KEY.")
+                break
+
             response.raise_for_status()
             data = response.json()
             result_text = data['choices'][0]['message']['content']
@@ -101,5 +108,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
         final_msg = f"👁‍🗨 **РЕЗУЛЬТАТ АНАЛИЗА**\n\n{result_text}"
         for i in range(0, len(final_msg), 4000):
             bot.send_message(chat_id, final_msg[i:i+4000], parse_mode="Markdown")
+    elif auth_failed:
+        bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро отклонило запрос авторизации. Администратор уведомлен.")
     else:
         bot.send_message(chat_id, "👁‍🗨 Нейро-ядро перегружено. Твоя телеметрия сохранена. Повтори запрос позже.")
