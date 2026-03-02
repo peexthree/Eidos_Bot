@@ -5,7 +5,7 @@ import requests
 import database as db
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it:free")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3-flash-preview")
 
 PROMPTS = {
     'dossier': (
