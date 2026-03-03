@@ -360,3 +360,56 @@ def split_long_message(text, chunk_size=4000):
         chunks.append(current_chunk)
 
     return chunks
+
+import html
+
+def int_to_roman(num):
+    val = [
+        1000, 900, 500, 400,
+        100, 90, 50, 40,
+        10, 9, 5, 4,
+        1
+        ]
+    syb = [
+        "M", "CM", "D", "CD",
+        "C", "XC", "L", "XL",
+        "X", "IX", "V", "IV",
+        "I"
+        ]
+    roman_num = ''
+    i = 0
+    while num > 0:
+        for _ in range(num // val[i]):
+            roman_num += syb[i]
+            num -= val[i]
+        i += 1
+    return roman_num
+
+def get_vip_prefix(uid, first_name, custom_data=None):
+    """
+    Returns the VIP formatted name if the user has the 'eidos_shard' equipped.
+    Format: ⚜️ <b>[I] {first_name}</b> or 👤 {first_name}
+    Safely escapes the first_name.
+    If custom_data is None, fetches from the database.
+    """
+    safe_name = html.escape(first_name or "Unknown")
+
+    if custom_data is None:
+        import database as db
+        eq = db.get_equipped_item_in_slot(uid, 'eidos_shard')
+        if eq and isinstance(eq, dict) and eq.get('item_id') == 'eidos_shard':
+            custom_data = eq.get('custom_data')
+        elif eq and isinstance(eq, tuple) and eq[0] == 'eidos_shard':
+            custom_data = eq[2] if len(eq) > 2 else None
+
+    if custom_data:
+        try:
+            import json
+            data = json.loads(custom_data)
+            level = int(data.get('level', 1))
+            roman_lvl = int_to_roman(level)
+            return f"⚜️ <b>[{roman_lvl}] {safe_name}</b>"
+        except Exception as e:
+            print(f"Error parsing eidos_shard custom_data for {uid}: {e}")
+
+    return f"👤 {safe_name}"

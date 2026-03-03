@@ -855,17 +855,21 @@ def pvp_vendetta_menu(attackers):
             except:
                 time_str = "?"
 
+            from modules.services.utils import get_vip_prefix
+            # Strip tags for buttons
+            vip_name = get_vip_prefix(a['attacker_uid'], name).replace('<b>', '').replace('</b>', '')
+
             if not success:
                 # Attack failed (Blocked)
-                btn_text = f"🛡 {name} | ⛔️ Blocked ({time_str})"
+                btn_text = f"🛡 {vip_name} | ⛔️ Blocked ({time_str})"
                 cb = f"pvp_log_details_{log_id}"
             elif is_revenged:
                 # Already revenged
-                btn_text = f"✅ {name} | ♻️ {stolen} BC ({time_str})"
+                btn_text = f"✅ {vip_name} | ♻️ {stolen} BC ({time_str})"
                 cb = f"pvp_log_details_{log_id}"
             else:
                 # Active Target
-                btn_text = f"🩸 {name} | -{stolen} BC ({time_str})"
+                btn_text = f"🩸 {vip_name} | -{stolen} BC ({time_str})"
                 cb = f"pvp_log_details_{log_id}"
 
             m.add(types.InlineKeyboardButton(btn_text, callback_data=cb))
@@ -921,7 +925,7 @@ def eidos_room_menu():
     markup.add(
         InlineKeyboardButton("👁‍🗨 ПОЛУЧИТЬ ДОСЬЕ (100 ⭐️)", callback_data="eidos_buy_dossier"),
         InlineKeyboardButton("🔮 ВЕКТОР БУДУЩЕГО (250 ⭐️)", callback_data="eidos_buy_forecast"),
-        InlineKeyboardButton("🔗 ПРОТОКОЛ СИМБИОЗА (1000 ⭐️)", callback_data="eidos_buy_symbiosis"),
+        InlineKeyboardButton("👁 Глас Абсолюта (500 ⭐️)", callback_data="eidos_buy_voice"),
         back_button()
     )
     return markup
@@ -941,7 +945,7 @@ def eidos_room_menu():
     markup.add(
         telebot.types.InlineKeyboardButton("👁‍🗨 ПОЛУЧИТЬ ДОСЬЕ (100 ⭐️)", callback_data="eidos_buy_dossier"),
         telebot.types.InlineKeyboardButton("🔮 ВЕКТОР БУДУЩЕГО (250 ⭐️)", callback_data="eidos_buy_forecast"),
-        telebot.types.InlineKeyboardButton("🔗 ПРОТОКОЛ СИМБИОЗА (1000 ⭐️)", callback_data="eidos_buy_symbiosis"),
+        telebot.types.InlineKeyboardButton("👁 Глас Абсолюта (500 ⭐️)", callback_data="eidos_buy_voice"),
         telebot.types.InlineKeyboardButton("⬅️ В ИЛЛЮЗИЮ", callback_data="back")
     )
     return markup
