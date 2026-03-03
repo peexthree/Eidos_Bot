@@ -58,6 +58,9 @@ def eidos_purchase_handler(call):
     uid = int(call.from_user.id)
     action = call.data.replace("eidos_buy_", "")
     u = cache_db.get_cached_user(uid)
+    if not u:
+        bot.answer_callback_query(call.id, "❌ Ошибка синхронизации с базой данных. Попробуйте еще раз.", show_alert=True)
+        return
     is_admin = cache_db.get_cached_admin_status(uid)
 
     if action == "dossier":
@@ -107,10 +110,6 @@ def eidos_purchase_handler(call):
             bot.answer_callback_query(call.id, f"❌ Ошибка шлюза: {e}", show_alert=True)
 
     elif action == "voice":
-        if int(u.get('level', 1)) < 10:
-            bot.answer_callback_query(call.id, "Твой нейроконтур не готов к Слиянию.", show_alert=True)
-            return
-
         if is_admin:
             bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             db.set_state(uid, "wait_eidos_premium_question"); cache_db.clear_cache(uid)
