@@ -54,18 +54,18 @@ def start_handler(m):
         uid = int(m.from_user.id)
         print(f"/// DEBUG: Entering start_handler for user {uid}")
         # --- QUARANTINE CHECK ---
-        print(f"/// START_HANDLER: Performing quarantine check for {uid}")
-        is_q, rem_hours = check_quarantine(uid)
-        if is_q:
-            print(f"/// START_HANDLER: User {uid} is quarantined")
-            msg = (
-                "⛔️ <b>ДОСТУП ЗАБЛОКИРОВАН</b>\n\n"
-                "Ты упустил окно возможностей. Система распознала в тебе спящий NPC.\n"
-                "Возвращайся в свой сон.\n\n"
-                f"⏳ Повторная попытка Сборки будет доступна через <b>{rem_hours} часов</b>."
-            )
-            bot.send_message(uid, msg, parse_mode="HTML")
-            return
+        print(f"/// START_HANDLER: Performing quarantine check for {uid} (SKIPPED)")
+        # is_q, rem_hours = check_quarantine(uid)
+        # if is_q:
+        #     print(f"/// START_HANDLER: User {uid} is quarantined")
+        #     msg = (
+        #         "⛔️ <b>ДОСТУП ЗАБЛОКИРОВАН</b>\n\n"
+        #         "Ты упустил окно возможностей. Система распознала в тебе спящий NPC.\n"
+        #         "Возвращайся в свой сон.\n\n"
+        #         f"⏳ Повторная попытка Сборки будет доступна через <b>{rem_hours} часов</b>."
+        #     )
+        #     bot.send_message(uid, msg, parse_mode="HTML")
+        #     return
 
         ref = m.text.split()[1] if len(m.text.split()) > 1 else None
 
