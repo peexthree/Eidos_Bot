@@ -112,9 +112,8 @@ def eidos_purchase_handler(call):
     elif action == "voice":
         if is_admin:
             bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
-            import threading
-            from modules.services.ai_worker import generate_eidos_voice_worker
-            threading.Thread(target=generate_eidos_voice_worker, args=(bot, call.message.chat.id, uid)).start()
+            db.set_state(uid, "wait_eidos_premium_question"); cache_db.clear_cache(uid)
+            bot.send_message(uid, "👁‍🗨 Глас Абсолюта готов. Опиши свою проблему, и я разберу твой код на части.")
             return
 
         try:
@@ -151,8 +150,8 @@ def got_payment(message):
     elif payload == "eidos_forecast":
         threading.Thread(target=generate_eidos_response_worker, args=(bot, message.chat.id, uid, 'forecast')).start()
     elif payload == "voice_of_eidos":
-        from modules.services.ai_worker import generate_eidos_voice_worker
-        threading.Thread(target=generate_eidos_voice_worker, args=(bot, message.chat.id, uid)).start()
+        db.set_state(uid, "wait_eidos_premium_question"); cache_db.clear_cache(uid)
+        bot.send_message(uid, "👁‍🗨 Глас Абсолюта готов. Опиши свою проблему, и я разберу твой код на части.")
     elif payload == "eidos_symbiosis":
         db.set_state(uid, "awaiting_demiurge_question"); cache_db.clear_cache(uid)
         bot.send_message(uid, "👁‍🗨 Прямой канал связи с Создателем открыт. Напиши свой вопрос одним сообщением. Я прикреплю к нему твою психоматрицу.")
