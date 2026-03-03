@@ -55,11 +55,11 @@ def protocol_handler(call):
         else:
             # [MODULE 7] Micro-Glitch Hook
             from modules.services.glitch_system import check_micro_glitch
-            micro_glitch = check_micro_glitch(uid, u.get('level', 1))
-            if micro_glitch:
+            glitch_msg, glitch_img = check_micro_glitch(uid, u.get('level', 1))
+            if glitch_msg:
                 bot.answer_callback_query(call.id)
                 db.update_user(uid, last_protocol_time=int(time.time()))
-                threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, micro_glitch, kb.back_button(), config.MENU_IMAGES["get_protocol"])).start()
+                threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, glitch_msg, kb.back_button(), glitch_img or config.MENU_IMAGES["get_protocol"])).start()
                 return
 
             # GLITCH CHECK (Module 2)
@@ -114,11 +114,11 @@ def protocol_handler(call):
         else:
              # [MODULE 7] Micro-Glitch Hook
              from modules.services.glitch_system import check_micro_glitch
-             micro_glitch = check_micro_glitch(uid, u.get('level', 1))
-             if micro_glitch:
+             glitch_msg, glitch_img = check_micro_glitch(uid, u.get('level', 1))
+             if glitch_msg:
                  bot.answer_callback_query(call.id)
                  db.update_user(uid, last_signal_time=int(time.time()))
-                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, micro_glitch, kb.back_button(), config.MENU_IMAGES["get_signal"])).start()
+                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, glitch_msg, kb.back_button(), glitch_img or config.MENU_IMAGES["get_signal"])).start()
                  return
 
              # GLITCH CHECK (Module 2)
@@ -202,8 +202,9 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
     image_url = extra.get('image') if extra else None
     if not image_url: image_url = get_menu_image(new_u)
     has_spike = extra.get('has_data_spike', False) if extra else False
+    has_arch = db.get_item_count(uid, "admin_key") > 0
 
-    markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
+    markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike, has_architect_key=has_arch)
     menu_update(call, full_text, markup, image_url=image_url)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("raid_") or call.data == "zero_layer_menu" or call.data.startswith("r_check_") or call.data == "use_admin_key")
@@ -271,8 +272,8 @@ def raid_handler(call):
     elif call.data == "raid_use_stimulator":
          handle_raid_action(call, uid, {'answer': 'use_stimulator'})
 
-    elif call.data == "use_admin_key":
-         bot.answer_callback_query(call.id, "🟠 КЛЮЧ АРХИТЕКТОРА:\n\nЭтот артефакт пульсирует странной энергией.\nОн не имеет видимого применения в этой версии реальности.\n\n...пока что.", show_alert=True)
+    elif call.data == "raid_use_architect_key":
+         handle_raid_action(call, uid, {"answer": "use_architect_key"})
 
     elif call.data == "raid_extract":
          with db.db_session() as conn:

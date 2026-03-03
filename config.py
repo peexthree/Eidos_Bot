@@ -17,6 +17,7 @@ MENU_IMAGE_URL = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/A_w
 MENU_IMAGE_URL_MONEY = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/main.jpeg"
 MENU_IMAGE_URL_MIND = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/mind.jpeg"
 MENU_IMAGE_URL_TECH = "https://raw.githubusercontent.com/peexthree/Eidos_Bot/main/neuro.jpeg"
+MENU_IMAGE_URL_ARCHITECT = "AgACAgIAAyEFAATh7MR7AAPWaaY38d-H5Q9abb0uQEPoL_PM630AAvQUaxt6SzBJSYSr4t0c-K4BAAMCAAN5AAM6BA"
 
 MENU_IMAGES = {
     "get_protocol": "AgACAgIAAyEFAATh7MR7AAMbaZiXWWBNZFSn6X6X2jOioZMcD4IAAtUZaxvxO8lIK-8ENhRiRO4BAAMCAAN5AAM6BA",
