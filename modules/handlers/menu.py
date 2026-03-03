@@ -75,23 +75,22 @@ def profile_handler(call):
         safe_name = html.escape(u['username'] or u['first_name'] or "Unknown")
         vip_name = get_vip_prefix(uid, safe_name)
         msg = (
-            f"<b>ПРОФИЛЬ: {vip_name}</b>\n"
-            f"🏫 Фракция: <b>{school_name}</b>\n"
-            f"🔰 Статус: <b>{title_name}</b>\n"
-            f"<i>({title_desc})</i>\n"
-            
+            f"👤 <b>ПРОФИЛЬ: {vip_name}</b>\n"
+            f"├ 🏫 Фракция: <b>{school_name}</b>\n"
+            f"└ 🔰 Статус: <b>{title_name}</b> <i>({title_desc})</i>\n\n"
+    
             f"📊 <b>LVL {u.get('level') or 1}</b> | <code>{p_bar}</code> ({perc}%)\n"
-            f"🔋 <b>ТЕКУЩИЙ ОПЫТ:</b> {u['xp']}\n"
-            f"📉 <b>ДО СЛЕДУЮЩЕГО УРОВНЯ:</b> {xp_need} XP\n"
-            f"🔥 <b>СТРИК входов дней в игру:</b> {p_stats['streak']} (+{p_stats['streak_bonus']}% к опыту)\n\n"
-            
-
-            
-            f"🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
-            f"🏆 Ачивки: <b>{len(ach_list)}</b>\n"
-            f"🌐 Протоколов в коллекции: <b>{db.get_archived_protocols_count(uid)}</b>\n"
-            f"🪙 Кошелек: <b>{u['biocoin']} BC</b>{accel_status}"
-            f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
+            f"├ 🔋 Опыт: <b>{u['xp']}</b> (До повышения: {xp_need} XP)\n"
+            f"└ 🔥 Стрик: <b>{p_stats['streak']} дн.</b> (+{p_stats['streak_bonus']}% к XP)\n\n"
+    
+            f"🗄 <b>АРХИВ ДАННЫХ</b>\n"
+            f"├ 🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
+            f"├ 🏆 Ачивки: <b>{len(ach_list)}</b>\n"
+            f"└ 🌐 Протоколы: <b>{db.get_archived_protocols_count(uid)}</b>\n\n"
+    
+            f"⚙️ <b>СНАРЯЖЕНИЕ И СТАТЫ</b>\n"
+            f"├ ⚔️ ATK: <b>{stats['atk']}</b> | 🛡 DEF: <b>{stats['def']}</b> | 🍀 LUCK: <b>{stats['luck']}</b>\n"
+            f"└ 🪙 Кошелек: <b>{u['biocoin']} BC</b> {accel_status}\n"
         )
 
         # Determine avatar based on level
