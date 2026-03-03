@@ -138,7 +138,21 @@ def admin_give_item(call):
 def is_admin_state(message):
     uid = int(message.from_user.id)
     state = cache_db.get_cached_user_state(uid)
-    return state and (state.startswith("wait_") or state.startswith("admin_")) and cache_db.get_cached_admin_status(uid)
+    if not state:
+        return False
+    if not cache_db.get_cached_admin_status(uid):
+        return False
+
+    admin_wait_states = (
+        "wait_grant_admin", "wait_revoke_admin", "wait_reset_user_id",
+        "wait_delete_user_id", "wait_give_res_id", "wait_give_res_val|",
+        "wait_give_item_id|", "wait_dm_user_id", "wait_dm_text|",
+        "wait_broadcast_text", "wait_channel_post", "wait_add_riddle",
+        "wait_add_protocol", "wait_add_signal", "wait_sql"
+    )
+
+    is_admin_wait = any(state.startswith(prefix) for prefix in admin_wait_states)
+    return is_admin_wait or state.startswith("admin_")
 
 @bot.message_handler(func=is_admin_state, content_types=['text'])
 def admin_text_handler(m):
