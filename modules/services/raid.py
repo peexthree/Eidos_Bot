@@ -546,14 +546,16 @@ def process_raid_step(uid, answer=None, start_depth=None):
             # 2.5 ДЕЙСТВИЕ: ИСПОЛЬЗОВАНИЕ РАСХОДНИКОВ
             if answer == 'use_battery':
                  if db.get_item_count(uid, 'battery', cursor=cur) > 0:
-                      if db.use_item(uid, 'battery', cursor=cur):
-                           new_signal = min(100, s['signal'] + 30)
-                           cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_signal, uid))
+                     if db.use_item(uid, 'battery', cursor=cur):
+                         if (db.get_user(uid).get('max_hp', 100) - int(session.get('hp', 0))) <= 5:
+                             db.update_shadow_metric(uid, 'micro_hp_heals', 1)
+                         new_signal = min(100, s['signal'] + 30)
+                         cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_signal, uid))
                            # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
 
-                           s['signal'] = new_signal
-                           alert_txt = f"🔋 ЭНЕРГИЯ ВОССТАНОВЛЕНА\nСигнал: {new_signal}%"
-                           return True, "ЗАРЯД ИСПОЛЬЗОВАН", {'alert': alert_txt}, u, 'battery_used', 0
+                         s['signal'] = new_signal
+                         alert_txt = f"🔋 ЭНЕРГИЯ ВОССТАНОВЛЕНА\nСигнал: {new_signal}%"
+                         return True, "ЗАРЯД ИСПОЛЬЗОВАН", {'alert': alert_txt}, u, 'battery_used', 0
                  return False, "❌ НЕТ БАТАРЕИ", None, u, 'battery_error', 0
 
             if answer == 'use_stimulator':

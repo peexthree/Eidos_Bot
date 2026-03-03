@@ -59,6 +59,8 @@ def shop_buy_quantity_handler(m):
                 db.update_user(uid, biocoin=u['biocoin'] - total_cost, total_spent=u['total_spent']+total_cost)
                 db.increment_user_stat(uid, 'purchases')
                 db.update_shadow_metric(uid, 'total_coins_spent', total_cost)
+                if u.get('biocoin', 0) - total_cost == 0:
+                    db.update_shadow_metric(uid, 'zero_balance_purchases', 1)
 
                 ach_txt = ""
                 new_achs = check_achievements(uid)
@@ -120,6 +122,8 @@ def shadow_buy_quantity_handler(m):
             if db.add_item(uid, item_id, qty=qty):
                 db.update_user(uid, biocoin=u['biocoin'] - total_cost)
                 db.update_shadow_metric(uid, 'total_coins_spent', total_cost)
+                if u.get('biocoin', 0) - total_cost == 0:
+                    db.update_shadow_metric(uid, 'zero_balance_purchases', 1)
                 db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Qty: {qty}, Price: {total_cost} {currency}")
                 db.increment_user_stat(uid, 'purchases')
                 bot.send_message(uid, f"✅ Куплено: {target['name']} (x{qty})")
