@@ -1,7 +1,0 @@
-I've implemented the new "Voice of Eidos" premium artifact mechanic, which includes:
-- Updating `database.py` to support a `custom_data` column on `inventory` and `user_equipment` to store artifact lore and level.
-- Updating `get_vip_prefix` in `utils.py` to format the player name based on the equipped 'eidos_shard'.
-- Modifying UI menus in `keyboards.py`, `menu.py`, and `eidos_room.py` to integrate the VIP prefix and the new invoice flow.
-- Generating the artifact with OpenRouter AI via `generate_eidos_voice_worker` in `ai_worker.py`.
-
-Please review the implementation.

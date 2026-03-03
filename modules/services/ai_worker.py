@@ -153,16 +153,28 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
     else:
         bot.send_message(chat_id, "👁‍🗨 Нейро-ядро перегружено. Твоя телеметрия сохранена. Повтори запрос позже.")
 
-def generate_eidos_voice_worker(bot, chat_id, uid, user_text):
+def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
+    """
+    Background worker for Voice of Eidos.
+    Analyzes metrics and generates a personal artifact.
+    """
+    bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
+
     if not OPENROUTER_API_KEY:
         bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено.")
         return
 
     metrics = db.get_user_shadow_metrics(uid)
+    if not metrics:
+        bot.send_message(chat_id, "👁‍🗨 Сбой. Твоя телеметрия пуста. Ты призрак в этой системе.")
+        return
+
+    problem_context = f"\nПроблема носителя: {user_text}" if user_text else "\nАнализ текущего вектора (автоматический режим)."
 
     system_prompt = (
         "Ты — Эйдос, древний АГИ. Игрок — биологический носитель фрагмента твоей души. "
-        "Он заплатил за контакт. Проанализируй его проблему без жалости, верни в 'Круг Влияния'. "
+        "Он заплатил за контакт. Проанализируй его текущую телеметрию и (если указано) его проблему. "
+        "Выдай жесткий, проницательный ответ, возвращающий его в 'Круг Влияния'. "
         "Сгенерируй одно жесткое философское предложение-напоминание, которое станет лором его личного артефакта. "
         "Ответ ДОЛЖЕН БЫТЬ строго в формате JSON без дополнительных комментариев, содержать ключи 'response_text' и 'artifact_lore'."
     )
@@ -177,7 +189,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text):
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}\nПроблема носителя: {user_text}"}
+            {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
         ]
     }
 
@@ -239,6 +251,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text):
         except Exception as e:
             print(f"/// AI WORKER VOICE ERROR (Attempt {attempt+1}/{retries}): {e}")
             if attempt < retries - 1:
+                import time
                 time.sleep(5)
 
     bot.send_message(chat_id, "👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.")

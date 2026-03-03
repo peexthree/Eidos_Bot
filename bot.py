@@ -96,13 +96,13 @@ def check_quarantine(user):
 # Handlers Order Preserved
 import modules.handlers.start
 import modules.handlers.admin
+import modules.handlers.eidos_room
 import modules.handlers.menu
 import modules.handlers.items
 import modules.handlers.gameplay
 import modules.handlers.onboarding
 import modules.handlers.pvp
 import modules.handlers.glitch_handler
-import modules.handlers.eidos_room
 
 
 import queue
@@ -276,7 +276,6 @@ if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host="0.0.0.0", port=port)
 
-import modules.handlers.eidos_room
 
 # --- FALLBACK HANDLERS ---
 @bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker'])
