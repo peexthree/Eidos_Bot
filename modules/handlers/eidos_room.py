@@ -107,19 +107,23 @@ def eidos_purchase_handler(call):
         )
         bot.answer_callback_query(call.id)
 
-    elif action == "symbiosis":
-        if is_admin:
-            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
-            db.set_state(uid, "awaiting_demiurge_question"); cache_db.clear_cache(uid)
-            bot.send_message(uid, "👁‍🗨 Прямой канал связи с Создателем открыт. Напиши свой вопрос одним сообщением. Я прикреплю к нему твою психоматрицу.")
+    elif action == "voice":
+        if int(u.get('level', 1)) < 10:
+            bot.answer_callback_query(call.id, "Твой нейроконтур не готов к Слиянию.", show_alert=True)
             return
 
-        prices = [LabeledPrice(label="Протокол Симбиоза", amount=1000)]
+        if is_admin:
+            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+            db.set_state(uid, "wait_eidos_premium_question"); cache_db.clear_cache(uid)
+            bot.send_message(uid, "👁‍🗨 Глас Абсолюта готов. Опиши свою проблему, и я разберу твой код на части.")
+            return
+
+        prices = [LabeledPrice(label="Глас Абсолюта", amount=500)]
         bot.send_invoice(
             call.message.chat.id,
-            title="Протокол Симбиоза",
-            description="Личный зашифрованный канал связи с Демиургом.",
-            invoice_payload="eidos_symbiosis",
+            title="Глас Абсолюта",
+            description="Элитная ИИ-консультация от Эйдоса. Выдаст артефакт с уникальным лором.",
+            invoice_payload="voice_of_eidos",
             provider_token="",
             currency="XTR",
             prices=prices

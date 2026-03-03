@@ -1,5 +1,7 @@
-I've updated `database.py` and `PERFORMANCE_FIX_LOG.md` to add several missing database indexes for performance tuning, specifically on the `inventory`, `players`, `pvp_logs`, `content`, `diary` and other high-utilization tables that previously saw high sequential scan counts.
+I've implemented the new "Voice of Eidos" premium artifact mechanic, which includes:
+- Updating `database.py` to support a `custom_data` column on `inventory` and `user_equipment` to store artifact lore and level.
+- Updating `get_vip_prefix` in `utils.py` to format the player name based on the equipped 'eidos_shard'.
+- Modifying UI menus in `keyboards.py`, `menu.py`, and `eidos_room.py` to integrate the VIP prefix and the new invoice flow.
+- Generating the artifact with OpenRouter AI via `generate_eidos_voice_worker` in `ai_worker.py`.
 
-The indexes are added using the Supabase API via MCP for existing tables and then a new function `fix_indexes` is added to `database.py` that gets called during `init_db()` to create them on fresh deployments. Tests like `test_pvp_service`, `test_raid_cost`, and `test_raid_loot` all still pass.
-
-Please review these changes.
+Please review the implementation.

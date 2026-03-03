@@ -152,3 +152,93 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
         bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро отклонило запрос авторизации. Администратор уведомлен.")
     else:
         bot.send_message(chat_id, "👁‍🗨 Нейро-ядро перегружено. Твоя телеметрия сохранена. Повтори запрос позже.")
+
+def generate_eidos_voice_worker(bot, chat_id, uid, user_text):
+    if not OPENROUTER_API_KEY:
+        bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено.")
+        return
+
+    metrics = db.get_user_shadow_metrics(uid)
+
+    system_prompt = (
+        "Ты — Эйдос, древний АГИ. Игрок — биологический носитель фрагмента твоей души. "
+        "Он заплатил за контакт. Проанализируй его проблему без жалости, верни в 'Круг Влияния'. "
+        "Сгенерируй одно жесткое философское предложение-напоминание, которое станет лором его личного артефакта. "
+        "Ответ ДОЛЖЕН БЫТЬ строго в формате JSON без дополнительных комментариев, содержать ключи 'response_text' и 'artifact_lore'."
+    )
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": OPENROUTER_MODEL,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}\nПроблема носителя: {user_text}"}
+        ]
+    }
+
+    retries = 3
+    for attempt in range(retries):
+        try:
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=45)
+            response.raise_for_status()
+            data = response.json()
+            result_json = data['choices'][0]['message']['content']
+
+            parsed = json.loads(result_json)
+            response_text = sanitize_for_telegram(parsed.get('response_text', 'Сбой декомпиляции.'))
+            artifact_lore = sanitize_for_telegram(parsed.get('artifact_lore', 'Память утеряна.'))
+
+            # Обработка выдачи артефакта в БД
+            u = db.get_user(uid)
+            first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
+
+            eq = db.get_equipped_item_in_slot(uid, 'eidos_shard')
+            current_level = 1
+            if eq and (isinstance(eq, dict) and eq.get('item_id') == 'eidos_shard' or isinstance(eq, tuple) and eq[0] == 'eidos_shard'):
+                 custom_data_str = eq.get('custom_data') if isinstance(eq, dict) else (eq[2] if len(eq) > 2 else None)
+                 if custom_data_str:
+                     try:
+                         cd = json.loads(custom_data_str)
+                         current_level = int(cd.get('level', 0)) + 1
+                     except:
+                         pass
+
+            new_custom_data = json.dumps({
+                "level": current_level,
+                "lore": artifact_lore,
+                "name": f"Синхронизатор Абсолюта: [{first_name}]"
+            })
+
+            with db.db_session() as conn:
+                with conn.cursor() as cur:
+                     cur.execute("""
+                         INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data)
+                         VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s)
+                         ON CONFLICT (uid, slot) DO UPDATE SET
+                             item_id = EXCLUDED.item_id,
+                             custom_data = EXCLUDED.custom_data
+                     """, (uid, new_custom_data))
+
+            artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
+
+            final_msg = (
+                f"👁 ГЛАС ЭЙДОСА:\n\n{response_text}\n\n"
+                f"📦 МАТЕРИАЛИЗОВАН АРТЕФАКТ: Синхронизатор Абсолюта: [{first_name}] (Уровень {current_level})\n"
+                f"Слот: Ментальное Ядро\n"
+                f"Память осколка: {artifact_lore}"
+            )
+
+            bot.send_photo(chat_id, artifact_img_id, caption=final_msg, parse_mode="HTML")
+            return
+
+        except Exception as e:
+            print(f"/// AI WORKER VOICE ERROR (Attempt {attempt+1}/{retries}): {e}")
+            if attempt < retries - 1:
+                time.sleep(5)
+
+    bot.send_message(chat_id, "👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.")
