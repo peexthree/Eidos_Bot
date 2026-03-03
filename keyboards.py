@@ -533,8 +533,17 @@ def admin_broadcast_menu():
 def admin_system_menu():
     m = types.InlineKeyboardMarkup(row_width=1)
     m.add(types.InlineKeyboardButton("📜 SQL ЗАПРОС", callback_data="admin_sql"))
+    m.add(types.InlineKeyboardButton("🔓 Сброс блока игрока (ID)", callback_data="admin_unstick_user"))
+    m.add(types.InlineKeyboardButton("🌐 Сброс блока у всех", callback_data="admin_unstick_all"))
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_panel"))
     return m
+
+def admin_unstick_all_confirm():
+    m = types.InlineKeyboardMarkup(row_width=1)
+    m.add(types.InlineKeyboardButton("✅ Да, сбросить всех", callback_data="admin_unstick_all_exec"))
+    m.add(types.InlineKeyboardButton("🔙 Отмена", callback_data="admin_menu_system"))
+    return m
+
 
 def admin_item_select():
     m = types.InlineKeyboardMarkup(row_width=2)

@@ -61,7 +61,7 @@ def admin_callbacks(call):
     elif call.data in ["admin_grant_admin", "admin_revoke_admin", "admin_give_res",
                        "admin_broadcast", "admin_post_channel", "admin_add_riddle",
                        "admin_add_content", "admin_add_signal", "admin_sql", "admin_dm_user",
-                       "admin_reset_user", "admin_delete_user"]:
+                       "admin_reset_user", "admin_delete_user", "admin_unstick_user"]:
          if not db.is_user_admin(uid): return
 
          state_map = {
@@ -76,7 +76,8 @@ def admin_callbacks(call):
              "admin_sql": "wait_sql",
              "admin_dm_user": "wait_dm_user_id",
              "admin_reset_user": "wait_reset_user_id",
-             "admin_delete_user": "wait_delete_user_id"
+             "admin_delete_user": "wait_delete_user_id",
+             "admin_unstick_user": "wait_unstick_user_id"
          }
          db.set_state(uid, state_map[call.data])
          msg_map = {
@@ -91,7 +92,8 @@ def admin_callbacks(call):
              "admin_sql": "📜 <b>ENTER SQL QUERY:</b>\n⚠️ BE CAREFUL!",
              "admin_dm_user": "🆔 <b>ENTER USER ID TO DM:</b>",
              "admin_reset_user": "♻️ <b>ENTER USER ID TO RESET (XP=0, LVL=1):</b>",
-             "admin_delete_user": "🗑 <b>ENTER USER ID TO PERMANENTLY DELETE:</b>\n⚠️ This action cannot be undone."
+             "admin_delete_user": "🗑 <b>ENTER USER ID TO PERMANENTLY DELETE:</b>\n⚠️ This action cannot be undone.",
+             "admin_unstick_user": "🆔 <b>ВВЕДИТЕ ID ИГРОКА ДЛЯ РАЗБЛОКИРОВКИ:</b>"
          }
          menu_update(call, msg_map[call.data], kb.back_button())
 
@@ -105,6 +107,19 @@ def admin_callbacks(call):
          bot.answer_callback_query(call.id, "✅ БРОКЕР ПРИЗВАН (15 мин)", show_alert=True)
          # Refresh main menu if possible, but admin is deep in menu.
          # Just alert is enough.
+
+
+    elif call.data == "admin_unstick_all":
+         if not db.is_user_admin(uid): return
+         menu_update(call, "⚠️ <b>ГЛОБАЛЬНЫЙ СБРОС МАТРИЦЫ</b>\nВы уверены, что хотите сбросить состояние глитча у всех игроков?", kb.admin_unstick_all_confirm())
+
+    elif call.data == "admin_unstick_all_exec":
+         if not db.is_user_admin(uid): return
+         count = db.admin_clear_all_glitches()
+         if count is not None:
+             menu_update(call, f"✅ <b>Глобальный сброс завершен. Освобождено узлов: {count}</b>", kb.back_button())
+         else:
+             menu_update(call, "❌ <b>Ошибка при глобальном сбросе.</b>", kb.back_button())
 
     elif call.data == "admin_fix_inventory":
          if not db.is_user_admin(uid): return
@@ -148,7 +163,7 @@ def is_admin_state(message):
         "wait_delete_user_id", "wait_give_res_id", "wait_give_res_val|",
         "wait_give_item_id|", "wait_dm_user_id", "wait_dm_text|",
         "wait_broadcast_text", "wait_channel_post", "wait_add_riddle",
-        "wait_add_protocol", "wait_add_signal", "wait_sql"
+        "wait_add_protocol", "wait_add_signal", "wait_sql", "wait_unstick_user_id"
     )
 
     is_admin_wait = any(state.startswith(prefix) for prefix in admin_wait_states)
@@ -186,6 +201,24 @@ def admin_text_handler(m):
                 db.update_user(tid, xp=0, level=1)
                 bot.send_message(uid, f"✅ USER {tid} RESET TO LVL 1 / 0 XP")
                 try: bot.send_message(tid, "♻️ <b>АДМИНИСТРАТОР СБРОСИЛ ВАШ ПРОГРЕСС.</b>", parse_mode="HTML")
+                except: pass
+            else:
+                bot.send_message(uid, "❌ USER NOT FOUND")
+        except: bot.send_message(uid, "❌ INVALID ID / ERROR")
+        db.delete_state(uid); cache_db.clear_cache(uid)
+
+
+    elif state == "wait_unstick_user_id":
+        try:
+            tid = int(m.text)
+            u = db.get_user(tid)
+            if u:
+                db.delete_state(tid)
+                db.admin_clear_user_raid(tid)
+                cache_db.clear_cache(tid)
+                bot.send_message(uid, f"✅ Пользователь {tid} успешно отключен от системы глитчей")
+                try:
+                    bot.send_message(tid, "♻️ <b>АДМИНИСТРАТОР ПЕРЕЗАГРУЗИЛ ВАШ ИНТЕРФЕЙС. ОШИБКИ МАТРИЦЫ УСТРАНЕНЫ.</b>", parse_mode="HTML")
                 except: pass
             else:
                 bot.send_message(uid, "❌ USER NOT FOUND")
