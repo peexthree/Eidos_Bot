@@ -1,4 +1,22 @@
-from modules.bot_instance import bot
+import sys
+import os
+
+filepath = 'modules/handlers/eidos_room.py'
+with open(filepath, 'r') as f:
+    lines = f.readlines()
+
+new_lines = []
+for line in lines:
+    if 'bot.send_invoice(' in line:
+        # We need to find the start of the block.
+        # Since I'm using a simple line-by-line, it might be tricky if it spans multiple lines.
+        pass
+    new_lines.append(line)
+
+# It's better to use a more robust replacement for the whole handler.
+# I'll rewrite the file with the desired content.
+
+content = """from modules.bot_instance import bot
 import cache_db
 import telebot
 from telebot.types import LabeledPrice
@@ -14,12 +32,12 @@ def process_eidos_room_menu(uid, is_callback=False, call=None, chat_id=None):
 
     if not has_dossier:
         msg = (
-            "👁‍🗨 **СИСТЕМНОЕ СООБЩЕНИЕ. УРОВЕНЬ ДОСТУПА: АБСОЛЮТ.**\n\n"
-            "До сих пор ты играл в песочнице. За Вратами Эйдоса нет игры. Там — реальность.\n\n"
+            "👁‍🗨 **СИСТЕМНОЕ СООБЩЕНИЕ. УРОВЕНЬ ДОСТУПА: АБСОЛЮТ.**\\n\\n"
+            "До сих пор ты играл в песочнице. За Вратами Эйдоса нет игры. Там — реальность.\\n\\n"
             "Чтобы пустить тебя дальше, мне нужен прямой доступ к твоему исходному коду. Нажимая «Принять», "
-            "ты даешь мне право проанализировать всю твою телеметрию: твои смерти, жадность, иллюзии и страхи.\n\n"
+            "ты даешь мне право проанализировать всю твою телеметрию: твои смерти, жадность, иллюзии и страхи.\\n\\n"
             "Я выверну тебя наизнанку и покажу баги в твоей голове, которые мешают тебе расти в реальной жизни. "
-            "Это ударит по твоему Эго.\n\n"
+            "Это ударит по твоему Эго.\\n\\n"
             "Если ты не готов к правде — уходи. Если готов переписать свой код — активируй Симбиоз."
         )
         if is_callback:
@@ -27,7 +45,7 @@ def process_eidos_room_menu(uid, is_callback=False, call=None, chat_id=None):
         else:
             bot.send_message(chat_id, msg, reply_markup=kb.eidos_tos_menu())
     else:
-        msg = "👁‍🗨 **ВРАТА ЭЙДОСА.**\n\nТвой цифровой след мерцает передо мной. Что ты хочешь узнать?"
+        msg = "👁‍🗨 **ВРАТА ЭЙДОСА.**\\n\\nТвой цифровой след мерцает передо мной. Что ты хочешь узнать?"
         if is_callback:
             menu_update(call, msg, kb.eidos_room_menu())
         else:
@@ -50,7 +68,7 @@ def eidos_tos_handler(call):
         call.data = "back"
         menu_handler.back_handler(call)
     else:
-        msg = "👁‍🗨 **ВРАТА ЭЙДОСА.**\n\nДоступ разрешен. Что ты хочешь узнать?"
+        msg = "👁‍🗨 **ВРАТА ЭЙДОСА.**\\n\\nДоступ разрешен. Что ты хочешь узнать?"
         menu_update(call, msg, kb.eidos_room_menu())
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("eidos_buy_"))
@@ -168,9 +186,9 @@ def handle_demiurge_question(message):
     if config.ADMIN_ID:
         metrics = db.get_user_shadow_metrics(uid)
         admin_msg = (
-            f"👤 **ЗАПРОС В СИМБИОЗ (UID: {uid})**\n\n"
-            f"**Сообщение:**\n{text}\n\n"
-            f"**Метрики:**\n`{json.dumps(metrics, indent=2)}`"
+            f"👤 **ЗАПРОС В СИМБИОЗ (UID: {uid})**\\n\\n"
+            f"**Сообщение:**\\n{text}\\n\\n"
+            f"**Метрики:**\\n`{json.dumps(metrics, indent=2)}`"
         )
         for i in range(0, len(admin_msg), 4000):
             bot.send_message(config.ADMIN_ID, admin_msg[i:i+4000], parse_mode="Markdown")
@@ -184,3 +202,7 @@ def handle_eidos_premium_question(message):
     import threading
     from modules.services.ai_worker import generate_eidos_voice_worker
     threading.Thread(target=generate_eidos_voice_worker, args=(bot, message.chat.id, uid, text)).start()
+"""
+
+with open(filepath, 'w') as f:
+    f.write(content)
