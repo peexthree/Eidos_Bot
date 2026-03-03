@@ -194,64 +194,117 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
     }
 
     retries = 3
+    delay = 5
+    result_text = None
+    artifact_lore = None
+    auth_failed = False
+
     for attempt in range(retries):
+        response = None
         try:
-            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=45)
+            print(f"/// DEBUG AI CALL: URL='https://openrouter.ai/api/v1/chat/completions', MODEL='{OPENROUTER_MODEL}'")
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=45
+            )
+
+            if response.status_code == 401:
+                auth_failed = True
+                print("/// AI WORKER CRITICAL: OpenRouter 401 Unauthorized. Check OPENROUTER_API_KEY.")
+                break
+
             response.raise_for_status()
             data = response.json()
             result_json = data['choices'][0]['message']['content']
 
             parsed = json.loads(result_json)
-            response_text = sanitize_for_telegram(parsed.get('response_text', 'Сбой декомпиляции.'))
+            result_text = sanitize_for_telegram(parsed.get('response_text', 'Сбой декомпиляции.'))
             artifact_lore = sanitize_for_telegram(parsed.get('artifact_lore', 'Память утеряна.'))
-
-            # Обработка выдачи артефакта в БД
-            u = db.get_user(uid)
-            first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
-
-            eq = db.get_equipped_item_in_slot(uid, 'eidos_shard')
-            current_level = 1
-            if eq and (isinstance(eq, dict) and eq.get('item_id') == 'eidos_shard' or isinstance(eq, tuple) and eq[0] == 'eidos_shard'):
-                 custom_data_str = eq.get('custom_data') if isinstance(eq, dict) else (eq[2] if len(eq) > 2 else None)
-                 if custom_data_str:
-                     try:
-                         cd = json.loads(custom_data_str)
-                         current_level = int(cd.get('level', 0)) + 1
-                     except:
-                         pass
-
-            new_custom_data = json.dumps({
-                "level": current_level,
-                "lore": artifact_lore,
-                "name": f"Синхронизатор Абсолюта: [{first_name}]"
-            })
-
-            with db.db_session() as conn:
-                with conn.cursor() as cur:
-                     cur.execute("""
-                         INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data)
-                         VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s)
-                         ON CONFLICT (uid, slot) DO UPDATE SET
-                             item_id = EXCLUDED.item_id,
-                             custom_data = EXCLUDED.custom_data
-                     """, (uid, new_custom_data))
-
-            artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
-
-            final_msg = (
-                f"👁 ГЛАС ЭЙДОСА:\n\n{response_text}\n\n"
-                f"📦 МАТЕРИАЛИЗОВАН АРТЕФАКТ: Синхронизатор Абсолюта: [{first_name}] (Уровень {current_level})\n"
-                f"Слот: Ментальное Ядро\n"
-                f"Память осколка: {artifact_lore}"
-            )
-
-            bot.send_photo(chat_id, artifact_img_id, caption=final_msg, parse_mode="HTML")
-            return
-
+            break
         except Exception as e:
-            print(f"/// AI WORKER VOICE ERROR (Attempt {attempt+1}/{retries}): {e}")
+            error_body = getattr(response, 'text', 'No Response Body')
+            print(f"/// AI WORKER VOICE ERROR (Attempt {attempt+1}/{retries}): {e} | Body: {error_body}")
             if attempt < retries - 1:
                 import time
-                time.sleep(5)
+                time.sleep(delay)
 
-    bot.send_message(chat_id, "👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.")
+    if auth_failed:
+        bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро отклонило запрос авторизации. Администратор уведомлен.")
+        return
+
+    if not result_text or not artifact_lore:
+        bot.send_message(chat_id, "👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.")
+        return
+
+    # Обработка выдачи артефакта в БД
+    try:
+        u = db.get_user(uid)
+        first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
+
+        eq = db.get_equipped_item_in_slot(uid, 'eidos_shard')
+        current_level = 1
+        if eq and (isinstance(eq, dict) and eq.get('item_id') == 'eidos_shard' or isinstance(eq, tuple) and eq[0] == 'eidos_shard'):
+             custom_data_str = eq.get('custom_data') if isinstance(eq, dict) else (eq[2] if len(eq) > 2 else None)
+             if custom_data_str:
+                 try:
+                     cd = json.loads(custom_data_str)
+                     current_level = int(cd.get('level', 0)) + 1
+                 except:
+                     pass
+
+        new_custom_data = json.dumps({
+            "level": current_level,
+            "lore": artifact_lore,
+            "name": f"Синхронизатор Абсолюта: [{first_name}]"
+        })
+
+        with db.db_session() as conn:
+            with conn.cursor() as cur:
+                 cur.execute("""
+                     INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data)
+                     VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s)
+                     ON CONFLICT (uid, slot) DO UPDATE SET
+                         item_id = EXCLUDED.item_id,
+                         custom_data = EXCLUDED.custom_data
+                 """, (uid, new_custom_data))
+    except Exception as e:
+        print(f"/// AI WORKER DB ERROR: {e}")
+        bot.send_message(chat_id, "👁‍🗨 Сбой записи артефакта в матрицу.")
+        return
+
+    artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
+
+    # Split text if necessary since captions are limited to 1024 characters
+    final_caption = (
+        f"📦 МАТЕРИАЛИЗОВАН АРТЕФАКТ: Синхронизатор Абсолюта: [{first_name}] (Уровень {current_level})\n"
+        f"Слот: Ментальное Ядро\n"
+        f"Память осколка: {artifact_lore}"
+    )
+
+    final_msg = f"👁 ГЛАС ЭЙДОСА:\n\n{result_text}"
+
+    # Send response text first
+    for i in range(0, len(final_msg), 4000):
+        chunk = final_msg[i:i+4000]
+        try:
+            bot.send_message(chat_id, chunk, parse_mode="HTML")
+        except Exception as e:
+            print(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
+            bot.send_message(chat_id, chunk)
+
+    # Send artifact image
+    if len(final_caption) > 1024:
+        # If the caption itself is somehow too long, send image then text
+        try:
+            bot.send_photo(chat_id, artifact_img_id)
+            for i in range(0, len(final_caption), 4000):
+                bot.send_message(chat_id, final_caption[i:i+4000])
+        except Exception as e:
+            print(f"/// AI WORKER PHOTO ERROR: {e}")
+    else:
+        try:
+            bot.send_photo(chat_id, artifact_img_id, caption=final_caption)
+        except Exception as e:
+            print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
