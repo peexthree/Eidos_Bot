@@ -213,8 +213,13 @@ def admin_text_handler(m):
             tid = int(m.text)
             u = db.get_user(tid)
             if u:
+                import time
                 db.delete_state(tid)
                 db.admin_clear_user_raid(tid)
+                try:
+                    db.set_shadow_metric(tid, 'last_hard_glitch_time', int(time.time()))
+                except Exception:
+                    pass
                 cache_db.clear_cache(tid)
                 bot.send_message(uid, f"✅ Пользователь {tid} успешно отключен от системы глитчей")
                 try:

@@ -142,6 +142,8 @@ TABLE_SCHEMAS = {
         'referrals_invited': ('INTEGER', '0'),
         'syndicate_profit_collected': ('BIGINT', '0'),
         'fast_sync_clicks': ('INTEGER', '0'),
+        'rapid_menu_clicks': ('INTEGER', '0'),
+        'last_hard_glitch_time': ('INTEGER', '0'),
         'max_streak_achieved': ('INTEGER', '0'),
         'streaks_broken_count': ('INTEGER', '0')
     },
@@ -1681,6 +1683,20 @@ def update_shadow_metric(uid, metric_name, amount=1):
             cur.execute(f"UPDATE user_shadow_metrics SET {metric_name} = {metric_name} + %s WHERE uid = %s", (amount, uid))
             conn.commit()
 
+def set_shadow_metric(uid, metric_name, value):
+    """Sets a specific metric in user_shadow_metrics to an absolute value."""
+    if metric_name not in TABLE_SCHEMAS.get('user_shadow_metrics', {}):
+        print(f"/// ERROR: Invalid shadow metric '{metric_name}'")
+        return
+
+    with db_session() as conn:
+        with conn.cursor() as cur:
+            # Ensure the row exists
+            cur.execute("INSERT INTO user_shadow_metrics (uid) VALUES (%s) ON CONFLICT DO NOTHING", (uid,))
+            # Set the metric
+            cur.execute(f"UPDATE user_shadow_metrics SET {metric_name} = %s WHERE uid = %s", (value, uid))
+            conn.commit()
+
 def get_user_shadow_metrics(uid):
     """Returns the user shadow metrics dictionary."""
     with db_cursor(cursor_factory=RealDictCursor) as cur:
@@ -1726,8 +1742,11 @@ def admin_clear_user_raid(uid):
     return False
 
 def admin_clear_all_glitches():
+    import time
     with db_cursor() as cur:
         if cur:
             cur.execute("DELETE FROM bot_states WHERE state = 'glitch_question'")
-            return cur.rowcount
+            count = cur.rowcount
+            cur.execute("UPDATE user_shadow_metrics SET last_hard_glitch_time = %s", (int(time.time()),))
+            return count
     return 0

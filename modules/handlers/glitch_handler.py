@@ -70,7 +70,11 @@ def handle_glitch_answer(call):
              if current_val > 0:
                  db.update_shadow_metric(uid, q_data['metric_reset'], -current_val)
 
-        # 3. Clear state
+        # 3. Set Cooldown for hard glitch
+        import time
+        db.set_shadow_metric(uid, 'last_hard_glitch_time', int(time.time()))
+
+        # 4. Clear state
         db.delete_state(uid)
 
         # Edit photo or text
