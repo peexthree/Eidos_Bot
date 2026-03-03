@@ -443,6 +443,13 @@ def like_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data == "back")
 def back_handler(call):
     uid = int(call.from_user.id)
+
+    from modules.handlers.glitch_handler import check_for_glitch_state
+    if check_for_glitch_state(uid, bot, call.message.chat.id):
+        try: bot.answer_callback_query(call.id)
+        except: pass
+        return
+
     u = db.get_user(uid)
 
     # --- PHASE 1 RESTORATION ---
