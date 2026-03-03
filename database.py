@@ -1247,7 +1247,7 @@ def get_leaderboard(limit=10, sort_by='xp'):
                    ue.custom_data as eidos_custom_data
             FROM players p
             LEFT JOIN user_equipment ue ON p.uid = ue.uid AND ue.slot = 'eidos_shard'
-            ORDER BY p.{order_clause.replace('DESC', 'DESC').replace('ASC', 'ASC').replace('uid', 'p.uid').replace('xp', 'p.xp').replace('level', 'p.level').replace('max_depth', 'p.max_depth').replace('biocoin', 'p.biocoin')} LIMIT %s
+            ORDER BY {order_clause.replace('uid', 'p.uid').replace('xp', 'p.xp').replace('level', 'p.level').replace('max_depth', 'p.max_depth').replace('biocoin', 'p.biocoin')} LIMIT %s
         """
         cur.execute(query, (limit,))
         return cur.fetchall()

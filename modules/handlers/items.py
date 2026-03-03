@@ -396,6 +396,7 @@ def item_action_handler(call):
             inv_id = None
             is_equipped = False
 
+            custom_data_str = None
             # Case 1: Equipped Item (view_item_eq_slot)
             if val.startswith("eq_"):
                 slot = val[3:]
@@ -403,6 +404,7 @@ def item_action_handler(call):
                 if res:
                     item_id = res['item_id']
                     durability = res['durability']
+                    custom_data_str = res.get('custom_data')
                     is_equipped = True
                 else:
                     bot.answer_callback_query(call.id, "Слот пуст или ошибка.", show_alert=True)
@@ -419,6 +421,7 @@ def item_action_handler(call):
                 if target:
                     item_id = target['item_id']
                     durability = target.get('durability')
+                    custom_data_str = target.get('custom_data')
                 else:
                     # Item not found in DB (moved, sold, or equipped)
                     print(f"/// DEBUG: Item inv_id={inv_id} not found for user {uid}")
