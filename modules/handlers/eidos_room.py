@@ -66,65 +66,69 @@ def eidos_purchase_handler(call):
     u = cache_db.get_cached_user(uid)
     is_admin = cache_db.get_cached_admin_status(uid)
 
-    if action == "dossier":
-        if is_admin:
-            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
-            import threading
-            from modules.services.ai_worker import generate_eidos_response_worker
-            threading.Thread(target=generate_eidos_response_worker, args=(bot, call.message.chat.id, uid, 'dossier')).start()
-            return
+    try:
+        if action == "dossier":
+            if is_admin:
+                bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+                import threading
+                from modules.services.ai_worker import generate_eidos_response_worker
+                threading.Thread(target=generate_eidos_response_worker, args=(bot, call.message.chat.id, uid, 'dossier')).start()
+                return
 
-        # Send Invoice for Dossier
-        prices = [LabeledPrice(label="Анализ Теневого Профиля", amount=100)]
-        bot.send_invoice(
-            call.message.chat.id,
-            title="Теневой Профиль (ЭЙДОС)",
-            description="Глубокий психометрический анализ на основе вашей телеметрии.",
-            invoice_payload="eidos_dossier",
-            provider_token="",
-            currency="XTR",
-            prices=prices
-        )
-        bot.answer_callback_query(call.id)
+            # Send Invoice for Dossier
+            prices = [LabeledPrice(label="Анализ Теневого Профиля", amount=100)]
+            bot.send_invoice(
+                call.message.chat.id,
+                title="Теневой Профиль (ЭЙДОС)",
+                description="Глубокий психометрический анализ на основе вашей телеметрии.",
+                invoice_payload="eidos_dossier",
+                provider_token="",
+                currency="XTR",
+                prices=prices
+            )
+            bot.answer_callback_query(call.id)
 
-    elif action == "forecast":
-        if is_admin:
-            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
-            import threading
-            from modules.services.ai_worker import generate_eidos_response_worker
-            threading.Thread(target=generate_eidos_response_worker, args=(bot, call.message.chat.id, uid, 'forecast')).start()
-            return
+        elif action == "forecast":
+            if is_admin:
+                bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+                import threading
+                from modules.services.ai_worker import generate_eidos_response_worker
+                threading.Thread(target=generate_eidos_response_worker, args=(bot, call.message.chat.id, uid, 'forecast')).start()
+                return
 
-        prices = [LabeledPrice(label="Вектор Будущего", amount=250)]
-        bot.send_invoice(
-            call.message.chat.id,
-            title="Вектор Будущего",
-            description="AI-прогноз на основе текущего психотипа и бизнес-рисков.",
-            invoice_payload="eidos_forecast",
-            provider_token="",
-            currency="XTR",
-            prices=prices
-        )
-        bot.answer_callback_query(call.id)
+            prices = [LabeledPrice(label="Вектор Будущего", amount=250)]
+            bot.send_invoice(
+                call.message.chat.id,
+                title="Вектор Будущего",
+                description="AI-прогноз на основе текущего психотипа и бизнес-рисков.",
+                invoice_payload="eidos_forecast",
+                provider_token="",
+                currency="XTR",
+                prices=prices
+            )
+            bot.answer_callback_query(call.id)
 
-    elif action == "symbiosis":
-        if is_admin:
-            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
-            db.set_state(uid, "awaiting_demiurge_question"); cache_db.clear_cache(uid)
-            bot.send_message(uid, "👁‍🗨 Прямой канал связи с Создателем открыт. Напиши свой вопрос одним сообщением. Я прикреплю к нему твою психоматрицу.")
-            return
+        elif action == "symbiosis":
+            if is_admin:
+                bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+                db.set_state(uid, "awaiting_demiurge_question"); cache_db.clear_cache(uid)
+                bot.send_message(uid, "👁‍🗨 Прямой канал связи с Создателем открыт. Напиши свой вопрос одним сообщением. Я прикреплю к нему твою психоматрицу.")
+                return
 
-        prices = [LabeledPrice(label="Протокол Симбиоза", amount=1000)]
-        bot.send_invoice(
-            call.message.chat.id,
-            title="Протокол Симбиоза",
-            description="Личный зашифрованный канал связи с Демиургом.",
-            invoice_payload="eidos_symbiosis",
-            provider_token="",
-            currency="XTR",
-            prices=prices
-        )
-        bot.answer_callback_query(call.id)
+            prices = [LabeledPrice(label="Протокол Симбиоза", amount=1000)]
+            bot.send_invoice(
+                call.message.chat.id,
+                title="Протокол Симбиоза",
+                description="Личный зашифрованный канал связи с Демиургом.",
+                invoice_payload="eidos_symbiosis",
+                provider_token="",
+                currency="XTR",
+                prices=prices
+            )
+            bot.answer_callback_query(call.id)
+    except Exception as e:
+        print(f"/// ERROR in eidos_purchase_handler: {e}")
+        bot.answer_callback_query(call.id, f"❌ Ошибка шлюза: {e}", show_alert=True)
 
 # Telegram Payments Webhook Handlers
 @bot.pre_checkout_query_handler(func=lambda query: True)
