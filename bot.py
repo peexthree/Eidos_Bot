@@ -20,76 +20,8 @@ QUARANTINE_CACHE = {}
 # Initialization Flag
 # DB_READY removed in favor of direct DB pool check
 
-def check_quarantine(user):
-    # SIMPLE CHECK: Skip DB for bots or system messages
-    if not user or user.is_bot: return False
-
-    uid = user.id
-
-    # CACHE CHECK
-    if uid in QUARANTINE_CACHE:
-        is_q, expiry = QUARANTINE_CACHE[uid]
-        if time.time() < expiry:
-            return is_q
-
-    print("/// DB CALL START (check_quarantine)")
-    try:
-        # statement_timeout is set to 2s in DB connection pool
-        u = cache_db.get_cached_user(uid)
-    except Exception as e:
-        print("/// TIMEOUT/ERROR: check_quarantine DB CALL FAILED")
-        import traceback; traceback.print_exc()
-        QUARANTINE_CACHE[uid] = (False, time.time() + 5) # Short cache on error
-        return False
-    print("/// DB CALL END (check_quarantine)")
-    if not u:
-        QUARANTINE_CACHE[uid] = (False, time.time() + 60)
-        return False
-
-    # 1. Check if already quarantined
-    if u.get('is_quarantined'):
-        quarantine_end_time = u.get('quarantine_end_time', 0)
-        try:
-            quarantine_end_time = float(quarantine_end_time)
-        except (ValueError, TypeError):
-            quarantine_end_time = 0
-
-        if time.time() < quarantine_end_time:
-            QUARANTINE_CACHE[uid] = (True, time.time() + 60)
-            return True
-        else:
-            # Quarantine expired
-            db.update_user(uid, is_quarantined=False)
-            QUARANTINE_CACHE[uid] = (False, time.time() + 60)
-            return False
-
-    # 2. Check Sleep Timer (Only for Levels < 2 and active onboarding)
-    # Stage > 0 means started.
-    level = u.get('level', 1)
-    onboarding_stage = u.get('onboarding_stage', 0)
-    try:
-        level = int(level)
-        onboarding_stage = int(onboarding_stage)
-    except (ValueError, TypeError):
-        level = 1
-        onboarding_stage = 0
-
-    if level < 2 and onboarding_stage > 0:
-        start_time = u.get('onboarding_start_time', 0)
-        try:
-            start_time = float(start_time)
-        except (ValueError, TypeError):
-            start_time = 0
-
-        if start_time > 0:
-            elapsed = time.time() - start_time
-            if elapsed > 86400: # 24 hours
-                 db.quarantine_user(uid)
-                 QUARANTINE_CACHE[uid] = (True, time.time() + 60)
-                 return True
-
-    QUARANTINE_CACHE[uid] = (False, time.time() + 60)
-    return False
+# def check_quarantine(user):
+#     return False
 
 
 # Import Handlers (Registers them)
