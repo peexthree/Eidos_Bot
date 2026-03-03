@@ -76,19 +76,22 @@ def profile_handler(call):
         vip_name = get_vip_prefix(uid, safe_name)
         msg = (
             f"<b>ПРОФИЛЬ: {vip_name}</b>\n"
-            f"🏫 Школа: <b>{school_name}</b>\n"
+            f"🏫 Фракция: <b>{school_name}</b>\n"
             f"🔰 Статус: <b>{title_name}</b>\n"
             f"<i>({title_desc})</i>\n"
+            
             f"📊 <b>LVL {u.get('level') or 1}</b> | <code>{p_bar}</code> ({perc}%)\n"
             f"🔋 <b>ТЕКУЩИЙ ОПЫТ:</b> {u['xp']}\n"
             f"📉 <b>ДО СЛЕДУЮЩЕГО УРОВНЯ:</b> {xp_need} XP\n"
             f"🔥 <b>СТРИК входов дней в игру:</b> {p_stats['streak']} (+{p_stats['streak_bonus']}% к опыту)\n\n"
-            f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
-            f"{equip_txt}\n"
+            
+
+            
             f"🕳 Рекорд глубины: <b>{p_stats['max_depth']}м</b>\n"
             f"🏆 Ачивки: <b>{len(ach_list)}</b>\n"
-            f"🌐 Протоколов в коллекции: <b>{db.get_archived_protocols_count(uid)} ({config.TOTAL_PROTOCOLS})</b>\n"
+            f"🌐 Протоколов в коллекции: <b>{db.get_archived_protocols_count(uid)}</b>\n"
             f"🪙 Кошелек: <b>{u['biocoin']} BC</b>{accel_status}"
+            f"⚔️ ATK: {stats['atk']} | 🛡 DEF: {stats['def']} | 🍀 LUCK: {stats['luck']}\n"
         )
 
         # Determine avatar based on level
@@ -183,7 +186,7 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
         rank_icon = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"<b>{i}.</b>"
 
         # Faction
-        path_icon = "🏦" if l['path'] == 'money' else "🧠" if l['path'] == 'mind' else "🤖" if l['path'] == 'tech' else "⚪️"
+        path_icon = "🏦" if l['path'] == 'money' else "🧠" if l['path'] == 'mind' else "🤖" if l['path'] == 'tech' else "👑"
 
         # Name
         name = l['first_name'] or "Unknown"
@@ -232,10 +235,17 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
 
     # Flavor Text
     flavor = "📉 Система считает тебя статистической погрешностью. Работай."
-    if user_rank == 1: flavor = "👑 Ты — Архитектор этой реальности."
-    elif user_rank <= 3: flavor = "🔥 Ты дышишь в спину легендам."
-    elif user_rank <= 10: flavor = "⚡️ Элита сети. Твое имя знают."
-    elif user_rank <= 50: flavor = "👀 Система наблюдает за тобой."
+    if user_rank == 1: flavor = "👑 Абсолютная Сингулярность. Матрица гнется под твой код."
+    elif user_rank == 2: flavor = "🩸 Первый Претендент. Твой клинок уже у горла Архитектора."
+    elif user_rank == 3: flavor = "🔥 Теневой Кардинал. Бронза, залитая кровью конкурентов."
+    elif user_rank <= 5: flavor = "⚡️ Альфа-Узел. Твое имя вшито в корневые сертификаты Сети."
+    elif user_rank <= 10: flavor = "👁‍🗨 Высший Совет. Ты в десятке тех, кто диктует правила Бездне."
+    elif user_rank <= 15: flavor = "💀 Критическая Угроза. За твою голову уже назначена награда."
+    elif user_rank <= 20: flavor = "⚙️ Элита Синдиката. Твои рейды изучают как учебное пособие."
+    elif user_rank <= 30: flavor = "🧬 Высшая Мутация. Ты вырвался из серой массы. Система признала тебя."
+    elif user_rank <= 40: flavor = "🔌 Проводник Хаоса. Стабильно опасен, расчетлив и смертоносен."
+    elif user_rank <= 50: flavor = "🚪 Взломщик Периметра. Ты выбил дверь в Топ-50. Теперь выживай."
+    else: flavor = "📉 Статистическая погрешность. Работай, чтобы стать кем-то."
 
     txt += f"{flavor}"
 
@@ -379,7 +389,7 @@ def quiz_handler(call):
 
     # Questions with IDs
     questions = [
-        {"id": "q1", "q": "Как называется нулевой слой?", "a": ["Zero Layer", "Net", "Void"], "c": "Zero Layer"},
+        {"id": "q1", "q": "Как называется путешествие?", "a": ["Нулевой слой", "Сеть", "Дыра"], "c": "Нулевой слой"},
         {"id": "q2", "q": "Кто такой Демон Максвелла?", "a": ["Вирус", "Аномалия", "Босс"], "c": "Аномалия"},
         {"id": "q3", "q": "Максимальная глубина?", "a": ["Нет", "1000", "9999"], "c": "Нет"},
         {"id": "q4", "q": "Валюта сети?", "a": ["Bit", "BioCoin", "Credits"], "c": "BioCoin"}
@@ -480,7 +490,7 @@ def feedback_init_handler(call):
     msg = (
         "✉️ <b>ОБРАТНАЯ СВЯЗЬ</b>\n\n"
         "Опиши найденный баг или предложение по улучшению.\n"
-        "Я передам сообщение Создателю.\n\n"
+        "Я передам сообщение Создателю.Если это полезная находка, то тебя щедро наградят \n\n"
         "<i>Напиши текст и отправь в чат.</i>"
     )
     menu_update(call, msg, kb.back_button())
