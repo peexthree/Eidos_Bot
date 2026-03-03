@@ -11,13 +11,15 @@ def check_for_glitch_state(uid, bot, chat_id):
         return True
 
     # Check if we should trigger a hard glitch right now
-    # We shouldn't do this on every single click to avoid lag, but maybe once every few actions?
-    # Or rely on specific triggers. Let's do it if they don't have a state.
     glitch_data = check_hard_glitch(uid)
     if glitch_data:
         db.set_state(uid, 'glitch_question', str(GLITCH_QUESTIONS.index(glitch_data)))
         msg = glitch_data['text']
-        bot.send_message(chat_id, msg, reply_markup=kb.glitch_question_answers(glitch_data['answers']))
+        img = glitch_data.get('image')
+        if img:
+            bot.send_photo(chat_id, img, caption=msg, reply_markup=kb.glitch_question_answers(glitch_data['answers']))
+        else:
+            bot.send_message(chat_id, msg, reply_markup=kb.glitch_question_answers(glitch_data['answers']))
         return True
 
     return False
@@ -51,7 +53,12 @@ def handle_glitch_answer(call):
         # 3. Clear state
         db.delete_state(uid)
 
-        bot.edit_message_text("👁‍🗨 Ответ записан. Матрица продолжает работу.", call.message.chat.id, call.message.message_id)
+        # Edit photo or text
+        if call.message.content_type == 'photo':
+            bot.edit_message_caption("👁‍🗨 Ответ записан. Матрица продолжает работу.", call.message.chat.id, call.message.message_id)
+        else:
+            bot.edit_message_text("👁‍🗨 Ответ записан. Матрица продолжает работу.", call.message.chat.id, call.message.message_id)
+
         bot.answer_callback_query(call.id)
     except Exception as e:
         print(f"GLITCH HANDLER ERROR: {e}")

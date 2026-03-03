@@ -4,7 +4,7 @@ import time
 from telebot import types
 from telebot.apihelper import ApiTelegramException
 import config
-from config import WELCOME_VARIANTS, MENU_IMAGE_URL, MENU_IMAGE_URL_MONEY, MENU_IMAGE_URL_MIND, MENU_IMAGE_URL_TECH, INVENTORY_LIMIT
+from config import WELCOME_VARIANTS, MENU_IMAGE_URL, MENU_IMAGE_URL_MONEY, MENU_IMAGE_URL_MIND, MENU_IMAGE_URL_TECH, MENU_IMAGE_URL_ARCHITECT, INVENTORY_LIMIT
 import database as db
 from modules.bot_instance import bot
 from modules.texts import GAME_GUIDE_TEXTS
@@ -12,6 +12,36 @@ from modules.texts import GAME_GUIDE_TEXTS
 # =============================================================
 # 🛠 УТИЛИТЫ UI (из logic.py)
 # =============================================================
+
+
+def add_biocoin(uid, amount, cursor=None, **kwargs):
+    """
+    Safely adds biocoin to user and tracks total_coins_earned in shadow metrics.
+    """
+    if amount <= 0:
+        if kwargs: db.update_user(uid, cursor=cursor, **kwargs)
+        return
+
+    db.update_shadow_metric(uid, 'total_coins_earned', amount)
+
+    # We use a direct SQL update for atomicity
+    sql = "UPDATE players SET biocoin = biocoin + %s"
+    params = [amount]
+
+    if kwargs:
+        for k, v in kwargs.items():
+            sql += f", {k} = %s"
+            params.append(v)
+
+    sql += " WHERE uid = %s"
+    params.append(uid)
+
+    if cursor:
+        cursor.execute(sql, tuple(params))
+    else:
+        with db.db_session() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, tuple(params))
 
 def strip_html(text):
     """Удаляет HTML теги из текста для алерта."""
@@ -129,6 +159,7 @@ def get_menu_image(u):
     if p == "money": return MENU_IMAGE_URL_MONEY
     elif p == "mind": return MENU_IMAGE_URL_MIND
     elif p == "tech": return MENU_IMAGE_URL_TECH
+    elif p == "architect": return MENU_IMAGE_URL_ARCHITECT
     return MENU_IMAGE_URL
 
 def menu_update(call, text, markup=None, image_url=None):

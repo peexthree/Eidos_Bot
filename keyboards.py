@@ -290,7 +290,7 @@ def raid_depth_selection_menu(max_depth, cost):
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="zero_layer_menu"))
     return m
 
-def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumables={}, has_data_spike=False):
+def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumables={}, has_data_spike=False, has_architect_key=False):
     m = types.InlineKeyboardMarkup()
     
     battery_count = consumables.get('battery', 0)
@@ -346,6 +346,8 @@ def raid_action_keyboard(xp_cost, event_type='neutral', has_key=False, consumabl
     if stimulator_count > 0:
         m.add(types.InlineKeyboardButton(f"💉 ИСПОЛЬЗОВАТЬ СТИМУЛЯТОР (x{stimulator_count})", callback_data="raid_use_stimulator"))
             
+    if has_architect_key:
+        m.add(types.InlineKeyboardButton("🟠 ГЛУБОКОЕ СКАНЕРИОВАНИЕ", callback_data="raid_use_architect_key"))
     m.add(types.InlineKeyboardButton(f"👣 ШАГ ВГЛУБЬ (-{xp_cost} XP)", callback_data="raid_step"))
     m.add(types.InlineKeyboardButton("📦 ЭВАКУАЦИЯ", callback_data="raid_extract"))
     return m

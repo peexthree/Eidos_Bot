@@ -199,6 +199,10 @@ def get_user_stats(uid):
     # School bonus
     if u['path'] == 'mind': stats['def'] += 10
     elif u['path'] == 'tech': stats['luck'] += 10
+    elif u['path'] == 'architect':
+        stats['atk'] += 20
+        stats['def'] += 20
+        stats['luck'] += 20
 
     # --- ANOMALY DEBUFF: CORROSION ---
     anomaly_buff_expiry = u.get('anomaly_buff_expiry', 0)
@@ -207,9 +211,14 @@ def get_user_stats(uid):
     except (ValueError, TypeError):
         anomaly_buff_expiry = 0
 
-    if anomaly_buff_expiry > time.time() and u.get('anomaly_buff_type') == 'corrosion':
-        stats['atk'] = int(stats['atk'] * 0.8)
-        stats['def'] = int(stats['def'] * 0.8)
+    if anomaly_buff_expiry > time.time():
+        b_type = u.get("anomaly_buff_type")
+        if b_type == "corrosion":
+            stats["atk"] = int(stats["atk"] * 0.8)
+            stats["def"] = int(stats["def"] * 0.8)
+        elif b_type == "oneness_atk": stats["atk"] += 50
+        elif b_type == "oneness_def": stats["def"] += 50
+        elif b_type == "oneness_luck": stats["luck"] += 50
 
     # --- IMPOSTER SYNDROME (Chip) ---
     if eq.get('chip') == 'imposter_syndrome':

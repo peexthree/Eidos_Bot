@@ -907,8 +907,8 @@ def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
         if check_limit:
             cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
             res = cur.fetchone()
-            count = res[0] if res else 0
-            if count >= INVENTORY_LIMIT:
+            count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
+            if int(count or 0) >= int(INVENTORY_LIMIT or 20):
                 return False
 
         if is_equipment:
@@ -1271,7 +1271,7 @@ def get_user_rank(uid, sort_by='xp'):
         if not cur: return 0
         cur.execute(query, (uid,))
         res = cur.fetchone()
-        return res[0] if res else 0
+        return (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
 
 def add_diary_entry(uid, text):
     with db_cursor() as cur:
@@ -1443,7 +1443,7 @@ def is_user_admin(uid):
         if not cur: return False
         cur.execute("SELECT is_admin FROM players WHERE uid = %s", (uid,))
         res = cur.fetchone()
-        return res[0] if res else False
+        return (res[0] if isinstance(res, tuple) else res.get("is_admin")) if res else False
 
 def get_random_raid_advice(level, cursor=None):
     query = "SELECT text FROM content WHERE type='advice' AND path='raid_general' AND level=%s ORDER BY RANDOM() LIMIT 1"
@@ -1685,7 +1685,7 @@ def fast_populate_villains():
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM villains")
                 res = cur.fetchone()
-                count = res[0] if res else 0
+                count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
                 if count > 0:
                     print(f"/// DEBUG: Skipping populate_villains (found {count} entries)")
                     return
@@ -1699,7 +1699,7 @@ def fast_populate_content():
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM content")
                 res = cur.fetchone()
-                count = res[0] if res else 0
+                count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
                 if count > 0:
                     print(f"/// DEBUG: Skipping populate_content (found {count} entries)")
                     return

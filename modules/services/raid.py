@@ -512,7 +512,16 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 return True, "СУНДУК ОТКРЫТ", {'alert': alert_txt, 'image': RAID_EVENT_IMAGES.get(img_key)}, u, 'loot_opened', 0
 
             # 2.3 ДЕЙСТВИЕ: МАРОДЕРСТВО
+            from modules.services.raid_architect import process_architect_key
+            if answer == 'use_architect_key':
+                 res_arch, msg_arch, extra_arch, type_arch = process_architect_key(uid, s, cur, u)
+                 return res_arch, msg_arch, extra_arch, u, type_arch, 0
+
+            from modules.services.raid_patch import patch_claim_body
             if answer == 'claim_body':
+                 res_c, msg_c, extra_c, type_c = patch_claim_body(uid, s, cur)
+                 return res_c, msg_c, extra_c, u, type_c, 0
+                 # Old logic:
                  grave = db.get_random_grave(depth)
                  if grave:
                      if db.delete_grave(grave['id']):
@@ -922,11 +931,12 @@ def process_raid_step(uid, answer=None, start_depth=None):
                  if not is_architect:
                      cur.execute("UPDATE inventory SET durability = durability - 1 WHERE uid=%s AND item_id='compass'", (uid,))
 
-                 comp_map = {'combat': '⚔️ ВРАГ', 'trap': '💥 ЛОВУШКА', 'loot': '💎 ЛУТ', 'random': '❔ НЕИЗВЕСТНО', 'locked_chest': '🔒 СУНДУК', 'cursed_chest': '🔴 ПРОКЛЯТИЕ'}
-                 comp_res = comp_map.get(next_preview, '❔')
+                 from modules.services.raid_compass import get_compass_prediction
+                 comp_txt = get_compass_prediction(uid, next_preview, is_architect, cur)
+                 # Old logic:
 
-                 prefix = "🧿 <b>ОКО (Дальше):</b>" if is_architect else "🧭 <b>КОМПАС (Дальше):</b>"
-                 comp_txt = f"{prefix} {comp_res}"
+
+
                  # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
 
 
