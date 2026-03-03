@@ -20,10 +20,6 @@ def check_micro_glitch(uid, user_level):
     if not metrics:
         return None, None
 
-    # Rarely evaluate to avoid spam
-    if random.random() > 0.15:
-        return None, None
-
     possible_glitches = []
 
     # 1. Death / Tilt check (Level < 10)
@@ -77,7 +73,8 @@ def check_micro_glitch(uid, user_level):
          ))
 
     if possible_glitches:
-        return random.choice(possible_glitches)
+        if random.random() <= 0.50:
+            return random.choice(possible_glitches)
 
     return None, None
 

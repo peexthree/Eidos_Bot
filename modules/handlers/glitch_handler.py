@@ -24,6 +24,14 @@ def check_for_glitch_state(uid, bot, chat_id):
 
     return False
 
+@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == 'glitch_question')
+def block_glitch_msg(m):
+    bot.send_message(m.chat.id, "👁‍🗨 Иллюзия выбора отключена. Ответь на вопрос.")
+
+@bot.callback_query_handler(func=lambda call: db.get_state(call.from_user.id) == 'glitch_question' and not call.data.startswith('glitch_ans_'))
+def block_glitch_call(call):
+    bot.answer_callback_query(call.id, "👁‍🗨 Иллюзия выбора отключена. Ответь на вопрос.", show_alert=True)
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('glitch_ans_'))
 def handle_glitch_answer(call):
     uid = int(call.from_user.id)
