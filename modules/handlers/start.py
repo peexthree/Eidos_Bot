@@ -50,9 +50,9 @@ def hack_command(m):
 
 @bot.message_handler(commands=['start'])
 def start_handler(m):
-    uid = int(m.from_user.id)
-    print(f"/// DEBUG: Entering start_handler for user {uid}")
     try:
+        uid = int(m.from_user.id)
+        print(f"/// DEBUG: Entering start_handler for user {uid}")
         # --- QUARANTINE CHECK ---
         print(f"/// START_HANDLER: Performing quarantine check for {uid}")
         is_q, rem_hours = check_quarantine(uid)
@@ -121,8 +121,9 @@ def start_handler(m):
             bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
             print(f"/// START_HANDLER: Interface initialized for user {uid}")
     except Exception as e:
-        print(f"/// CRITICAL ERROR IN START HANDLER for user {getattr(m.from_user, 'id', 'Unknown')}: {e}")
+        print(f"/// START HANDLER CRASH: {e}")
         traceback.print_exc()
+        bot.send_message(m.chat.id, f"⚠️ CRITICAL SYSTEM ERROR IN /start:\n{e}")
 
 # ==========================================
 # СЕКРЕТНЫЙ ИНСТРУМЕНТ АРХИТЕКТОРА: FILE_ID
