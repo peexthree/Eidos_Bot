@@ -595,12 +595,6 @@ def item_action_handler(call):
         # because the button in "view_item_eq_slot" says "Unequip", not "Dismantle".
         # "Dismantle" button is only shown for inventory items.
 
-        # OLD BUGGY CODE:
-        # equipped = db.get_equipped_items(uid)
-        # if item_id in equipped.values():
-        #     bot.answer_callback_query(call.id, "❌ Нельзя разобрать надетое снаряжение! Снимите его.", show_alert=True)
-        #     return
-
         info = EQUIPMENT_DB.get(item_id) or ITEMS_INFO.get(item_id)
         if info:
             price = PRICES.get(item_id, info.get('price', 0))
