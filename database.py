@@ -1716,3 +1716,18 @@ def fast_populate_content():
                 populate_content()
     except Exception as e:
         print(f"/// ERR fast_populate_content: {e}")
+
+
+def admin_clear_user_raid(uid):
+    with db_cursor() as cur:
+        if cur:
+            cur.execute("DELETE FROM raid_sessions WHERE uid = %s", (uid,))
+            return True
+    return False
+
+def admin_clear_all_glitches():
+    with db_cursor() as cur:
+        if cur:
+            cur.execute("DELETE FROM bot_states WHERE state = 'glitch_question'")
+            return cur.rowcount
+    return 0
