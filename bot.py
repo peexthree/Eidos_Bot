@@ -29,12 +29,12 @@ QUARANTINE_CACHE = {}
 import modules.handlers.start
 import modules.handlers.admin
 import modules.handlers.eidos_room
+import modules.handlers.glitch_handler
 import modules.handlers.menu
 import modules.handlers.items
 import modules.handlers.gameplay
 import modules.handlers.onboarding
 import modules.handlers.pvp
-import modules.handlers.glitch_handler
 
 
 import queue

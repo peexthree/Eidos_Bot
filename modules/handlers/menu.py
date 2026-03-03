@@ -15,6 +15,7 @@ from telebot import types
 @bot.callback_query_handler(func=lambda call: call.data == "profile" or call.data.startswith("set_path_") or call.data.startswith("confirm_path_") or call.data == "change_path_menu" or call.data == "use_accelerator" or call.data == "activate_purification")
 def profile_handler(call):
     uid = int(call.from_user.id)
+    db.update_shadow_metric(uid, 'rapid_menu_clicks', 1)
     u = db.get_user(uid)
     if not u: return
 
