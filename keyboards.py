@@ -19,9 +19,9 @@ def get_progress_bar(current, total, length=10):
 # =============================================================
 
 def glitch_question_answers(answers_list):
-    markup = InlineKeyboardMarkup(row_width=1)
+    markup = types.InlineKeyboardMarkup(row_width=1)
     for idx, ans in enumerate(answers_list):
-        markup.add(InlineKeyboardButton(ans['text'], callback_data=f"glitch_ans_{idx}"))
+        markup.add(types.InlineKeyboardButton(ans['text'], callback_data=f"glitch_ans_{idx}"))
     return markup
 
 def main_menu(u):
@@ -922,40 +922,20 @@ def leaderboard_menu(current_sort='xp'):
 # =============================================================
 
 def eidos_tos_menu():
-    markup = InlineKeyboardMarkup(row_width=1)
+    markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("[ПРИНЯТЬ УСЛОВИЯ. НАЧАТЬ СКАНИРОВАНИЕ]", callback_data="eidos_tos_accept"),
-        InlineKeyboardButton("[ОТМЕНА. Я НЕ ГОТОВ К ПРАВДЕ]", callback_data="eidos_tos_reject")
+        types.InlineKeyboardButton("[ПРИНЯТЬ УСЛОВИЯ. НАЧАТЬ СКАНИРОВАНИЕ]", callback_data="eidos_tos_accept"),
+        types.InlineKeyboardButton("[ОТМЕНА. Я НЕ ГОТОВ К ПРАВДЕ]", callback_data="eidos_tos_reject")
     )
     return markup
 
 def eidos_room_menu():
-    markup = InlineKeyboardMarkup(row_width=1)
+    markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("👁‍🗨 ПОЛУЧИТЬ ДОСЬЕ (100 ⭐️)", callback_data="eidos_buy_dossier"),
-        InlineKeyboardButton("🔮 ВЕКТОР БУДУЩЕГО (250 ⭐️)", callback_data="eidos_buy_forecast"),
-        InlineKeyboardButton("👁 Глас Абсолюта (500 ⭐️)", callback_data="eidos_buy_voice"),
+        types.InlineKeyboardButton("👁‍🗨 ПОЛУЧИТЬ ДОСЬЕ (100 ⭐️)", callback_data="eidos_buy_dossier"),
+        types.InlineKeyboardButton("🔮 ВЕКТОР БУДУЩЕГО (250 ⭐️)", callback_data="eidos_buy_forecast"),
+        types.InlineKeyboardButton("👁 Глас Абсолюта (500 ⭐️)", callback_data="eidos_buy_voice"),
         back_button()
-    )
-    return markup
-
-def eidos_tos_menu():
-    import telebot
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        telebot.types.InlineKeyboardButton("[ПРИНЯТЬ УСЛОВИЯ. НАЧАТЬ СКАНИРОВАНИЕ]", callback_data="eidos_tos_accept"),
-        telebot.types.InlineKeyboardButton("[ОТМЕНА. Я НЕ ГОТОВ К ПРАВДЕ]", callback_data="eidos_tos_reject")
-    )
-    return markup
-
-def eidos_room_menu():
-    import telebot
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        telebot.types.InlineKeyboardButton("👁‍🗨 ПОЛУЧИТЬ ДОСЬЕ (100 ⭐️)", callback_data="eidos_buy_dossier"),
-        telebot.types.InlineKeyboardButton("🔮 ВЕКТОР БУДУЩЕГО (250 ⭐️)", callback_data="eidos_buy_forecast"),
-        telebot.types.InlineKeyboardButton("👁 Глас Абсолюта (500 ⭐️)", callback_data="eidos_buy_voice"),
-        telebot.types.InlineKeyboardButton("⬅️ В ИЛЛЮЗИЮ", callback_data="back")
     )
     return markup
 

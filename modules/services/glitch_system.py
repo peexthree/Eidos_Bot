@@ -213,8 +213,14 @@ def check_hard_glitch(uid):
     Checks if user meets criteria for a hard glitch question.
     Returns question dict if triggered.
     """
+    import time
     metrics = db.get_user_shadow_metrics(uid)
     if not metrics: return None
+
+    # 24 hour cooldown check
+    last_glitch = metrics.get('last_hard_glitch_time', 0)
+    if time.time() - last_glitch < 86400:
+        return None
 
     for q in GLITCH_QUESTIONS:
         if q['trigger'](metrics, db.get_user(uid)):
