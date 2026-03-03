@@ -37,5 +37,8 @@ start_handler.start_handler(m)
 
 print(f"bot.send_message called: {mock_bot.send_message.called}")
 # Should have sent "ДОСТУП ЗАБЛОКИРОВАН"
-args, kwargs = mock_bot.send_message.call_args
-print(f"Message contains 'ДОСТУП ЗАБЛОКИРОВАН': {'ДОСТУП ЗАБЛОКИРОВАН' in args[1]}")
+if mock_bot.send_message.call_args:
+    args, kwargs = mock_bot.send_message.call_args
+    print(f"Message contains 'ДОСТУП ЗАБЛОКИРОВАН': {'ДОСТУП ЗАБЛОКИРОВАН' in args[1]}")
+else:
+    print("Message contains 'ДОСТУП ЗАБЛОКИРОВАН': False")

@@ -13,7 +13,19 @@ sys.modules['modules.services.combat'] = MagicMock()
 sys.modules['modules.services.utils'] = MagicMock()
 sys.modules['modules.services.user'] = MagicMock()
 
+
+# Setup proper bot decorator mocking
+mock_bot = MagicMock()
+def decorator(func):
+    return func
+mock_bot.message_handler.return_value = decorator
+sys.modules['modules.bot_instance'] = MagicMock()
+sys.modules['modules.bot_instance'].bot = mock_bot
+
 import modules.handlers.start as start_handler
+import database as db
+import cache_db
+
 
 class TestStartHandler(unittest.TestCase):
     def test_start_handler_logic(self):

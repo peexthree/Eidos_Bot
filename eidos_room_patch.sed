@@ -1,1 +1,0 @@
-s/u = cache_db.get_cached_user(uid)/u = cache_db.get_cached_user(uid)\n    if not u:\n        bot.answer_callback_query(call.id, "❌ Ошибка синхронизации с базой данных. Попробуйте еще раз.", show_alert=True)\n        return/
