@@ -252,10 +252,10 @@ def init_pool():
                             parsed = parsed._replace(netloc=new_netloc)
                             raw_url = urllib.parse.urlunparse(parsed)
 
-                        # Add pgbouncer=true to query string for Supabase pooling compatibility
+                        # Remove pgbouncer parameter if it exists as psycopg2 doesn't support it
                         query_params = urllib.parse.parse_qs(parsed.query)
-                        if 'pgbouncer' not in query_params:
-                            query_params['pgbouncer'] = ['true']
+                        if 'pgbouncer' in query_params:
+                            del query_params['pgbouncer']
                         parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
                         raw_url = urllib.parse.urlunparse(parsed)
 
