@@ -134,7 +134,7 @@ GLITCH_QUESTIONS = [
          'image': GLITCH_AVATARS['time_loop']
     },
     {
-        'trigger': lambda m, u: u.get('kills', 0) > 1000 and u.get('level', 1) > 20,
+        'trigger': lambda m, u: u and int(u.get('kills') or 0) > 1000 and int(u.get('level') or 1) > 20,
         'metric_reset': None,
         'text': "👁‍🗨 **ТЫСЯЧА ТРУПОВ.**\n\nТвои логи залиты цифровой кровью. Ты перешагнул через тысячу строк кода, которые когда-то были врагами. Что ты чувствуешь, нажимая 'Атаковать'?",
         'answers': [
@@ -156,7 +156,7 @@ GLITCH_QUESTIONS = [
         'image': GLITCH_AVATARS['system_gaze']
     },
     {
-        'trigger': lambda m, u: u.get('biocoin', 0) > 500000,
+        'trigger': lambda m, u: u and int(u.get('biocoin') or 0) > 500000,
         'metric_reset': None,
         'text': "👁‍🗨 **ЦИФРОВОЙ ОЛИГАРХ.**\n\nПолмиллиона коинов. Ты скупил всё, что имеет ценность. Симуляция пройдена на уровне потребления. Что дальше?",
         'answers': [
@@ -183,7 +183,11 @@ def check_hard_glitch(uid):
     if time.time() - last_glitch < 86400:
         return None
 
+    user = db.get_user(uid)
+    if not user:
+        return None
+
     for q in GLITCH_QUESTIONS:
-        if q['trigger'](metrics, db.get_user(uid)):
+        if q['trigger'](metrics, user):
             return q
     return None
