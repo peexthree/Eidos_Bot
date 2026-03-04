@@ -447,7 +447,15 @@ def quiz_handler(call):
             db.increment_user_stat(uid, 'quiz_wins')
             db.add_xp_to_user(uid, 100)
             db.add_quiz_history(uid, qid)
-            bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP", show_alert=True)
+            # Fetch user again to get updated history
+            u = db.get_user(uid)
+            history = u.get('quiz_history', '') or ''
+            available_after = [q for q in questions if q['id'] not in history]
+
+            if not available_after:
+                bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP\n\n🧠 Вы познали все тайны. Викторина завершена.", show_alert=True)
+            else:
+                bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP", show_alert=True)
         else:
             bot.answer_callback_query(call.id, "❌ ОШИБКА", show_alert=True)
 

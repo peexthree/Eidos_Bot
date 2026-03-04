@@ -111,7 +111,7 @@ def thought_handler(m):
     )
 
     u = db.get_user(uid)
-    bot.send_message(uid, msg, reply_markup=kb.main_menu(u), parse_mode="HTML")
+    bot.send_message(uid, msg, reply_markup=kb.path_selection_keyboard(), parse_mode="HTML")
 
 # =============================================================
 # 🌌 ФАЗА 3: ЯКОРЬ (ДНЕВНИК)
@@ -139,7 +139,7 @@ def phase3_anchor_handler(call):
         "Тебе будет задан один контрольный вопрос. Ошибка недопустима."
     )
 
-    bot.send_message(uid, msg, parse_mode="HTML")
+    menu_update(call, msg, kb.main_menu(u), image_url=config.MENU_IMAGES["guide"])
 
 # =============================================================
 # 🌌 ФАЗА 4: ГРАНД-ФИНАЛ (ЭКЗАМЕН)
@@ -196,6 +196,7 @@ def exam_answer_handler(m):
 
         # Give Keys
         db.add_item(uid, 'master_key', 2)
+        db.add_item(uid, 'rusty_knife', 1)
 
         msg = (
             "✅ <b>КОД ПРИНЯТ. +200 XP.</b>\n\n"
@@ -207,11 +208,11 @@ def exam_answer_handler(m):
             "Перестань быть Осколком, который просто плывет по течению. Стань Источником.\n\n"
             "Вот тебе первые ключи 🔑, найди свои первые сундуки в приключении Нулевой Слой.\n"
             "<i>Совет: пока нет оружия, лучше избегать первых противников.</i>\n\n"
-            "Цикл запущен. Нажми «Профиль», чтобы увидеть свое новое отражение."
+            "Я положил тебе в инвентарь Ржавый Тесак. Одень его. А теперь выбери свою специализацию."
         )
 
         u = db.get_user(uid)
-        bot.send_message(uid, msg, reply_markup=kb.main_menu(u), parse_mode="HTML")
+        bot.send_message(uid, msg, reply_markup=kb.path_selection_keyboard(), parse_mode="HTML")
 
     else:
         # FAIL

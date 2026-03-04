@@ -13,7 +13,7 @@ if 'database' in sys.modules: del sys.modules['database']
 if 'logic' in sys.modules: del sys.modules['logic']
 
 import database
-import logic
+import modules.services.utils as logic
 
 class TestVillainsImage(unittest.TestCase):
     def test_init_db_adds_image_column(self):

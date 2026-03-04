@@ -1016,7 +1016,7 @@ def get_user_rank(uid, sort_by='xp'):
         query = """
             SELECT COUNT(*) + 1
             FROM players
-            WHERE (total_spent, xp) > (SELECT total_spent, xp FROM players WHERE uid = %s)
+            WHERE (COALESCE(total_spent, 0), xp) > (SELECT COALESCE(total_spent, 0), xp FROM players WHERE uid = %s)
         """
     else:
         # Default: Rank by (xp, level)

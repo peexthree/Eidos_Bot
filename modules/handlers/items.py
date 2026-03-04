@@ -56,7 +56,7 @@ def shop_buy_quantity_handler(m):
     else:
         if int(u.get('biocoin', 0) or 0) >= total_cost:
             if db.add_item(uid, item_id, qty=qty):
-                db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - total_cost, total_spent=u['total_spent']+total_cost)
+                db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - total_cost, total_spent=int(u.get('total_spent', 0) or 0)+total_cost)
                 db.increment_user_stat(uid, 'purchases')
                 db.update_shadow_metric(uid, 'total_coins_spent', total_cost)
                 if u.get('biocoin', 0) - total_cost == 0:
@@ -188,7 +188,7 @@ def shop_handler(call):
         else:
             if int(u.get('biocoin', 0) or 0) >= cost:
                 if db.add_item(uid, item):
-                    db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - cost, total_spent=u['total_spent']+cost)
+                    db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - cost, total_spent=int(u.get('total_spent', 0) or 0)+cost)
                     db.update_shadow_metric(uid, 'total_coins_spent', cost)
                     db.increment_user_stat(uid, 'purchases')
 

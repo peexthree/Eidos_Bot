@@ -201,13 +201,12 @@ def protocol_handler(call):
                 try: bot.send_message(uid, msg, parse_mode="HTML")
                 except: pass
 
-            ach_text = ""
             new_achs = check_achievements(uid)
             if new_achs:
                 for a in new_achs:
-                    ach_text += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
+                    bot.send_message(uid, f"🏆 <b>ДОСТИЖЕНИЕ РАЗБЛОКИРОВАНО: {a['name']}</b>\n(+{a['xp']} XP)", parse_mode="HTML")
 
-            final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}{reward_text}\n\n⚡️ +{xp} XP{ach_text}"
+            final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}{reward_text}\n\n⚡️ +{xp} XP"
             threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), final_img)).start()
 
     elif call.data == "get_signal":
@@ -265,13 +264,12 @@ def protocol_handler(call):
                  try: bot.send_message(uid, msg, parse_mode='HTML')
                  except: pass
 
-             ach_text = ""
              new_achs = check_achievements(uid)
              if new_achs:
                  for a in new_achs:
-                     ach_text += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
+                     bot.send_message(uid, f"🏆 <b>ДОСТИЖЕНИЕ РАЗБЛОКИРОВАНО: {a['name']}</b>\n(+{a['xp']} XP)", parse_mode="HTML")
 
-             final_txt = f"📡 <b>СИГНАЛ:</b>\n\n{txt}{reward_text}\n\n⚡️ +{xp} XP{ach_text}"
+             final_txt = f"📡 <b>СИГНАЛ:</b>\n\n{txt}{reward_text}\n\n⚡️ +{xp} XP"
              threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), final_img)).start()
 
 
