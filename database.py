@@ -545,7 +545,7 @@ def get_user(uid, cursor=None):
 def add_user(uid, username, first_name, referrer=None):
     with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO players (uid, username, first_name, referrer, last_active) VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP) ON CONFLICT (uid) DO NOTHING", (uid, username, first_name, referrer))
+            cur.execute("INSERT INTO players (uid, username, first_name, referrer, last_active, xp, level, biocoin) VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, 0, 1, 0) ON CONFLICT (uid) DO NOTHING", (uid, username, first_name, referrer))
             if referrer and str(referrer) != str(uid):
                 cur.execute("UPDATE players SET ref_count = ref_count + 1 WHERE uid = %s", (referrer,))
 
