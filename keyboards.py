@@ -775,17 +775,22 @@ def pvp_defense_shop():
     return pvp_shop_menu()
 
 def leaderboard_menu(current_sort='xp'):
-    m = types.InlineKeyboardMarkup(row_width=3)
+    m = types.InlineKeyboardMarkup(row_width=2)
     txt_xp = "🏆 ОПЫТ"
     txt_depth = "🕳 ГЛУБИНА"
     txt_bio = "🩸 КАПИТАЛ"
+    txt_spent = "💎 СИНДИКАТ"
     if current_sort == 'xp': txt_xp = f"✅ {txt_xp}"
     elif current_sort == 'depth': txt_depth = f"✅ {txt_depth}"
     elif current_sort == 'biocoin': txt_bio = f"✅ {txt_bio}"
+    elif current_sort == 'spent': txt_spent = f"✅ {txt_spent}"
     m.add(
         types.InlineKeyboardButton(txt_xp, callback_data="lb_xp"),
-        types.InlineKeyboardButton(txt_depth, callback_data="lb_depth"),
-        types.InlineKeyboardButton(txt_bio, callback_data="lb_biocoin")
+        types.InlineKeyboardButton(txt_depth, callback_data="lb_depth")
+    )
+    m.add(
+        types.InlineKeyboardButton(txt_bio, callback_data="lb_biocoin"),
+        types.InlineKeyboardButton(txt_spent, callback_data="lb_spent")
     )
     m.add(types.InlineKeyboardButton("🔙 ВЕРНУТЬСЯ В МЕНЮ", callback_data="back"))
     return m
