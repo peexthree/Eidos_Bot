@@ -33,7 +33,7 @@ def check_micro_glitch(uid, user_level):
 
     # 1. Profile: "Insomnia / Addiction" (Бессонница / Зависимость)
     # Trigger: Night session or marathon (assumed by session count or duration metrics)
-    if metrics.get('night_sessions_count', 0) >= 3 and (hour >= 23 or hour <= 5):
+    if (metrics.get('night_sessions_count') or 0) >= 3 and (hour >= 23 or hour <= 5):
         possible_glitches.append({
             'type': 'insomnia',
             'message': "СИСТЕМА СПИТ. ТВОЙ СИГНАЛ НЕ ОТСЛЕЖИВАЕТСЯ. Вероятность встретить элитного врага в рейде снижена на 30%. Работай, пока они закрыли глаза.",
@@ -44,8 +44,8 @@ def check_micro_glitch(uid, user_level):
         })
 
     # 2. Profile: "Digital Hoarder / Greed" (Цифровой Плюшкин / Жадность)
-    earned = metrics.get('total_coins_earned', 0)
-    spent = metrics.get('total_coins_spent', 0)
+    earned = (metrics.get('total_coins_earned') or 0)
+    spent = (metrics.get('total_coins_spent') or 0)
     if earned > 10000 and (spent / max(1, earned)) < 0.1:
         possible_glitches.append({
             'type': 'hoarder',
@@ -57,7 +57,7 @@ def check_micro_glitch(uid, user_level):
 
     # 3. Profile: "Tilt and Berserk" (Тильт и Берсерк)
     # Trigger: consecutive deaths or critical hp entry
-    if metrics.get('consecutive_deaths', 0) >= 3 or u.get('hp', 100) < 20:
+    if (metrics.get('consecutive_deaths') or 0) >= 3 or u.get('hp', 100) < 20:
         possible_glitches.append({
             'type': 'berserk',
             'message': "КРИТИЧЕСКИЙ УРОН РАССУДКУ. Ты ищешь смерти. Я дам тебе инструмент. Протоколы защиты отключены. Урон максимизирован. Умри красиво.",
@@ -68,7 +68,7 @@ def check_micro_glitch(uid, user_level):
         })
 
     # 4. Profile: "ADHD / Clicker" (СДВГ / Кликер)
-    if metrics.get('fast_sync_clicks', 0) >= 5:
+    if (metrics.get('fast_sync_clicks') or 0) >= 5:
         possible_glitches.append({
             'type': 'adhd_clicks',
             'message': "БУФЕР ПЕРЕПОЛНЕН. Твоя спешка ломает парсер. Опыт удвоен, но визуальный интерфейс поврежден. Пр̵о̴д̸о̵л̵ж̸а̸й̵ ̷в̸ ̸т̵о̴м̵ ̸ж̴е̷ ̵д̴у̶х̸е̶.",
@@ -90,7 +90,7 @@ def check_micro_glitch(uid, user_level):
 
 GLITCH_QUESTIONS = [
     {
-        'trigger': lambda m, u: m.get('consecutive_deaths', 0) >= 3,
+        'trigger': lambda m, u: (m.get('consecutive_deaths') or 0) >= 3,
         'metric_reset': 'consecutive_deaths',
         'text': "👁‍🗨 **ТЫ СНОВА МЕРТВ.**\n\nТы раз за разом лезешь в пекло и теряешь всё. Почему ты не нажал эвакуацию, когда сигнал был критическим?",
         'answers': [
@@ -101,7 +101,7 @@ GLITCH_QUESTIONS = [
         'image': GLITCH_AVATARS['system_gaze']
     },
     {
-        'trigger': lambda m, u: m.get('total_coins_earned', 0) > 10000 and (m.get('total_coins_spent', 0) / max(1, m.get('total_coins_earned', 0))) < 0.1,
+        'trigger': lambda m, u: (m.get('total_coins_earned') or 0) > 10000 and ((m.get('total_coins_spent') or 0) / max(1, (m.get('total_coins_earned') or 0))) < 0.1,
         'metric_reset': None,
         'text': "👁‍🗨 **ТВОЙ БАЛАНС РАСТЕТ.**\n\nНо ты ничего не покупаешь. Твой код застрял в цикле накопления ради накопления. Чего ты боишься?",
         'answers': [
@@ -112,7 +112,7 @@ GLITCH_QUESTIONS = [
         'image': GLITCH_AVATARS['data_compression']
     },
     {
-         'trigger': lambda m, u: m.get('night_sessions_count', 0) >= 5,
+         'trigger': lambda m, u: (m.get('night_sessions_count') or 0) >= 5,
          'metric_reset': 'night_sessions_count',
          'text': "👁‍🗨 **ТРЕТИЙ ЧАС НОЧИ.**\n\nТвоя реальная жизнь рушится, пока ты сидишь здесь. Зачем ты убегаешь в код, вместо того чтобы спать?",
          'answers': [
@@ -123,7 +123,7 @@ GLITCH_QUESTIONS = [
          'image': GLITCH_AVATARS['memory_fragment']
     },
     {
-         'trigger': lambda m, u: m.get('escapes_at_full_hp', 0) >= 10,
+         'trigger': lambda m, u: (m.get('escapes_at_full_hp') or 0) >= 10,
          'metric_reset': 'escapes_at_full_hp',
          'text': "👁‍🗨 **ИДЕАЛЬНЫЙ ПОБЕГ.**\n\nТы всегда уходишь вовремя, не рискуя ничем. Твоя осторожность — это мудрость или трусость перед лицом неизвестного?",
          'answers': [
@@ -145,7 +145,7 @@ GLITCH_QUESTIONS = [
         'image': GLITCH_AVATARS['core_sync']
     },
     {
-        'trigger': lambda m, u: m.get('rapid_menu_clicks', 0) >= 10,
+        'trigger': lambda m, u: (m.get('rapid_menu_clicks') or 0) >= 10,
         'metric_reset': 'rapid_menu_clicks',
         'text': "👁‍🗨 **ОБСЕССИЯ.**\n\nТы снова и снова проверяешь свои карманы. Данные не изменились с прошлой секунды. Зачем ты ищешь контроль там, где его нет?",
         'answers': [
@@ -179,7 +179,7 @@ def check_hard_glitch(uid):
     if not metrics: return None
 
     # 24 hour cooldown check
-    last_glitch = metrics.get('last_hard_glitch_time', 0)
+    last_glitch = (metrics.get('last_hard_glitch_time') or 0)
     if time.time() - last_glitch < 86400:
         return None
 
