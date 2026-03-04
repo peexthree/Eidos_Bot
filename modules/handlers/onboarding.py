@@ -78,7 +78,7 @@ def phase2_selection_handler(call):
         "<i>(Просто отправь текст сообщения в чат)</i>"
     )
 
-    db.set_state(uid, "waiting_for_thought")
+    db.set_state(uid, "waiting_for_thought"); cache_db.clear_cache(uid)
     menu_update(call, txt, None) # No keyboard, waiting for text
 
 @bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == 'waiting_for_thought', content_types=['text'])
