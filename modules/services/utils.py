@@ -18,50 +18,49 @@ def add_biocoin(uid, amount, cursor=None, **kwargs):
     """
     Safely adds biocoin to user and tracks total_coins_earned in shadow metrics.
     """
-    if amount <= 0:
-        if kwargs: db.update_user(uid, cursor=cursor, **kwargs)
-        return
+    # We update shadow metrics only if positive earnings
+    if amount > 0:
+        db.update_shadow_metric(uid, 'total_coins_earned', amount)
 
-    db.update_shadow_metric(uid, 'total_coins_earned', amount)
+    def _execute_logic(cur):
+        profit = 0
+        ref_id = None
+        actual_amount = amount
 
-    # We use a direct SQL update for atomicity
-    sql = "UPDATE players SET biocoin = biocoin + %s"
-    params = [amount]
-
-    if kwargs:
-        for k, v in kwargs.items():
-            sql += f", {k} = %s"
-            params.append(v)
-
-    sql += " WHERE uid = %s"
-    params.append(uid)
-
-    if cursor:
-        cursor.execute(sql, tuple(params))
-        # Referrer logic
         if amount > 0:
-            cursor.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
-            res = cursor.fetchone()
+            cur.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
+            res = cur.fetchone()
+
             if res and res[0]:
                 ref_id = res[0]
                 profit = int(amount * 0.1)
-                if profit > 0:
-                    cursor.execute("UPDATE players SET biocoin = biocoin + %s, ref_profit_coins = ref_profit_coins + %s WHERE uid = %s", (profit, profit, ref_id))
-                    cursor.execute("UPDATE players SET generated_ref_coins = generated_ref_coins + %s WHERE uid = %s", (profit, uid))
+                actual_amount = amount - profit
+
+        sql = "UPDATE players SET biocoin = biocoin + %s"
+        params = [actual_amount]
+
+        if kwargs:
+            for k, v in kwargs.items():
+                sql += f", {k} = %s"
+                params.append(v)
+
+        sql += " WHERE uid = %s"
+        params.append(uid)
+
+        # Allow execution even if actual_amount is 0 (to apply kwargs) or negative
+        if actual_amount != 0 or kwargs:
+            cur.execute(sql, tuple(params))
+
+        if profit > 0 and ref_id:
+            cur.execute("UPDATE players SET biocoin = biocoin + %s, ref_profit_coins = ref_profit_coins + %s WHERE uid = %s", (profit, profit, ref_id))
+            cur.execute("UPDATE players SET generated_ref_coins = generated_ref_coins + %s WHERE uid = %s", (profit, uid))
+
+    if cursor:
+        _execute_logic(cursor)
     else:
         with db.db_session() as conn:
             with conn.cursor() as cur:
-                cur.execute(sql, tuple(params))
-                # Referrer logic
-                if amount > 0:
-                    cur.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
-                    res = cur.fetchone()
-                    if res and res[0]:
-                        ref_id = res[0]
-                        profit = int(amount * 0.1)
-                        if profit > 0:
-                            cur.execute("UPDATE players SET biocoin = biocoin + %s, ref_profit_coins = ref_profit_coins + %s WHERE uid = %s", (profit, profit, ref_id))
-                            cur.execute("UPDATE players SET generated_ref_coins = generated_ref_coins + %s WHERE uid = %s", (profit, uid))
+                _execute_logic(cur)
 
 def strip_html(text):
     """Удаляет HTML теги из текста для алерта."""

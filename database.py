@@ -569,18 +569,33 @@ def update_user(uid, cursor=None, **kwargs):
 def set_user_active(uid, status):
     update_user(uid, is_active=status)
 
-def add_xp_to_user(uid, amount):
-    with db_session() as conn:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (amount, uid))
+def add_xp_to_user(uid, amount, cursor=None):
+    def _execute_logic(cur):
+        profit = 0
+        ref_id = None
+        actual_amount = amount
+
+        if amount > 0:
             cur.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
             res = cur.fetchone()
+
             if res and res[0]:
                 ref_id = res[0]
                 profit = int(amount * 0.1)
-                if profit > 0:
-                    cur.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
-                    cur.execute("UPDATE players SET generated_ref_xp = generated_ref_xp + %s WHERE uid = %s", (profit, uid))
+                actual_amount = amount - profit
+
+        cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (actual_amount, uid))
+
+        if profit > 0 and ref_id:
+            cur.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
+            cur.execute("UPDATE players SET generated_ref_xp = generated_ref_xp + %s WHERE uid = %s", (profit, uid))
+
+    if cursor:
+        _execute_logic(cursor)
+    else:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                _execute_logic(cur)
 
 def increment_user_stat(uid, stat, amount=1, cursor=None):
     # Safe allow-list for stats

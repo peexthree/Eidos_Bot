@@ -351,8 +351,9 @@ def raid_handler(call):
                  res = cur.fetchone()
 
          if res:
+             from modules.services.utils import add_biocoin
              db.add_xp_to_user(uid, res[0])
-             db.update_user(uid, biocoin=u['biocoin'] + res[1])
+             add_biocoin(uid, res[1])
              db.log_action(uid, 'raid_extract', f"XP: {res[0]}, Coins: {res[1]}")
              # [MODULE 2] Track escapes at full HP
              if res[2] and res[2] >= 80:

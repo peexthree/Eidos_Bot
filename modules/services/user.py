@@ -147,28 +147,29 @@ def get_syndicate_stats(uid):
     if not refs: return "🌐 <b>СЕТЬ ОФФЛАЙН</b>\nНет подключенных узлов."
 
     txt = f"🔗 <b>СЕТЬ ({len(refs)} узлов):</b>\n\n"
-    total_profit = 0
+    total_profit_xp = 0
+    total_profit_coins = 0
 
     for r in refs:
         if isinstance(r, dict):
              username = r.get('username', 'Anon')
              level = r.get('level', 1)
-             # now these map to generated_ref_xp and generated_ref_coins
-             profit = r.get('generated_ref_xp', 0) + r.get('generated_ref_coins', 0)
+             profit_xp = r.get('generated_ref_xp', 0)
+             profit_coins = r.get('generated_ref_coins', 0)
         else:
              username = r[0]
              level = r[2]
-             profit = r[3] + r[4]
+             profit_xp = r[3]
+             profit_coins = r[4]
 
-        txt += f"👤 <b>@{username}</b> (Lvl {level})\n   └ 💸 Роялти: +{profit}\n"
+        txt += f"👤 <b>@{username}</b> (Lvl {level})\n   └ 💸 BioCoins: +{profit_coins}\n   └ 🔋 EXP: +{profit_xp}\n"
 
     u = db.get_user(uid)
     if u:
-        total_profit = u.get('ref_profit_xp', 0) + u.get('ref_profit_coins', 0)
-    else:
-        total_profit = 0
+        total_profit_xp = u.get('ref_profit_xp', 0)
+        total_profit_coins = u.get('ref_profit_coins', 0)
 
-    txt += f"\n💰 <b>ВСЕГО ПОЛУЧЕНО:</b> {total_profit}"
+    txt += f"\n💰 <b>СЕТЬ ДОБЫЛА ДЛЯ ТЕБЯ:</b> {total_profit_coins} BC / {total_profit_xp} EXP"
     return txt
 
 def check_achievements(uid):

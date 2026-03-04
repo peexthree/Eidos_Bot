@@ -670,7 +670,8 @@ def item_action_handler(call):
                     success = db.use_item(uid, item_id, 1)
 
                 if success:
-                    db.update_user(uid, biocoin=u['biocoin'] + scrap_val)
+                    from modules.services.utils import add_biocoin
+                    add_biocoin(uid, scrap_val)
                     bot.answer_callback_query(call.id, f"♻️ Разобрано: +{scrap_val} BC")
                     # Refresh
                     call.data = "inventory"
