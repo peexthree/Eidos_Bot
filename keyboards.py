@@ -821,7 +821,7 @@ def eidos_room_menu():
 def get_main_reply_keyboard(user):
     from telebot import types
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    if user.get('level', 1) >= 10:
+    if int(user.get('level', 1) or 1) >= 10:
         m.add(types.KeyboardButton('👁‍🗨 Врата Эйдоса'), types.KeyboardButton('/start'))
     else:
         m.add(types.KeyboardButton('/start'))

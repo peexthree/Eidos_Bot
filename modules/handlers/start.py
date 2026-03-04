@@ -24,7 +24,7 @@ def check_quarantine(uid):
                 db.update_user(uid, is_quarantined=False)
                 return False, 0
 
-        level = int(u.get('level', 1))
+        level = int(u.get('level', 1) or 1)
         stage = int(u.get('onboarding_stage', 0))
         if level < 2 and stage > 0:
             start_time = float(u.get('onboarding_start_time', 0))
