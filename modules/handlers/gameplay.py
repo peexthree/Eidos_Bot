@@ -344,17 +344,19 @@ def raid_handler(call):
          handle_raid_action(call, uid, {"answer": "use_architect_key"})
 
     elif call.data == "raid_extract":
+         res = None
          with db.db_session() as conn:
              with conn.cursor() as cur:
                  cur.execute("SELECT buffer_xp, buffer_coins, signal FROM raid_sessions WHERE uid=%s", (uid,))
                  res = cur.fetchone()
-                 if res:
-                     db.add_xp_to_user(uid, res[0])
-                     db.update_user(uid, biocoin=u['biocoin'] + res[1])
-                     db.log_action(uid, 'raid_extract', f"XP: {res[0]}, Coins: {res[1]}")
-                     # [MODULE 2] Track escapes at full HP
-                     if res[2] and res[2] >= 80:
-                         db.update_shadow_metric(uid, 'escapes_at_full_hp', 1)
+
+         if res:
+             db.add_xp_to_user(uid, res[0])
+             db.update_user(uid, biocoin=u['biocoin'] + res[1])
+             db.log_action(uid, 'raid_extract', f"XP: {res[0]}, Coins: {res[1]}")
+             # [MODULE 2] Track escapes at full HP
+             if res[2] and res[2] >= 80:
+                 db.update_shadow_metric(uid, 'escapes_at_full_hp', 1)
 
          # [MODULE 2] Reset consecutive deaths on successful escape
          db.update_shadow_metric(uid, 'consecutive_deaths', -db.get_user_shadow_metrics(uid).get('consecutive_deaths', 0))

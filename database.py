@@ -242,10 +242,27 @@ def init_pool():
         with _pool_lock:
             if not pg_pool: # Double-check locking pattern
                 try:
+                    import urllib.parse
+                    raw_url = DATABASE_URL
+                    if raw_url:
+                        parsed = urllib.parse.urlparse(raw_url)
+                        # We want to use port 6543 specifically for transaction pooling in Supabase
+                        if "supabase" in parsed.netloc and parsed.port == 5432:
+                            new_netloc = parsed.netloc.replace(":5432", ":6543")
+                            parsed = parsed._replace(netloc=new_netloc)
+                            raw_url = urllib.parse.urlunparse(parsed)
+
+                        # Add pgbouncer=true to query string for Supabase pooling compatibility
+                        query_params = urllib.parse.parse_qs(parsed.query)
+                        if 'pgbouncer' not in query_params:
+                            query_params['pgbouncer'] = ['true']
+                        parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
+                        raw_url = urllib.parse.urlunparse(parsed)
+
                     pg_pool = psycopg2.pool.ThreadedConnectionPool(
                         minconn=1,
-                        maxconn=20,
-                        dsn=DATABASE_URL,
+                        maxconn=30,
+                        dsn=raw_url,
                         sslmode='require',
                         keepalives=1,
                         keepalives_idle=30,
@@ -254,9 +271,10 @@ def init_pool():
                         connect_timeout=5,
                         options='-c lock_timeout=5000 -c statement_timeout=5000'
                     )
-                    print("/// DB POOL INITIALIZED (SUPABASE)")
+                    print("/// DB POOL INITIALIZED (SUPABASE, TRANSACTIONS/PgBouncer ENABLED)")
                 except Exception as e:
                     print(f"/// DB POOL INIT ERROR: {e}")
+
 
 def reset_pool():
     global pg_pool
@@ -364,211 +382,10 @@ def admin_force_delete_item(uid, item_id):
         cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
         return cur.rowcount > 0
 
-def get_all_tables():
-    with db_cursor() as cur:
-        if not cur: return []
-        cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-        return [row[0] for row in cur.fetchall()]
-
-def ensure_table_schema(table_name, schema_def, current_cols=None):
-    """
-    Ensures that a table has all required columns with correct types.
-    Does NOT handle constraints (PK, UK) - those should be handled by fix_ functions or initial CREATE.
-    """
-    print(f"/// DEBUG: Ensuring schema for table '{table_name}'...")
-    with db_session() as conn:
-        with conn.cursor() as cur:
-            if current_cols is None:
-                cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s", (table_name,))
-                current_cols = {row[0]: row[1].lower() for row in cur.fetchall()}
-
-            if not current_cols and table_name != 'players': # players is created first
-                 # Check existence if no columns found
-                 cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name=%s", (table_name,))
-                 if not cur.fetchone():
-                     print(f"/// TABLE MISSING: {table_name}")
-                     return
-
-            for col_name, (target_type, default_val) in schema_def.items():
-                target_type_clean = target_type.lower()
-
-                # Special handling for SERIAL (it's actually INTEGER with a sequence)
-                if target_type_clean == 'serial':
-                    target_type_clean = 'integer'
-
-                if col_name not in current_cols:
-                    print(f"/// FIX: Adding column {table_name}.{col_name} ({target_type})...")
-                    try:
-                        default_clause = ""
-                        if default_val is not None:
-                            default_clause = f"DEFAULT {default_val}"
-
-                        # Handle SERIAL separately for ADD COLUMN
-                        if target_type.lower() == 'serial':
-                            # Creating a serial column later is tricky, usually we add INTEGER and create SEQUENCE manually
-                            # For simplicity, we assume ID columns exist from CREATE TABLE.
-                            # But if missing, we try standard ADD COLUMN (postgres handles SERIAL type in ADD COLUMN fine in modern versions)
-                            stmt = f"ALTER TABLE {table_name} ADD COLUMN {col_name} SERIAL"
-                        else:
-                            stmt = f"ALTER TABLE {table_name} ADD COLUMN {col_name} {target_type} {default_clause}"
-
-                        cur.execute(stmt)
-                        conn.commit()
-                    except Exception as e:
-                        print(f"/// ERROR ADDING COLUMN {col_name}: {e}")
-                        conn.rollback()
-                else:
-                    # Column exists, check type
-                    current_type = current_cols[col_name]
-                    needs_fix = False
-
-                    # Loosely match types
-                    if 'int' in target_type_clean and 'int' not in current_type: needs_fix = True
-                    if 'bigint' in target_type_clean and 'bigint' not in current_type: needs_fix = True # upgrade int to bigint
-                    if 'bool' in target_type_clean and 'bool' not in current_type: needs_fix = True
-                    if 'timestamp' in target_type_clean and 'timestamp' not in current_type: needs_fix = True
-                    if 'jsonb' in target_type_clean and 'jsonb' not in current_type: needs_fix = True
-
-                    # Specific check: Upgrade INTEGER to BIGINT
-                    if target_type_clean == 'bigint' and current_type == 'integer':
-                        needs_fix = True
-
-                    if needs_fix:
-                        print(f"/// FIX: Type mismatch for {table_name}.{col_name} ({current_type} -> {target_type})...")
-                        try:
-                            # Robust USING clause
-                            using_clause = ""
-                            if 'int' in target_type_clean or 'bigint' in target_type_clean:
-                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::NUMERIC::{target_type_clean})"
-                            elif 'bool' in target_type_clean:
-                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type_clean})"
-                            elif 'timestamp' in target_type_clean:
-                                using_clause = f"USING (NULLIF(NULLIF({col_name}::text, ''), '0.0')::{target_type_clean})"
-                            elif 'json' in target_type_clean:
-                                using_clause = f"USING {col_name}::{target_type_clean}"
 
 
-                            # Use target_type_clean to avoid 'SERIAL' type error
-                            stmt = f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {target_type_clean} {using_clause}"
-                            if default_val is not None:
-                                stmt += f", ALTER COLUMN {col_name} SET DEFAULT {default_val}"
 
-                            cur.execute(stmt)
-                            conn.commit()
-                        except Exception as e:
-                            print(f"/// ERROR FIXING TYPE for {col_name}: {e}")
-                            conn.rollback()
 
-def fix_villains_schema():
-    print("/// DEBUG: Checking villains schema constraints...")
-    try:
-        with db_session() as conn:
-            with conn.cursor() as cur:
-                # Check if constraint exists
-                cur.execute("""
-                    SELECT conname FROM pg_constraint
-                    JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
-                    WHERE pg_class.relname = 'villains' AND pg_constraint.contype = 'u';
-                """)
-                if cur.fetchone():
-                    return # Exists
-
-                print("/// FIX: Adding UNIQUE constraint to villains(name)...")
-                # Remove duplicates first (keep highest ID)
-                cur.execute("""
-                    DELETE FROM villains a USING villains b
-                    WHERE a.id < b.id AND a.name = b.name;
-                """)
-                # Add constraint
-                cur.execute("ALTER TABLE villains ADD CONSTRAINT villains_name_key UNIQUE (name);")
-                conn.commit()
-    except Exception as e:
-        print(f"/// FIX VILLAINS ERROR: {e}")
-
-def fix_bot_states_schema():
-    print("/// DEBUG: Checking bot_states table schema...")
-    try:
-        with db_session() as conn:
-            with conn.cursor() as cur:
-                # Check if constraint exists
-                cur.execute("""
-                    SELECT conname FROM pg_constraint
-                    JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
-                    WHERE pg_class.relname = 'bot_states' AND pg_constraint.contype = 'p';
-                """)
-                if cur.fetchone():
-                    return # Exists
-
-                print("/// FIX: Adding PRIMARY KEY constraint to bot_states(uid)...")
-                # Remove duplicates first (keep highest ctid)
-                cur.execute("""
-                    DELETE FROM bot_states a USING bot_states b
-                    WHERE a.ctid < b.ctid AND a.uid = b.uid;
-                """)
-                # Add constraint
-                cur.execute("ALTER TABLE bot_states ADD PRIMARY KEY (uid);")
-                conn.commit()
-    except Exception as e:
-        print(f"/// FIX BOT_STATES ERROR: {e}")
-
-def fix_inventory_schema():
-    print("/// DEBUG: Checking inventory constraints...")
-    try:
-        with db_session() as conn:
-            with conn.cursor() as cur:
-                # Check for legacy constraint
-                cur.execute("""
-                    SELECT conname FROM pg_constraint
-                    JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
-                    WHERE pg_class.relname = 'inventory' AND pg_constraint.contype = 'u';
-                """)
-                constraints = cur.fetchall()
-                for con in constraints:
-                    name = con[0]
-                    if 'uid' in name and 'item' in name:
-                         print(f"/// FIX: Dropping legacy constraint {name} from inventory...")
-                         cur.execute(f"ALTER TABLE inventory DROP CONSTRAINT {name};")
-                         conn.commit()
-
-                # --- FIX: Ensure 'id' column is PRIMARY KEY and has SEQUENCE (for NULL IDs) ---
-                # Check if 'id' has a default value (sequence)
-                cur.execute("SELECT column_default FROM information_schema.columns WHERE table_name='inventory' AND column_name='id'")
-                res = cur.fetchone()
-                if res and res[0] is None:
-                    print("/// FIX: Inventory 'id' column missing sequence. Repairing schema...")
-
-                    # 1. Create Sequence if not exists
-                    cur.execute("CREATE SEQUENCE IF NOT EXISTS inventory_id_seq")
-
-                    # 2. Sync Sequence to MAX(id)
-                    # We use setval to start from the highest existing ID + 1
-                    cur.execute("SELECT MAX(id) FROM inventory")
-                    max_id = cur.fetchone()[0]
-                    if max_id is None: max_id = 0
-                    cur.execute(f"SELECT setval('inventory_id_seq', {max_id + 1}, false)")
-
-                    # 3. Fill existing NULL IDs
-                    cur.execute("UPDATE inventory SET id = nextval('inventory_id_seq') WHERE id IS NULL")
-
-                    # 4. Set Default Value
-                    cur.execute("ALTER TABLE inventory ALTER COLUMN id SET DEFAULT nextval('inventory_id_seq')")
-
-                    # 5. Add PRIMARY KEY constraint if not exists
-                    # Check first
-                    cur.execute("""
-                        SELECT conname FROM pg_constraint
-                        JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
-                        WHERE pg_class.relname = 'inventory' AND pg_constraint.contype = 'p';
-                    """)
-                    if not cur.fetchone():
-                        print("/// FIX: Adding PRIMARY KEY to inventory(id)...")
-                        cur.execute("ALTER TABLE inventory ADD PRIMARY KEY (id)")
-
-                    conn.commit()
-                    print("/// FIX: Inventory schema repair complete.")
-
-    except Exception as e:
-        print(f"/// FIX INVENTORY ERROR: {e}")
 
 def fix_user_equipment_schema():
     print("/// DEBUG: Checking user_equipment constraints...")
@@ -713,89 +530,7 @@ def fix_pvp_logs_schema():
     except Exception as e:
         print(f"/// FIX PVP LOGS ERROR: {e}")
 
-def init_db():
-    print("/// DEBUG: init_db started")
 
-    # 1. CREATE TABLES (Initial Structure)
-    with db_session() as conn:
-        if not conn: return
-        with conn.cursor() as cur:
-            # --- MIGRATION: users -> players ---
-            try:
-                cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='users'")
-                users_exists = cur.fetchone()
-                cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='players'")
-                players_exists = cur.fetchone()
-
-                if users_exists and not players_exists:
-                    print("/// DEBUG: Renaming users to players")
-                    cur.execute("ALTER TABLE users RENAME TO players")
-                    conn.commit()
-            except Exception as e:
-                print(f"/// MIGRATION ERROR (users->players): {e}")
-
-            # Basic Create Statements (Idempotent-ish)
-            # Note: We rely on ensure_table_schema for columns, but we need the table to exist.
-            cur.execute("CREATE TABLE IF NOT EXISTS players (uid BIGINT PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS raid_sessions (uid BIGINT PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS inventory (id SERIAL PRIMARY KEY, uid BIGINT)")
-            cur.execute("CREATE TABLE IF NOT EXISTS user_equipment (uid BIGINT, slot TEXT, PRIMARY KEY(uid, slot))")
-            cur.execute("CREATE TABLE IF NOT EXISTS bot_states (uid BIGINT PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS user_shadow_metrics (uid BIGINT PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS user_dossiers (uid BIGINT PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS villains (id SERIAL PRIMARY KEY, name TEXT UNIQUE)")
-            cur.execute("CREATE TABLE IF NOT EXISTS achievements (uid BIGINT, ach_id TEXT, PRIMARY KEY(uid, ach_id))")
-            cur.execute("CREATE TABLE IF NOT EXISTS content (id SERIAL PRIMARY KEY, text TEXT UNIQUE)")
-            cur.execute("CREATE TABLE IF NOT EXISTS raid_content (id SERIAL PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS user_knowledge (uid BIGINT, content_id INTEGER, PRIMARY KEY(uid, content_id))")
-            cur.execute("CREATE TABLE IF NOT EXISTS unlocked_protocols (uid BIGINT, protocol_id INTEGER, PRIMARY KEY(uid, protocol_id))")
-            cur.execute("CREATE TABLE IF NOT EXISTS diary (id SERIAL PRIMARY KEY, uid BIGINT)")
-            cur.execute("CREATE TABLE IF NOT EXISTS death_loot (id SERIAL PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS raid_graves (id SERIAL PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS pvp_logs (id SERIAL PRIMARY KEY)")
-            cur.execute("CREATE TABLE IF NOT EXISTS history (id SERIAL PRIMARY KEY)")
-
-    # 2. ROBUST SCHEMA FIX (Optimized)
-    print("/// DEBUG: Fetching all column info...")
-    all_current_cols = {}
-    with db_cursor() as cur:
-        cur.execute("""
-            SELECT table_name, column_name, data_type
-            FROM information_schema.columns
-            WHERE table_schema = 'public'
-        """)
-        for row in cur.fetchall():
-            t_name, c_name, d_type = row[0], row[1], row[2].lower()
-            if t_name not in all_current_cols:
-                all_current_cols[t_name] = {}
-            all_current_cols[t_name][c_name] = d_type
-
-    for table, schema in TABLE_SCHEMAS.items():
-        try:
-            ensure_table_schema(table, schema, current_cols=all_current_cols.get(table))
-        except Exception as e:
-            print(f"/// CRITICAL ERROR ensuring schema for {table}: {e}")
-
-    # 3. SPECIALIZED FIXES (Constraints, Sequences, Logic)
-    fix_villains_schema()
-    fix_bot_states_schema()
-    fix_inventory_schema()
-    fix_user_equipment_schema()
-
-    # Fix NULLs
-    fix_data_consistency()
-    fix_missing_defaults()
-    fix_pvp_logs_schema()
-
-    # 4. POPULATE DATA (New Transactions)
-    print("/// DEBUG: populating villains")
-    fast_populate_villains()
-    print("/// DEBUG: populating content")
-    fast_populate_content()
-    print("/// DEBUG: init_db finished")
-
-# --- STATE MANAGEMENT ---
 def set_state(uid, state, data=None):
     with db_session() as conn:
         with conn.cursor() as cur:
