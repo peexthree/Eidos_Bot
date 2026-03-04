@@ -265,11 +265,26 @@ def db_session():
 
     conn = None
     put_close = False
+
+    # Try to get a valid connection
+    for _ in range(2):
+        try:
+            if pg_pool:
+                conn = pg_pool.getconn()
+                # Check if connection is alive
+                if conn.closed == 0:
+                    break
+                else:
+                    pg_pool.putconn(conn, close=True)
+                    conn = None
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            if _ == 0:
+                time.sleep(0.2)
+                continue
+            raise e
+
     try:
-        if pg_pool:
-            print(f"/// DB POOL: GETTING CONNECTION")
-            conn = pg_pool.getconn()
-            print(f"/// DB POOL: CONNECTION ACQUIRED")
+        if conn:
             yield conn
             conn.commit()
         else:
@@ -280,6 +295,9 @@ def db_session():
             if conn: conn.rollback()
         except Exception:
             pass
+
+        # We can't easily 'retry' here by yielding again due to contextlib constraints.
+        # But we've already ensured a fresh connection above.
         print(f"/// DB CONNECTION ERROR (Discarding from pool): {e}")
         print(traceback.format_exc())
         raise e
@@ -293,7 +311,6 @@ def db_session():
         raise e
     finally:
         if conn and pg_pool:
-            print(f"/// DB POOL: RETURNING CONNECTION (Close: {put_close})")
             pg_pool.putconn(conn, close=put_close)
 
 @contextmanager
