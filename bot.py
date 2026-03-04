@@ -48,7 +48,6 @@ def stats_worker():
             task = STATS_QUEUE.get()
             if task is None: break
             uid, stat_type = task
-            import database as db
             db.increment_user_stat(uid, stat_type)
         except Exception as e:
             print(f"/// STATS WORKER ERR: {e}")
@@ -164,10 +163,8 @@ def notification_loop():
                     users = cur.fetchall()
         except Exception as db_err:
             print(f"/// NOTIFICATION LOOP DB ERROR: {db_err}")
-            import psycopg2
             if isinstance(db_err, (psycopg2.OperationalError, psycopg2.InterfaceError)):
                 print("/// CRITICAL DB ERROR in Notification Loop. Waiting 10s...")
-                import time
                 time.sleep(10)
 
         for row in users:
@@ -183,7 +180,6 @@ def notification_loop():
                 except Exception as update_err:
                     print(f"/// DB UPDATE ERROR {uid}: {update_err}")
 
-                import time
                 time.sleep(0.2)
             except Exception as e:
                 print(f"Notify Error {uid}: {e}")
@@ -196,7 +192,6 @@ def notification_loop():
                     except Exception as block_err:
                         print(f"/// DB BLOCK ERROR {uid}: {block_err}")
 
-        import time
         time.sleep(60)
 
 
