@@ -4,6 +4,7 @@ import keyboards as kb
 from modules.services.glitch_system import check_hard_glitch, GLITCH_QUESTIONS
 from modules.services.utils import strip_html, zalgo_text
 import time
+import cache_db
 
 def check_for_glitch_state(uid, bot, chat_id):
     state_tuple = db.get_full_state(uid)
@@ -25,6 +26,7 @@ def check_for_glitch_state(uid, bot, chat_id):
     glitch_data = check_hard_glitch(uid)
     if glitch_data:
         db.set_state(uid, 'glitch_question', str(GLITCH_QUESTIONS.index(glitch_data)))
+        cache_db.clear_cache(uid)
         msg = "<code>" + zalgo_text(glitch_data['text'], 1) + "</code>"
         img = glitch_data.get('image')
         time.sleep(1.5)
@@ -36,11 +38,11 @@ def check_for_glitch_state(uid, bot, chat_id):
 
     return False
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == 'glitch_question')
+@bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == 'glitch_question')
 def block_glitch_msg(m):
     bot.send_message(m.chat.id, zalgo_text("👁‍🗨 Иллюзия выбора отключена. Ответь на вопрос.", 1))
 
-@bot.callback_query_handler(func=lambda call: db.get_state(call.from_user.id) == 'glitch_question' and not call.data.startswith('glitch_ans_'))
+@bot.callback_query_handler(func=lambda call: cache_db.get_cached_user_state(call.from_user.id) == 'glitch_question' and not call.data.startswith('glitch_ans_'))
 def block_glitch_call(call):
     bot.answer_callback_query(call.id, zalgo_text("👁‍🗨 Иллюзия выбора отключена.", 1), show_alert=True)
 
@@ -76,6 +78,7 @@ def handle_glitch_answer(call):
 
         # 4. Clear state
         db.delete_state(uid)
+        cache_db.clear_cache(uid)
 
         # Edit photo or text
         if call.message.content_type == 'photo':
@@ -87,4 +90,5 @@ def handle_glitch_answer(call):
     except Exception as e:
         print(f"GLITCH HANDLER ERROR: {e}")
         db.delete_state(uid)
+        cache_db.clear_cache(uid)
         bot.answer_callback_query(call.id, "Сбой.", show_alert=True)
