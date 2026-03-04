@@ -253,7 +253,6 @@ def get_user_stats(uid):
                     top_stats['luck'] += t_info.get('luck', 0)
 
                 # Apply school bonus for them
-                if top_path = top_u.get('path') or 'general'
                 top_path = top_u.get('path') or 'general'
                 if top_path == 'mind': top_stats['def'] += 10
                 elif top_path == 'tech': top_stats['luck'] += 10
