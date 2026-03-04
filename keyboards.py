@@ -68,19 +68,20 @@ def main_menu(u):
     m.add(types.InlineKeyboardButton(raid_btn, callback_data="zero_layer_menu"))
 
 
+    current_lvl = int(u.get('level', 1) or 1)
+
     # PVP
-    if u['level'] > config.QUARANTINE_LEVEL:
+    if current_lvl > config.QUARANTINE_LEVEL:
         m.add(types.InlineKeyboardButton("🌐 СЕТЕВАЯ ВОЙНА", callback_data="pvp_menu"))
     
     # [MODULE 5] Врата Эйдоса
-    if u['level'] >= 10:
+    if current_lvl >= 10:
         m.add(types.InlineKeyboardButton("👁‍🗨 ВРАТА ЭЙДОСА", callback_data="eidos_room_menu"))
 
     # 3. Персонаж
-    current_lvl = u['level']
     next_lvl_xp = LEVELS.get(current_lvl + 1, 999999)
     base_xp = LEVELS.get(current_lvl, 0)
-    xp_in_level = max(0, u['xp'] - base_xp)
+    xp_in_level = max(0, int(u.get('xp', 0) or 0) - base_xp)
     needed = max(1, next_lvl_xp - base_xp)
     
     m.add(types.InlineKeyboardButton(f"{profile_btn} [{current_lvl}]", callback_data="profile"),
@@ -123,7 +124,7 @@ def profile_menu(u, has_accel=False, has_purification=False):
     m = types.InlineKeyboardMarkup(row_width=1)
     
     # Фракция
-    if u['level'] >= 2:
+    if int(u.get('level', 1) or 1) >= 2:
         m.add(types.InlineKeyboardButton("🧬 ФРАКЦИЯ", callback_data="change_path_menu"))
 
     # Ускоритель

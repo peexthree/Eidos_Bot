@@ -135,7 +135,7 @@ def generate_hud(uid, u, session_data, cursor=None):
     # Format
     return (
         f"🎒 Инв: {inv_count}/{inv_limit} | 🗝 Ключи: {keys} | {cons_str}\n"
-        f"⚡ XP: {u['xp']} | 🪙 BC: {u['biocoin']}"
+        f"⚡ XP: {int(u.get('xp', 0) or 0)} | 🪙 BC: {int(u.get('biocoin', 0) or 0)}"
     )
 
 def format_combat_screen(villain, hp, signal, stats, session, win_chance=None):

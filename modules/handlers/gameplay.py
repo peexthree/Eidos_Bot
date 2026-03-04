@@ -163,7 +163,7 @@ def protocol_handler(call):
 
             glitch = check_micro_glitch(uid, u.get('level', 1))
 
-            proto = get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
+            proto = get_content_logic('protocol', u['path'], int(u.get('level', 1) or 1), u['decoder'] > 0)
             txt = proto['text'] if proto else "/// ДАННЫЕ ПОВРЕЖДЕНЫ."
 
             streak = u.get('streak', 0)
@@ -193,7 +193,7 @@ def protocol_handler(call):
                 if upd_args:
                     db.update_user(uid, **upd_args)
 
-            db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
+            db.update_user(uid, last_protocol_time=int(time.time()), xp=int(u.get('xp', 0) or 0)+xp, notified=False)
             if proto: db.save_knowledge(uid, proto.get('id', 0))
 
             lvl, msg = check_level_up(uid)
@@ -258,7 +258,7 @@ def protocol_handler(call):
                  if upd_args:
                      db.update_user(uid, **upd_args)
 
-             db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+xp)
+             db.update_user(uid, last_signal_time=int(time.time()), xp=int(u.get('xp', 0) or 0)+xp)
 
              lvl, msg = check_level_up(uid)
              if lvl:
@@ -290,7 +290,7 @@ def raid_handler(call):
          cost = get_raid_entry_cost(uid)
          try: bot.answer_callback_query(call.id)
          except: pass
-         menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {u['xp']}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost), image_url=config.MENU_IMAGES["zero_layer_menu"])
+         menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {int(u.get('xp', 0) or 0)}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost), image_url=config.MENU_IMAGES["zero_layer_menu"])
 
     elif call.data == "raid_select_depth":
          cost = get_raid_entry_cost(uid)

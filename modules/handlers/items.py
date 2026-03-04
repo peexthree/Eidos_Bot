@@ -39,7 +39,7 @@ def shop_buy_quantity_handler(m):
     if currency == 'xp':
         if u.get('xp', 0) >= total_cost:
             if db.add_item(uid, item_id, qty=qty):
-                db.update_user(uid, xp=u['xp'] - total_cost)
+                db.update_user(uid, xp=int(u.get('xp', 0) or 0) - total_cost)
                 db.increment_user_stat(uid, 'purchases')
 
                 ach_txt = ""
@@ -54,9 +54,9 @@ def shop_buy_quantity_handler(m):
         else:
             bot.send_message(uid, "❌ Мало XP", reply_markup=kb.back_button())
     else:
-        if u['biocoin'] >= total_cost:
+        if int(u.get('biocoin', 0) or 0) >= total_cost:
             if db.add_item(uid, item_id, qty=qty):
-                db.update_user(uid, biocoin=u['biocoin'] - total_cost, total_spent=u['total_spent']+total_cost)
+                db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - total_cost, total_spent=u['total_spent']+total_cost)
                 db.increment_user_stat(uid, 'purchases')
                 db.update_shadow_metric(uid, 'total_coins_spent', total_cost)
                 if u.get('biocoin', 0) - total_cost == 0:
@@ -109,7 +109,7 @@ def shadow_buy_quantity_handler(m):
     if currency == 'xp':
         if u.get('xp', 0) >= total_cost:
             if db.add_item(uid, item_id, qty=qty):
-                db.update_user(uid, xp=u['xp'] - total_cost)
+                db.update_user(uid, xp=int(u.get('xp', 0) or 0) - total_cost)
                 db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Qty: {qty}, Price: {total_cost} {currency}")
                 db.increment_user_stat(uid, 'purchases')
                 bot.send_message(uid, f"✅ Куплено: {target['name']} (x{qty})")
@@ -118,9 +118,9 @@ def shadow_buy_quantity_handler(m):
         else:
             bot.send_message(uid, f"❌ Недостаточно средств\nНужно: {total_cost} XP\nУ вас: {u.get('xp', 0)}", reply_markup=kb.back_button())
     else:
-        if u['biocoin'] >= total_cost:
+        if int(u.get('biocoin', 0) or 0) >= total_cost:
             if db.add_item(uid, item_id, qty=qty):
-                db.update_user(uid, biocoin=u['biocoin'] - total_cost)
+                db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - total_cost)
                 db.update_shadow_metric(uid, 'total_coins_spent', total_cost)
                 if u.get('biocoin', 0) - total_cost == 0:
                     db.update_shadow_metric(uid, 'zero_balance_purchases', 1)
@@ -130,7 +130,7 @@ def shadow_buy_quantity_handler(m):
             else:
                 bot.send_message(uid, "🎒 Рюкзак полон или превышен лимит предметов!", reply_markup=kb.back_button())
         else:
-            bot.send_message(uid, f"❌ Недостаточно средств\nНужно: {total_cost} BC\nУ вас: {u['biocoin']}", reply_markup=kb.back_button())
+            bot.send_message(uid, f"❌ Недостаточно средств\nНужно: {total_cost} BC\nУ вас: {int(u.get('biocoin', 0) or 0)}", reply_markup=kb.back_button())
 
     db.delete_state(uid); cache_db.clear_cache(uid)
 
@@ -169,7 +169,7 @@ def shop_handler(call):
         if currency == 'xp':
             if u.get('xp', 0) >= cost:
                 db.add_item(uid, item)
-                db.update_user(uid, xp=u['xp'] - cost)
+                db.update_user(uid, xp=int(u.get('xp', 0) or 0) - cost)
                 db.increment_user_stat(uid, 'purchases')
                 db.update_shadow_metric(uid, 'total_coins_spent', cost) # We track XP spending here as well to simplify
 
@@ -186,9 +186,9 @@ def shop_handler(call):
             else:
                 bot.answer_callback_query(call.id, "❌ Мало XP", show_alert=True)
         else:
-            if u['biocoin'] >= cost:
+            if int(u.get('biocoin', 0) or 0) >= cost:
                 if db.add_item(uid, item):
-                    db.update_user(uid, biocoin=u['biocoin'] - cost, total_spent=u['total_spent']+cost)
+                    db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - cost, total_spent=u['total_spent']+cost)
                     db.update_shadow_metric(uid, 'total_coins_spent', cost)
                     db.increment_user_stat(uid, 'purchases')
 
@@ -219,7 +219,7 @@ def shop_handler(call):
         desc = info['desc']
         if info.get('type') == 'equip':
             desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
-        txt = f"🎰 <b>{info['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {u['xp']} XP | {u['biocoin']} BC"
+        txt = f"🎰 <b>{info['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {int(u.get('xp', 0) or 0)} XP | {int(u.get('biocoin', 0) or 0)} BC"
         image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["shop_menu"]
         menu_update(call, txt, kb.shop_item_details_keyboard(item_id, price, currency), image_url=image)
 
@@ -259,7 +259,7 @@ def shadow_shop_handler(call):
             if info:
                 desc += f"\n\n⚔️ ATK: {info.get('atk', 0)} | 🛡 DEF: {info.get('def', 0)} | 🍀 LUCK: {info.get('luck', 0)}"
 
-            txt = f"🕶 <b>{target['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {u['xp']} XP | {u['biocoin']} BC"
+            txt = f"🕶 <b>{target['name']}</b>\n\n{desc}\n\n💰 Цена: {price} {currency.upper()}\n\n💳 Баланс: {int(u.get('xp', 0) or 0)} XP | {int(u.get('biocoin', 0) or 0)} BC"
             image = ITEM_IMAGES.get(item_id) or config.MENU_IMAGES["shadow_shop_menu"]
             menu_update(call, txt, kb.shadow_item_details_keyboard(item_id, price, currency), image_url=image)
 
@@ -283,11 +283,11 @@ def shadow_shop_handler(call):
             currency = target['currency']
 
             can_buy = False
-            if currency == 'xp' and u['xp'] >= price:
-                db.update_user(uid, xp=u['xp'] - price)
+            if currency == 'xp' and int(u.get('xp', 0) or 0) >= price:
+                db.update_user(uid, xp=int(u.get('xp', 0) or 0) - price)
                 can_buy = True
-            elif currency == 'biocoin' and u['biocoin'] >= price:
-                db.update_user(uid, biocoin=u['biocoin'] - price)
+            elif currency == 'biocoin' and int(u.get('biocoin', 0) or 0) >= price:
+                db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - price)
                 can_buy = True
 
             if can_buy:
@@ -300,12 +300,12 @@ def shadow_shop_handler(call):
                     shadow_shop_handler(call)
                 else:
                     # Refund
-                    if currency == 'xp': db.update_user(uid, xp=u['xp'] + price)
-                    else: db.update_user(uid, biocoin=u['biocoin'] + price)
+                    if currency == 'xp': db.update_user(uid, xp=int(u.get('xp', 0) or 0) + price)
+                    else: db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) + price)
                     bot.answer_callback_query(call.id, "🎒 Рюкзак полон!", show_alert=True)
             else:
                 curr_label = "XP" if currency == 'xp' else "BC"
-                user_bal = u['xp'] if currency == 'xp' else u['biocoin']
+                user_bal = int(u.get('xp', 0) or 0) if currency == 'xp' else int(u.get('biocoin', 0) or 0)
                 bot.answer_callback_query(call.id, f"❌ Недостаточно средств\nНужно: {price} {curr_label}\nУ вас: {user_bal}", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "inventory" or call.data.startswith("inv_") or call.data == "convert_legacy")
@@ -502,8 +502,8 @@ def item_action_handler(call):
                 price = PRICES.get(item_id, info.get('price', 0))
                 repair_cost = int(price * 0.15)
 
-                if u['biocoin'] >= repair_cost:
-                    db.update_user(uid, biocoin=u['biocoin'] - repair_cost)
+                if int(u.get('biocoin', 0) or 0) >= repair_cost:
+                    db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - repair_cost)
                     db.repair_item(uid, inv_id)
                     bot.answer_callback_query(call.id, f"🛠 Починено за {repair_cost} BC", show_alert=True)
                     # Refresh view
@@ -549,11 +549,11 @@ def item_action_handler(call):
 
 
         elif item_id == 'corrupted_data_cluster':
-            if u['biocoin'] < 2000:
+            if int(u.get('biocoin', 0) or 0) < 2000:
                 bot.answer_callback_query(call.id, "❌ Недостаточно BC для расшифровки (нужно 2000).", show_alert=True)
                 return
 
-            db.update_user(uid, biocoin=u['biocoin'] - 2000)
+            db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - 2000)
             db.use_item(uid, 'corrupted_data_cluster', 1)
 
             # Reward: 500-1500 XP and a random good item
@@ -561,7 +561,7 @@ def item_action_handler(call):
             potential_items = ['abyssal_key', 'master_key', 'tactical_scanner', 'emp_grenade', 'stealth_spray']
             reward_item = random.choice(potential_items)
 
-            db.update_user(uid, xp=u['xp'] + reward_xp)
+            db.update_user(uid, xp=int(u.get('xp', 0) or 0) + reward_xp)
             db.add_item_to_inventory(uid, reward_item, 1)
 
             from modules.services.utils import apply_zalgo_effect

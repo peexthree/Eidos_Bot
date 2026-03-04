@@ -64,11 +64,11 @@ def get_shadow_shop_items(uid):
 
 def process_gacha_purchase(uid):
     u = db.get_user(uid)
-    if not u or u['biocoin'] < GACHA_PRICE:
+    if not u or int(u.get('biocoin', 0) or 0) < GACHA_PRICE:
         return False, "❌ Недостаточно BioCoins!"
 
     # Deduct
-    db.update_user(uid, biocoin=u['biocoin'] - GACHA_PRICE, total_spent=u['total_spent'] + GACHA_PRICE)
+    db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - GACHA_PRICE, total_spent=u['total_spent'] + GACHA_PRICE)
     db.update_shadow_metric(uid, 'total_coins_spent', GACHA_PRICE)
 
     roll = random.random()
@@ -116,7 +116,7 @@ def process_gacha_purchase(uid):
              return True, f"🎁 <b>УСПЕХ!</b>\n\nВы получили: <b>{reward}</b>"
         else:
              # Inventory full - refund
-             db.update_user(uid, biocoin=u['biocoin'] + GACHA_PRICE)
+             db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) + GACHA_PRICE)
              return False, "🎒 Рюкзак полон! Средства возвращены."
 
     return False, "Error"

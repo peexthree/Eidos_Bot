@@ -267,7 +267,7 @@ def admin_text_handler(m):
                 amount = int(val)
                 u = db.get_user(tid)
                 if u:
-                    db.update_user(tid, biocoin=u['biocoin'] + amount)
+                    db.update_user(tid, biocoin=int(u.get('biocoin', 0) or 0) + amount)
                     bot.send_message(uid, f"✅ GAVE {amount} BC TO {tid}")
                     try: bot.send_message(tid, f"👤 <b>Создатель перечислил Вам в награду {amount} BioCoins</b>", parse_mode="HTML")
                     except: pass

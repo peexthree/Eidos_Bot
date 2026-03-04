@@ -110,7 +110,7 @@ def process_combat_action(uid, action):
 
             # 1. CREDIT SLICER (Weapon)
             if equipped_weapon == 'credit_slicer':
-                burn = int(u['biocoin'] * 0.01)
+                burn = int(int(u.get('biocoin', 0) or 0) * 0.01)
                 if burn > 0:
                     # Using separate cursor or ensuring update_user uses current cursor via helper?
                     # db.update_user creates new session. Since we are inside a session, mixing is tricky unless update_user supports cursor.
@@ -326,7 +326,7 @@ def process_combat_action(uid, action):
                     cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
 
                     extra_death = {}
-                    broadcast = handle_death_log(uid, full_s['depth'], u['level'], u['username'], full_s['buffer_coins'], cursor=cur)
+                    broadcast = handle_death_log(uid, full_s['depth'], int(u.get('level', 1) or 1), u['username'], full_s['buffer_coins'], cursor=cur)
                     if broadcast: extra_death['broadcast'] = broadcast
 
                     return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}", extra_death
@@ -443,7 +443,7 @@ def process_combat_action(uid, action):
                     cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
 
                     extra_death = {}
-                    broadcast = handle_death_log(uid, full_s['depth'], u['level'], u['username'], full_s['buffer_coins'], cursor=cur)
+                    broadcast = handle_death_log(uid, full_s['depth'], int(u.get('level', 1) or 1), u['username'], full_s['buffer_coins'], cursor=cur)
                     if broadcast: extra_death['broadcast'] = broadcast
 
                     return 'death', f"💀 <b>СИГНАЛ ПОТЕРЯН</b>\nВраг нанес смертельный удар.\n\n{report}", extra_death
@@ -461,7 +461,7 @@ def perform_hack(attacker_uid):
 
     # Cost
     HACK_COST_XP = 50
-    if atk_u['xp'] < HACK_COST_XP:
+    if atk_int(u.get('xp', 0) or 0) < HACK_COST_XP:
         return f"🪫 Не хватает энергии. Нужно {HACK_COST_XP} XP."
 
     # 2. Get Random Target
@@ -475,7 +475,7 @@ def perform_hack(attacker_uid):
     # (Int + Luck) vs (Defense + Level*2)
     # Using ATK as Int equivalent for hacking context + Luck
     atk_score = stats['atk'] + stats['luck'] + random.randint(1, 20)
-    def_score = def_stats['def'] + (int(def_u['level']) * 2) + random.randint(1, 20)
+    def_score = def_stats['def'] + (int(def_int(u.get('level', 1) or 1)) * 2) + random.randint(1, 20)
 
     # Check for Firewall (Target Item)
     has_firewall = db.get_item_count(target_uid, 'firewall') > 0
@@ -486,19 +486,19 @@ def perform_hack(attacker_uid):
         # Consume Firewall
         db.use_item(target_uid, 'firewall', 1)
         # Pay Cost
-        db.update_user(attacker_uid, xp=max(0, atk_u['xp'] - HACK_COST_XP))
+        db.update_user(attacker_uid, xp=max(0, atk_int(u.get('xp', 0) or 0) - HACK_COST_XP))
         msg = f"🛡 <b>ВЗЛОМ ПРЕДОТВРАЩЕН!</b>\nУ @{def_u['username']} сработал Файрвол."
 
     elif atk_score > def_score:
         # Steal 5-10% coins
         steal_perc = random.uniform(0.05, 0.10)
-        steal_amount = int(def_u['biocoin'] * steal_perc)
+        steal_amount = int(def_int(u.get('biocoin', 0) or 0) * steal_perc)
         steal_amount = min(steal_amount, 5000) # Cap
         if steal_amount < 0: steal_amount = 0
 
         # Transaction
-        db.update_user(attacker_uid, biocoin=atk_u['biocoin'] + steal_amount, xp=atk_u['xp'] - HACK_COST_XP)
-        db.update_user(target_uid, biocoin=max(0, def_u['biocoin'] - steal_amount))
+        db.update_user(attacker_uid, biocoin=atk_int(u.get('biocoin', 0) or 0) + steal_amount, xp=atk_int(u.get('xp', 0) or 0) - HACK_COST_XP)
+        db.update_user(target_uid, biocoin=max(0, def_int(u.get('biocoin', 0) or 0) - steal_amount))
 
         msg = (f"🔓 <b>ВЗЛОМ УСПЕШЕН!</b>\n"
                f"Жертва: @{def_u['username']}\n"
@@ -506,7 +506,7 @@ def perform_hack(attacker_uid):
     else:
         # Penalty: Lose XP
         loss_xp = 100
-        db.update_user(attacker_uid, xp=max(0, atk_u['xp'] - HACK_COST_XP - loss_xp))
+        db.update_user(attacker_uid, xp=max(0, atk_int(u.get('xp', 0) or 0) - HACK_COST_XP - loss_xp))
         msg = (f"🚫 <b>ВЗЛОМ ПРОВАЛЕН!</b>\n"
                f"Жертва: @{def_u['username']}\n"
                f"Защита оказалась сильнее.\n"
