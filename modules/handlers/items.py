@@ -317,6 +317,16 @@ def inventory_handler(call):
         return [i for i in all_items if i['item_id'] not in PVP_ITEMS]
 
     if call.data == "inventory":
+        from modules.services.glitch_system import check_micro_glitch
+        glitch = check_micro_glitch(uid, db.get_user(uid).get('level', 1))
+        if glitch:
+            bot.answer_callback_query(call.id, f"🌀 {glitch['message']}", show_alert=True)
+            if glitch.get('effect'):
+                db.update_user(uid, is_glitched=True, anomaly_buff_type=glitch['effect'],
+                               anomaly_buff_expiry=int(time.time() + glitch.get('effect_duration', 3600)))
+            if glitch.get('reward_item'):
+                db.add_item_to_inventory(uid, glitch['reward_item'], 1)
+
         txt = format_inventory(uid, category='equip')
         items = get_filtered_items(uid)
         equipped = db.get_equipped_items(uid)
@@ -537,6 +547,34 @@ def item_action_handler(call):
             menu_update(call, "⚠️ <b>ВНИМАНИЕ: ПРОТОКОЛ ОЧИЩЕНИЯ</b>\n\nВы собираетесь стереть свою личность.\n• Уровень -> 1\n• XP -> 0\n• Инвентарь -> Удален\n\nЭто действие необратимо (но будет сохранено в истории).", kb_confirm)
             return
 
+
+        elif item_id == 'corrupted_data_cluster':
+            if u['biocoin'] < 2000:
+                bot.answer_callback_query(call.id, "❌ Недостаточно BC для расшифровки (нужно 2000).", show_alert=True)
+                return
+
+            db.update_user(uid, biocoin=u['biocoin'] - 2000)
+            db.use_item(uid, 'corrupted_data_cluster', 1)
+
+            # Reward: 500-1500 XP and a random good item
+            reward_xp = random.randint(500, 1500)
+            potential_items = ['abyssal_key', 'master_key', 'tactical_scanner', 'emp_grenade', 'stealth_spray']
+            reward_item = random.choice(potential_items)
+
+            db.update_user(uid, xp=u['xp'] + reward_xp)
+            db.add_item_to_inventory(uid, reward_item, 1)
+
+            from modules.services.utils import apply_zalgo_effect
+            msg = apply_zalgo_effect(f"ДАННЫЕ ВОССТАНОВЛЕНЫ. \n⚡️ +{reward_xp} XP\n📦 Получено: {reward_item}", 1)
+            bot.answer_callback_query(call.id, "🌀 РАСШИФРОВКА ЗАВЕРШЕНА", show_alert=True)
+
+            # Show result
+            call.data = "inventory"
+            from modules.handlers.items import inventory_handler
+            inventory_handler(call)
+            bot.send_message(uid, f"👁‍🗨 <b>РЕЗУЛЬТАТ РАСШИФРОВКИ:</b>\n\n{msg}", parse_mode="HTML")
+            return
+
         elif item_id == 'encrypted_cache':
              status, txt = get_decryption_status(uid)
              menu_update(call, f"🔐 <b>ДЕШИФРАТОР</b>\n\n{txt}", kb.decrypt_menu(status))
@@ -568,7 +606,21 @@ def item_action_handler(call):
             bot.answer_callback_query(call.id, "❌ Этот предмет нельзя использовать здесь.", show_alert=True)
             return
 
+
     elif call.data.startswith("dismantle_"):
+        from modules.services.glitch_system import check_micro_glitch
+        metrics = db.get_user_shadow_metrics(uid)
+
+        # Trigger glitch if dismantling valuable stuff while hoarding/ADHD-clicking
+        if metrics and (metrics.get('fast_sync_clicks', 0) >= 3 or metrics.get('total_coins_earned', 0) > 10000):
+            glitch = check_micro_glitch(uid, u.get('level', 1))
+            if glitch and glitch.get('type') in ['hoarder', 'adhd_clicks']:
+                bot.answer_callback_query(call.id, f"🌀 {glitch['message']}", show_alert=True)
+                # We let it continue or block? User said: "I won't let you sell this artifact for pennies".
+                # Let's block it for these specific types.
+                if glitch.get('type') == 'hoarder':
+                    return
+
         val = call.data.replace("dismantle_", "")
         item_id = None
         inv_id = None

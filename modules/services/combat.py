@@ -9,6 +9,13 @@ def process_combat_action(uid, action):
     stats, u = get_user_stats(uid)
     if not u: return 'error', "Пользователь не найден.", None
 
+    # --- GLITCH BERSERK BUFF ---
+    is_berserk = (u.get('anomaly_buff_type') == 'glitch_berserk' and u.get('anomaly_buff_expiry', 0) > time.time())
+    if is_berserk:
+        stats['atk'] = int(stats['atk'] * 1.5)
+        stats['def'] = 0
+
+
     s = db.get_raid_session_enemy(uid)
 
     if not s or not s.get('current_enemy_id'):

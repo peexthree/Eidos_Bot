@@ -38,15 +38,35 @@ def main_menu(u):
 
     # 1. Энергия
     eq_items = cache_db.get_cached_state(f"eq_{uid}", lambda: db.get_equipped_items(uid), ttl=10.0) or {}
+
+
+    is_glitched = u.get('is_glitched', False)
+    # New check: specific visual_distortion buff
+    is_visual_dist = (u.get('anomaly_buff_type') == 'visual_distortion' and u.get('anomaly_buff_expiry', 0) > time.time())
+
+    sync_btn = "💠 СИНХРОН"
+    signal_btn = "📡 СИГНАЛ"
+    raid_btn = "─── 🌑 НУЛЕВОЙ СЛОЙ ───"
+    profile_btn = "👤 ПРОФИЛЬ"
+    inv_btn = "🎒 ИНВЕНТАРЬ"
+
+    if is_glitched or is_visual_dist:
+        sync_btn = "0101 СИНХРОН"
+        signal_btn = "1010 СИГНАЛ"
+        raid_btn = "─── [БИТЫЕ ДАННЫЕ] ───"
+        profile_btn = "👤 П̷Р̷О̷Ф̷И̷Л̷Ь̷"
+        inv_btn = "🎒 И̷Н̷В̷Е̷Н̷Т̷А̷Р̷Ь̷"
+
+
     if eq_items.get('head') == 'crown_paranoia':
-        m.add(types.InlineKeyboardButton("🚫 СИНХРОН (BLOCKED)", callback_data="dummy"),
-              types.InlineKeyboardButton("🚫 СИГНАЛ (BLOCKED)", callback_data="dummy"))
+        m.add(types.InlineKeyboardButton(f"🚫 {sync_btn} (BLOCKED)", callback_data="dummy"),
+              types.InlineKeyboardButton(f"🚫 {signal_btn} (BLOCKED)", callback_data="dummy"))
     else:
-        m.add(types.InlineKeyboardButton("💠 СИНХРОН", callback_data="get_protocol"),
-              types.InlineKeyboardButton("📡 СИГНАЛ", callback_data="get_signal"))
+        m.add(types.InlineKeyboardButton(sync_btn, callback_data="get_protocol"),
+              types.InlineKeyboardButton(signal_btn, callback_data="get_signal"))
     
-    # 2. Рейд
-    m.add(types.InlineKeyboardButton("─── 🌑 НУЛЕВОЙ СЛОЙ ───", callback_data="zero_layer_menu"))
+    m.add(types.InlineKeyboardButton(raid_btn, callback_data="zero_layer_menu"))
+
 
     # PVP
     if u['level'] > config.QUARANTINE_LEVEL:
@@ -63,10 +83,10 @@ def main_menu(u):
     xp_in_level = max(0, u['xp'] - base_xp)
     needed = max(1, next_lvl_xp - base_xp)
     
-    m.add(types.InlineKeyboardButton(f"👤 ПРОФИЛЬ [{current_lvl}]", callback_data="profile"),
+    m.add(types.InlineKeyboardButton(f"{profile_btn} [{current_lvl}]", callback_data="profile"),
           types.InlineKeyboardButton("🎰 РЫНОК", callback_data="shop_menu"))
 
-    m.add(types.InlineKeyboardButton("🎒 ИНВЕНТАРЬ", callback_data="inventory"))
+    m.add(types.InlineKeyboardButton(inv_btn, callback_data="inventory"))
           
     # 4. Рейтинг и Социум
     m.add(types.InlineKeyboardButton("🏆 РЕЙТИНГ", callback_data="leaderboard"),
