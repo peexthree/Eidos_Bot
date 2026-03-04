@@ -42,7 +42,7 @@ def main_menu(u):
 
     is_glitched = u.get('is_glitched', False)
     # New check: specific visual_distortion buff
-    is_visual_dist = (u.get('anomaly_buff_type') == 'visual_distortion' and u.get('anomaly_buff_expiry', 0) > time.time())
+    is_visual_dist = (u.get('anomaly_buff_type') == 'visual_distortion' and float(u.get('anomaly_buff_expiry') or 0) > time.time())
 
     sync_btn = "💠 СИНХРОН"
     signal_btn = "📡 СИГНАЛ"
@@ -821,7 +821,7 @@ def get_main_reply_keyboard(user):
     from telebot import types
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     if user.get('level', 1) >= 10:
-        m.add(types.KeyboardButton('👁‍🗨 Врата Эйдоса'))
+        m.add(types.KeyboardButton('👁‍🗨 Врата Эйдоса'), types.KeyboardButton('/start'))
     else:
-        m = types.ReplyKeyboardRemove()
+        m.add(types.KeyboardButton('/start'))
     return m

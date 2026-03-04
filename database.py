@@ -39,6 +39,8 @@ TABLE_SCHEMAS = {
         'referrer': ('TEXT', None),
         'ref_profit_xp': ('BIGINT', '0'),
         'ref_profit_coins': ('BIGINT', '0'),
+        'generated_ref_xp': ('BIGINT', '0'),
+        'generated_ref_coins': ('BIGINT', '0'),
         'last_protocol_time': ('BIGINT', '0'),
         'last_signal_time': ('BIGINT', '0'),
         'notified': ('BOOLEAN', 'TRUE'),
@@ -578,6 +580,7 @@ def add_xp_to_user(uid, amount):
                 profit = int(amount * 0.1)
                 if profit > 0:
                     cur.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
+                    cur.execute("UPDATE players SET generated_ref_xp = generated_ref_xp + %s WHERE uid = %s", (profit, uid))
 
 def increment_user_stat(uid, stat, amount=1, cursor=None):
     # Safe allow-list for stats
@@ -959,7 +962,7 @@ def get_leaderboard(limit=10, sort_by='xp'):
     elif sort_by == 'biocoin':
         order_clause = "biocoin DESC, xp DESC, uid ASC"
     elif sort_by == 'spent':
-        order_clause = "total_spent DESC, xp DESC, uid ASC"
+        order_clause = "COALESCE(total_spent, 0) DESC, xp DESC, uid ASC"
 
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
@@ -1034,7 +1037,7 @@ def get_diary_count(uid):
 def get_referrals_stats(uid):
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
-        cur.execute("SELECT username, first_name, level, ref_profit_xp, ref_profit_coins FROM players WHERE referrer = %s ORDER BY ref_profit_xp DESC LIMIT 20", (str(uid),))
+        cur.execute("SELECT username, first_name, level, generated_ref_xp, generated_ref_coins FROM players WHERE referrer = %s ORDER BY generated_ref_xp DESC LIMIT 20", (str(uid),))
         return cur.fetchall()
 
 def get_user_achievements(uid):

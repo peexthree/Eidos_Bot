@@ -410,6 +410,13 @@ def execute_hack(attacker_uid, target_uid, selected_programs, is_revenge=False, 
                 blocked_by_fw = True
 
     if blocked_by_fw:
+        import time
+        with db.db_cursor() as cur:
+            if cur:
+                cur.execute("""
+                    INSERT INTO pvp_logs (attacker_uid, target_uid, stolen_coins, success, timestamp, is_revenged, is_anonymous)
+                    VALUES (%s, %s, 0, False, %s, False, False)
+                """, (attacker_uid, target_uid, int(time.time())))
         return {
             'success': False,
             'log': [],
