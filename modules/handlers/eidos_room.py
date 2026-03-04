@@ -140,6 +140,14 @@ def got_payment(message):
     uid = int(message.from_user.id)
     payload = message.successful_payment.invoice_payload
 
+    amount = message.successful_payment.total_amount
+    u = db.get_user(uid)
+    if u:
+        new_total_spent = u.get('total_spent', 0) + amount
+        db.update_user(uid, total_spent=new_total_spent)
+        from modules.services.utils import check_and_update_eidos_shard
+        check_and_update_eidos_shard(uid, bot, message.chat.id, new_total_spent)
+
     bot.send_message(uid, "👁‍🗨 Транзакция подтверждена. Финансовый канал закрыт. Я начинаю погружение в твой цифровой след...")
 
     import threading

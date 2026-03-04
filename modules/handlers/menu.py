@@ -188,7 +188,8 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
     # Header
     title = "🏆 ЗАЛ СЛАВЫ: АБСОЛЮТ"
     if sort_by == 'depth': title = "🕳 ЗАЛ СЛАВЫ: БЕЗДНА"
-    elif sort_by == 'biocoin': title = "🩸 ЗАЛ СЛАВЫ: СИНДИКАТ"
+    elif sort_by == 'biocoin': title = "🩸 ЗАЛ СЛАВЫ: КОРПОРАЦИЯ"
+    elif sort_by == 'spent': title = "💎 ЗАЛ СЛАВЫ: СИНДИКАТ"
 
     txt = f"💠 <b>NEURAL NET LINK ESTABLISHED...</b>\n{title}\n\n"
 
@@ -211,11 +212,14 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
         elif sort_by == 'depth':
             val = f"{l['max_depth']}m"
             detail = f"{l['xp']:,} XP"
+        elif sort_by == 'spent':
+            val = f"{l.get('total_spent', 0):,} ⭐️"
+            detail = f"Lvl {l['level']}"
         else: # biocoin
             val = f"{l['biocoin']:,} BC"
             detail = f"Lvl {l['level']}"
 
-        from modules.services.utils import get_vip_prefix
+        from modules.services.utils import get_user_display_name
         # Custom data is fetched in get_leaderboard via JOIN
         custom_data = l.get('eidos_custom_data')
 
@@ -226,12 +230,12 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
             else:
                 display_name = html.escape(l['first_name'] or "Unknown")
 
-            vip_display = get_vip_prefix(l['uid'], display_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
+            vip_display = get_user_display_name(l['uid'], display_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
             header = f"{rank_icon} [{detail}] {vip_display} <i>({path_icon})</i> — <b>{val}</b>"
             txt += f"{header}\n"
         else:
-            vip_display = get_vip_prefix(l['uid'], name[:10], custom_data=custom_data).replace('<b>', '').replace('</b>', '')
-            txt += f"<code>{i:<2} {vip_display:<10} | {detail} | {val}</code>\n"
+            vip_display = get_user_display_name(l['uid'], name[:10], custom_data=custom_data).replace('<b>', '').replace('</b>', '')
+            txt += f"<code>{i:<2} {vip_display:<15} | {detail} | {val}</code>\n"
 
     # Footer (Mirror)
     txt += "\n━━━━━━━━━━━━━━━━━━━\n"
@@ -239,6 +243,7 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
     my_val = ""
     if sort_by == 'xp': my_val = f"{u['xp']:,} XP"
     elif sort_by == 'depth': my_val = f"{u['max_depth']}m"
+    elif sort_by == 'spent': my_val = f"{u.get('total_spent', 0):,} ⭐️"
     else: my_val = f"{u['biocoin']:,} BC"
 
     txt += f"🎯 <b>Твой ранг: #{user_rank}</b>\n"
@@ -272,6 +277,7 @@ def social_handler(call):
         sort_by = 'xp'
         if call.data == 'lb_depth': sort_by = 'depth'
         elif call.data == 'lb_biocoin': sort_by = 'biocoin'
+        elif call.data == 'lb_spent': sort_by = 'spent'
 
         leaders = db.get_leaderboard(limit=10, sort_by=sort_by)
         user_rank = db.get_user_rank(uid, sort_by=sort_by)

@@ -434,3 +434,93 @@ def apply_zalgo_effect(text, intensity=1):
 def zalgo_text(text, intensity=1):
     # Backward compatibility
     return apply_zalgo_effect(text, intensity)
+
+def check_and_update_eidos_shard(uid, bot, chat_id, total_spent):
+    """
+    Called upon any successful payment.
+    Calculates shard level based on total_spent.
+    Deletes all 'eidos_shard' from inventory.
+    Updates or inserts the 'eidos_shard' into user_equipment with the new level.
+    """
+    import database as db
+    import json
+
+    # 1. Calculate new level
+    new_level = max(1, total_spent // 500)
+
+    with db.db_session() as conn:
+        with conn.cursor() as cur:
+            # 2. Auto-cleanup from inventory (only 1 artifact should exist and it's always equipped)
+            cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = 'eidos_shard'", (uid,))
+
+            # 3. Check current artifact in equipment
+            cur.execute("SELECT custom_data FROM user_equipment WHERE uid = %s AND slot = 'eidos_shard'", (uid,))
+            res = cur.fetchone()
+
+            lore = "Память утеряна."
+            current_level = 0
+
+            u = db.get_user(uid)
+            first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
+
+            if res and res[0]:
+                try:
+                    cd = json.loads(res[0])
+                    current_level = int(cd.get('level', 0))
+                    lore = cd.get('lore', lore)
+                except:
+                    pass
+
+            # 4. Update if level is higher, or if it doesn't exist at all
+            if new_level > current_level:
+                new_custom_data = json.dumps({
+                    "level": new_level,
+                    "lore": lore,
+                    "name": f"Синхронизатор Абсолюта: [{first_name}]"
+                })
+
+                cur.execute("""
+                    INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data)
+                    VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s)
+                    ON CONFLICT (uid, slot) DO UPDATE SET
+                        item_id = EXCLUDED.item_id,
+                        custom_data = EXCLUDED.custom_data
+                """, (uid, new_custom_data))
+
+                if current_level > 0:
+                    try:
+                         bot.send_message(chat_id, f"💠 <b>СИНДИКАТ:</b> Твой Синхронизатор Абсолюта достиг уровня {new_level}!", parse_mode="HTML")
+                    except:
+                         pass
+
+def get_user_display_name(uid, first_name=None, custom_data=None):
+    """
+    Returns formatted display name with prefix based on eidos_shard level.
+    Levels: 1-10: 💠, 11-20: ⚡️, 21+: 👁‍🗨. Format: <prefix> [Ур. <level>] <name>
+    """
+    import html
+    safe_name = html.escape(first_name or "Unknown")
+
+    if custom_data is None:
+        import database as db
+        eq = db.get_equipped_item_in_slot(uid, 'eidos_shard')
+        if eq and isinstance(eq, dict) and eq.get('item_id') == 'eidos_shard':
+            custom_data = eq.get('custom_data')
+        elif eq and isinstance(eq, tuple) and eq[0] == 'eidos_shard':
+            custom_data = eq[2] if len(eq) > 2 else None
+
+    if custom_data:
+        try:
+            import json
+            data = json.loads(custom_data)
+            level = int(data.get('level', 1))
+            prefix = "💠"
+            if 11 <= level <= 20:
+                prefix = "⚡️"
+            elif level >= 21:
+                prefix = "👁‍🗨"
+            return f"{prefix} [Ур. {level}] {safe_name}"
+        except Exception as e:
+             pass
+
+    return safe_name

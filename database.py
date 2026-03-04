@@ -1013,6 +1013,8 @@ def get_leaderboard(limit=10, sort_by='xp'):
         order_clause = "max_depth DESC, xp DESC, uid ASC"
     elif sort_by == 'biocoin':
         order_clause = "biocoin DESC, xp DESC, uid ASC"
+    elif sort_by == 'spent':
+        order_clause = "total_spent DESC, xp DESC, uid ASC"
 
     with db_cursor(cursor_factory=RealDictCursor) as cur:
         if not cur: return []
@@ -1021,11 +1023,11 @@ def get_leaderboard(limit=10, sort_by='xp'):
         # Join with user_equipment to fetch eidos_shard custom_data
         query = f"""
             SELECT p.uid, p.first_name, p.username, COALESCE(p.xp, 0) as xp, COALESCE(p.level, 1) as level,
-                   COALESCE(p.max_depth, 0) as max_depth, COALESCE(p.biocoin, 0) as biocoin, p.path,
+                   COALESCE(p.max_depth, 0) as max_depth, COALESCE(p.biocoin, 0) as biocoin, COALESCE(p.total_spent, 0) as total_spent, p.path,
                    ue.custom_data as eidos_custom_data
             FROM players p
             LEFT JOIN user_equipment ue ON p.uid = ue.uid AND ue.slot = 'eidos_shard'
-            ORDER BY {order_clause.replace('uid', 'p.uid').replace('xp', 'p.xp').replace('level', 'p.level').replace('max_depth', 'p.max_depth').replace('biocoin', 'p.biocoin')} LIMIT %s
+            ORDER BY {order_clause.replace('uid', 'p.uid').replace('xp', 'p.xp').replace('level', 'p.level').replace('max_depth', 'p.max_depth').replace('biocoin', 'p.biocoin').replace('total_spent', 'p.total_spent')} LIMIT %s
         """
         cur.execute(query, (limit,))
         return cur.fetchall()
@@ -1046,6 +1048,12 @@ def get_user_rank(uid, sort_by='xp'):
             SELECT COUNT(*) + 1
             FROM players
             WHERE (biocoin, xp) > (SELECT biocoin, xp FROM players WHERE uid = %s)
+        """
+    elif sort_by == 'spent':
+        query = """
+            SELECT COUNT(*) + 1
+            FROM players
+            WHERE (total_spent, xp) > (SELECT total_spent, xp FROM players WHERE uid = %s)
         """
     else:
         # Default: Rank by (xp, level)

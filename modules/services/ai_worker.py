@@ -243,17 +243,13 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
     try:
         u = db.get_user(uid)
         first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
+        total_spent = u.get('total_spent', 0) if u else 0
+        current_level = max(1, total_spent // 500)
 
-        eq = db.get_equipped_item_in_slot(uid, 'eidos_shard')
-        current_level = 1
-        if eq and (isinstance(eq, dict) and eq.get('item_id') == 'eidos_shard' or isinstance(eq, tuple) and eq[0] == 'eidos_shard'):
-             custom_data_str = eq.get('custom_data') if isinstance(eq, dict) else (eq[2] if len(eq) > 2 else None)
-             if custom_data_str:
-                 try:
-                     cd = json.loads(custom_data_str)
-                     current_level = int(cd.get('level', 0)) + 1
-                 except:
-                     pass
+        # Remove from inventory to enforce singleton in equipment
+        with db.db_session() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = 'eidos_shard'", (uid,))
 
         new_custom_data = json.dumps({
             "level": current_level,
