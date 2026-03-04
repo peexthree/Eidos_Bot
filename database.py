@@ -258,6 +258,18 @@ def init_pool():
                 except Exception as e:
                     print(f"/// DB POOL INIT ERROR: {e}")
 
+def reset_pool():
+    global pg_pool
+    with _pool_lock:
+        if pg_pool:
+            try:
+                print("/// RESETTING DB POOL...")
+                pg_pool.closeall()
+            except Exception as e:
+                print(f"/// DB POOL CLOSE ERROR: {e}")
+            pg_pool = None
+    init_pool()
+
 @contextmanager
 def db_session():
     if not pg_pool:
@@ -271,14 +283,25 @@ def db_session():
         try:
             if pg_pool:
                 conn = pg_pool.getconn()
-                # Check if connection is alive
+                # Check if connection is alive and valid
                 if conn.closed == 0:
+                    # Heartbeat check
+                    with conn.cursor() as tmp_cur:
+                        tmp_cur.execute("SELECT 1")
                     break
                 else:
                     pg_pool.putconn(conn, close=True)
                     conn = None
-        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+        except (psycopg2.OperationalError, psycopg2.InterfaceError, Exception) as e:
+            if conn:
+                try:
+                    pg_pool.putconn(conn, close=True)
+                except Exception:
+                    pass
+                conn = None
+
             if _ == 0:
+                print(f"/// DB GETCONN RETRY due to: {e}")
                 time.sleep(0.2)
                 continue
             raise e
@@ -296,10 +319,11 @@ def db_session():
         except Exception:
             pass
 
-        # We can't easily 'retry' here by yielding again due to contextlib constraints.
-        # But we've already ensured a fresh connection above.
-        print(f"/// DB CONNECTION ERROR (Discarding from pool): {e}")
+        print(f"/// DB CONNECTION ERROR (Discarding from pool & Resetting): {e}")
         print(traceback.format_exc())
+
+        # If it's a fatal connection error, reset the whole pool
+        reset_pool()
         raise e
     except Exception as e:
         try:
