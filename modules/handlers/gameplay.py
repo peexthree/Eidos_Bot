@@ -44,7 +44,6 @@ def protocol_handler(call):
         except: last_proto = 0
 
         # [MODULE 2] Shadow Metrics: Fast Sync (ADHD check)
-        # If user clicks less than 3 seconds after cooldown expires
         cd = COOLDOWN_ACCEL if accel_exp > time.time() else COOLDOWN_BASE
         if last_proto > 0 and time.time() - last_proto >= cd and time.time() - last_proto <= cd + 3:
             db.update_shadow_metric(uid, 'fast_sync_clicks', 1)
@@ -53,50 +52,58 @@ def protocol_handler(call):
             rem = int((cd - (time.time() - last_proto)) / 60)
             bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
         else:
-            # [MODULE 7] Micro-Glitch Hook
+            bot.answer_callback_query(call.id)
             from modules.services.glitch_system import check_micro_glitch
-            glitch_msg, glitch_img = check_micro_glitch(uid, u.get('level', 1))
-            if glitch_msg:
-                bot.answer_callback_query(call.id)
-                db.update_user(uid, last_protocol_time=int(time.time()))
-                threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, glitch_msg, kb.back_button(), glitch_img or config.MENU_IMAGES["get_protocol"])).start()
-                return
+            from modules.services.utils import apply_zalgo_effect
 
-            # GLITCH CHECK (Module 2)
-            if random.random() < 0.05:
-                glitch_xp = random.randint(50, 150)
-                db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+glitch_xp, notified=False)
-                final_txt = f"🌀 <b>СБОЙ РЕАЛЬНОСТИ (GLITCH):</b>\n\nВы попытались синхронизироваться, но попали в поток чистого хаоса.\n\n⚡️ +{glitch_xp} XP"
-                threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_protocol"])).start()
-            else:
-                bot.answer_callback_query(call.id)
-                proto = get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
-                txt = proto['text'] if proto else "/// ДАННЫЕ ПОВРЕЖДЕНЫ. ПОПРОБУЙ ПОЗЖЕ."
+            glitch = check_micro_glitch(uid, u.get('level', 1))
 
-                # SCALING XP FORMULA (Module 1)
-                # Base_XP * (u['level'] * 1.5) * (1 + (streak * 0.1))
-                streak = u.get('streak', 0)
-                level = u.get('level') or 1
-                base_xp = config.XP_GAIN
+            proto = get_content_logic('protocol', u['path'], u['level'], u['decoder'] > 0)
+            txt = proto['text'] if proto else "/// ДАННЫЕ ПОВРЕЖДЕНЫ."
 
-                xp = int(base_xp * (level * 1.5) * (1 + (streak * 0.1)))
+            streak = u.get('streak', 0)
+            level = u.get('level') or 1
+            base_xp = config.XP_GAIN
+            xp = int(base_xp * (level * 1.5) * (1 + (streak * 0.1)))
 
-                db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
-                if proto: db.save_knowledge(uid, proto.get('id', 0))
+            final_img = config.MENU_IMAGES["get_protocol"]
+            reward_text = ""
 
-                lvl, msg = check_level_up(uid)
-                if lvl:
-                    try: bot.send_message(uid, msg, parse_mode="HTML")
-                    except: pass
+            if glitch:
+                xp = int(xp * glitch.get('xp_modifier', 1.5))
+                txt = apply_zalgo_effect(txt, 1)
+                final_img = glitch.get('image', final_img)
+                reward_text = f"\n\n🌀 <b>{glitch['message']}</b>"
 
-                ach_text = ""
-                new_achs = check_achievements(uid)
-                if new_achs:
-                    for a in new_achs:
-                        ach_text += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
+                upd_args = {}
+                if glitch.get('effect'):
+                    upd_args['anomaly_buff_type'] = glitch['effect']
+                    upd_args['anomaly_buff_expiry'] = int(time.time() + glitch.get('effect_duration', 3600))
+                    upd_args['is_glitched'] = True
 
-                final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}\n\n⚡️ +{xp} XP{ach_text}"
-                threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_protocol"])).start()
+                if glitch.get('reward_item'):
+                    db.add_item_to_inventory(uid, glitch['reward_item'], 1)
+                    reward_text += f"\n📦 <b>Получен предмет:</b> {glitch['reward_item']}"
+
+                if upd_args:
+                    db.update_user(uid, **upd_args)
+
+            db.update_user(uid, last_protocol_time=int(time.time()), xp=u['xp']+xp, notified=False)
+            if proto: db.save_knowledge(uid, proto.get('id', 0))
+
+            lvl, msg = check_level_up(uid)
+            if lvl:
+                try: bot.send_message(uid, msg, parse_mode="HTML")
+                except: pass
+
+            ach_text = ""
+            new_achs = check_achievements(uid)
+            if new_achs:
+                for a in new_achs:
+                    ach_text += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
+
+            final_txt = f"💠 <b>СИНХРОНИЗАЦИЯ:</b>\n\n{txt}{reward_text}\n\n⚡️ +{xp} XP{ach_text}"
+            threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), final_img)).start()
 
     elif call.data == "get_signal":
         cd = COOLDOWN_SIGNAL
@@ -104,7 +111,6 @@ def protocol_handler(call):
         try: last_sig = float(last_sig)
         except: last_sig = 0
 
-        # [MODULE 2] Shadow Metrics: Fast Sync (ADHD check)
         if last_sig > 0 and time.time() - last_sig >= cd and time.time() - last_sig <= cd + 3:
             db.update_shadow_metric(uid, 'fast_sync_clicks', 1)
 
@@ -112,100 +118,57 @@ def protocol_handler(call):
              rem = int((cd - (time.time() - last_sig)) / 60)
              bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
         else:
-             # [MODULE 7] Micro-Glitch Hook
+             bot.answer_callback_query(call.id)
              from modules.services.glitch_system import check_micro_glitch
-             glitch_msg, glitch_img = check_micro_glitch(uid, u.get('level', 1))
-             if glitch_msg:
-                 bot.answer_callback_query(call.id)
-                 db.update_user(uid, last_signal_time=int(time.time()))
-                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, glitch_msg, kb.back_button(), glitch_img or config.MENU_IMAGES["get_signal"])).start()
-                 return
+             from modules.services.utils import apply_zalgo_effect
 
-             # GLITCH CHECK (Module 2)
-             if random.random() < 0.05:
-                 glitch_xp = 50
-                 db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+glitch_xp)
-                 final_txt = f"🌀 <b>СБОЙ РЕАЛЬНОСТИ (GLITCH):</b>\n\nСигнал искажен временной аномалией.\n\n⚡️ +{glitch_xp} XP"
-                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_signal"])).start()
-             else:
-                 bot.answer_callback_query(call.id)
-                 sig = get_content_logic('signal')
-                 txt = sig['text'] if sig else "/// НЕТ СВЯЗИ."
+             glitch = check_micro_glitch(uid, u.get('level', 1))
 
-                 # SCALING XP
-                 level = u.get('level') or 1
-                 base_xp = config.XP_SIGNAL
-                 xp = int(base_xp * (level * 1.5))
+             sig = get_content_logic('signal')
+             txt = sig['text'] if sig else "/// НЕТ СВЯЗИ."
 
-                 db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+xp)
+             level = u.get('level') or 1
+             base_xp = config.XP_SIGNAL
+             xp = int(base_xp * (level * 1.5))
 
-                 lvl, msg = check_level_up(uid)
-                 if lvl:
-                     try: bot.send_message(uid, msg, parse_mode='HTML')
-                     except: pass
+             final_img = config.MENU_IMAGES["get_signal"]
+             reward_text = ""
 
-                 # Check achievements
-                 ach_text = ""
-                 new_achs = check_achievements(uid)
-                 if new_achs:
-                    for a in new_achs:
-                        ach_text += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
+             if glitch:
+                 xp = int(xp * glitch.get('xp_modifier', 1.5))
+                 txt = apply_zalgo_effect(txt, 1)
+                 final_img = glitch.get('image', final_img)
+                 reward_text = f"\n\n🌀 <b>{glitch['message']}</b>"
 
-                 final_txt = f"📡 <b>СИГНАЛ ПЕРЕХВАЧЕН:</b>\n\n{txt}\n\n⚡️ +{xp} XP{ach_text}"
-                 threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), config.MENU_IMAGES["get_signal"])).start()
+                 upd_args = {}
+                 if glitch.get('effect'):
+                     upd_args['anomaly_buff_type'] = glitch['effect']
+                     upd_args['anomaly_buff_expiry'] = int(time.time() + glitch.get('effect_duration', 3600))
+                     upd_args['is_glitched'] = True
 
-# Helper function for raid actions
-def handle_raid_action(call, uid, action_args=None, custom_success_callback=None, text_prefix=""):
-    if action_args is None: action_args = {}
+                 if glitch.get('reward_item'):
+                     db.add_item_to_inventory(uid, glitch['reward_item'], 1)
+                     reward_text += f"\n📦 <b>Получен предмет:</b> {glitch['reward_item']}"
 
-    try:
-        res, txt, extra, new_u, etype, cost = process_raid_step(uid, **action_args)
-    except Exception as e:
-        print(f"RAID ACTION ERROR: {e}")
-        traceback.print_exc()
-        try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА. Попробуйте позже.", show_alert=True)
-        except: pass
-        return
+                 if upd_args:
+                     db.update_user(uid, **upd_args)
 
-    if not res:
-        if txt == "no_key":
-             try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
-             except: pass
-        elif etype == 'death':
-             if extra and extra.get('death_reason'):
-                  try: bot.answer_callback_query(call.id, strip_html(extra['death_reason']), show_alert=True)
-                  except: pass
-             menu_update(call, txt, kb.back_button())
-        else:
-             try: bot.answer_callback_query(call.id, strip_html(txt), show_alert=True)
-             except: pass
-        return
+             db.update_user(uid, last_signal_time=int(time.time()), xp=u['xp']+xp)
 
-    # Success Logic
-    alert_handled = False
-    if custom_success_callback:
-        alert_handled = custom_success_callback(call, uid, extra)
+             lvl, msg = check_level_up(uid)
+             if lvl:
+                 try: bot.send_message(uid, msg, parse_mode='HTML')
+                 except: pass
 
-    if not alert_handled:
-        alert = extra.get('alert') if extra else None
-        if alert:
-             try: bot.answer_callback_query(call.id, strip_html(alert), show_alert=True)
-             except: pass
-        else:
-             try: bot.answer_callback_query(call.id)
-             except: pass
+             ach_text = ""
+             new_achs = check_achievements(uid)
+             if new_achs:
+                 for a in new_achs:
+                     ach_text += f"\n🏆 <b>ДОСТИЖЕНИЕ: {a['name']}</b> (+{a['xp']} XP)"
 
-    full_text = text_prefix + txt
+             final_txt = f"📡 <b>СИГНАЛ:</b>\n\n{txt}{reward_text}\n\n⚡️ +{xp} XP{ach_text}"
+             threading.Thread(target=loading_effect, args=(call.message.chat.id, call.message.message_id, final_txt, kb.back_button(), final_img)).start()
 
-    consumables = get_consumables(uid)
-    riddle_opts = extra['options'] if etype == 'riddle' and extra else []
-    image_url = extra.get('image') if extra else None
-    if not image_url: image_url = get_menu_image(new_u)
-    has_spike = extra.get('has_data_spike', False) if extra else False
-    has_arch = db.get_item_count(uid, "admin_key") > 0
-
-    markup = kb.riddle_keyboard(riddle_opts) if etype == 'riddle' else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike, has_architect_key=has_arch)
-    menu_update(call, full_text, markup, image_url=image_url)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("raid_") or call.data == "zero_layer_menu" or call.data.startswith("r_check_") or call.data == "use_admin_key")
 def raid_handler(call):

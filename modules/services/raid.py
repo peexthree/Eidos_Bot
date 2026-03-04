@@ -723,9 +723,17 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 grave_chance = 0.3
                 if head_item == 'death_mask': grave_chance = 0.8 # significantly higher
 
+
+                # --- STEALTH NIGHT BUFF ---
+                is_stealth = (u.get('anomaly_buff_type') == 'stealth_night' and u.get('anomaly_buff_expiry', 0) > time.time())
+
                 # --- ANOMALY EVENT (Maxwell's Demon) ---
                 if allow_anomaly and depth > 50 and random.random() < 0.05:
                      event = {'text': '🔴 <b>АНОМАЛИЯ:</b> Демон Максвелла.', 'type': 'anomaly_terminal', 'val': 0}
+                elif is_stealth and random.random() < 0.3:
+                     # Stealth bypass: find a safe room or loot
+                     event = {'text': '👤 <b>СКРЫТНОСТЬ:</b> Вы проскользнули мимо патруля в тенях.', 'type': 'safe_room', 'val': 0}
+
                 # --- SCAVENGING (Found Body) ---
                 elif grave and random.random() < grave_chance:
                      # Load loot to show value?

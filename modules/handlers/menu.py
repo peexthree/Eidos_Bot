@@ -18,6 +18,18 @@ def profile_handler(call):
     db.update_shadow_metric(uid, 'rapid_menu_clicks', 1)
     u = db.get_user(uid)
     if not u: return
+    if call.data == "profile":
+        from modules.services.glitch_system import check_micro_glitch
+        glitch = check_micro_glitch(uid, u.get('level', 1))
+        if glitch:
+            # We don't block the profile, we just show a glitch alert/bonus
+            bot.answer_callback_query(call.id, f"🌀 {glitch['message']}", show_alert=True)
+            if glitch.get('effect'):
+                db.update_user(uid, is_glitched=True, anomaly_buff_type=glitch['effect'],
+                               anomaly_buff_expiry=int(time.time() + glitch.get('effect_duration', 3600)))
+            if glitch.get('reward_item'):
+                db.add_item_to_inventory(uid, glitch['reward_item'], 1)
+
 
     if call.data == "profile":
         stats, _ = get_user_stats(uid)
