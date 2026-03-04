@@ -92,7 +92,7 @@ def profile_handler(call):
             f"└ 🔰 Статус: <b>{title_name}</b> <i>({title_desc})</i>\n\n"
     
             f"📊 <b>LVL {u.get('level') or 1}</b> | <code>{p_bar}</code> ({perc}%)\n"
-            f"├ 🔋 Опыт: <b>{u['xp']}</b> (До повышения: {xp_need} XP)\n"
+            f"├ 🔋 Опыт: <b>{int(u.get('xp', 0) or 0)}</b> (До повышения: {xp_need} XP)\n"
             f"└ 🔥 Стрик: <b>{p_stats['streak']} дн.</b> (+{p_stats['streak_bonus']}% к XP)\n\n"
     
             f"🗄 <b>АРХИВ ДАННЫХ</b>\n"
@@ -102,7 +102,7 @@ def profile_handler(call):
     
             f"⚙️ <b>СНАРЯЖЕНИЕ И СТАТЫ</b>\n"
             f"├ ⚔️ ATK: <b>{stats['atk']}</b> | 🛡 DEF: <b>{stats['def']}</b> | 🍀 LUCK: <b>{stats['luck']}</b>\n"
-            f"└ 🪙 Кошелек: <b>{u['biocoin']} BC</b> {accel_status}\n"
+            f"└ 🪙 Кошелек: <b>{int(u.get('biocoin', 0) or 0)} BC</b> {accel_status}\n"
         )
 
         # Determine avatar based on level
@@ -127,7 +127,7 @@ def profile_handler(call):
                f"✅ Бонус: {info['bonus']}\n"
                f"⚠️ Штраф: {info['penalty']}\n\n"
                f"📜 <i>{info['ideology']}</i>\n\n"
-               f"💳 Баланс: {u['xp']} XP | {u['biocoin']} BC\n\n"
+               f"💳 Баланс: {int(u.get('xp', 0) or 0)} XP | {int(u.get('biocoin', 0) or 0)} BC\n\n"
                "Подтвердить выбор?")
         menu_update(call, txt, kb.faction_confirm_menu(path))
 
@@ -241,10 +241,10 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
     txt += "\n━━━━━━━━━━━━━━━━━━━\n"
 
     my_val = ""
-    if sort_by == 'xp': my_val = f"{u['xp']:,} XP"
+    if sort_by == 'xp': my_val = f"{int(u.get('xp', 0) or 0):,} XP"
     elif sort_by == 'depth': my_val = f"{u['max_depth']}m"
     elif sort_by == 'spent': my_val = f"{u.get('total_spent', 0):,} ⭐️"
-    else: my_val = f"{u['biocoin']:,} BC"
+    else: my_val = f"{int(u.get('biocoin', 0) or 0):,} BC"
 
     txt += f"🎯 <b>Твой ранг: #{user_rank}</b>\n"
     txt += f"📊 <b>Твой результат: {my_val}</b>\n"
@@ -373,8 +373,8 @@ def archive_handler(call):
     u = db.get_user(uid)
 
     if call.data == "archive_list":
-         if u['xp'] >= config.ARCHIVE_COST:
-             db.update_user(uid, xp=u['xp']-config.ARCHIVE_COST)
+         if int(u.get('xp', 0) or 0) >= config.ARCHIVE_COST:
+             db.update_user(uid, xp=int(u.get('xp', 0) or 0)-config.ARCHIVE_COST)
              call.data = "archive_list_0"
              archive_handler(call)
          else:

@@ -112,7 +112,7 @@ def claim_decrypted_cache(uid):
     coins = random.randint(500, 1000)
 
     db.add_xp_to_user(uid, xp)
-    db.update_user(uid, biocoin=u['biocoin'] + coins)
+    db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) + coins)
 
     msg = f"⚡️ +{xp} XP\n🪙 +{coins} BC"
 

@@ -254,8 +254,8 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 s['mechanic_data'] = mech_data
                 s_changed = True
                 if k_steps > 10:
-                    new_lvl = max(1, u['level'] - 1)
-                    if int(new_lvl) < int(u['level']):
+                    new_lvl = max(1, int(u.get('level', 1) or 1) - 1)
+                    if int(new_lvl) < int(int(u.get('level', 1) or 1)):
                         cur.execute("UPDATE players SET level = %s, xp = 0 WHERE uid = %s", (new_lvl, uid))
                         msg_prefix += "💣 <b>КАМИКАДЗЕ:</b> Ядро расплавилось! Уровень понижен.\n"
                         s['signal'] = 0
@@ -294,11 +294,11 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                 # Проверка баланса
                 cost = get_raid_entry_cost(uid)
-                if int(u['xp']) < int(cost):
-                    return False, f"🪫 <b>НЕДОСТАТОЧНО ЭНЕРГИИ</b>\nВход: {cost} XP\nУ вас: {u['xp']} XP", None, u, 'neutral', 0
+                if int(int(u.get('xp', 0) or 0)) < int(cost):
+                    return False, f"🪫 <b>НЕДОСТАТОЧНО ЭНЕРГИИ</b>\nВход: {cost} XP\nУ вас: {int(u.get('xp', 0) or 0)} XP", None, u, 'neutral', 0
 
                 # Списание XP и вход (ПРЯМОЙ SQL)
-                new_xp = u['xp'] - cost
+                new_xp = int(u.get('xp', 0) or 0) - cost
                 cur.execute("UPDATE players SET xp=%s, raid_count_today=raid_count_today+1, last_raid_date=%s WHERE uid=%s",
                            (new_xp, today, uid))
                 u['xp'] = new_xp # Обновляем локально
@@ -582,11 +582,11 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 step_cost *= 2
 
             if not is_new and answer != 'open_chest' and answer != 'use_battery' and answer != 'hack_chest' and answer != 'claim_body' and answer != 'use_stimulator':
-                if int(u['xp']) < int(step_cost):
+                if int(int(u.get('xp', 0) or 0)) < int(step_cost):
                     return False, f"🪫 <b>НЕТ ЭНЕРГИИ</b>\nНужно {step_cost} XP.", None, u, 'neutral', 0
 
                 cur.execute("UPDATE players SET xp = xp - %s WHERE uid=%s", (step_cost, uid))
-                u['xp'] -= step_cost
+                u['xp'] = int(u.get('xp', 0) or 0) - step_cost
 
             # 4. ГЕНЕРАЦИЯ СОБЫТИЯ
             # SCALING BIOMES IMPLEMENTATION
@@ -617,7 +617,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
             if current_type_code == 'combat':
                 # Mob Scaling (Module 5)
                 # Cap mob level at User Level + 1 (was +5) to prevent impossible mechanical fights for low levels deep diving
-                mob_level = min(30, (depth // 20) + 1, int(u['level']) + 1)
+                mob_level = min(30, (depth // 20) + 1, int(int(u.get('level', 1) or 1)) + 1)
                 villain = db.get_random_villain(mob_level, cursor=cur)
 
                 if villain:
@@ -1020,7 +1020,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                      extra_death['image'] = RAID_EVENT_IMAGES['death']
 
                  # Broadcast Check
-                 broadcast = handle_death_log(uid, depth, u['level'], u['username'], s['buffer_coins'], cursor=cur)
+                 broadcast = handle_death_log(uid, depth, int(u.get('level', 1) or 1), u['username'], s['buffer_coins'], cursor=cur)
                  if broadcast: extra_death['broadcast'] = broadcast
 
                  cur.execute("UPDATE players SET raids_done = raids_done + 1 WHERE uid = %s", (uid,))

@@ -122,8 +122,14 @@ def start_handler(m):
             print(f"/// START_HANDLER: Interface initialized for user {uid}")
     except Exception as e:
         print(f"/// START HANDLER CRASH: {e}")
+        error_msg = (
+            "⚠️ <b>НЕЙРО-СБОЙ СИНХРОНИЗАЦИИ.</b>\n\n"
+            "Твой цифровой след нестабилен. Система проводит калибровку.\n"
+            "<i>Директива: Повтори /start через 15 секунд.</i>"
+        )
+        bot.send_message(m.chat.id, error_msg, parse_mode="HTML")
         traceback.print_exc()
-        bot.send_message(m.chat.id, f"⚠️ CRITICAL SYSTEM ERROR IN /start:\n{e}")
+
 
 # ==========================================
 # СЕКРЕТНЫЙ ИНСТРУМЕНТ АРХИТЕКТОРА: FILE_ID

@@ -36,7 +36,7 @@ def pvp_menu_handler(call):
     u = db.get_user(uid)
     if not u: return
 
-    if u['level'] <= config.QUARANTINE_LEVEL:
+    if int(u.get('level', 1) or 1) <= config.QUARANTINE_LEVEL:
         bot.answer_callback_query(call.id, "⛔️ КАРАНТИННАЯ ЗОНА (LVL <= 5)", show_alert=True)
         return
 
@@ -70,7 +70,7 @@ def pvp_inventory_handler(call):
     uid = int(call.from_user.id)
     u = db.get_user(uid)
 
-    if not u or u['level'] <= config.QUARANTINE_LEVEL:
+    if not u or int(u.get('level', 1) or 1) <= config.QUARANTINE_LEVEL:
         try:
             bot.answer_callback_query(call.id, "⛔️ КАРАНТИННАЯ ЗОНА (LVL <= 5)", show_alert=True)
         except: pass
@@ -278,17 +278,17 @@ def pvp_search_handler(call):
     uid = int(call.from_user.id)
     u = db.get_user(uid)
 
-    if u['xp'] < config.PVP_FIND_COST:
+    if int(u.get('xp', 0) or 0) < config.PVP_FIND_COST:
         bot.answer_callback_query(call.id, f"❌ Не хватает XP ({config.PVP_FIND_COST})", show_alert=True)
         return
 
     # Deduct XP
-    db.update_user(uid, xp=u['xp'] - config.PVP_FIND_COST)
+    db.update_user(uid, xp=int(u.get('xp', 0) or 0) - config.PVP_FIND_COST)
 
     target = pvp.find_target(uid)
 
     if not target:
-        db.update_user(uid, xp=u['xp']) # Refund
+        db.update_user(uid, xp=int(u.get('xp', 0) or 0)) # Refund
         bot.answer_callback_query(call.id, "📡 Нет подходящих целей. Попробуйте позже.", show_alert=True)
         return
 
