@@ -6,6 +6,7 @@ import sys
 import time
 import threading
 import traceback
+import psycopg2
 
 sys.stdout.reconfigure(line_buffering=True)
 import config
@@ -190,6 +191,9 @@ def notification_loop():
                                         print(f"/// DB BLOCK ERROR {uid}: {block_err}")
                     except Exception as db_err:
                         print(f"/// NOTIFICATION LOOP DB ERROR: {db_err}")
+                        if isinstance(db_err, (psycopg2.OperationalError, psycopg2.InterfaceError)):
+                            print("/// CRITICAL DB ERROR in Notification Loop. Waiting 10s...")
+                            time.sleep(10)
                         if conn:
                             try:
                                 conn.rollback()
@@ -198,6 +202,9 @@ def notification_loop():
                         time.sleep(5)
         except Exception as e:
             print(f"/// NOTIFICATION LOOP ERROR: {e}")
+            if isinstance(e, (psycopg2.OperationalError, psycopg2.InterfaceError)):
+                print("/// CRITICAL OUTER DB ERROR in Notification Loop. Waiting 10s...")
+                time.sleep(10)
 
         time.sleep(60)
 
