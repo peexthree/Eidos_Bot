@@ -142,7 +142,7 @@ def system_startup():
         print(f"/// SYSTEM STARTUP FATAL ERROR: {e}")
 
 def notification_loop():
-    if getattr(db, 'pg_pool', None) is None:
+    if getattr(db, '_formatted_db_url', None) is None:
         db.init_pool()
 
     while True:

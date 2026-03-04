@@ -17,7 +17,7 @@ from content_presets import CONTENT_DATA, VILLAINS_DATA, OLD_VILLAINS_NAMES
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 # Global Connection Pool
-pg_pool = None
+_formatted_db_url = None
 _pool_lock = threading.Lock()
 
 # --- SCHEMA DEFINITIONS ---
@@ -237,123 +237,68 @@ TABLE_SCHEMAS = {
 }
 
 def init_pool():
-    global pg_pool
-    if not pg_pool:
+    global _formatted_db_url
+    if not _formatted_db_url:
         with _pool_lock:
-            if not pg_pool: # Double-check locking pattern
+            if not _formatted_db_url:
                 try:
                     import urllib.parse
                     raw_url = DATABASE_URL
                     if raw_url:
                         parsed = urllib.parse.urlparse(raw_url)
-                        # We want to use port 6543 specifically for transaction pooling in Supabase
                         if "supabase" in parsed.netloc and parsed.port == 5432:
                             new_netloc = parsed.netloc.replace(":5432", ":6543")
                             parsed = parsed._replace(netloc=new_netloc)
-                            raw_url = urllib.parse.urlunparse(parsed)
 
-                        # Remove pgbouncer parameter if it exists as psycopg2 doesn't support it
                         query_params = urllib.parse.parse_qs(parsed.query)
                         if 'pgbouncer' in query_params:
                             del query_params['pgbouncer']
                         parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
-                        raw_url = urllib.parse.urlunparse(parsed)
+                        _formatted_db_url = urllib.parse.urlunparse(parsed)
 
-                    pg_pool = psycopg2.pool.ThreadedConnectionPool(
-                        minconn=1,
-                        maxconn=30,
-                        dsn=raw_url,
-                        sslmode='require',
-                        keepalives=1,
-                        keepalives_idle=30,
-                        keepalives_interval=10,
-                        keepalives_count=5,
-                        connect_timeout=5,
-                        options='-c lock_timeout=5000 -c statement_timeout=5000'
-                    )
-                    print("/// DB POOL INITIALIZED (SUPABASE, TRANSACTIONS/PgBouncer ENABLED)")
+                    print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED)")
                 except Exception as e:
-                    print(f"/// DB POOL INIT ERROR: {e}")
-
+                    print(f"/// DB URL INIT ERROR: {e}")
 
 def reset_pool():
-    global pg_pool
-    with _pool_lock:
-        if pg_pool:
-            try:
-                print("/// RESETTING DB POOL...")
-                pg_pool.closeall()
-            except Exception as e:
-                print(f"/// DB POOL CLOSE ERROR: {e}")
-            pg_pool = None
-    init_pool()
+    pass
 
 @contextmanager
 def db_session():
-    if not pg_pool:
+    if not _formatted_db_url:
         init_pool()
 
     conn = None
-    put_close = False
-
-    # Try to get a valid connection
-    for _ in range(2):
-        try:
-            if pg_pool:
-                conn = pg_pool.getconn()
-                # Check if connection is alive and valid
-                if conn.closed == 0:
-                    # Heartbeat check
-                    with conn.cursor() as tmp_cur:
-                        tmp_cur.execute("SELECT 1")
-                    break
-                else:
-                    pg_pool.putconn(conn, close=True)
-                    conn = None
-        except (psycopg2.OperationalError, psycopg2.InterfaceError, Exception) as e:
-            if conn:
-                try:
-                    pg_pool.putconn(conn, close=True)
-                except Exception:
-                    pass
-                conn = None
-
-            if _ == 0:
-                print(f"/// DB GETCONN RETRY due to: {e}")
-                time.sleep(0.2)
-                continue
-            raise e
 
     try:
-        if conn:
-            yield conn
-            conn.commit()
-        else:
-            yield None
+        conn = psycopg2.connect(_formatted_db_url, options='-c lock_timeout=5000 -c statement_timeout=5000')
+        yield conn
+        conn.commit()
     except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-        put_close = True
-        try:
-            if conn: conn.rollback()
-        except Exception:
-            pass
-
-        print(f"/// DB CONNECTION ERROR (Discarding from pool & Resetting): {e}")
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        print(f"/// DB CONNECTION ERROR: {e}")
         print(traceback.format_exc())
-
-        # If it's a fatal connection error, reset the whole pool
-        reset_pool()
         raise e
     except Exception as e:
-        try:
-            if conn: conn.rollback()
-        except Exception:
-            pass
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
         print(f"/// DB ERROR: {e}")
         print(traceback.format_exc())
         raise e
     finally:
-        if conn and pg_pool:
-            pg_pool.putconn(conn, close=put_close)
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
 
 @contextmanager
 def db_cursor(cursor_factory=None):
