@@ -786,15 +786,7 @@ def leaderboard_menu(current_sort='xp', leaders=None):
     elif current_sort == 'biocoin': txt_bio = f"✅ {txt_bio}"
     elif current_sort == 'spent': txt_spent = f"✅ {txt_spent}"
 
-    # Add profile inspect buttons for top 5
-    if leaders:
-        inspect_btns = []
-        for i, l in enumerate(leaders[:5], 1):
-            num = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"][i-1]
-            inspect_btns.append(types.InlineKeyboardButton(num, callback_data=f"view_user_{l['uid']}"))
-        if inspect_btns:
-            # Group into rows of up to 5
-            m.add(*inspect_btns)
+    m.add(types.InlineKeyboardButton("🔍 Найти досье (Паспорт Осколка)", callback_data="find_user_dossier_init"))
 
     m.add(
         types.InlineKeyboardButton(txt_xp, callback_data="lb_xp"),

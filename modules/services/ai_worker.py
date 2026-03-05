@@ -305,3 +305,123 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             bot.send_photo(chat_id, artifact_img_id, caption=final_caption)
         except Exception as e:
             print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
+
+def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
+    """Generates the CIA/Cyberpunk style Dossier for a specific user"""
+    import config
+    import database as db
+    from modules.services.user import get_profile_stats
+    import random
+    from modules.services.glitch_system import GLITCH_IMAGES
+
+    target_uid = target_user_data['uid']
+    t_name = target_user_data.get('username') or target_user_data.get('first_name') or "Unknown"
+    t_level = target_user_data.get('level', 1)
+    t_xp = target_user_data.get('xp', 0)
+    t_path = target_user_data.get('path', 'None')
+    t_spent = target_user_data.get('total_spent', 0)
+
+    profile_stats = get_profile_stats(target_uid)
+    raid_count = profile_stats.get('raid_count', 0) if profile_stats else 0
+    max_depth = profile_stats.get('max_depth', 0) if profile_stats else 0
+
+    # Fetch equipment
+    conn = db.get_connection()
+    equip_lore = ""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT item_id, item_type FROM user_equipment WHERE uid = %s", (target_uid,))
+            equipped = cur.fetchall()
+            if equipped:
+                for eid, etype in equipped:
+                    if eid in config.ITEMS:
+                        equip_lore += f"- {config.ITEMS[eid]['name']} ({config.ITEMS[eid].get('desc', 'Локальные данные утеряны')})\\n"
+    finally:
+        db.release_connection(conn)
+
+    if not equip_lore:
+        equip_lore = "Объект не использует аугментаций или сигнатурного оружия."
+
+    threat_level = "МИНИМАЛЬНЫЙ"
+    if t_level >= 20 or t_spent > 1000:
+        threat_level = "КРИТИЧЕСКИЙ (АНОМАЛИЯ)"
+    elif t_level >= 10:
+        threat_level = "ВЫСОКИЙ"
+
+    sys_prompt = (
+        "Ты — бездушная кибер-система «Эйдос» (или ЦРУ Осколка), анализирующая профайл другого объекта (игрока).\\n"
+        "Выдай жесткое, короткое и стильное ДОСЬЕ на пользователя. Язык: русский.\\n"
+        "Формат отчета:\\n"
+        "⚠️ ПАСПОРТ ОСКОЛКА: @имя\\n"
+        "УРОВЕНЬ УГРОЗЫ: [напиши уровень и обоснуй одной фразой]\\n"
+        "СОСТОЯНИЕ СИСТЕМЫ: [Взломан X раз / Стабилен / Критические повреждения - придумай на основе статов]\\n"
+        "СИГНАТУРНОЕ ОРУЖИЕ / ЛОР: [проанализируй экипировку]\\n"
+        "ПСИХОЛОГИЧЕСКИЙ ПРОФИЛЬ: [Короткий вывод о том, кто это такой: трус, донатер, безумец, охотник]\\n"
+        "Не используй Markdown, используй только HTML-теги <b>, <i>, <code>."
+    )
+
+    user_prompt = (
+        f"Анализируй объект: {t_name}\\n"
+        f"Уровень: {t_level}, Опыт: {t_xp}\\n"
+        f"Путь (Фракция): {t_path}\\n"
+        f"Глубина Рейдов: {max_depth}м, Смертей в рейдах: {raid_count}\\n"
+        f"Потрачено: {t_spent} Звезд\\n"
+        f"Экипировка:\\n{equip_lore}\\n\\n"
+        f"Сгенерируй Паспорт Осколка."
+    )
+
+    bot.send_message(chat_id, "<i>Генерация отчета...</i>", parse_mode="HTML")
+
+    headers = {
+        "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": "google/gemma-3-27b-it",
+        "messages": [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": 0.8,
+        "max_tokens": 500
+    }
+
+    import requests
+    import time
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            r = requests.post(config.OPENROUTER_URL, headers=headers, json=payload, timeout=40)
+            if r.status_code == 200:
+                data = r.json()
+                ai_text = data['choices'][0]['message']['content'].strip()
+                ai_text = sanitize_for_telegram(ai_text)
+
+                # Pick glitch image
+                glitch_keys = list(GLITCH_IMAGES.keys())
+                picked_glitch = random.choice(glitch_keys)
+                img_id = GLITCH_IMAGES[picked_glitch]
+
+                from telebot import types
+                m = types.InlineKeyboardMarkup()
+                m.add(types.InlineKeyboardButton("🔙 Вернуться к рейтингу", callback_data="leaderboard"))
+
+                try:
+                    bot.send_photo(chat_id, img_id, caption="<b>ДОСЬЕ ЗАГРУЖЕНО</b>", parse_mode="HTML")
+                    bot.send_message(chat_id, ai_text, parse_mode="HTML", reply_markup=m)
+                except Exception as e:
+                    bot.send_message(chat_id, f"<b>ДОСЬЕ ЗАГРУЖЕНО</b>\\n\\n{ai_text}", parse_mode="HTML", reply_markup=m)
+                return
+
+            elif r.status_code == 401:
+                bot.send_message(chat_id, "❌ <b>ОШИБКА АВТОРИЗАЦИИ ЭЙДОСА</b>\\nСвязь с сервером прервана.", parse_mode="HTML")
+                return
+            else:
+                time.sleep(2)
+
+        except requests.exceptions.RequestException:
+            time.sleep(2)
+
+    bot.send_message(chat_id, "❌ Не удалось пробить защиту объекта. Системный сбой.", parse_mode="HTML")
