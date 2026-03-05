@@ -308,12 +308,13 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
 
 def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
-    """Generates the CIA/Cyberpunk style Dossier for a specific user"""
+    # Generates the CIA/Cyberpunk style Dossier for a specific user
     import config
     import database as db
     from modules.services.user import get_profile_stats
     import random
     from modules.services.glitch_system import GLITCH_AVATARS as GLITCH_IMAGES
+    import json
 
     target_uid = target_user_data['uid']
     t_name = target_user_data.get('username') or target_user_data.get('first_name') or "Unknown"
@@ -326,6 +327,11 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     raid_count = profile_stats.get('raid_count', 0) if profile_stats else 0
     max_depth = profile_stats.get('max_depth', 0) if profile_stats else 0
 
+    # Fetch glitches count (hacks)
+    shadows = db.get_user_shadow_metrics(target_uid)
+    glitches_count = shadows.get('glitches_encountered_count', 0)
+    stability = max(0, 100 - (glitches_count * 7))
+
     # Fetch equipment
     equip_lore = ""
     with db.db_cursor() as cur:
@@ -335,40 +341,68 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
             if equipped:
                 for (eid,) in equipped:
                     if eid in config.ITEMS_INFO:
-                        equip_lore += f"- {config.ITEMS_INFO[eid]['name']} ({config.ITEMS_INFO[eid].get('desc', 'Локальные данные утеряны')})\\n"
+                        equip_lore += f"- {config.ITEMS_INFO[eid]['name']} ({config.ITEMS_INFO[eid].get('desc', 'Локальные данные утеряны')})\n"
 
     if not equip_lore:
         equip_lore = "Объект не использует аугментаций или сигнатурного оружия."
 
-    threat_level = "МИНИМАЛЬНЫЙ"
-    if t_level >= 20 or t_spent > 1000:
-        threat_level = "КРИТИЧЕСКИЙ (АНОМАЛИЯ)"
-    elif t_level >= 10:
-        threat_level = "ВЫСОКИЙ"
+    # Fetch inventory
+    inv_list = []
+    inventory = db.get_inventory(target_uid)
+    for item in inventory:
+        i_id = item.get('item_id')
+        if i_id in config.ITEMS_INFO:
+            inv_list.append(config.ITEMS_INFO[i_id]['name'])
+
+    inv_text = ", ".join(inv_list) if inv_list else "Пусто"
+
+    threat_level = "MINIMAL"
+    if t_level >= 30 or t_spent > 5000:
+        threat_level = "CRITICAL_ANOMALY"
+    elif t_level >= 15 or t_spent > 1000:
+        threat_level = "HIGH_DEVIANT"
+    elif t_level >= 5:
+        threat_level = "MEDIUM_DEVIANT"
+
+    d_id = f"{random.randint(1000, 9999)}-{t_name.upper()[:10]}"
 
     sys_prompt = (
-        "Ты — бездушная кибер-система «Эйдос» (или ЦРУ Осколка), анализирующая профайл другого объекта (игрока).\\n"
-        "Выдай жесткое, короткое и стильное ДОСЬЕ на пользователя. Язык: русский.\\n"
-        "Формат отчета:\\n"
-        "⚠️ ПАСПОРТ ОСКОЛКА: @имя\\n"
-        "УРОВЕНЬ УГРОЗЫ: [напиши уровень и обоснуй одной фразой]\\n"
-        "СОСТОЯНИЕ СИСТЕМЫ: [Взломан X раз / Стабилен / Критические повреждения - придумай на основе статов]\\n"
-        "СИГНАТУРНОЕ ОРУЖИЕ / ЛОР: [проанализируй экипировку]\\n"
-        "ПСИХОЛОГИЧЕСКИЙ ПРОФИЛЬ: [Короткий вывод о том, кто это такой: трус, донатер, безумец, охотник]\\n"
-        "Не используй Markdown, используй только HTML-теги <b>, <i>, <code>."
+        "Ты — бездушная кибер-система «Эйдос», проводящая глубокий психоанализ и технический аудит объекта.\n"
+        "Твоя задача — составить ДОСЬЕ в жестком стиле киберпанка/CIA. Язык: русский.\n\n"
+        "СТРОГО СОБЛЮДАЙ СЛЕДУЮЩИЙ ФОРМАТ (используй HTML теги <b>, <i>, <code>):\n"
+        "🗄 /// [DOSSIER_ID: " + d_id + "]\n"
+        "<b>ОБЪЕКТ:</b> @" + t_name + "\n"
+        "<b>СТАТУС:</b> Под наблюдением Эйдоса\n"
+        "<b>УРОВЕНЬ:</b> " + str(t_level) + "\n"
+        "<b>ИНВЕНТАРЬ:</b> " + inv_text[:200] + "\n\n"
+        "[ СИСТЕМНЫЙ АНАЛИЗ ]\n"
+        "● <b>УРОВЕНЬ УГРОЗЫ:</b> " + threat_level + " (на русском)\n"
+        "● <b>СТАБИЛЬНОСТЬ:</b> " + str(stability) + "% (" + str(glitches_count) + " критических взлома в логах)\n"
+        "● <b>КЛАССИФИКАЦИЯ:</b> [придумай на основе статов, напр. Охотник за Глубиной, Техно-Наемник и т.д.]\n\n"
+        "[ ТЕХНОЛОГИЧЕСКИЙ СЛЕД ]\n\n"
+        "<b>СИГНАТУРА:</b> [проанализируй снаряжение, выдели главное]\n"
+        "<b>ВЕРДИКТ:</b> [Техническое заключение об опасности снаряжения]\n\n"
+        "[ ПСИХОПРОФИЛЬ ]\n"
+        "[Глубокий, мрачный анализ личности игрока на основе его достижений и трат. Используй цитаты в кавычках.]\n\n"
+        "[ ДИРЕКТИВА ЭЙДОСА ]\n"
+        "<b>Опираться на объект в долгосрочных союзах —</b> [ВЕРДИКТ].\n"
+        "<b>Использовать как таран в зонах высокого сопротивления —</b> [ВЕРДИКТ].\n\n"
+        "Не используй Markdown, только HTML."
     )
 
     user_prompt = (
-        f"Анализируй объект: {t_name}\\n"
-        f"Уровень: {t_level}, Опыт: {t_xp}\\n"
-        f"Путь (Фракция): {t_path}\\n"
-        f"Глубина Рейдов: {max_depth}м, Смертей в рейдах: {raid_count}\\n"
-        f"Потрачено: {t_spent} Звезд\\n"
-        f"Экипировка:\\n{equip_lore}\\n\\n"
-        f"Сгенерируй Паспорт Осколка."
+        f"Данные объекта: {t_name}\n"
+        f"Уровень: {t_level}, Опыт: {t_xp}\n"
+        f"Путь: {t_path}\n"
+        f"Рейды: {raid_count}, Макс. Глубина: {max_depth}м\n"
+        f"Взломы системы: {glitches_count}\n"
+        f"Потрачено: {t_spent} Stars\n"
+        f"Экипировка: {equip_lore}\n"
+        f"Инвентарь: {inv_text}\n\n"
+        f"Сгенерируй Паспорт Осколка по шаблону."
     )
 
-    bot.send_message(chat_id, "<i>Генерация отчета...</i>", parse_mode="HTML")
+    bot.send_message(chat_id, "<i>Получение доступа к личным архивам...</i>", parse_mode="HTML")
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -376,50 +410,64 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     }
 
     payload = {
-        "model": "google/gemma-3-27b-it",
+        "model": OPENROUTER_MODEL,
         "messages": [
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_prompt}
         ],
         "temperature": 0.8,
-        "max_tokens": 500
+        "max_tokens": 1000
     }
 
     import requests
     import time
 
     max_retries = 3
+    ai_text = None
     for attempt in range(max_retries):
         try:
-            r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=40)
+            r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=45)
             if r.status_code == 200:
                 data = r.json()
                 ai_text = data['choices'][0]['message']['content'].strip()
                 ai_text = sanitize_for_telegram(ai_text)
-
-                # Pick glitch image
-                glitch_keys = list(GLITCH_IMAGES.keys())
-                picked_glitch = random.choice(glitch_keys)
-                img_id = GLITCH_IMAGES[picked_glitch]
-
-                from telebot import types
-                m = types.InlineKeyboardMarkup()
-                m.add(types.InlineKeyboardButton("🔙 Вернуться к рейтингу", callback_data="leaderboard"))
-
-                try:
-                    bot.send_photo(chat_id, img_id, caption="<b>ДОСЬЕ ЗАГРУЖЕНО</b>", parse_mode="HTML")
-                    bot.send_message(chat_id, ai_text, parse_mode="HTML", reply_markup=m)
-                except Exception as e:
-                    bot.send_message(chat_id, f"<b>ДОСЬЕ ЗАГРУЖЕНО</b>\\n\\n{ai_text}", parse_mode="HTML", reply_markup=m)
-                return
-
+                break
             elif r.status_code == 401:
-                bot.send_message(chat_id, "❌ <b>ОШИБКА АВТОРИЗАЦИИ ЭЙДОСА</b>\\nСвязь с сервером прервана.", parse_mode="HTML")
+                bot.send_message(chat_id, "❌ <b>ОШИБКА АВТОРИЗАЦИИ ЭЙДОСА</b>", parse_mode="HTML")
                 return
             else:
                 time.sleep(2)
-
-        except requests.exceptions.RequestException:
+        except:
             time.sleep(2)
 
-    bot.send_message(chat_id, "❌ Не удалось пробить защиту объекта. Системный сбой.", parse_mode="HTML")
+    if not ai_text:
+        bot.send_message(chat_id, "❌ Не удалось пробить защиту объекта. Системный сбой.", parse_mode="HTML")
+        return
+
+    # Try to get user avatar
+    img_id = None
+    try:
+        photos = bot.get_user_profile_photos(target_uid, limit=1)
+        if photos.total_count > 0:
+            img_id = photos.photos[0][-1].file_id
+    except:
+        pass
+
+    if not img_id:
+        glitch_keys = list(GLITCH_IMAGES.keys())
+        picked_glitch = random.choice(glitch_keys)
+        img_id = GLITCH_IMAGES[picked_glitch]
+
+    from telebot import types
+    m = types.InlineKeyboardMarkup()
+    m.add(types.InlineKeyboardButton("🔙 Вернуться к рейтингу", callback_data="leaderboard"))
+
+    try:
+        bot.send_photo(chat_id, img_id, caption="<b>СОБРАНО ДОСЬЕ</b>", parse_mode="HTML")
+        if len(ai_text) > 4096:
+            for i in range(0, len(ai_text), 4000):
+                bot.send_message(chat_id, ai_text[i:i+4000], parse_mode="HTML", reply_markup=m if i+4000 >= len(ai_text) else None)
+        else:
+            bot.send_message(chat_id, ai_text, parse_mode="HTML", reply_markup=m)
+    except Exception as e:
+        bot.send_message(chat_id, f"<b>СОБРАНО ДОСЬЕ</b>\n\n{ai_text}", parse_mode="HTML", reply_markup=m)
