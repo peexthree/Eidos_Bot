@@ -223,7 +223,7 @@ def process_combat_action(uid, action):
                 # db.update_raid_enemy(uid, enemy_id, new_enemy_hp) -> Inline
                 # Deferred: enemy update
 
-                msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n"
+                msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n💠 <b>ТВОЙ СИГНАЛ:</b> {current_signal}%\n"
 
                 # ENEMY ATTACK LOGIC
                 raw_enemy_dmg = villain['atk']
@@ -289,20 +289,20 @@ def process_combat_action(uid, action):
                                msg += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
                                used_aegis = True
 
-                new_sig = max(0, current_signal - enemy_dmg)
+                current_signal = max(0, current_signal - enemy_dmg)
 
-                if new_sig <= 0:
+                if current_signal <= 0:
                     db.update_shadow_metric(uid, 'consecutive_deaths', 1)
 
                 # --- AURA: CYBER HALO (Death Prevent) ---
-                if new_sig <= 0 and equipped_head == 'cyber_halo':
+                if current_signal <= 0 and equipped_head == 'cyber_halo':
                     if random.random() < 0.20:
-                        new_sig = 1
+                        current_signal = 1
                         msg += "🪩 <b>НИМБ:</b> Вмешательство системы! Смерть отменена.\n"
 
                 # 7. THERMONUCLEAR SHROUD (Armor) - Prevent Death
-                if new_sig <= 0 and equipped_armor == 'thermonuclear_shroud':
-                    new_sig = 1
+                if current_signal <= 0 and equipped_armor == 'thermonuclear_shroud':
+                    current_signal = 1
                     new_enemy_hp = 0 # Kill enemy
                     # db.update_raid_enemy(uid, enemy_id, 0) -> Inline
                     # Deferred: enemy update (death)
@@ -321,7 +321,7 @@ def process_combat_action(uid, action):
                 else:
                     msg += f"🛡 <b>БЛОК:</b> Урон поглощен броней.\n"
 
-                if new_sig <= 0:
+                if current_signal <= 0:
                     report = generate_raid_report(uid, full_s)
                     cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
 
@@ -359,7 +359,7 @@ def process_combat_action(uid, action):
                 else:
                     # db.update_raid_enemy(uid, enemy_id, new_enemy_hp) -> Inline
                     # Deferred: enemy update
-                    msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n"
+                    msg += f"👺 <b>ВРАГ:</b> {villain['name']} (HP: {new_enemy_hp}/{villain['hp']})\n💠 <b>ТВОЙ СИГНАЛ:</b> {current_signal}%\n"
             else:
                  return 'error', "Нет EMP гранаты.", None
 
@@ -391,7 +391,7 @@ def process_combat_action(uid, action):
             if u['path'] == 'mind' and ("Глубокая Сеть" in biome_data['name'] or "Пустота" in biome_data['name']):
                 bonus_dodge = 0.15
 
-            chance = 0.5 + (stats['luck'] / 200.0) + bonus_dodge
+            chance = min(0.95, 0.10 + (stats['luck'] * 0.05) + bonus_dodge)
 
             if random.random() < chance:
                  # db.clear_raid_enemy(uid) -> Inline
@@ -425,8 +425,8 @@ def process_combat_action(uid, action):
                                msg += "🛡 <b>ЭГИДА:</b> Смертельный урон заблокирован!\n"
                                used_aegis = True
 
-                 new_sig = max(0, current_signal - enemy_dmg)
-                 if new_sig <= 0:
+                 current_signal = max(0, current_signal - enemy_dmg)
+                 if current_signal <= 0:
                      db.update_shadow_metric(uid, 'consecutive_deaths', 1)
 
                  # Deferred: signal update
@@ -438,7 +438,7 @@ def process_combat_action(uid, action):
                  else:
                      msg += f"🛡 <b>БЛОК:</b> Урон поглощен броней.\n"
 
-                 if new_sig <= 0:
+                 if current_signal <= 0:
                     report = generate_raid_report(uid, full_s)
                     cur.execute("DELETE FROM raid_sessions WHERE uid=%s", (uid,))
 

@@ -547,7 +547,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
             if answer == 'use_battery':
                  if db.get_item_count(uid, 'battery', cursor=cur) > 0:
                      if db.use_item(uid, 'battery', cursor=cur):
-                         if (db.get_user(uid).get('max_hp', 100) - int(session.get('hp', 0))) <= 5:
+                         if (db.get_user(uid).get('max_hp', 100) - int(s.get('signal', 0))) <= 5:
                              db.update_shadow_metric(uid, 'micro_hp_heals', 1)
                          new_signal = min(100, s['signal'] + 30)
                          cur.execute("UPDATE raid_sessions SET signal = %s WHERE uid=%s", (new_signal, uid))

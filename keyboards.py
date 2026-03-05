@@ -775,7 +775,7 @@ def pvp_revenge_confirm(log_id, name):
 def pvp_defense_shop():
     return pvp_shop_menu()
 
-def leaderboard_menu(current_sort='xp'):
+def leaderboard_menu(current_sort='xp', leaders=None):
     m = types.InlineKeyboardMarkup(row_width=2)
     txt_xp = "🏆 ОПЫТ"
     txt_depth = "🕳 ГЛУБИНА"
@@ -785,6 +785,17 @@ def leaderboard_menu(current_sort='xp'):
     elif current_sort == 'depth': txt_depth = f"✅ {txt_depth}"
     elif current_sort == 'biocoin': txt_bio = f"✅ {txt_bio}"
     elif current_sort == 'spent': txt_spent = f"✅ {txt_spent}"
+
+    # Add profile inspect buttons for top 5
+    if leaders:
+        inspect_btns = []
+        for i, l in enumerate(leaders[:5], 1):
+            num = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"][i-1]
+            inspect_btns.append(types.InlineKeyboardButton(num, callback_data=f"view_user_{l['uid']}"))
+        if inspect_btns:
+            # Group into rows of up to 5
+            m.add(*inspect_btns)
+
     m.add(
         types.InlineKeyboardButton(txt_xp, callback_data="lb_xp"),
         types.InlineKeyboardButton(txt_depth, callback_data="lb_depth")

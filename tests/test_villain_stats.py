@@ -9,7 +9,7 @@ sys.modules['telebot'] = MagicMock()
 # We also need to mock extras for psycopg2
 sys.modules['psycopg2.extras'] = MagicMock()
 
-import logic
+import modules.services.utils as logic
 
 class TestVillainStatsFix(unittest.TestCase):
     def setUp(self):
