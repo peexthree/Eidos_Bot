@@ -328,32 +328,52 @@ def inventory_handler(call):
             if glitch.get('reward_item'):
                 db.add_item_to_inventory(uid, glitch['reward_item'], 1)
 
-        txt = format_inventory(uid, category='equip')
-        items = get_filtered_items(uid)
-        equipped = db.get_equipped_items(uid)
-        has_legacy = check_legacy_items(uid)
-        menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy), image_url=config.MENU_IMAGES["inventory"])
+        txt = cache_db.get_cached_state(f"inv_txt_{uid}_equip", lambda: format_inventory(uid, category='equip'), ttl=5.0)
+
+        def _build_equip_menu():
+            items = get_filtered_items(uid)
+            equipped = db.get_equipped_items(uid)
+            has_legacy = check_legacy_items(uid)
+            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy)
+
+        menu = cache_db.get_cached_state(f"inv_menu_{uid}_equip_False", _build_equip_menu, ttl=5.0)
+        menu_update(call, txt, menu, image_url=config.MENU_IMAGES["inventory"])
 
     elif call.data == "inv_cat_equip":
-        txt = format_inventory(uid, category='equip')
-        items = get_filtered_items(uid)
-        equipped = db.get_equipped_items(uid)
-        has_legacy = check_legacy_items(uid)
-        menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy))
+        txt = cache_db.get_cached_state(f"inv_txt_{uid}_equip", lambda: format_inventory(uid, category='equip'), ttl=5.0)
+
+        def _build_equip_menu_2():
+            items = get_filtered_items(uid)
+            equipped = db.get_equipped_items(uid)
+            has_legacy = check_legacy_items(uid)
+            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy)
+
+        menu = cache_db.get_cached_state(f"inv_menu_{uid}_equip_False", _build_equip_menu_2, ttl=5.0)
+        menu_update(call, txt, menu)
 
     elif call.data == "inv_cat_consumable":
-        txt = format_inventory(uid, category='consumable')
-        items = get_filtered_items(uid)
-        equipped = db.get_equipped_items(uid)
-        has_legacy = check_legacy_items(uid)
-        menu_update(call, txt, kb.inventory_menu(items, equipped, dismantle_mode=False, category='consumable', has_legacy=has_legacy))
+        txt = cache_db.get_cached_state(f"inv_txt_{uid}_consumable", lambda: format_inventory(uid, category='consumable'), ttl=5.0)
+
+        def _build_consumable_menu():
+            items = get_filtered_items(uid)
+            equipped = db.get_equipped_items(uid)
+            has_legacy = check_legacy_items(uid)
+            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='consumable', has_legacy=has_legacy)
+
+        menu = cache_db.get_cached_state(f"inv_menu_{uid}_consumable_False", _build_consumable_menu, ttl=5.0)
+        menu_update(call, txt, menu)
 
     elif call.data == "inv_mode_dismantle":
-        txt = format_inventory(uid)
-        items = get_filtered_items(uid)
-        equipped = db.get_equipped_items(uid)
-        has_legacy = check_legacy_items(uid)
-        menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", kb.inventory_menu(items, equipped, dismantle_mode=True, has_legacy=has_legacy))
+        txt = cache_db.get_cached_state(f"inv_txt_{uid}_all", lambda: format_inventory(uid), ttl=5.0)
+
+        def _build_dismantle_menu():
+            items = get_filtered_items(uid)
+            equipped = db.get_equipped_items(uid)
+            has_legacy = check_legacy_items(uid)
+            return kb.inventory_menu(items, equipped, dismantle_mode=True, has_legacy=has_legacy)
+
+        menu = cache_db.get_cached_state(f"inv_menu_{uid}_all_True", _build_dismantle_menu, ttl=5.0)
+        menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", menu)
 
     elif call.data == "inv_mode_normal":
         call.data = "inventory"

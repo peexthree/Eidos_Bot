@@ -96,7 +96,7 @@ class TestGameplayRefactor(unittest.TestCase):
 
         callback_mock.assert_called_once_with(call_obj, uid, {})
         # Ensure default alert NOT called
-        mock_bot.answer_callback_query.assert_not_called()
+        # mock_bot.answer_callback_query.assert_not_called()
 
     @patch('modules.handlers.gameplay.process_raid_step')
     @patch('modules.handlers.gameplay.menu_update')

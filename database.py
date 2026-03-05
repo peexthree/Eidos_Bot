@@ -523,16 +523,27 @@ def populate_villains():
                     ON CONFLICT (name) DO UPDATE SET level = EXCLUDED.level, hp = EXCLUDED.hp, atk = EXCLUDED.atk, def = EXCLUDED.def, xp_reward = EXCLUDED.xp_reward, coin_reward = EXCLUDED.coin_reward, description = EXCLUDED.description, image = EXCLUDED.image
                 """, v)
 
+def _sanitize_player_data(data_dict):
+    numeric_fields = ['xp', 'biocoin', 'level', 'streak', 'cryo', 'accel', 'decoder',
+                      'accel_exp', 'ref_profit_xp', 'ref_profit_coins', 'generated_ref_xp',
+                      'generated_ref_coins', 'max_depth', 'total_spent', 'raid_count_today',
+                      'encrypted_cache_unlock_time', 'shadow_broker_expiry', 'anomaly_buff_expiry',
+                      'proxy_expiry']
+    for field in numeric_fields:
+        if field in data_dict and data_dict[field] is None:
+            data_dict[field] = 0
+    return data_dict
+
 def get_user(uid, cursor=None):
     def _execute_logic(cur, uid):
         cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
         res = cur.fetchone()
         if res:
             if hasattr(res, 'keys'):
-                return dict(res)
+                return _sanitize_player_data(dict(res))
             else:
                 cols = [desc[0] for desc in cur.description]
-                return dict(zip(cols, res))
+                return _sanitize_player_data(dict(zip(cols, res)))
         return None
 
     if cursor:
@@ -685,13 +696,17 @@ def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
 
         return True
 
+    import cache_db
     if cursor:
-        return _add_logic(cursor)
+        res = _add_logic(cursor)
+        if res: cache_db.clear_cache(uid)
+        return res
 
     with db_cursor() as cur:
         if not cur: return False
-        return _add_logic(cur)
-
+        res = _add_logic(cur)
+        if res: cache_db.clear_cache(uid)
+        return res
 def get_inventory(uid, cursor=None):
     # Returns list including 'id' for handling individual items
     query = "SELECT id, uid, item_id, quantity, durability, custom_data FROM inventory WHERE quantity > 0 AND uid = %s ORDER BY item_id ASC"
