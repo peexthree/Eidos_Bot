@@ -101,7 +101,9 @@ def pvp_inventory_handler(call):
                 return
 
             success, msg = pvp.dismantle_pvp_item(uid, item_id)
-            bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+            bot.answer_callback_query(call.id, strip_html(msg))
+            import cache_db
+            cache_db.clear_cache(uid)
 
         # Render Menu
         items = pvp.get_software_inventory(uid)
@@ -184,9 +186,13 @@ def pvp_upgrade_handler(call):
         time.sleep(1)
         menu_update(call, "💾 <b>Перепрошивка деки...</b>", kb.back_button())
         time.sleep(1)
-        bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+        bot.answer_callback_query(call.id, strip_html(msg))
+        import cache_db
+        cache_db.clear_cache(uid)
     else:
-        bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+        bot.answer_callback_query(call.id, strip_html(msg))
+        import cache_db
+        cache_db.clear_cache(uid)
     from modules.handlers.pvp import pvp_config_handler
     pvp_config_handler(call)
 
@@ -226,7 +232,9 @@ def pvp_buy_handler(call):
 
 def process_purchase(call, uid, sid, is_hardware):
     success, msg = pvp.buy_software(uid, sid, is_hardware=is_hardware)
-    bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+    bot.answer_callback_query(call.id, strip_html(msg))
+    import cache_db
+    cache_db.clear_cache(uid)
     if success:
         pvp_shop_handler(call)
 

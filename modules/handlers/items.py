@@ -699,6 +699,7 @@ def item_action_handler(call):
                     add_biocoin(uid, scrap_val)
                     bot.answer_callback_query(call.id, f"♻️ Разобрано: +{scrap_val} BC")
                     # Refresh
+                    cache_db.clear_cache(uid)
                     call.data = "inventory"
                     inventory_handler(call)
                 else:
