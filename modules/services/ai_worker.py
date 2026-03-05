@@ -312,7 +312,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     import database as db
     from modules.services.user import get_profile_stats
     import random
-    from modules.services.glitch_system import GLITCH_IMAGES
+    from modules.services.glitch_system import GLITCH_AVATARS as GLITCH_IMAGES
 
     target_uid = target_user_data['uid']
     t_name = target_user_data.get('username') or target_user_data.get('first_name') or "Unknown"

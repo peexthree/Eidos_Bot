@@ -641,7 +641,7 @@ def process_dossier_search(m):
     db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
     db.delete_state(uid)
 
-    bot.send_message(m.chat.id, "📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
+    bot.send_message(m.chat.id, "💰 <b>Списано 100 BC.</b>\n📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
 
     from modules.services.ai_worker import generate_user_dossier_worker
     import threading
