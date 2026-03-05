@@ -3,6 +3,7 @@ from telebot import types
 import time
 import config
 from config import LEVELS, PRICES, EQUIPMENT_DB, SLOTS, CURSED_CHEST_DROPS
+from modules.services.crafting import crafting_service
 
 # =============================================================
 # ⚙️ ГЕНЕРАТОРЫ UI
@@ -142,7 +143,7 @@ def profile_menu(u, has_accel=False, has_purification=False):
 # 🎒 ИНВЕНТАРЬ (RPG UI)
 # =============================================================
 
-def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=False):
+def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=False, uid=None):
     m = types.InlineKeyboardMarkup(row_width=2)
     
     # Tabs
@@ -172,34 +173,58 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
 
     if filtered:
         m.add(types.InlineKeyboardButton("─── 📦 РЮКЗАК ───", callback_data="dummy"))
-        for i in filtered:
-            item_id = i['item_id']
-            qty = i['quantity']
-            inv_id = i.get('id')
-            durability = i.get('durability', 100)
+        if category == 'equip' and not dismantle_mode:
+            # Stacking logic for unequipped gear
+            groups = {}
+            for i in filtered:
+                iid = i['item_id']
+                if iid not in groups: groups[iid] = []
+                groups[iid].append(i)
 
-            if item_id in EQUIPMENT_DB:
-                name = EQUIPMENT_DB[item_id]['name']
-            else:
-                info = config.ITEMS_INFO.get(item_id, {})
-                name = info.get('name', item_id)
+            for iid, group in groups.items():
+                first = group[0]
+                total_qty = sum(item['quantity'] for item in group)
+                inv_id = first['id']
+                durability = first.get('durability', 100)
+                name = EQUIPMENT_DB[iid]['name']
 
-            display_name = f"{name}"
-            if item_id in EQUIPMENT_DB:
-                display_name += f" [{durability}]"
-            elif qty > 1:
-                display_name += f" (x{qty})"
+                craft_icon = ' 🛠' if uid and crafting_service.can_craft(uid, iid) else ''
+                display_name = f"{name} [{durability}]"
+                if total_qty > 1:
+                    display_name += f" (x{total_qty})"
+                display_name += craft_icon
 
-            if dismantle_mode:
-                m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ: {display_name}", callback_data=f"dismantle_{inv_id}"))
-            else:
+                m.add(types.InlineKeyboardButton(f"⬆️ {display_name}", callback_data=f"view_item_{inv_id}"))
+        else:
+            # Original individual/consumable logic (indented)
+            for i in filtered:
+                item_id = i['item_id']
+                qty = i['quantity']
+                inv_id = i.get('id')
+                durability = i.get('durability', 100)
+
                 if item_id in EQUIPMENT_DB:
-                    m.add(types.InlineKeyboardButton(f"⬆️ {display_name}", callback_data=f"view_item_{inv_id}"))
-                elif item_id == 'admin_key':
-                    m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: {display_name}", callback_data="use_admin_key"))
+                    name = EQUIPMENT_DB[item_id]['name']
                 else:
-                    m.add(types.InlineKeyboardButton(f"{display_name}", callback_data=f"view_item_{inv_id}"))
-            
+                    info = config.ITEMS_INFO.get(item_id, {})
+                    name = info.get('name', item_id)
+
+                display_name = f"{name}"
+                if item_id in EQUIPMENT_DB:
+                    display_name += f" [{durability}]"
+                elif qty > 1:
+                    display_name += f" (x{qty})"
+
+                if dismantle_mode:
+                    m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ: {display_name}", callback_data=f"dismantle_{inv_id}"))
+                else:
+                    if item_id in EQUIPMENT_DB:
+                        m.add(types.InlineKeyboardButton(f"⬆️ {display_name}", callback_data=f"view_item_{inv_id}"))
+                    elif item_id == 'admin_key':
+                        m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: {display_name}", callback_data="use_admin_key"))
+                    else:
+                        m.add(types.InlineKeyboardButton(f"{display_name}", callback_data=f"view_item_{inv_id}"))
+
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 

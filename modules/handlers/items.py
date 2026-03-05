@@ -334,7 +334,7 @@ def inventory_handler(call):
             items = get_filtered_items(uid)
             equipped = db.get_equipped_items(uid)
             has_legacy = check_legacy_items(uid)
-            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy)
+            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy, uid=uid)
 
         menu = cache_db.get_cached_state(f"inv_menu_{uid}_equip_False", _build_equip_menu, ttl=5.0)
         menu_update(call, txt, menu, image_url=config.MENU_IMAGES["inventory"])
@@ -346,7 +346,7 @@ def inventory_handler(call):
             items = get_filtered_items(uid)
             equipped = db.get_equipped_items(uid)
             has_legacy = check_legacy_items(uid)
-            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy)
+            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_legacy=has_legacy, uid=uid)
 
         menu = cache_db.get_cached_state(f"inv_menu_{uid}_equip_False", _build_equip_menu_2, ttl=5.0)
         menu_update(call, txt, menu)
@@ -358,7 +358,7 @@ def inventory_handler(call):
             items = get_filtered_items(uid)
             equipped = db.get_equipped_items(uid)
             has_legacy = check_legacy_items(uid)
-            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='consumable', has_legacy=has_legacy)
+            return kb.inventory_menu(items, equipped, dismantle_mode=False, category='consumable', has_legacy=has_legacy, uid=uid)
 
         menu = cache_db.get_cached_state(f"inv_menu_{uid}_consumable_False", _build_consumable_menu, ttl=5.0)
         menu_update(call, txt, menu)
@@ -370,7 +370,7 @@ def inventory_handler(call):
             items = get_filtered_items(uid)
             equipped = db.get_equipped_items(uid)
             has_legacy = check_legacy_items(uid)
-            return kb.inventory_menu(items, equipped, dismantle_mode=True, has_legacy=has_legacy)
+            return kb.inventory_menu(items, equipped, dismantle_mode=True, has_legacy=has_legacy, uid=uid)
 
         menu = cache_db.get_cached_state(f"inv_menu_{uid}_all_True", _build_dismantle_menu, ttl=5.0)
         menu_update(call, txt + "\n\n⚠️ <b>РЕЖИМ РАЗБОРА АКТИВЕН</b>", menu)
@@ -633,19 +633,19 @@ def item_action_handler(call):
 
     elif call.data.startswith("dismantle_"):
         from modules.services.glitch_system import check_micro_glitch
+        u = cache_db.get_cached_user(uid)
         metrics = db.get_user_shadow_metrics(uid)
+        glitch = {}
 
         # Trigger glitch if dismantling valuable stuff while hoarding/ADHD-clicking
         if metrics and (metrics.get('fast_sync_clicks', 0) >= 3 or metrics.get('total_coins_earned', 0) > 10000):
-            glitch = check_micro_glitch(uid, u.get('level', 1))
-            if glitch and glitch.get('type') in ['hoarder', 'adhd_clicks']:
-                bot.answer_callback_query(call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
-            bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
-                # We let it continue or block? User said: "I won't let you sell this artifact for pennies".
-                # Let's block it for these specific types.
-        if glitch.get('type') == 'hoarder':
+            glitch = check_micro_glitch(uid, u.get('level', 1) if u else 1)
+            if glitch:
+                if glitch.get('type') in ['hoarder', 'adhd_clicks']:
+                    bot.answer_callback_query(call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
+                bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
+                if glitch.get('type') == 'hoarder':
                     return
-
         val = call.data.replace("dismantle_", "")
         item_id = None
         inv_id = None
