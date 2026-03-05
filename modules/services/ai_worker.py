@@ -333,8 +333,8 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
             equipped = cur.fetchall()
             if equipped:
                 for (eid,) in equipped:
-                    if eid in config.ITEMS:
-                        equip_lore += f"- {config.ITEMS[eid]['name']} ({config.ITEMS[eid].get('desc', 'Локальные данные утеряны')})\\n"
+                    if eid in config.ITEMS_INFO:
+                        equip_lore += f"- {config.ITEMS_INFO[eid]['name']} ({config.ITEMS_INFO[eid].get('desc', 'Локальные данные утеряны')})\\n"
 
     if not equip_lore:
         equip_lore = "Объект не использует аугментаций или сигнатурного оружия."
