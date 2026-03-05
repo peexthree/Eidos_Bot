@@ -16,109 +16,63 @@ from telebot import types
 
 # Helper for Shadow Broker (Middleware-ish)
 def handle_raid_action(call, uid, action_args=None, custom_success_callback=None, text_prefix=""):
-
     import traceback
-
+    import threading
     from telebot import types
 
     if action_args is None: action_args = {}
 
-
-
     try:
+        bot.answer_callback_query(call.id, "Идет сканирование сектора...")
+    except:
+        pass
 
-        res, txt, extra, new_u, etype, cost = process_raid_step(uid, **action_args)
+    def _worker():
+        try:
+            res, txt, extra, new_u, etype, cost = process_raid_step(uid, **action_args)
+        except Exception as e:
+            print(f"RAID ACTION ERROR: {e}")
+            traceback.print_exc()
+            try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА. Попробуйте позже.", show_alert=True)
+            except: pass
+            return
 
-    except Exception as e:
+        if not res:
+            if txt == "no_key":
+                 try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
+                 except: pass
+            elif etype == "death":
+                 if extra and extra.get("death_reason"):
+                      try: bot.answer_callback_query(call.id, strip_html(extra["death_reason"]), show_alert=True)
+                      except: pass
+                 menu_update(call, txt, kb.back_button())
+            else:
+                 try: bot.answer_callback_query(call.id, txt, show_alert=True)
+                 except: pass
+            return
 
-        print(f"RAID ACTION ERROR: {e}")
+        # Success
+        alert_handled = False
+        if custom_success_callback:
+            alert_handled = custom_success_callback(call, uid, extra)
 
-        traceback.print_exc()
+        if not alert_handled:
+            alert = extra.get("alert") if extra else None
+            if alert:
+                 try: bot.answer_callback_query(call.id, strip_html(alert), show_alert=True)
+                 except: pass
 
-        try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА. Попробуйте позже.", show_alert=True)
+        full_text = text_prefix + txt
+        consumables = get_consumables(uid)
+        riddle_opts = extra["options"] if etype == "riddle" and extra else []
+        image_url = extra.get("image") if extra else None
+        if not image_url: image_url = get_menu_image(new_u)
+        has_spike = extra.get("has_data_spike", False) if extra else False
 
-        except: pass
+        markup = kb.riddle_keyboard(riddle_opts) if etype == "riddle" else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
+        menu_update(call, full_text, markup, image_url=image_url)
 
-        return
-
-
-
-    if not res:
-
-        if txt == "no_key":
-
-             try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
-
-             except: pass
-
-        elif etype == "death":
-
-             if extra and extra.get("death_reason"):
-
-                  try: bot.answer_callback_query(call.id, strip_html(extra["death_reason"]), show_alert=True)
-
-                  except: pass
-
-             menu_update(call, txt, kb.back_button())
-
-        else:
-
-             try: bot.answer_callback_query(call.id, txt, show_alert=True)
-
-             except: pass
-
-        return
-
-
-
-    # Success
-
-    alert_handled = False
-
-    if custom_success_callback:
-
-        alert_handled = custom_success_callback(call, uid, extra)
-
-
-
-    if not alert_handled:
-
-        alert = extra.get("alert") if extra else None
-
-        if alert:
-
-             try: bot.answer_callback_query(call.id, strip_html(alert), show_alert=True)
-
-             except: pass
-
-        else:
-
-             try: bot.answer_callback_query(call.id)
-
-             except: pass
-
-
-
-    full_text = text_prefix + txt
-
-
-
-    consumables = get_consumables(uid)
-
-    riddle_opts = extra["options"] if etype == "riddle" and extra else []
-
-    image_url = extra.get("image") if extra else None
-
-    if not image_url: image_url = get_menu_image(new_u)
-
-    has_spike = extra.get("has_data_spike", False) if extra else False
-
-
-
-    markup = kb.riddle_keyboard(riddle_opts) if etype == "riddle" else kb.raid_action_keyboard(cost, etype, consumables=consumables, has_data_spike=has_spike)
-
-    menu_update(call, full_text, markup, image_url=image_url)
-
+    threading.Thread(target=_worker).start()
 
 def check_sb(call):
     uid = int(call.from_user.id)
@@ -276,6 +230,11 @@ def protocol_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("raid_") or call.data == "zero_layer_menu" or call.data.startswith("r_check_") or call.data == "use_admin_key")
 def raid_handler(call):
     uid = int(call.from_user.id)
+    import cache_db
+    if cache_db.check_throttle(uid, 'raid_action'):
+        try: bot.answer_callback_query(call.id, "Обработка...", show_alert=False)
+        except: pass
+        return
     u = db.get_user(uid)
     check_sb(call)
 
@@ -416,6 +375,11 @@ def raid_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("combat_"))
 def combat_handler(call):
      uid = int(call.from_user.id)
+     import cache_db
+     if cache_db.check_throttle(uid, 'raid_action'):
+         try: bot.answer_callback_query(call.id, "Обработка...", show_alert=False)
+         except: pass
+         return
      check_sb(call)
      action = call.data.replace("combat_", "")
 
@@ -472,6 +436,11 @@ def combat_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("anomaly_bet_"))
 def anomaly_handler(call):
     uid = int(call.from_user.id)
+    import cache_db
+    if cache_db.check_throttle(uid, 'raid_action'):
+        try: bot.answer_callback_query(call.id, "Обработка...", show_alert=False)
+        except: pass
+        return
     check_sb(call)
     bet_type = call.data.replace("anomaly_bet_", "")
     res, msg, extra = process_anomaly_bet(uid, bet_type)

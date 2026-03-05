@@ -46,3 +46,20 @@ def clear_cache(uid):
         keys_to_del = [k for k in _cache.keys() if str(uid) in k]
         for k in keys_to_del:
             _cache.pop(k, None)
+
+def check_throttle(uid, action, timeout=1.5):
+    """
+    Returns True if action is throttled (blocked), False otherwise.
+    Sets timeout for the next allowed action.
+    """
+    key = f"throttle_{uid}_{action}"
+    now = time.time()
+
+    with _lock:
+        if key in _cache:
+            expiry = _cache[key][1]
+            if now < expiry:
+                return True
+
+        _cache[key] = (True, now + timeout)
+        return False
