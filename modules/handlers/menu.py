@@ -602,7 +602,7 @@ def find_user_dossier_confirm_handler(call):
 
     db.set_state(uid, "await_dossier_search")
 
-    txt = "⚠️ <b>СИСТЕМА:</b> Введите <b>@username</b> пользователя для взлома его досье.\n<i>(Вы можете скопировать ник из списка Зала Славы)</i>"
+    txt = "⚠️ <b>СИСТЕМА:</b> Введите никнейм пользователя (можно без @) для взлома его досье.\n<i>(Вы можете скопировать ник из списка Зала Славы)</i>"
     m = types.InlineKeyboardMarkup()
     m.add(types.InlineKeyboardButton("❌ Отмена", callback_data="leaderboard"))
 
@@ -641,7 +641,7 @@ def process_dossier_search(m):
     db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
     db.delete_state(uid)
 
-    bot.send_message(m.chat.id, "💰 <b>Списано 100 BC.</b>\n📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
+    bot.send_message(m.chat.id, "💰 <b>[ВЗЛОМ: -100 BC]</b>\n📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
 
     from modules.services.ai_worker import generate_user_dossier_worker
     import threading
