@@ -227,9 +227,9 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
         if i <= 3:
             username = l.get('username')
             if username:
-                display_name = f"@{username}"
+                display_name = f"<code>@{username}</code>"
             else:
-                display_name = html.escape(l['first_name'] or "Unknown")
+                display_name = f"<code>{html.escape(l['first_name'] or 'Unknown')}</code>"
 
             vip_display = get_user_display_name(l['uid'], display_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
             header = f"{rank_icon} {vip_display} ({detail}) <i>{path_icon}</i> — <b>{val}</b>"
@@ -237,9 +237,9 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
         else:
             username = l.get('username')
             if username:
-                display_name = f"@{username}"
+                display_name = f"<code>@{username}</code>"
             else:
-                display_name = html.escape(name[:10])
+                display_name = f"<code>{html.escape(name[:10])}</code>"
             vip_display = get_user_display_name(l['uid'], display_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
             txt += f"{rank_icon} <b>{vip_display}</b> — {detail} ({val})\n"
 
@@ -597,7 +597,7 @@ def find_user_dossier_init_handler(call):
     m.add(types.InlineKeyboardButton("✅ Да, взломать (100 BC)", callback_data="find_user_dossier_confirm"))
     m.add(types.InlineKeyboardButton("❌ Отмена", callback_data="leaderboard"))
 
-    bot.edit_message_text(txt, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML", reply_markup=m)
+    menu_update(call, txt, m)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "find_user_dossier_confirm")
@@ -616,7 +616,7 @@ def find_user_dossier_confirm_handler(call):
     m = types.InlineKeyboardMarkup()
     m.add(types.InlineKeyboardButton("❌ Отмена", callback_data="leaderboard"))
 
-    bot.edit_message_text(txt, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML", reply_markup=m)
+    menu_update(call, txt, m)
 
 @bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "await_dossier_search")
 def process_dossier_search(m):
@@ -637,7 +637,7 @@ def process_dossier_search(m):
     target_user_data = None
     try:
         with conn.cursor(cursor_factory=db.psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT uid, username, first_name, level, xp, biocoin, total_spent, path FROM users WHERE username ILIKE %s OR first_name ILIKE %s LIMIT 1", (target_name, target_name))
+            cur.execute("SELECT uid, username, first_name, level, xp, biocoin, total_spent, path FROM players WHERE username ILIKE %s OR first_name ILIKE %s LIMIT 1", (target_name, target_name))
             res = cur.fetchone()
             if res:
                 target_uid = res['uid']
