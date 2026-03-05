@@ -326,18 +326,15 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     max_depth = profile_stats.get('max_depth', 0) if profile_stats else 0
 
     # Fetch equipment
-    conn = db.get_connection()
     equip_lore = ""
-    try:
-        with conn.cursor() as cur:
+    with db.db_cursor() as cur:
+        if cur:
             cur.execute("SELECT item_id, item_type FROM user_equipment WHERE uid = %s", (target_uid,))
             equipped = cur.fetchall()
             if equipped:
                 for eid, etype in equipped:
                     if eid in config.ITEMS:
                         equip_lore += f"- {config.ITEMS[eid]['name']} ({config.ITEMS[eid].get('desc', 'Локальные данные утеряны')})\\n"
-    finally:
-        db.release_connection(conn)
 
     if not equip_lore:
         equip_lore = "Объект не использует аугментаций или сигнатурного оружия."
