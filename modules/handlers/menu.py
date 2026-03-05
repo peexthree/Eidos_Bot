@@ -23,7 +23,8 @@ def profile_handler(call):
         glitch = check_micro_glitch(uid, u.get('level', 1))
         if glitch:
             # We don't block the profile, we just show a glitch alert/bonus
-            bot.answer_callback_query(call.id, f"🌀 {glitch['message']}", show_alert=True)
+            bot.answer_callback_query(call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
+            bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
             if glitch.get('effect'):
                 db.update_user(uid, is_glitched=True, anomaly_buff_type=glitch['effect'],
                                anomaly_buff_expiry=int(time.time() + glitch.get('effect_duration', 3600)))
@@ -284,7 +285,7 @@ def social_handler(call):
 
         txt = format_leaderboard_text(leaders, user_rank, u, sort_by)
 
-        menu_update(call, txt, kb.leaderboard_menu(current_sort=sort_by), image_url=config.MENU_IMAGES["leaderboard"])
+        menu_update(call, txt, kb.leaderboard_menu(current_sort=sort_by, leaders=leaders), image_url=config.MENU_IMAGES["leaderboard"])
 
     elif call.data == "referral":
         link = f"https://t.me/{config.BOT_USERNAME}?start={uid}"
@@ -549,3 +550,29 @@ def feedback_process_handler(m):
         bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
     except:
         bot.send_message(uid, get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("view_user_"))
+def view_user_handler(call):
+    uid_str = call.data.replace("view_user_", "")
+    try:
+        target_uid = int(uid_str)
+    except ValueError:
+        bot.answer_callback_query(call.id, "Ошибка ID", show_alert=True)
+        return
+
+    stats, tu = get_user_stats(target_uid)
+    if not tu:
+        bot.answer_callback_query(call.id, "Пользователь не найден.", show_alert=True)
+        return
+
+    from modules.services.user import get_profile_stats
+    profile_txt = get_profile_stats(target_uid)
+
+    # Prepend info about who this is
+    final_txt = f"👁 <b>НАБЛЮДЕНИЕ ЗА ОБЪЕКТОМ:</b> {tu['username'] or tu['first_name']}\n\n{profile_txt}"
+
+    m = types.InlineKeyboardMarkup()
+    m.add(types.InlineKeyboardButton("🔙 ВЕРНУТЬСЯ К РЕЙТИНГУ", callback_data="leaderboard"))
+
+    avatar = get_menu_image(tu)
+    menu_update(call, final_txt, m, image_url=avatar)

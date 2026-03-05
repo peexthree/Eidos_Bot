@@ -320,7 +320,8 @@ def inventory_handler(call):
         from modules.services.glitch_system import check_micro_glitch
         glitch = check_micro_glitch(uid, db.get_user(uid).get('level', 1))
         if glitch:
-            bot.answer_callback_query(call.id, f"🌀 {glitch['message']}", show_alert=True)
+            bot.answer_callback_query(call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
+            bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
             if glitch.get('effect'):
                 db.update_user(uid, is_glitched=True, anomaly_buff_type=glitch['effect'],
                                anomaly_buff_expiry=int(time.time() + glitch.get('effect_duration', 3600)))
@@ -615,7 +616,8 @@ def item_action_handler(call):
         if metrics and (metrics.get('fast_sync_clicks', 0) >= 3 or metrics.get('total_coins_earned', 0) > 10000):
             glitch = check_micro_glitch(uid, u.get('level', 1))
             if glitch and glitch.get('type') in ['hoarder', 'adhd_clicks']:
-                bot.answer_callback_query(call.id, f"🌀 {glitch['message']}", show_alert=True)
+                bot.answer_callback_query(call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
+            bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
                 # We let it continue or block? User said: "I won't let you sell this artifact for pennies".
                 # Let's block it for these specific types.
                 if glitch.get('type') == 'hoarder':

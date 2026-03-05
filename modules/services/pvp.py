@@ -410,7 +410,6 @@ def execute_hack(attacker_uid, target_uid, selected_programs, is_revenge=False, 
                 blocked_by_fw = True
 
     if blocked_by_fw:
-        import time
         with db.db_cursor() as cur:
             if cur:
                 cur.execute("""
