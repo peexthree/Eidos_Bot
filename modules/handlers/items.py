@@ -542,19 +542,22 @@ def item_action_handler(call):
         success, res = crafting_service.craft_item(uid, item_id)
 
         if success:
-            if item_id == 'fragment':
-                # res is a message
-                bot.answer_callback_query(call.id, "✅ УСПЕХ", show_alert=False)
-                # Send explicit message with beautiful design
-                menu_update(call, res, kb.back_button())
-            else:
-                new_item_id = res
-                new_info = ITEMS_INFO.get(new_item_id, {})
-                bot.answer_callback_query(call.id, strip_html(f"🛠 УСПЕХ! Получено: {new_info.get('name', new_item_id)}"), show_alert=True)
-                # Switch view to new item - requires finding new ID which is hard here.
-                # Just go to inventory.
-                call.data = "inventory"
-                inventory_handler(call)
+            bot.answer_callback_query(call.id, "✅ Процесс запущен", show_alert=False)
+
+            # Animation
+            menu_update(call, "🛰 <b>Инициализация чертежа...</b>", kb.back_button())
+            time.sleep(1)
+            menu_update(call, "🧬 <b>Синтез материи...</b>", kb.back_button())
+            time.sleep(1)
+
+            new_item_id = res
+            new_info = ITEMS_INFO.get(new_item_id) or EQUIPMENT_DB.get(new_item_id, {})
+            name = new_info.get("name", new_item_id)
+            desc = new_info.get("desc", "")
+            image = ITEM_IMAGES.get(new_item_id)
+
+            msg = f"✨ <b>СИНТЕЗ ЗАВЕРШЕН</b> ✨\n\n🎁 <b>ПОЛУЧЕНО:</b> {name}\n\n{desc}"
+            menu_update(call, msg, kb.back_button(), image_url=image)
         else:
             bot.answer_callback_query(call.id, strip_html(res), show_alert=True)
 

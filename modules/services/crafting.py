@@ -159,8 +159,8 @@ class CraftingService:
                     reward_id = random.choice(config.CURSED_CHEST_DROPS)
 
                     if db.add_item(uid, reward_id, 1, cursor=cur):
-                        reward_name = config.EQUIPMENT_DB.get(reward_id, {}).get('name', reward_id)
-                        return True, f"✨ <b>СИНТЕЗ ЗАВЕРШЕН</b> ✨\n\n🧩 5 Фрагментов успешно соединены.\n\n🎁 <b>ПОЛУЧЕНО:</b>\n{reward_name}\n\n<i>Предмет добавлен в инвентарь.</i>"
+                        # reward_name refactored
+                        return True, reward_id
                     else:
                         return False, "❌ Ошибка добавления предмета."
         except Exception as e:
