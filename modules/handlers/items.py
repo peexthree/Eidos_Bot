@@ -620,7 +620,7 @@ def item_action_handler(call):
             bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
                 # We let it continue or block? User said: "I won't let you sell this artifact for pennies".
                 # Let's block it for these specific types.
-                if glitch.get('type') == 'hoarder':
+        if glitch.get('type') == 'hoarder':
                     return
 
         val = call.data.replace("dismantle_", "")
