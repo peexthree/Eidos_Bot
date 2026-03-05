@@ -329,10 +329,10 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     equip_lore = ""
     with db.db_cursor() as cur:
         if cur:
-            cur.execute("SELECT item_id, item_type FROM user_equipment WHERE uid = %s", (target_uid,))
+            cur.execute("SELECT item_id FROM user_equipment WHERE uid = %s", (target_uid,))
             equipped = cur.fetchall()
             if equipped:
-                for eid, etype in equipped:
+                for (eid,) in equipped:
                     if eid in config.ITEMS:
                         equip_lore += f"- {config.ITEMS[eid]['name']} ({config.ITEMS[eid].get('desc', 'Локальные данные утеряны')})\\n"
 
