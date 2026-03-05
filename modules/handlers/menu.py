@@ -224,26 +224,16 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
         # Custom data is fetched in get_leaderboard via JOIN
         custom_data = l.get('eidos_custom_data')
 
-        if i <= 3:
-            username = l.get('username')
-            if username:
-                display_name = f"<code>@{username}</code>"
-            else:
-                display_name = f"<code>{html.escape(l['first_name'] or 'Unknown')}</code>"
+        username = l.get('username')
+        raw_name = username or l.get('first_name') or "Unknown"
+        vip_display = get_user_display_name(l['uid'], raw_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
 
-            vip_display = get_user_display_name(l['uid'], display_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
+        if i <= 3:
             header = f"{rank_icon} {vip_display} ({detail}) <i>{path_icon}</i> — <b>{val}</b>"
             txt += f"{header}\n"
         else:
-            username = l.get('username')
-            if username:
-                display_name = f"<code>@{username}</code>"
-            else:
-                display_name = f"<code>{html.escape(name[:10])}</code>"
-            vip_display = get_user_display_name(l['uid'], display_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
             txt += f"{rank_icon} <b>{vip_display}</b> — {detail} ({val})\n"
 
-    # Footer (Mirror)
     txt += "\n━━━━━━━━━━━━━━━━━━━\n"
 
     my_val = ""
@@ -632,18 +622,15 @@ def process_dossier_search(m):
     target_name = m.text.strip().lstrip('@')
 
     # Try finding user
-    conn = db.get_connection()
     target_uid = None
     target_user_data = None
-    try:
-        with conn.cursor(cursor_factory=db.psycopg2.extras.RealDictCursor) as cur:
+    with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
+        if cur:
             cur.execute("SELECT uid, username, first_name, level, xp, biocoin, total_spent, path FROM players WHERE username ILIKE %s OR first_name ILIKE %s LIMIT 1", (target_name, target_name))
             res = cur.fetchone()
             if res:
                 target_uid = res['uid']
                 target_user_data = dict(res)
-    finally:
-        db.release_connection(conn)
 
     if not target_uid:
         bot.send_message(m.chat.id, f"❌ Объект <b>@{target_name}</b> не найден в базе данных.", parse_mode="HTML")
