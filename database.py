@@ -273,7 +273,7 @@ def db_session():
     conn = None
 
     try:
-        conn = psycopg2.connect(_formatted_db_url, options='-c lock_timeout=5000 -c statement_timeout=5000')
+        conn = psycopg2.connect(_formatted_db_url, options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000')
         yield conn
         conn.commit()
     except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
