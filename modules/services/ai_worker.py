@@ -6,6 +6,7 @@ import database as db
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it")
+OPENROUTER_URL = OPENROUTER_URL
 
 PROMPTS = {
     'dossier': (
@@ -111,9 +112,9 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
     for attempt in range(retries):
         response = None
         try:
-            print(f"/// DEBUG AI CALL: URL='https://openrouter.ai/api/v1/chat/completions', MODEL='{OPENROUTER_MODEL}'")
+            print(f"/// DEBUG AI CALL: URL=OPENROUTER_URL, MODEL='{OPENROUTER_MODEL}'")
             response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                OPENROUTER_URL,
                 headers=headers,
                 json=payload,
                 timeout=45
@@ -203,9 +204,9 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
     for attempt in range(retries):
         response = None
         try:
-            print(f"/// DEBUG AI CALL: URL='https://openrouter.ai/api/v1/chat/completions', MODEL='{OPENROUTER_MODEL}'")
+            print(f"/// DEBUG AI CALL: URL=OPENROUTER_URL, MODEL='{OPENROUTER_MODEL}'")
             response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                OPENROUTER_URL,
                 headers=headers,
                 json=payload,
                 timeout=45
@@ -370,7 +371,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     bot.send_message(chat_id, "<i>Генерация отчета...</i>", parse_mode="HTML")
 
     headers = {
-        "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
 
@@ -390,7 +391,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            r = requests.post(config.OPENROUTER_URL, headers=headers, json=payload, timeout=40)
+            r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=40)
             if r.status_code == 200:
                 data = r.json()
                 ai_text = data['choices'][0]['message']['content'].strip()
