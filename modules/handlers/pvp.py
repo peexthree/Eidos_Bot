@@ -178,7 +178,16 @@ def pvp_equip_handler(call):
 def pvp_upgrade_handler(call):
     uid = int(call.from_user.id)
     success, msg = pvp.upgrade_deck(uid)
-    bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+    if success:
+        bot.answer_callback_query(call.id, "⚡️ Апгрейд запущен")
+        menu_update(call, "📡 <b>Подключение к терминалу...</b>", kb.back_button())
+        time.sleep(1)
+        menu_update(call, "💾 <b>Перепрошивка деки...</b>", kb.back_button())
+        time.sleep(1)
+        bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+    else:
+        bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+    from modules.handlers.pvp import pvp_config_handler
     pvp_config_handler(call)
 
 # =============================================================================
