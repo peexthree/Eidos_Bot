@@ -229,7 +229,6 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             error_body = getattr(response, 'text', 'No Response Body')
             print(f"/// AI WORKER VOICE ERROR (Attempt {attempt+1}/{retries}): {e} | Body: {error_body}")
             if attempt < retries - 1:
-                import time
                 time.sleep(delay)
 
     if auth_failed:
@@ -307,14 +306,31 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
         except Exception as e:
             print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
 
-def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
+def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None):
     # Generates the CIA/Cyberpunk style Dossier for a specific user
     import config
     import database as db
     from modules.services.user import get_profile_stats
     import random
-    from modules.services.glitch_system import GLITCH_AVATARS as GLITCH_IMAGES
     import json
+    import time
+    import requests
+    import urllib.parse
+    from modules.services.ai_worker import OPENROUTER_API_KEY, OPENROUTER_MODEL, OPENROUTER_URL, sanitize_for_telegram
+
+    def update_progress(perc, status):
+        if loading_msg_id:
+            bar = '█' * (perc // 10) + '░' * (10 - (perc // 10))
+            try:
+                bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=loading_msg_id,
+                    text=f"📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\n{status}... [<code>{bar}</code>] {perc}%",
+                    parse_mode="HTML"
+                )
+            except: pass
+
+    update_progress(10, "Инициализация протоколов")
 
     target_uid = target_user_data['uid']
     t_name = target_user_data.get('username') or target_user_data.get('first_name') or "Unknown"
@@ -322,6 +338,8 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     t_xp = target_user_data.get('xp', 0)
     t_path = target_user_data.get('path', 'None')
     t_spent = target_user_data.get('total_spent', 0)
+
+    update_progress(30, "Дешифровка логов игрока")
 
     profile_stats = get_profile_stats(target_uid)
     raid_count = profile_stats.get('raid_count', 0) if profile_stats else 0
@@ -332,29 +350,24 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
     glitches_count = shadows.get('glitches_encountered_count', 0)
     stability = max(0, 100 - (glitches_count * 7))
 
-    # Fetch equipment
-    equip_lore = ""
+    update_progress(50, "Компиляция психопрофиля")
+
+    # Fetch equipment ONLY (no consumables)
+    equip_list = []
     with db.db_cursor() as cur:
         if cur:
-            cur.execute("SELECT item_id FROM user_equipment WHERE uid = %s", (target_uid,))
+            cur.execute("""
+                SELECT item_id FROM user_equipment WHERE uid = %s
+            """, (target_uid,))
             equipped = cur.fetchall()
             if equipped:
                 for (eid,) in equipped:
                     if eid in config.ITEMS_INFO:
-                        equip_lore += f"- {config.ITEMS_INFO[eid]['name']} ({config.ITEMS_INFO[eid].get('desc', 'Локальные данные утеряны')})\n"
+                        equip_list.append(config.ITEMS_INFO[eid]['name'])
+                    elif eid in config.EQUIPMENT_DB:
+                        equip_list.append(config.EQUIPMENT_DB[eid]['name'])
 
-    if not equip_lore:
-        equip_lore = "Объект не использует аугментаций или сигнатурного оружия."
-
-    # Fetch inventory
-    inv_list = []
-    inventory = db.get_inventory(target_uid)
-    for item in inventory:
-        i_id = item.get('item_id')
-        if i_id in config.ITEMS_INFO:
-            inv_list.append(config.ITEMS_INFO[i_id]['name'])
-
-    inv_text = ", ".join(inv_list) if inv_list else "Пусто"
+    inv_text = ", ".join(equip_list) if equip_list else "Отсутствует"
 
     threat_level = "MINIMAL"
     if t_level >= 30 or t_spent > 5000:
@@ -365,6 +378,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
         threat_level = "MEDIUM_DEVIANT"
 
     d_id = f"{random.randint(1000, 9999)}-{t_name.upper()[:10]}"
+    school_name = config.SCHOOLS.get(t_path, 'ОБЩАЯ')
 
     sys_prompt = (
         "Ты — бездушная кибер-система «Эйдос», проводящая глубокий психоанализ и технический аудит объекта.\n"
@@ -374,7 +388,8 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
         "<b>ОБЪЕКТ:</b> @" + t_name + "\n"
         "<b>СТАТУС:</b> Под наблюдением Эйдоса\n"
         "<b>УРОВЕНЬ:</b> " + str(t_level) + "\n"
-        "<b>ИНВЕНТАРЬ:</b> " + inv_text[:200] + "\n\n"
+        "<b>ФРАКЦИЯ:</b> " + school_name + "\n"
+        "<b>ЭКИПИРОВКА:</b> " + inv_text[:200] + "\n\n"
         "[ СИСТЕМНЫЙ АНАЛИЗ ]\n"
         "● <b>УРОВЕНЬ УГРОЗЫ:</b> " + threat_level + " (на русском)\n"
         "● <b>СТАБИЛЬНОСТЬ:</b> " + str(stability) + "% (" + str(glitches_count) + " критических взлома в логах)\n"
@@ -387,7 +402,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
         "[ ДИРЕКТИВА ЭЙДОСА ]\n"
         "<b>Опираться на объект в долгосрочных союзах —</b> [ВЕРДИКТ].\n"
         "<b>Использовать как таран в зонах высокого сопротивления —</b> [ВЕРДИКТ].\n\n"
-        "Не используй Markdown, только HTML."
+        "ВАЖНО: НЕ используй Markdown, НЕ используй блоки кода ```html или ```. Только чистый текст с HTML тегами <b>, <i>, <code>."
     )
 
     user_prompt = (
@@ -397,12 +412,11 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
         f"Рейды: {raid_count}, Макс. Глубина: {max_depth}м\n"
         f"Взломы системы: {glitches_count}\n"
         f"Потрачено: {t_spent} Stars\n"
-        f"Экипировка: {equip_lore}\n"
-        f"Инвентарь: {inv_text}\n\n"
+        f"Экипировка: {inv_text}\n\n"
         f"Сгенерируй Паспорт Осколка по шаблону."
     )
 
-    bot.send_message(chat_id, "<i>Получение доступа к личным архивам...</i>", parse_mode="HTML")
+    update_progress(70, "Запрос к архивам OpenRouter")
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -419,55 +433,51 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data):
         "max_tokens": 1000
     }
 
-    import requests
-    import time
-
-    max_retries = 3
     ai_text = None
-    for attempt in range(max_retries):
+    for attempt in range(3):
         try:
             r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=45)
             if r.status_code == 200:
                 data = r.json()
                 ai_text = data['choices'][0]['message']['content'].strip()
+                ai_text = ai_text.replace('```html', '').replace('```', '').strip()
                 ai_text = sanitize_for_telegram(ai_text)
                 break
-            elif r.status_code == 401:
-                bot.send_message(chat_id, "❌ <b>ОШИБКА АВТОРИЗАЦИИ ЭЙДОСА</b>", parse_mode="HTML")
-                return
             else:
                 time.sleep(2)
         except:
             time.sleep(2)
 
+    if loading_msg_id:
+        try: bot.delete_message(chat_id, loading_msg_id)
+        except: pass
+
     if not ai_text:
         bot.send_message(chat_id, "❌ Не удалось пробить защиту объекта. Системный сбой.", parse_mode="HTML")
         return
 
-    # Try to get user avatar
-    img_id = None
-    try:
-        photos = bot.get_user_profile_photos(target_uid, limit=1)
-        if photos.total_count > 0:
-            img_id = photos.photos[0][-1].file_id
-    except:
-        pass
-
-    if not img_id:
-        glitch_keys = list(GLITCH_IMAGES.keys())
-        picked_glitch = random.choice(glitch_keys)
-        img_id = GLITCH_IMAGES[picked_glitch]
+    # Use avatar from config based on level
+    img_id = config.USER_AVATARS.get(t_level, config.USER_AVATARS.get(1))
 
     from telebot import types
-    m = types.InlineKeyboardMarkup()
+    m = types.InlineKeyboardMarkup(row_width=1)
+
+    share_msg = f"Эйдос присвоил статус в системе. Узнай свой уровень угрозы в @Eidos_Chronicles_bot"
+    share_url = f"https://t.me/share/url?url=https://t.me/Eidos_Chronicles_bot&text={urllib.parse.quote(share_msg)}"
+    m.add(types.InlineKeyboardButton("📢 Поделиться Досье", url=share_url))
+
+    if target_uid != uid:
+        m.add(types.InlineKeyboardButton("⚔️ Атаковать (PvP)", callback_data=f"dossier_attack_{target_uid}"))
+        m.add(types.InlineKeyboardButton("✉️ Отправить сообщение (100 BC)", callback_data=f"dossier_msg_{target_uid}"))
+
     m.add(types.InlineKeyboardButton("🔙 Вернуться к рейтингу", callback_data="leaderboard"))
 
     try:
         bot.send_photo(chat_id, img_id, caption="<b>СОБРАНО ДОСЬЕ</b>", parse_mode="HTML")
-        if len(ai_text) > 4096:
+        if len(ai_text) > 4000:
             for i in range(0, len(ai_text), 4000):
                 bot.send_message(chat_id, ai_text[i:i+4000], parse_mode="HTML", reply_markup=m if i+4000 >= len(ai_text) else None)
         else:
             bot.send_message(chat_id, ai_text, parse_mode="HTML", reply_markup=m)
-    except Exception as e:
+    except Exception:
         bot.send_message(chat_id, f"<b>СОБРАНО ДОСЬЕ</b>\n\n{ai_text}", parse_mode="HTML", reply_markup=m)

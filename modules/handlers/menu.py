@@ -600,6 +600,8 @@ def find_user_dossier_confirm_handler(call):
         bot.answer_callback_query(call.id, "❌ Недостаточно BioCoin", show_alert=True)
         return
 
+    db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
+    bot.answer_callback_query(call.id, "💰 [ВЗЛОМ: -100 BC]", show_alert=False)
     db.set_state(uid, "await_dossier_search")
 
     txt = "⚠️ <b>СИСТЕМА:</b> Введите никнейм пользователя (можно без @) для взлома его досье.\n<i>(Вы можете скопировать ник из списка Зала Славы)</i>"
@@ -613,11 +615,6 @@ def process_dossier_search(m):
     uid = int(m.from_user.id)
     u = db.get_user(uid)
     if not u: return
-
-    if int(u.get('biocoin', 0)) < 100:
-        bot.send_message(m.chat.id, "❌ Недостаточно BioCoin для взлома.")
-        db.delete_state(uid)
-        return
 
     target_name = m.text.strip().lstrip('@')
 
@@ -637,13 +634,141 @@ def process_dossier_search(m):
         db.delete_state(uid)
         return
 
-    # Deduct coins
-    db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
     db.delete_state(uid)
 
-    bot.send_message(m.chat.id, "💰 <b>[ВЗЛОМ: -100 BC]</b>\n📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
+    msg = bot.send_message(m.chat.id, "📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
 
     from modules.services.ai_worker import generate_user_dossier_worker
     import threading
-    t = threading.Thread(target=generate_user_dossier_worker, args=(bot, m.chat.id, uid, target_user_data))
+    t = threading.Thread(target=generate_user_dossier_worker, args=(bot, m.chat.id, uid, target_user_data, msg.message_id))
     t.start()
+
+
+
+# --- Dossier Interactions ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("dossier_attack_"))
+def dossier_attack_handler(call):
+    uid = int(call.from_user.id)
+    target_uid = int(call.data.split("_")[2])
+
+    # Check hourly rate limit
+    throttle_key = f"dossier_atk_{uid}_{target_uid}"
+    if not cache_db.check_throttle(uid, throttle_key, 3600):
+        bot.answer_callback_query(call.id, "⚠️ На этого игрока можно нападать не чаще раза в час.", show_alert=True)
+        return
+
+    bot.answer_callback_query(call.id, "📡 Инициализация боевого протокола...")
+
+    target_user = db.get_user(target_uid)
+    if not target_user:
+        bot.send_message(uid, "❌ Объект потерял сигнал.")
+        return
+
+    txt = f"🎯 <b>ОБЪЕКТ ОБНАРУЖЕН:</b> {target_user.get('username') or target_user.get('first_name') or 'Unknown'}\n"
+    txt += f"📊 Уровень: {target_user.get('level', 1)}\n\nНачать взлом?"
+
+    m = types.InlineKeyboardMarkup()
+    m.add(types.InlineKeyboardButton("⚔️ НАПАСТЬ", callback_data=f"pvp_atk_direct_{target_uid}"))
+    m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="leaderboard"))
+
+    bot.send_message(uid, txt, reply_markup=m, parse_mode="HTML")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_atk_direct_"))
+def pvp_atk_direct_handler(call):
+    target_uid = int(call.data.split("_")[3])
+    # Prepare target data and redirect to pvp search logic
+    from modules.handlers.pvp import pvp_search_handler
+    # We fake the message for pvp_search_handler logic if needed,
+    # but pvp_search_handler usually does random.
+    # Let's use pvp_attack_prep logic directly.
+
+    with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
+        cur.execute("SELECT * FROM players WHERE uid = %s", (target_uid,))
+        target = cur.fetchone()
+
+    if not target:
+        bot.answer_callback_query(call.id, "❌ Объект исчез.")
+        return
+
+    # Extract slots for preview (standard pvp logic)
+    target_slots = {}
+    with db.db_cursor() as cur:
+        cur.execute("SELECT slot_id, item_id FROM user_pvp_deck WHERE uid = %s", (target_uid,))
+        for sid, iid in cur.fetchall():
+            target_slots[sid] = config.SOFTWARE_DB[iid]['icon']
+
+    safe_target = {
+        'uid': target_uid,
+        'name': target.get('username') or target.get('first_name') or "Unknown",
+        'level': target['level'],
+        'slots_preview': target_slots
+    }
+
+    state_data = {
+        'target_uid': target_uid,
+        'target_info': safe_target,
+        'slots': {} # Attacker starts with empty selection or current deck
+    }
+
+    # Load current deck for attacker
+    with db.db_cursor() as cur:
+        cur.execute("SELECT slot_id, item_id FROM user_pvp_deck WHERE uid = %s", (call.from_user.id,))
+        for sid, iid in cur.fetchall():
+            state_data['slots'][str(sid)] = iid
+
+    db.set_state(call.from_user.id, 'pvp_attack_prep', json.dumps(state_data))
+
+    from modules.handlers.pvp import _show_attack_screen
+    _show_attack_screen(call, safe_target, state_data['slots'])
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("dossier_msg_"))
+def dossier_msg_init(call):
+    uid = int(call.from_user.id)
+    u = db.get_user(uid)
+    if not u: return
+
+    if int(u.get('biocoin', 0)) < 100:
+        bot.answer_callback_query(call.id, "❌ Недостаточно BioCoin (нужно 100 BC)", show_alert=True)
+        return
+
+    target_uid = int(call.data.split("_")[2])
+    db.set_state(uid, f"await_dossier_msg_{target_uid}")
+
+    bot.send_message(uid, "✉️ <b>ОТПРАВКА СООБЩЕНИЯ (100 BC)</b>\nВведите текст сообщения для этого пользователя. Он увидит, от кого оно пришло.", parse_mode="HTML")
+    bot.answer_callback_query(call.id)
+
+@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) and str(db.get_state(m.from_user.id)).startswith("await_dossier_msg_"))
+def process_dossier_msg(m):
+    uid = int(m.from_user.id)
+    state = db.get_state(uid)
+    try:
+        target_uid = int(state.split("_")[3])
+    except:
+        db.delete_state(uid)
+        return
+
+    u = db.get_user(uid)
+    if not u: return
+
+    if int(u.get('biocoin', 0)) < 100:
+        bot.send_message(m.chat.id, "❌ Недостаточно BioCoin.")
+        db.delete_state(uid)
+        return
+
+    msg_text = m.text.strip()
+    if not msg_text:
+        bot.send_message(m.chat.id, "❌ Сообщение не может быть пустым.")
+        return
+
+    db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
+    db.delete_state(uid)
+
+    sender_name = u.get('username') or u.get('first_name') or "Unknown"
+    target_text = f"📩 <b>ВХОДЯЩИЙ СИГНАЛ</b>\nОт: @{sender_name}\n\n{msg_text}"
+
+    try:
+        bot.send_message(target_uid, target_text, parse_mode="HTML")
+        bot.send_message(m.chat.id, "✅ Сообщение успешно доставлено по защищенному каналу.")
+    except:
+        bot.send_message(m.chat.id, "❌ Не удалось доставить сообщение. BC возвращены.")
+        db.update_user(uid, biocoin=db.get_user(uid).get('biocoin', 0) + 100)
