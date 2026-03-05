@@ -246,17 +246,20 @@ def init_pool():
                 try:
                     import urllib.parse
                     raw_url = DATABASE_URL
-                    if raw_url:
-                        parsed = urllib.parse.urlparse(raw_url)
-                        if "supabase" in parsed.netloc and parsed.port == 5432:
-                            new_netloc = parsed.netloc.replace(":5432", ":6543")
-                            parsed = parsed._replace(netloc=new_netloc)
+                    if not raw_url:
+                        print("/// DB CRITICAL: DATABASE_URL is not set!")
+                        return
 
-                        query_params = urllib.parse.parse_qs(parsed.query)
-                        if 'pgbouncer' in query_params:
-                            del query_params['pgbouncer']
-                        parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
-                        _formatted_db_url = urllib.parse.urlunparse(parsed)
+                    parsed = urllib.parse.urlparse(raw_url)
+                    if "supabase" in parsed.netloc and parsed.port == 5432:
+                        new_netloc = parsed.netloc.replace(":5432", ":6543")
+                        parsed = parsed._replace(netloc=new_netloc)
+
+                    query_params = urllib.parse.parse_qs(parsed.query)
+                    if 'pgbouncer' in query_params:
+                        del query_params['pgbouncer']
+                    parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
+                    _formatted_db_url = urllib.parse.urlunparse(parsed)
 
                     print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED)")
                 except Exception as e:
@@ -273,7 +276,9 @@ def db_session():
     conn = None
 
     try:
-        conn = psycopg2.connect(_formatted_db_url, options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000')
+        print(f"/// DB: Attempting connection to {(_formatted_db_url or 'NULL')[:30]}...")
+        conn = psycopg2.connect(_formatted_db_url, options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000', connect_timeout=10)
+        print("/// DB: Connection established.")
         yield conn
         conn.commit()
     except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
