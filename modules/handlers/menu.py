@@ -232,11 +232,16 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
                 display_name = html.escape(l['first_name'] or "Unknown")
 
             vip_display = get_user_display_name(l['uid'], display_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
-            header = f"{rank_icon} [{detail}] {vip_display} <i>({path_icon})</i> — <b>{val}</b>"
+            header = f"{rank_icon} {vip_display} ({detail}) <i>{path_icon}</i> — <b>{val}</b>"
             txt += f"{header}\n"
         else:
-            vip_display = get_user_display_name(l['uid'], name[:10], custom_data=custom_data).replace('<b>', '').replace('</b>', '')
-            txt += f"<code>{i:<2} {vip_display:<15} | {detail} | {val}</code>\n"
+            username = l.get('username')
+            if username:
+                display_name = f"@{username}"
+            else:
+                display_name = html.escape(name[:10])
+            vip_display = get_user_display_name(l['uid'], display_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
+            txt += f"{rank_icon} <b>{vip_display}</b> — {detail} ({val})\n"
 
     # Footer (Mirror)
     txt += "\n━━━━━━━━━━━━━━━━━━━\n"
@@ -576,3 +581,82 @@ def view_user_handler(call):
 
     avatar = get_menu_image(tu)
     menu_update(call, final_txt, m, image_url=avatar)
+
+@bot.callback_query_handler(func=lambda call: call.data == "find_user_dossier_init")
+def find_user_dossier_init_handler(call):
+    uid = int(call.from_user.id)
+    u = db.get_user(uid)
+    if not u: return
+
+    if int(u.get('biocoin', 0)) < 100:
+        bot.answer_callback_query(call.id, "❌ Недостаточно BioCoin (нужно 100 BC)", show_alert=True)
+        return
+
+    txt = "⚠️ <b>Внимание!</b> Доступ к защищенному досье «Паспорт Осколка» стоит <b>100 BC</b>.\nПродолжить?"
+    m = types.InlineKeyboardMarkup()
+    m.add(types.InlineKeyboardButton("✅ Да, взломать (100 BC)", callback_data="find_user_dossier_confirm"))
+    m.add(types.InlineKeyboardButton("❌ Отмена", callback_data="leaderboard"))
+
+    bot.edit_message_text(txt, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML", reply_markup=m)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "find_user_dossier_confirm")
+def find_user_dossier_confirm_handler(call):
+    uid = int(call.from_user.id)
+    u = db.get_user(uid)
+    if not u: return
+
+    if int(u.get('biocoin', 0)) < 100:
+        bot.answer_callback_query(call.id, "❌ Недостаточно BioCoin", show_alert=True)
+        return
+
+    db.set_state(uid, "await_dossier_search")
+
+    txt = "⚠️ <b>СИСТЕМА:</b> Введите <b>@username</b> пользователя для взлома его досье.\n<i>(Вы можете скопировать ник из списка Зала Славы)</i>"
+    m = types.InlineKeyboardMarkup()
+    m.add(types.InlineKeyboardButton("❌ Отмена", callback_data="leaderboard"))
+
+    bot.edit_message_text(txt, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML", reply_markup=m)
+
+@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "await_dossier_search")
+def process_dossier_search(m):
+    uid = int(m.from_user.id)
+    u = db.get_user(uid)
+    if not u: return
+
+    if int(u.get('biocoin', 0)) < 100:
+        bot.send_message(m.chat.id, "❌ Недостаточно BioCoin для взлома.")
+        db.delete_state(uid)
+        return
+
+    target_name = m.text.strip().lstrip('@')
+
+    # Try finding user
+    conn = db.get_connection()
+    target_uid = None
+    target_user_data = None
+    try:
+        with conn.cursor(cursor_factory=db.psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT uid, username, first_name, level, xp, biocoin, total_spent, path FROM users WHERE username ILIKE %s OR first_name ILIKE %s LIMIT 1", (target_name, target_name))
+            res = cur.fetchone()
+            if res:
+                target_uid = res['uid']
+                target_user_data = dict(res)
+    finally:
+        db.release_connection(conn)
+
+    if not target_uid:
+        bot.send_message(m.chat.id, f"❌ Объект <b>@{target_name}</b> не найден в базе данных.", parse_mode="HTML")
+        db.delete_state(uid)
+        return
+
+    # Deduct coins
+    db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
+    db.delete_state(uid)
+
+    bot.send_message(m.chat.id, "📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
+
+    from modules.services.ai_worker import generate_user_dossier_worker
+    import threading
+    t = threading.Thread(target=generate_user_dossier_worker, args=(bot, m.chat.id, uid, target_user_data))
+    t.start()
