@@ -575,7 +575,7 @@ def view_user_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data == "find_user_dossier_init")
 def find_user_dossier_init_handler(call):
     uid = int(call.from_user.id)
-    u = db.get_user(uid)
+    u = cache_db.get_cached_user(uid)
     if not u: return
 
     if int(u.get('biocoin', 0)) < 100:
@@ -593,14 +593,14 @@ def find_user_dossier_init_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data == "find_user_dossier_confirm")
 def find_user_dossier_confirm_handler(call):
     uid = int(call.from_user.id)
-    u = db.get_user(uid)
+    u = cache_db.get_cached_user(uid)
     if not u: return
 
     if int(u.get('biocoin', 0)) < 100:
         bot.answer_callback_query(call.id, "❌ Недостаточно BioCoin", show_alert=True)
         return
 
-    db.set_state(uid, "await_dossier_search")
+    db.set_state(uid, "await_dossier_search"); cache_db.clear_cache(uid)
 
     txt = "⚠️ <b>СИСТЕМА:</b> Введите никнейм пользователя (можно без @) для взлома его досье.\n<i>(Вы можете скопировать ник из списка Зала Славы)</i>"
     m = types.InlineKeyboardMarkup()
@@ -608,18 +608,20 @@ def find_user_dossier_confirm_handler(call):
 
     menu_update(call, txt, m)
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "await_dossier_search")
+@bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == "await_dossier_search")
 def process_dossier_search(m):
     uid = int(m.from_user.id)
+    print(f"/// DOSSIER: Starting search for user {uid}")
     u = db.get_user(uid)
     if not u: return
 
     if int(u.get('biocoin', 0)) < 100:
         bot.send_message(m.chat.id, "❌ Недостаточно BioCoin для взлома.")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         return
 
     target_name = m.text.strip().lstrip('@')
+    print(f"/// DOSSIER: Target name '{target_name}' from {uid}")
 
     # Try finding user
     target_uid = None
@@ -633,13 +635,15 @@ def process_dossier_search(m):
                 target_user_data = dict(res)
 
     if not target_uid:
+        print(f"/// DOSSIER: Target '{target_name}' NOT FOUND for {uid}")
         bot.send_message(m.chat.id, f"❌ Объект <b>@{target_name}</b> не найден в базе данных.", parse_mode="HTML")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         return
 
     # Deduct coins
+    print(f"/// DOSSIER: User {uid} hacking {target_uid}. Deducting 100 BC.")
     db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
-    db.delete_state(uid)
+    db.delete_state(uid); cache_db.clear_cache(uid)
 
     bot.send_message(m.chat.id, "💰 <b>[ВЗЛОМ: -100 BC]</b>\n📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
 
