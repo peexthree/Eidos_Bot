@@ -88,7 +88,7 @@ def main_menu(u):
     m.add(types.InlineKeyboardButton(f"{profile_btn} [{current_lvl}]", callback_data="profile"),
           types.InlineKeyboardButton("🎰 РЫНОК", callback_data="shop_menu"))
 
-    m.add(types.InlineKeyboardButton(inv_btn, callback_data="inventory"))
+    m.add(types.InlineKeyboardButton(inv_btn, callback_data="inventory"), types.InlineKeyboardButton("📦 ВЕБ-ИНВЕНТАРЬ", web_app=types.WebAppInfo(url=f"{config.WEBHOOK_URL}/inventory")))
           
     # 4. Рейтинг и Социум
     m.add(types.InlineKeyboardButton("🏆 РЕЙТИНГ", callback_data="leaderboard"),

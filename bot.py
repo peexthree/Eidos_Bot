@@ -124,6 +124,30 @@ def webhook():
 def index():
     return "Eidos SQL Interface is Operational", 200
 
+@app.route('/inventory', methods=['GET'])
+def inventory_webapp():
+    return flask.send_from_directory('static', 'inventory.html')
+
+@app.route('/api/inventory', methods=['GET'])
+def inventory_api():
+    uid = flask.request.args.get('uid')
+    if not uid:
+        return flask.jsonify({"error": "Missing uid"}), 400
+    try:
+        uid = int(uid)
+        items = db.get_inventory(uid)
+        inventory_data = []
+        for item in items:
+            item_id = item.get('item_id')
+            qty = item.get('quantity', 0)
+            item_info = config.ITEMS_INFO.get(item_id, {})
+            name = item_info.get('name', item_id)
+            inventory_data.append({"name": name, "quantity": qty})
+        return flask.jsonify({"items": inventory_data}), 200
+    except Exception as e:
+        print(f"/// API INVENTORY ERROR: {e}")
+        return flask.jsonify({"error": str(e)}), 500
+
 def system_startup():
     try:
         with app.app_context():

@@ -225,6 +225,10 @@ def format_leaderboard_text(leaders, user_rank, u, sort_by):
         custom_data = l.get('eidos_custom_data')
 
         username = l.get('username')
+        if username:
+            display_name = f"<code>@{username}</code>"
+        else:
+            display_name = f"<code>{html.escape(l['first_name'] or 'Unknown')}</code>"
         raw_name = username or l.get('first_name') or "Unknown"
         vip_display = get_user_display_name(l['uid'], raw_name, custom_data=custom_data).replace('<b>', '').replace('</b>', '')
 
