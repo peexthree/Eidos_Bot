@@ -619,33 +619,86 @@ def update_user(uid, cursor=None, **kwargs):
 def set_user_active(uid, status):
     update_user(uid, is_active=status)
 
+
+# --- XP CACHE (BATCHING) ---
+_xp_cache = {}
+_xp_cache_lock = threading.Lock()
+
+def _flush_xp_cache():
+    while True:
+        try:
+            time.sleep(60) # Flush every 1 minute
+            with _xp_cache_lock:
+                if not _xp_cache:
+                    continue
+                cache_copy = dict(_xp_cache)
+                _xp_cache.clear()
+
+            try:
+                with db_session() as conn:
+                    with conn.cursor() as cur:
+                        for uid, amount in cache_copy.items():
+                            if amount == 0:
+                                continue
+
+                            profit = 0
+                            ref_id = None
+                            actual_amount = amount
+
+                            if amount > 0:
+                                cur.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
+                                res = cur.fetchone()
+
+                                if res and res[0]:
+                                    ref_id = res[0]
+                                    profit = int(amount * 0.1)
+                                    actual_amount = amount - profit
+
+                            cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (actual_amount, uid))
+
+                            if profit > 0 and ref_id:
+                                cur.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
+                                cur.execute("UPDATE players SET generated_ref_xp = generated_ref_xp + %s WHERE uid = %s", (profit, uid))
+                    conn.commit()
+            except Exception as e:
+                print(f"/// XP FLUSH ERROR: {e}")
+                try:
+                    conn.rollback()
+                except:
+                    pass
+                # Restore the failed XP updates back to cache so they aren't lost
+                with _xp_cache_lock:
+                    for uid, amount in cache_copy.items():
+                        _xp_cache[uid] = _xp_cache.get(uid, 0) + amount
+        except Exception as outer_e:
+            print(f"/// XP FLUSH FATAL: {outer_e}")
+
+threading.Thread(target=_flush_xp_cache, daemon=True).start()
+# ---------------------------
+
 def add_xp_to_user(uid, amount, cursor=None):
-    def _execute_logic(cur):
+    if cursor:
         profit = 0
         ref_id = None
         actual_amount = amount
 
         if amount > 0:
-            cur.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
-            res = cur.fetchone()
+            cursor.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
+            res = cursor.fetchone()
 
             if res and res[0]:
                 ref_id = res[0]
                 profit = int(amount * 0.1)
                 actual_amount = amount - profit
 
-        cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (actual_amount, uid))
+        cursor.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (actual_amount, uid))
 
         if profit > 0 and ref_id:
-            cur.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
-            cur.execute("UPDATE players SET generated_ref_xp = generated_ref_xp + %s WHERE uid = %s", (profit, uid))
-
-    if cursor:
-        _execute_logic(cursor)
+            cursor.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
+            cursor.execute("UPDATE players SET generated_ref_xp = generated_ref_xp + %s WHERE uid = %s", (profit, uid))
     else:
-        with db_session() as conn:
-            with conn.cursor() as cur:
-                _execute_logic(cur)
+        with _xp_cache_lock:
+            _xp_cache[uid] = _xp_cache.get(uid, 0) + amount
 
 def increment_user_stat(uid, stat, amount=1, cursor=None):
     # Safe allow-list for stats
