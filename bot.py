@@ -126,7 +126,9 @@ def index():
 
 @app.route('/inventory', methods=['GET'])
 def inventory_webapp():
-    return flask.send_from_directory('static', 'inventory.html')
+    import os
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    return flask.send_from_directory(static_dir, 'inventory.html')
 
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
