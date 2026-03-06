@@ -293,6 +293,14 @@ def init_pool():
                     query_params = urllib.parse.parse_qs(parsed.query)
                     if 'pgbouncer' in query_params:
                         del query_params['pgbouncer']
+
+                    # Enable TCP keepalives to prevent hanging on dropped connections
+                    query_params['keepalives'] = ['1']
+                    query_params['keepalives_idle'] = ['30']
+                    query_params['keepalives_interval'] = ['10']
+                    query_params['keepalives_count'] = ['5']
+                    query_params['connect_timeout'] = ['10']
+
                     parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
                     _formatted_db_url = urllib.parse.urlunparse(parsed)
 
@@ -300,12 +308,7 @@ def init_pool():
                         pg_pool = pool.ThreadedConnectionPool(
             1, 20,
             _formatted_db_url,
-            options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000',
-            connect_timeout=10,
-            keepalives=1,
-            keepalives_idle=30,
-            keepalives_interval=10,
-            keepalives_count=5
+            options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000'
         )
 
                     print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED) & POOL INITIALIZED")
@@ -332,7 +335,7 @@ def db_session():
     is_connection_error = False
 
     try:
-        print(f"/// DB: Checking out connection from pool...")
+        # print(f"/// DB: Checking out connection from pool...")
         conn = pg_pool.getconn()
         yield conn
         conn.commit()
