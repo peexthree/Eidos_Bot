@@ -1604,7 +1604,34 @@ def admin_clear_all_glitches():
             cur.execute("UPDATE user_shadow_metrics SET last_hard_glitch_time = %s", (int(time.time()),))
             return count
     return 0
+# === ВОССТАНОВЛЕННЫЕ ФУНКЦИИ КОНТЕНТА ===
 
+def get_content_cached(c_type):
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return []
+        cur.execute("SELECT * FROM content WHERE type = %s", (c_type,))
+        return cur.fetchall()
+
+def populate_content():
+    try:
+        from content_presets import CONTENT_DATA
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                for c_type, items in CONTENT_DATA.items():
+                    for item in items:
+                        if isinstance(item, dict):
+                            cur.execute("INSERT INTO content (type, path, level, text) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                                        (c_type, item.get('path', 'general'), item.get('level', 1), item.get('text')))
+                        else:
+                            # Фолбэк для простых строк
+                            cur.execute("INSERT INTO content (type, text) VALUES (%s, %s) ON CONFLICT DO NOTHING", (c_type, item))
+    except Exception as e:
+        print(f"/// POPULATE CONTENT ERROR: {e}")
+
+# === АЛИАС ДЛЯ WEBAPP ИНВЕНТАРЯ ===
+def get_user_equipment(uid):
+    """Связующее звено для API инвентаря в bot.py"""
+    return get_equipped_items(uid)
 @contextmanager
 def sa_session():
     if not _SessionFactory:
