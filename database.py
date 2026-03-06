@@ -574,6 +574,13 @@ def _sanitize_player_data(data_dict):
     for field in numeric_fields:
         if field in data_dict and data_dict[field] is None:
             data_dict[field] = 0
+
+    if 'is_active' in data_dict and data_dict['is_active'] is None:
+        data_dict['is_active'] = True
+
+    if 'is_admin' in data_dict and data_dict['is_admin'] is None:
+        data_dict['is_admin'] = False
+
     return data_dict
 
 def get_user(uid, cursor=None):
