@@ -27,7 +27,7 @@ def check_daily_streak(uid):
 
     # --- NIGHT VISITS (01:00 - 05:00) ---
     import datetime
-    now_hour = datetime.datetime.now().hour
+    now_hour = (datetime.datetime.utcnow() + datetime.timedelta(hours=3)).hour
     if 1 <= now_hour < 5:
         db.update_shadow_metric(uid, 'night_sessions_count', 1)
 
@@ -231,9 +231,11 @@ def get_user_stats(uid):
 
     # --- IMPOSTER SYNDROME (Chip) ---
     if eq.get('chip') == 'imposter_syndrome':
-        # Fetch Top 1 stats (Cached)
+
+        # Fetch Top 1 stats
         import cache_db
-        top_user_data = cache_db.get_cached_state("leaderboard_top_1", lambda: db.get_leaderboard(limit=1, sort_by='xp'), ttl=300)
+        top_user_data = cache_db.get_cached_state('top_1_user_imposter', lambda: db.get_leaderboard(limit=1, sort_by='xp'), ttl=300.0)
+
         if top_user_data:
             top_u = top_user_data[0]
             # Avoid self-copy if already top 1? The item says "copy ... player at 1st place".

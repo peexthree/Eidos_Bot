@@ -791,32 +791,22 @@ def reset_daily_stats(uid):
 
 def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
     # Import locally to avoid circular deps if any
-    from config import EQUIPMENT_DB, CURSED_CHEST_DROPS
+    from config import EQUIPMENT_DB, CURSED_CHEST_DROPS, ITEMS_INFO
+    from psycopg2.extras import execute_values
 
     def _add_logic(cur):
         is_equipment = item_id in EQUIPMENT_DB
+        item_info = ITEMS_INFO.get(item_id, {})
+        max_stack = item_info.get("max_stack", 1) if not is_equipment else 1
 
-        # Check limits only if creating NEW entry/stack
-        # For equipment, every item is a new entry.
-        # For consumables, only if not exists.
-
-        check_limit = False
         if is_equipment:
-            check_limit = True
-        else:
-            cur.execute("SELECT 1 FROM inventory WHERE uid = %s AND item_id = %s", (uid, item_id))
-            if not cur.fetchone():
-                check_limit = True
-
-        if check_limit:
+            # Check limits
             cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
             res = cur.fetchone()
             count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
-            if int(count or 0) >= int(INVENTORY_LIMIT or 20):
+            if count + qty > int(INVENTORY_LIMIT or 20):
                 return False
 
-        if is_equipment:
-            # Equipment: Always insert new row with unique durability
             if specific_durability:
                 durability = specific_durability
             elif item_id in CURSED_CHEST_DROPS:
@@ -824,25 +814,54 @@ def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
             else:
                 durability = random.randint(5, 10)
 
-            # Insert QTY times
-            for _ in range(qty):
-                cur.execute("""
-                    INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
-                    VALUES (%s, %s, 1, %s, NULL)
-                """, (uid, item_id, durability))
+            values = [(uid, item_id, 1, durability, None) for _ in range(qty)]
+            execute_values(cur, """
+                INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
+                VALUES %s
+            """, values)
         else:
-            # Consumable: Stack
-            # PK is id, so we can't use ON CONFLICT(uid, item_id)
-            cur.execute("SELECT id, quantity FROM inventory WHERE uid=%s AND item_id=%s", (uid, item_id))
-            row = cur.fetchone()
-            if row:
-                inv_id, current_qty = row
-                cur.execute("UPDATE inventory SET quantity = quantity + %s WHERE id = %s", (qty, inv_id))
-            else:
-                cur.execute("""
+            # Consumables: Find existing stacks
+            cur.execute("SELECT id, quantity FROM inventory WHERE uid=%s AND item_id=%s ORDER BY id", (uid, item_id))
+            stacks = cur.fetchall()
+
+            remaining_qty = qty
+
+            # Fill existing stacks
+            for stack in stacks:
+                inv_id, current_qty = stack
+                if isinstance(stack, dict):
+                    inv_id = stack['id']
+                    current_qty = stack['quantity']
+
+                space_in_stack = max_stack - current_qty
+                if space_in_stack > 0:
+                    add_to_stack = min(remaining_qty, space_in_stack)
+                    cur.execute("UPDATE inventory SET quantity = quantity + %s WHERE id = %s", (add_to_stack, inv_id))
+                    remaining_qty -= add_to_stack
+                if remaining_qty <= 0:
+                    break
+
+            # Need new stacks
+            if remaining_qty > 0:
+                new_stacks_needed = (remaining_qty + max_stack - 1) // max_stack
+
+                cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
+                res = cur.fetchone()
+                count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
+
+                if count + new_stacks_needed > int(INVENTORY_LIMIT or 20):
+                    return False # Transaction fails if limits exceeded
+
+                values = []
+                while remaining_qty > 0:
+                    stack_qty = min(remaining_qty, max_stack)
+                    values.append((uid, item_id, stack_qty, 100, None))
+                    remaining_qty -= stack_qty
+
+                execute_values(cur, """
                     INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
-                    VALUES (%s, %s, %s, 100, NULL)
-                """, (uid, item_id, qty))
+                    VALUES %s
+                """, values)
 
         return True
 

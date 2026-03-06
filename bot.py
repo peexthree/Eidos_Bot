@@ -43,6 +43,9 @@ import modules.handlers.pvp
 import queue
 STATS_QUEUE = queue.Queue()
 
+_stats_cache = {}
+_stats_lock = threading.Lock()
+
 def stats_worker():
     print("/// STATS WORKER STARTED")
     while True:
@@ -50,13 +53,42 @@ def stats_worker():
             task = STATS_QUEUE.get()
             if task is None: break
             uid, stat_type = task
-            db.increment_user_stat(uid, stat_type)
+            with _stats_lock:
+                if uid not in _stats_cache:
+                    _stats_cache[uid] = {}
+                _stats_cache[uid][stat_type] = _stats_cache[uid].get(stat_type, 0) + 1
         except Exception as e:
             print(f"/// STATS WORKER ERR: {e}")
         finally:
             STATS_QUEUE.task_done()
 
+def stats_flusher():
+    while True:
+        time.sleep(30)
+        with _stats_lock:
+            if not _stats_cache:
+                continue
+            cache_copy = dict(_stats_cache)
+            _stats_cache.clear()
+
+        try:
+            with db.db_session() as conn:
+                with conn.cursor() as cur:
+                    for uid, stats in cache_copy.items():
+                        for stat_type, amount in stats.items():
+                            cur.execute(f"UPDATE players SET {stat_type} = {stat_type} + %s WHERE uid = %s", (amount, uid))
+                conn.commit()
+        except Exception as e:
+            print(f"/// STATS FLUSHER ERR: {e}")
+            with _stats_lock:
+                for uid, stats in cache_copy.items():
+                    if uid not in _stats_cache:
+                        _stats_cache[uid] = {}
+                    for stat_type, amount in stats.items():
+                        _stats_cache[uid][stat_type] = _stats_cache[uid].get(stat_type, 0) + amount
+
 threading.Thread(target=stats_worker, daemon=True).start()
+threading.Thread(target=stats_flusher, daemon=True).start()
 
 # --- MIDDLEWARE FOR STATS TRACKING & GLITCHES ---
 @bot.middleware_handler(update_types=['message'])
@@ -344,7 +376,7 @@ def notification_loop():
                         AND (last_protocol_time + 1800) < %s
                         AND notified = FALSE
                         AND is_active = TRUE
-                        LIMIT 50
+                        LIMIT 200
                     """, (now,))
                     users = cur.fetchall()
         except Exception as db_err:
@@ -356,7 +388,6 @@ def notification_loop():
         for row in users:
             uid = row[0]
             try:
-                # Network Call Outside the DB Transaction
                 bot.send_message(uid, "🔄 <b>СИНХРОНИЗАЦИЯ ГОТОВА</b>\nНовые знания ждут тебя.", parse_mode="HTML")
                 try:
                     with db.db_session() as conn2:
@@ -365,8 +396,6 @@ def notification_loop():
                             conn2.commit()
                 except Exception as update_err:
                     print(f"/// DB UPDATE ERROR {uid}: {update_err}")
-
-                time.sleep(0.2)
             except Exception as e:
                 print(f"Notify Error {uid}: {e}")
                 if "forbidden" in str(e).lower() or "blocked" in str(e).lower():
@@ -377,6 +406,9 @@ def notification_loop():
                                 conn3.commit()
                     except Exception as block_err:
                         print(f"/// DB BLOCK ERROR {uid}: {block_err}")
+
+            # Rate limiting the telegram API call, not holding the DB connection inside sleep
+            time.sleep(0.05)
 
         time.sleep(60)
 
