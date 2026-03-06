@@ -107,17 +107,18 @@
         }
 
                 .item-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            display: flex;
+            flex-direction: column;
             gap: 15px;
+            width: 100%;
         }
 
         .item-card {
             background: var(--card-bg);
             border: 1px solid var(--hint-color);
             border-radius: 12px;
-            padding: 15px 10px;
-            text-align: center;
+            padding: 10px;
+            text-align: left;
             backdrop-filter: blur(5px);
             transition: all 0.2s ease;
             position: relative;
@@ -126,11 +127,12 @@
             transform: translateY(10px);
             animation: slideUp 0.3s forwards;
             cursor: pointer;
-            aspect-ratio: 1;
             display: flex;
-            flex-direction: column;
-            justify-content: center;
+            flex-direction: row;
+            justify-content: flex-start;
             align-items: center;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .item-card::before {
@@ -147,22 +149,59 @@
             box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
         }
 
+
         .item-icon {
             font-size: 28px;
-            margin-bottom: 8px;
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            border-radius: 8px;
+            margin-right: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
         }
 
-        .item-name {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: var(--text-main);
-            height: 34px;
+        .item-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .item-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
             overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
+        }
+
+        .item-rarity-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+
+        .item-action-icon {
+            margin-left: 10px;
+            color: var(--neon-blue);
+            font-size: 18px;
+            opacity: 0.7;
+        }
+
+
+        .item-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0;
         }
 
         .item-quantity {
@@ -215,6 +254,18 @@
             margin-top: 15px;
             text-align: right;
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .slot-content img {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
         .modal {
@@ -254,7 +305,18 @@
         .modal-icon {
             font-size: 48px;
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-icon img {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
         .modal-name {
@@ -353,10 +415,10 @@
     <div class="tabs-container">
         <div class="tabs">
             <div class="tab active" onclick="switchTab(event, 'doll')">Кукла</div>
-            <div class="tab" onclick="switchTab(event, 'weapon')">Оружие</div>
-            <div class="tab" onclick="switchTab(event, 'armor')">Броня</div>
-            <div class="tab" onclick="switchTab(event, 'software')">Чипы</div>
-            <div class="tab" onclick="switchTab(event, 'misc')">Разное</div>
+            <div class="tab" onclick="switchTab(event, 'equip')">Снаряжение</div>
+            <div class="tab" onclick="switchTab(event, 'software')">Софт</div>
+            <div class="tab" onclick="switchTab(event, 'artifact')">Артефакты</div>
+            <div class="tab" onclick="switchTab(event, 'consumable')">Расходники</div>
         </div>
     </div>
 
@@ -504,8 +566,10 @@
 
             let filtered = currentInventory;
             if (filter !== 'all') {
-                if (filter === 'armor') {
-                    filtered = currentInventory.filter(i => i.type === 'head' || i.type === 'body');
+                if (filter === 'equip') {
+                    filtered = currentInventory.filter(i => ['weapon', 'head', 'body'].includes(i.type));
+                } else if (filter === 'consumable') {
+                    filtered = currentInventory.filter(i => i.type === 'consumable' || !['weapon', 'head', 'body', 'software', 'artifact'].includes(i.type));
                 } else {
                     filtered = currentInventory.filter(i => i.type === filter);
                 }
@@ -527,10 +591,21 @@
                 const displayName = item.name || item.item_id || 'Неизвестный фрагмент';
                 const icon = fallbackIcons[item.type] || fallbackIcons['default'];
 
+                const rName = rarityNames[item.rarity || 'common'];
+
+                let iconHtml = `<span style="color:${color}">${icon}</span>`;
+                if (item.image_url) {
+                    iconHtml = `<img src="${item.image_url}" alt="icon" onerror="this.outerHTML='<span style=\\'color:${color}\\'>${icon}</span>'">`;
+                }
+
                 itemEl.innerHTML = `
-                    <span class="item-icon" style="color:${color}">${icon}</span>
-                    <div class="item-name">${displayName}</div>
+                    <div class="item-icon">${iconHtml}</div>
+                    <div class="item-details">
+                        <div class="item-rarity-label" style="color:${color}">${rName}</div>
+                        <div class="item-name">${displayName}</div>
+                    </div>
                     <div class="item-quantity">x${item.quantity}</div>
+                    <div class="item-action-icon">›</div>
                 `;
 
                 itemEl.onclick = () => {
@@ -551,8 +626,13 @@
                 if (item) {
                     const color = rarityColors[item.rarity || 'common'];
                     const icon = fallbackIcons[item.type] || fallbackIcons['default'];
+                    let iconHtml = `<span style="color:${color}; font-size:24px;">${icon}</span>`;
+                    if (item.image_url) {
+                        iconHtml = `<img src="${item.image_url}" alt="icon" onerror="this.outerHTML='<span style=\\'color:${color}; font-size:24px;\\'>${icon}</span>'">`;
+                    }
+
                     slotEl.querySelector('.slot-content').innerHTML = `
-                        <span style="color:${color}; font-size:24px;">${icon}</span><br>
+                        ${iconHtml}
                         <span style="color:${color}; font-weight:bold;">${item.name}</span>
                     `;
                     slotEl.style.borderColor = color;
@@ -571,8 +651,12 @@
             const modal = document.getElementById('item-modal');
             const color = rarityColors[item.rarity || 'common'];
 
-            document.getElementById('modal-icon').innerText = fallbackIcons[item.type] || fallbackIcons['default'];
-            document.getElementById('modal-icon').style.color = color;
+            const icon = fallbackIcons[item.type] || fallbackIcons['default'];
+            if (item.image_url) {
+                document.getElementById('modal-icon').innerHTML = `<img src="${item.image_url}" onerror="this.outerHTML='<span style=\\'color:${color}\\'>${icon}</span>'" style="border-color:${color}">`;
+            } else {
+                document.getElementById('modal-icon').innerHTML = `<span style="color:${color}">${icon}</span>`;
+            }
             document.getElementById('modal-name').innerText = item.name;
             document.getElementById('modal-name').style.color = color;
 
@@ -601,8 +685,12 @@
             const modal = document.getElementById('item-modal');
             const color = rarityColors[item.rarity || 'common'];
 
-            document.getElementById('modal-icon').innerText = fallbackIcons[item.type] || fallbackIcons['default'];
-            document.getElementById('modal-icon').style.color = color;
+            const icon = fallbackIcons[item.type] || fallbackIcons['default'];
+            if (item.image_url) {
+                document.getElementById('modal-icon').innerHTML = `<img src="${item.image_url}" onerror="this.outerHTML='<span style=\\'color:${color}\\'>${icon}</span>'" style="border-color:${color}">`;
+            } else {
+                document.getElementById('modal-icon').innerHTML = `<span style="color:${color}">${icon}</span>`;
+            }
             document.getElementById('modal-name').innerText = item.name;
             document.getElementById('modal-name').style.color = color;
 
