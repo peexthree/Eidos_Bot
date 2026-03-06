@@ -609,7 +609,7 @@
                 const res = await fetch('/api/inventory/equip', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({uid: uid, item_id: selectedItem.item_id})
+                    body: JSON.stringify({uid: uid, item_id: selectedItem.item_id, inv_id: selectedItem.id})
                 });
                 const data = await res.json();
 
