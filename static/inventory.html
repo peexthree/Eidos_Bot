@@ -2,29 +2,29 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>EIDOS: Синхронизация</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
 
     <style>
-        :root {
-            --bg-color: #050507;
-            --neon-blue: #00f3ff;
+                :root {
+            --bg-color: var(--tg-theme-bg-color, #050507);
+            --text-main: var(--tg-theme-text-color, #e0f7fa);
+            --neon-blue: var(--tg-theme-button-color, #00f3ff);
+            --btn-text: var(--tg-theme-button-text-color, #000);
+            --card-bg: var(--tg-theme-secondary-bg-color, rgba(10, 15, 30, 0.6));
+            --hint-color: var(--tg-theme-hint-color, rgba(255, 255, 255, 0.5));
             --neon-purple: #bc13fe;
-            --card-bg: rgba(10, 15, 30, 0.6);
-            --text-main: #e0f7fa;
         }
 
-        body {
+                body {
             background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 50% 0%, rgba(0, 243, 255, 0.1) 0%, transparent 50%),
-                linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(5,5,7,1) 100%);
             color: var(--text-main);
             font-family: 'Rajdhani', sans-serif;
             margin: 0;
             padding: 20px;
+            padding-bottom: 80px;
             min-height: 100vh;
             overflow-x: hidden;
             user-select: none;
@@ -53,12 +53,22 @@
             letter-spacing: 2px;
         }
 
+                .tabs-container {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg-color);
+            padding: 10px 0;
+            margin: -10px -20px 20px -20px;
+            padding-left: 20px;
+            padding-right: 20px;
+            border-bottom: 1px solid var(--hint-color);
+        }
+
         .tabs {
             display: flex;
             overflow-x: auto;
             gap: 10px;
-            margin-bottom: 20px;
-            padding-bottom: 5px;
             scrollbar-width: none;
         }
 
@@ -69,9 +79,9 @@
         .tab {
             padding: 8px 16px;
             border-radius: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.7);
+            background: var(--card-bg);
+            border: 1px solid var(--hint-color);
+            color: var(--text-main);
             white-space: nowrap;
             font-size: 14px;
             text-transform: uppercase;
@@ -96,15 +106,15 @@
             letter-spacing: 2px;
         }
 
-        .item-grid {
+                .item-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 15px;
         }
 
         .item-card {
             background: var(--card-bg);
-            border: 1px solid rgba(0, 243, 255, 0.2);
+            border: 1px solid var(--hint-color);
             border-radius: 12px;
             padding: 15px 10px;
             text-align: center;
@@ -116,6 +126,11 @@
             transform: translateY(10px);
             animation: slideUp 0.3s forwards;
             cursor: pointer;
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
         .item-card::before {
@@ -142,7 +157,7 @@
             font-size: 14px;
             font-weight: 700;
             margin-bottom: 8px;
-            color: #fff;
+            color: var(--text-main);
             height: 34px;
             overflow: hidden;
             display: -webkit-box;
@@ -215,7 +230,7 @@
         }
 
         .modal-content {
-            background: #0a0f1e;
+            background: var(--bg-color);
             width: 100%;
             border-top-left-radius: 24px;
             border-top-right-radius: 24px;
@@ -261,7 +276,7 @@
 
         .modal-desc {
             font-size: 14px;
-            color: rgba(255,255,255,0.8);
+            color: var(--text-main);
             line-height: 1.5;
             margin-bottom: 30px;
             background: rgba(0,0,0,0.5);
@@ -293,7 +308,7 @@
 
         .action-btn:active {
             background: var(--neon-blue);
-            color: #000;
+            color: var(--btn-text);
         }
 
         .action-btn-danger {
@@ -304,7 +319,7 @@
 
         .action-btn-danger:active {
             background: #ff003c;
-            color: #000;
+            color: var(--btn-text);
         }
 
         @keyframes pulse {
@@ -335,13 +350,14 @@
         <div class="status-bar" id="status">Синхронизация с узлом...</div>
     </div>
     
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('all')">Все</div>
-        <div class="tab" onclick="switchTab('weapon')">Оружие</div>
-        <div class="tab" onclick="switchTab('armor')">Броня</div>
-        <div class="tab" onclick="switchTab('software')">Софт</div>
-        <div class="tab" onclick="switchTab('misc')">Разное</div>
-        <div class="tab" onclick="switchTab('doll')">Кукла</div>
+    <div class="tabs-container">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab(event, 'doll')">Кукла</div>
+            <div class="tab" onclick="switchTab(event, 'weapon')">Оружие</div>
+            <div class="tab" onclick="switchTab(event, 'armor')">Броня</div>
+            <div class="tab" onclick="switchTab(event, 'software')">Чипы</div>
+            <div class="tab" onclick="switchTab(event, 'misc')">Разное</div>
+        </div>
     </div>
 
     <div id="loading">Дешифровка данных...</div>
@@ -390,12 +406,22 @@
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
+                const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
 
-        tg.setHeaderColor('#050507');
-        tg.setBackgroundColor('#050507');
+        if (tg.setHeaderColor) {
+            tg.setHeaderColor('bg_color');
+        }
+        if (tg.setBackgroundColor) {
+            tg.setBackgroundColor('bg_color');
+        }
+
+        tg.MainButton.setText('ЗАКРЫТЬ ИНВЕНТАРЬ');
+        tg.MainButton.show();
+        tg.MainButton.onClick(() => {
+            tg.close();
+        });
 
         const fallbackIcons = {
             'chip': '💾', 'decoder': '📟', 'energy': '⚡', 'default': '📦',
@@ -446,20 +472,21 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('status').innerText = 'Синхронизация завершена';
                 
-                renderInventory('all');
+                switchTab({currentTarget: document.querySelector('.tab')}, 'doll');
                 renderDoll();
+
             } catch (e) {
                 document.getElementById('loading').innerText = 'ОШИБКА СИНХРОНИЗАЦИИ';
                 document.getElementById('loading').style.color = '#ff003c';
             }
         }
 
-        function switchTab(tabType) {
+        function switchTab(event, tabType) {
             tg.HapticFeedback.impactOccurred('light');
 
             // Update active tab styling
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            event.currentTarget.classList.add('active');
 
             if (tabType === 'doll') {
                 document.getElementById('items-container').style.display = 'none';
@@ -602,7 +629,7 @@
             tg.HapticFeedback.notificationOccurred('success');
 
             const btn = document.querySelector('.action-btn');
-            btn.innerText = 'Интеграция...';
+            btn.innerText = 'Загрузка...';
             btn.disabled = true;
 
             try {
@@ -629,7 +656,7 @@
             tg.HapticFeedback.notificationOccurred('success');
 
             const btn = document.querySelector('.action-btn');
-            btn.innerText = 'Извлечение...';
+            btn.innerText = 'Загрузка...';
             btn.disabled = true;
 
             try {
