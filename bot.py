@@ -140,6 +140,18 @@ def inventory_api():
         inventory_data = []
         equipped_data = {}
 
+        def get_image_url(info):
+            if info.get('url'):
+                return info.get('url')
+            file_id = info.get('file_id')
+            if file_id:
+                try:
+                    file_info = bot.get_file(file_id)
+                    return f"https://api.telegram.org/file/bot{TOKEN}/{file_info.file_path}"
+                except Exception as e:
+                    print(f"/// API INVENTORY ERROR GETTING FILE_ID: {e}")
+            return None
+
         # 1. Собираем Куклу (надетые вещи)
         raw_equipped = db.get_user_equipment(uid) if hasattr(db, 'get_user_equipment') else {}
         if raw_equipped:
@@ -151,16 +163,27 @@ def inventory_api():
                         "name": info.get('name', item_id),
                         "type": slot,
                         "desc": info.get('desc', ''),
-                        "rarity": info.get('rarity', 'common')
+                        "rarity": info.get('rarity', 'common'),
+                        "image_url": get_image_url(info)
                     }
 
         # 2. Собираем Инвентарь
         items = db.get_inventory(uid)
         for item in items:
             item_id = item.get('item_id')
+
+            # Filter out PVP items from general inventory to match telegram logic
+            if item_id in config.PVP_ITEMS:
+                continue
+
             qty = item.get('quantity', 0)
             item_info = config.ITEMS_INFO.get(item_id, {})
-            item_type = item_info.get('type', 'misc')
+
+            # Set type properly for categorization
+            item_type = item_info.get('type')
+            if not item_type:
+                # Fallback to consumable if not in EQUIPMENT_DB and no type given
+                item_type = 'consumable' if item_id not in config.EQUIPMENT_DB else 'misc'
 
             inventory_data.append({
                 "id": item.get("id"),
@@ -170,7 +193,8 @@ def inventory_api():
                 "type": item_type,
                 "desc": item_info.get('desc', ''),
                 "rarity": item_info.get('rarity', 'common'),
-                "usable": item_info.get('usable', False)
+                "usable": item_info.get('usable', False),
+                "image_url": get_image_url(item_info)
             })
 
         return flask.jsonify({"items": inventory_data, "equipped": equipped_data}), 200
