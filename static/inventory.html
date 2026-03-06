@@ -6,6 +6,7 @@
     <title>EIDOS: Синхронизация</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+
     <style>
         :root {
             --bg-color: #050507;
@@ -26,16 +27,17 @@
             padding: 20px;
             min-height: 100vh;
             overflow-x: hidden;
+            user-select: none;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             position: relative;
         }
 
         h1 {
-            font-size: 28px;
+            font-size: 24px;
             margin: 0;
             text-transform: uppercase;
             letter-spacing: 3px;
@@ -44,41 +46,76 @@
         }
 
         .status-bar {
-            font-size: 12px;
+            font-size: 11px;
             color: rgba(255, 255, 255, 0.5);
             margin-top: 5px;
             text-transform: uppercase;
             letter-spacing: 2px;
         }
 
+        .tabs {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 5px;
+            scrollbar-width: none;
+        }
+
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            white-space: nowrap;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.3s;
+        }
+
+        .tab.active {
+            background: rgba(0, 243, 255, 0.2);
+            border-color: var(--neon-blue);
+            color: var(--neon-blue);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+
         #loading {
             text-align: center;
             color: var(--neon-blue);
-            font-size: 18px;
+            font-size: 16px;
             animation: pulse 1.5s infinite;
             margin-top: 50px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         .item-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
             gap: 15px;
         }
 
         .item-card {
             background: var(--card-bg);
             border: 1px solid rgba(0, 243, 255, 0.2);
-            border-radius: 16px;
-            padding: 20px 15px;
+            border-radius: 12px;
+            padding: 15px 10px;
             text-align: center;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            transition: all 0.2s ease;
             position: relative;
             overflow: hidden;
             opacity: 0;
-            transform: translateY(20px);
-            animation: slideUp 0.5s forwards;
+            transform: translateY(10px);
+            animation: slideUp 0.3s forwards;
+            cursor: pointer;
         }
 
         .item-card::before {
@@ -86,38 +123,188 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 2px;
-            background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+            background: linear-gradient(90deg, transparent, currentColor, transparent);
             opacity: 0.5;
         }
 
         .item-card:active {
             transform: scale(0.95);
-            border-color: var(--neon-blue);
             box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
         }
 
         .item-icon {
-            font-size: 32px;
-            margin-bottom: 10px;
+            font-size: 28px;
+            margin-bottom: 8px;
             display: block;
         }
 
         .item-name {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             color: #fff;
+            height: 34px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
 
         .item-quantity {
             display: inline-block;
-            background: rgba(0, 243, 255, 0.1);
-            color: var(--neon-blue);
-            padding: 3px 10px;
-            border-radius: 10px;
-            font-size: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ccc;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 12px;
             font-weight: 700;
-            border: 1px solid rgba(0, 243, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .doll-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .doll-slot {
+            width: 80%;
+            background: rgba(10, 15, 30, 0.8);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .doll-slot:active {
+            transform: scale(0.98);
+        }
+
+        .slot-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.4);
+            position: absolute;
+            top: 5px;
+            left: 10px;
+        }
+
+        .slot-content {
+            margin-top: 15px;
+            text-align: right;
+            width: 100%;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            justify-content: center;
+            align-items: flex-end;
+            animation: fadeIn 0.2s;
+        }
+
+        .modal-content {
+            background: #0a0f1e;
+            width: 100%;
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            padding: 30px 20px;
+            border-top: 1px solid var(--neon-blue);
+            box-shadow: 0 -10px 30px rgba(0, 243, 255, 0.2);
+            transform: translateY(100%);
+            animation: slideUpModal 0.3s forwards;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            color: rgba(255,255,255,0.5);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .modal-icon {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .modal-name {
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-rarity {
+            text-align: center;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .modal-desc {
+            font-size: 14px;
+            color: rgba(255,255,255,0.8);
+            line-height: 1.5;
+            margin-bottom: 30px;
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 15px;
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            border-radius: 12px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: bold;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .action-btn:active {
+            background: var(--neon-blue);
+            color: #000;
+        }
+
+        .action-btn-danger {
+            border-color: #ff003c;
+            color: #ff003c;
+            background: rgba(255, 0, 60, 0.1);
+        }
+
+        .action-btn-danger:active {
+            background: #ff003c;
+            color: #000;
         }
 
         @keyframes pulse {
@@ -129,82 +316,343 @@
         @keyframes slideUp {
             to { opacity: 1; transform: translateY(0); }
         }
+
+        @keyframes slideUpModal {
+            to { transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
     </style>
+
 </head>
+
 <body>
     <div class="header">
-        <h1>Хранилище</h1>
+        <h1>Инвентарь Осколка</h1>
         <div class="status-bar" id="status">Синхронизация с узлом...</div>
     </div>
     
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('all')">Все</div>
+        <div class="tab" onclick="switchTab('weapon')">Оружие</div>
+        <div class="tab" onclick="switchTab('armor')">Броня</div>
+        <div class="tab" onclick="switchTab('software')">Софт</div>
+        <div class="tab" onclick="switchTab('misc')">Разное</div>
+        <div class="tab" onclick="switchTab('doll')">Кукла</div>
+    </div>
+
     <div id="loading">Дешифровка данных...</div>
-    <div id="items" class="item-grid"></div>
+
+    <div id="items-container">
+        <div id="items" class="item-grid"></div>
+    </div>
+
+    <div id="doll-container" style="display: none;">
+        <div class="doll-grid">
+            <div class="doll-slot" id="slot-head" onclick="openUnequipModal('head')">
+                <div class="slot-title">Голова</div>
+                <div class="slot-content">Пусто</div>
+            </div>
+            <div class="doll-slot" id="slot-body" onclick="openUnequipModal('body')">
+                <div class="slot-title">Тело</div>
+                <div class="slot-content">Пусто</div>
+            </div>
+            <div class="doll-slot" id="slot-weapon" onclick="openUnequipModal('weapon')">
+                <div class="slot-title">Оружие</div>
+                <div class="slot-content">Пусто</div>
+            </div>
+            <div class="doll-slot" id="slot-software" onclick="openUnequipModal('software')">
+                <div class="slot-title">Софт</div>
+                <div class="slot-content">Пусто</div>
+            </div>
+            <div class="doll-slot" id="slot-artifact" onclick="openUnequipModal('artifact')">
+                <div class="slot-title">Артефакт</div>
+                <div class="slot-content">Пусто</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Item Details -->
+    <div id="item-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-close" onclick="closeModal()">✖</div>
+            <div id="modal-icon" class="modal-icon">📦</div>
+            <div id="modal-name" class="modal-name">Название</div>
+            <div id="modal-rarity" class="modal-rarity">Обычный</div>
+            <div id="modal-desc" class="modal-desc">Описание предмета...</div>
+            <div class="modal-actions" id="modal-actions">
+                <button class="action-btn" onclick="equipItem()">Экипировать</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
 
-        // Устанавливаем цвета под тему Eidos
         tg.setHeaderColor('#050507');
         tg.setBackgroundColor('#050507');
 
-        // Временный словарь иконок (на случай, если бэкенд отдает только item_id)
         const fallbackIcons = {
-            'chip': '💾',
-            'decoder': '📟',
-            'energy': '⚡',
-            'default': '📦'
+            'chip': '💾', 'decoder': '📟', 'energy': '⚡', 'default': '📦',
+            'weapon': '🔫', 'head': '🪖', 'body': '🛡️', 'software': '💿', 'artifact': '🔮', 'misc': '⚙️'
         };
 
+        const rarityColors = {
+            'common': '#a0a0a0',
+            'rare': '#0088ff',
+            'epic': '#bc13fe',
+            'legendary': '#ffb700',
+            'unique': '#ff003c'
+        };
+
+        const rarityNames = {
+            'common': 'Обычный',
+            'rare': 'Редкий',
+            'epic': 'Эпический',
+            'legendary': 'Легендарный',
+            'unique': 'Уникальный'
+        };
+
+        let currentInventory = [];
+        let currentEquipped = {};
+        let selectedItem = null;
+        let selectedSlot = null;
+
+        // Use user ID from TG init data, default to fallback for web testing
+        const uid = tg.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
+
         async function loadInventory() {
-            // Защита для тестирования вне телеграма
-            const uid = tg.initDataUnsafe?.user?.id || 'TEST_USER'; 
+            if (!uid) {
+                document.getElementById('loading').innerText = 'ОШИБКА: НЕТ UID';
+                return;
+            }
             
             try {
                 const response = await fetch(`/api/inventory?uid=${uid}`);
                 const data = await response.json();
                 
+                if(data.error) {
+                    throw new Error(data.error);
+                }
+
+                currentInventory = data.items || [];
+                currentEquipped = data.equipped || {};
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('status').innerText = 'Синхронизация завершена';
                 
-                const itemsDiv = document.getElementById('items');
-                
-                if (!data.items || data.items.length === 0) {
-                    itemsDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: rgba(255,255,255,0.5);">Хранилище пусто</div>';
-                    return;
-                }
-
-                data.items.forEach((item, index) => {
-                    const itemEl = document.createElement('div');
-                    itemEl.className = 'item-card';
-                    itemEl.style.animationDelay = `${index * 0.1}s`; // Каскадное появление
-                    
-                    // Обрабатываем ситуацию, если бэкенд не прислал имя/иконку
-                    const displayName = item.name || item.item_id || 'Неизвестный фрагмент';
-                    const icon = item.icon || fallbackIcons[item.item_id] || fallbackIcons['default'];
-
-                    itemEl.innerHTML = `
-                        <span class="item-icon">${icon}</span>
-                        <div class="item-name">${displayName}</div>
-                        <div class="item-quantity">x${item.quantity}</div>
-                    `;
-
-                    // Тактильный отклик при нажатии на предмет
-                    itemEl.onclick = () => {
-                        tg.HapticFeedback.impactOccurred('light');
-                        // Здесь потом добавим логику использования
-                    };
-
-                    itemsDiv.appendChild(itemEl);
-                });
+                renderInventory('all');
+                renderDoll();
             } catch (e) {
-                document.getElementById('loading').innerText = 'ОШИБКА ПОДКЛЮЧЕНИЯ';
+                document.getElementById('loading').innerText = 'ОШИБКА СИНХРОНИЗАЦИИ';
                 document.getElementById('loading').style.color = '#ff003c';
             }
         }
+
+        function switchTab(tabType) {
+            tg.HapticFeedback.impactOccurred('light');
+
+            // Update active tab styling
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (tabType === 'doll') {
+                document.getElementById('items-container').style.display = 'none';
+                document.getElementById('doll-container').style.display = 'block';
+            } else {
+                document.getElementById('doll-container').style.display = 'none';
+                document.getElementById('items-container').style.display = 'block';
+                renderInventory(tabType);
+            }
+        }
+
+        function renderInventory(filter) {
+            const itemsDiv = document.getElementById('items');
+            itemsDiv.innerHTML = '';
+
+            let filtered = currentInventory;
+            if (filter !== 'all') {
+                if (filter === 'armor') {
+                    filtered = currentInventory.filter(i => i.type === 'head' || i.type === 'body');
+                } else {
+                    filtered = currentInventory.filter(i => i.type === filter);
+                }
+            }
+
+            if (filtered.length === 0) {
+                itemsDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: rgba(255,255,255,0.5);">Ничего не найдено</div>';
+                return;
+            }
+
+            filtered.forEach((item, index) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'item-card';
+                itemEl.style.animationDelay = `${index * 0.05}s`;
+
+                const color = rarityColors[item.rarity || 'common'];
+                itemEl.style.borderColor = color;
+
+                const displayName = item.name || item.item_id || 'Неизвестный фрагмент';
+                const icon = fallbackIcons[item.type] || fallbackIcons['default'];
+
+                itemEl.innerHTML = `
+                    <span class="item-icon" style="color:${color}">${icon}</span>
+                    <div class="item-name">${displayName}</div>
+                    <div class="item-quantity">x${item.quantity}</div>
+                `;
+
+                itemEl.onclick = () => {
+                    tg.HapticFeedback.impactOccurred('medium');
+                    openModal(item);
+                };
+
+                itemsDiv.appendChild(itemEl);
+            });
+        }
+
+        function renderDoll() {
+            const slots = ['head', 'body', 'weapon', 'software', 'artifact'];
+            slots.forEach(slot => {
+                const slotEl = document.getElementById(`slot-${slot}`);
+                const item = currentEquipped[slot];
+
+                if (item) {
+                    const color = rarityColors[item.rarity || 'common'];
+                    const icon = fallbackIcons[item.type] || fallbackIcons['default'];
+                    slotEl.querySelector('.slot-content').innerHTML = `
+                        <span style="color:${color}; font-size:24px;">${icon}</span><br>
+                        <span style="color:${color}; font-weight:bold;">${item.name}</span>
+                    `;
+                    slotEl.style.borderColor = color;
+                } else {
+                    slotEl.querySelector('.slot-content').innerHTML = `
+                        <span style="opacity:0.5; font-size:24px;">⬛</span><br>
+                        <span style="opacity:0.5;">Пусто</span>
+                    `;
+                    slotEl.style.borderColor = 'rgba(0, 243, 255, 0.2)';
+                }
+            });
+        }
+
+        function openModal(item) {
+            selectedItem = item;
+            const modal = document.getElementById('item-modal');
+            const color = rarityColors[item.rarity || 'common'];
+
+            document.getElementById('modal-icon').innerText = fallbackIcons[item.type] || fallbackIcons['default'];
+            document.getElementById('modal-icon').style.color = color;
+            document.getElementById('modal-name').innerText = item.name;
+            document.getElementById('modal-name').style.color = color;
+
+            const rName = rarityNames[item.rarity || 'common'];
+            document.getElementById('modal-rarity').innerText = rName;
+            document.getElementById('modal-rarity').style.color = color;
+
+            document.getElementById('modal-desc').innerText = item.desc || "Описание отсутствует.";
+
+            const actionsDiv = document.getElementById('modal-actions');
+            actionsDiv.innerHTML = '';
+
+            if (['weapon', 'head', 'body', 'software', 'artifact'].includes(item.type)) {
+                actionsDiv.innerHTML = `<button class="action-btn" onclick="equipItem()">УСТАНОВИТЬ В СЛОТ</button>`;
+            }
+            // add consumable support if needed later
+
+            modal.style.display = 'flex';
+        }
+
+        function openUnequipModal(slot) {
+            const item = currentEquipped[slot];
+            if (!item) return;
+
+            selectedSlot = slot;
+            const modal = document.getElementById('item-modal');
+            const color = rarityColors[item.rarity || 'common'];
+
+            document.getElementById('modal-icon').innerText = fallbackIcons[item.type] || fallbackIcons['default'];
+            document.getElementById('modal-icon').style.color = color;
+            document.getElementById('modal-name').innerText = item.name;
+            document.getElementById('modal-name').style.color = color;
+
+            const rName = rarityNames[item.rarity || 'common'];
+            document.getElementById('modal-rarity').innerText = rName;
+            document.getElementById('modal-rarity').style.color = color;
+
+            document.getElementById('modal-desc').innerText = item.desc || "Описание отсутствует.";
+
+            const actionsDiv = document.getElementById('modal-actions');
+            actionsDiv.innerHTML = `<button class="action-btn action-btn-danger" onclick="unequipItem()">СНЯТЬ</button>`;
+
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('item-modal').style.display = 'none';
+            selectedItem = null;
+            selectedSlot = null;
+        }
+
+        async function equipItem() {
+            if (!selectedItem) return;
+            tg.HapticFeedback.notificationOccurred('success');
+
+            const btn = document.querySelector('.action-btn');
+            btn.innerText = 'Интеграция...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/inventory/equip', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({uid: uid, item_id: selectedItem.item_id})
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    closeModal();
+                    await loadInventory(); // Reload
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            } catch (e) {
+                alert('Сбой сети.');
+            }
+        }
         
+        async function unequipItem() {
+            if (!selectedSlot) return;
+            tg.HapticFeedback.notificationOccurred('success');
+
+            const btn = document.querySelector('.action-btn');
+            btn.innerText = 'Извлечение...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/inventory/unequip', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({uid: uid, slot: selectedSlot})
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    closeModal();
+                    await loadInventory(); // Reload
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            } catch (e) {
+                alert('Сбой сети.');
+            }
+        }
+
         loadInventory();
     </script>
 </body>
+
 </html>

@@ -41,7 +41,7 @@ def main_menu(u):
     eq_items = cache_db.get_cached_state(f"eq_{uid}", lambda: db.get_equipped_items(uid), ttl=10.0) or {}
 
 
-    is_glitched = u.get('is_glitched', False)
+    is_glitched = u.get('is_glitched', False) and float(u.get('anomaly_buff_expiry') or 0) > time.time()
     # New check: specific visual_distortion buff
     is_visual_dist = (u.get('anomaly_buff_type') == 'visual_distortion' and float(u.get('anomaly_buff_expiry') or 0) > time.time())
 
