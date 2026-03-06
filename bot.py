@@ -99,6 +99,19 @@ def webhook():
             traceback.print_exc()
             return 'Error', 500
 
+
+@app.route('/css/<path:path>', methods=['GET'])
+def send_css(path):
+    import os
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/css')
+    return flask.send_from_directory(static_dir, path)
+
+@app.route('/js/<path:path>', methods=['GET'])
+def send_js(path):
+    import os
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/js')
+    return flask.send_from_directory(static_dir, path)
+
 @app.route("/", methods=["GET"])
 def index():
     return "Eidos SQL Interface is Operational", 200
@@ -147,10 +160,18 @@ def inventory_api():
                     print(f"/// API INVENTORY ERROR GETTING AVATAR: {e}")
 
             from modules.services.utils import get_user_display_name
+            from modules.services.user import get_user_stats
 
             # Using basic stats logic
             path_str = str(user.get('path', 'general')).lower()
             faction_name = config.SCHOOLS.get(path_str, "НЕОФИТ")
+
+            stats, _ = get_user_stats(uid)
+            if not stats:
+                stats = {'atk': 0, 'def': 0, 'luck': 0}
+
+            # Approximate max_xp for level
+            max_xp = level * 1000
 
             profile_data = {
                 "name": get_user_display_name(user),
@@ -159,6 +180,10 @@ def inventory_api():
                 "faction": faction_name,
                 "biocoin": user.get('biocoin', 0),
                 "xp": user.get('xp', 0),
+                "max_xp": max_xp,
+                "atk": stats.get('atk', 0),
+                "def": stats.get('def', 0),
+                "luck": stats.get('luck', 0),
                 "avatar_url": avatar_url
             }
 
