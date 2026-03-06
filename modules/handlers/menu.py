@@ -606,7 +606,7 @@ def find_user_dossier_confirm_handler(call):
 
     db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
     bot.answer_callback_query(call.id, "💰 [ВЗЛОМ: -100 BC]", show_alert=False)
-    db.set_state(uid, "await_dossier_search")
+    db.set_state(uid, "await_dossier_search"); cache_db.clear_cache(uid)
 
     txt = "⚠️ <b>СИСТЕМА:</b> Введите никнейм пользователя (можно без @) для взлома его досье.\n<i>(Вы можете скопировать ник из списка Зала Славы)</i>"
     m = types.InlineKeyboardMarkup()
@@ -614,7 +614,7 @@ def find_user_dossier_confirm_handler(call):
 
     menu_update(call, txt, m)
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) == "await_dossier_search")
+@bot.message_handler(func=lambda m: cache_db.get_cached_user_state(m.from_user.id) == "await_dossier_search")
 def process_dossier_search(m):
     uid = int(m.from_user.id)
     u = db.get_user(uid)
@@ -635,10 +635,10 @@ def process_dossier_search(m):
 
     if not target_uid:
         bot.send_message(m.chat.id, f"❌ Объект <b>@{target_name}</b> не найден в базе данных.", parse_mode="HTML")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         return
 
-    db.delete_state(uid)
+    db.delete_state(uid); cache_db.clear_cache(uid)
 
     msg = bot.send_message(m.chat.id, "📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nВзлом защищенного сервера. Инициализация протокола «Паспорт Осколка»...", parse_mode="HTML")
 
@@ -736,19 +736,19 @@ def dossier_msg_init(call):
         return
 
     target_uid = int(call.data.split("_")[2])
-    db.set_state(uid, f"await_dossier_msg_{target_uid}")
+    db.set_state(uid, f"await_dossier_msg_{target_uid}"); cache_db.clear_cache(uid)
 
     bot.send_message(uid, "✉️ <b>ОТПРАВКА СООБЩЕНИЯ (100 BC)</b>\nВведите текст сообщения для этого пользователя. Он увидит, от кого оно пришло.", parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
-@bot.message_handler(func=lambda m: db.get_state(m.from_user.id) and str(db.get_state(m.from_user.id)).startswith("await_dossier_msg_"))
+@bot.message_handler(func=lambda m: str(cache_db.get_cached_user_state(m.from_user.id) or "").startswith("await_dossier_msg_"))
 def process_dossier_msg(m):
     uid = int(m.from_user.id)
     state = db.get_state(uid)
     try:
         target_uid = int(state.split("_")[3])
     except:
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         return
 
     u = db.get_user(uid)
@@ -756,7 +756,7 @@ def process_dossier_msg(m):
 
     if int(u.get('biocoin', 0)) < 100:
         bot.send_message(m.chat.id, "❌ Недостаточно BioCoin.")
-        db.delete_state(uid)
+        db.delete_state(uid); cache_db.clear_cache(uid)
         return
 
     msg_text = m.text.strip()

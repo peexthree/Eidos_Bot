@@ -478,6 +478,15 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
         bot.send_message(chat_id, "❌ Не удалось пробить защиту объекта. Системный сбой.", parse_mode="HTML")
         return
 
+    try:
+        with db.db_session() as conn:
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (target_uid, ai_text))
+                conn.commit()
+    except Exception as e:
+        print(f"/// AI WORKER DB INSERT ERROR: {e}")
+
+
     # Use avatar from config based on level
     img_id = config.USER_AVATARS.get(t_level, config.USER_AVATARS.get(1))
 
