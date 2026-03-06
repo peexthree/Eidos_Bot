@@ -118,7 +118,12 @@ def start_handler(m):
             check_daily_streak(uid)
             u = cache_db.get_cached_user(uid)
             bot.send_message(uid, "Инициализация интерфейса...", reply_markup=kb.get_main_reply_keyboard(u))
-            bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
+
+            try:
+                bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
+            except Exception as e:
+                print(f"/// START_HANDLER: Photo send failed, falling back to message: {e}")
+                bot.send_message(uid, get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
             print(f"/// START_HANDLER: Interface initialized for user {uid}")
     except Exception as e:
         print(f"/// START HANDLER CRASH: {e}")

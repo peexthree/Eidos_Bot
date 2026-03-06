@@ -297,7 +297,7 @@ def init_pool():
                     _formatted_db_url = urllib.parse.urlunparse(parsed)
 
                     if not pg_pool:
-                        pg_pool = pool.SimpleConnectionPool(1, 20, _formatted_db_url, options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000', connect_timeout=10)
+                        pg_pool = pool.ThreadedConnectionPool(1, 20, _formatted_db_url, options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000', connect_timeout=10)
 
                     print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED) & POOL INITIALIZED")
                 except Exception as e:
@@ -323,7 +323,7 @@ def db_session():
     is_connection_error = False
 
     try:
-        # print(f"/// DB: Checking out connection from pool...")
+        print(f"/// DB: Checking out connection from pool...")
         conn = pg_pool.getconn()
         yield conn
         conn.commit()
