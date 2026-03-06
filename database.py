@@ -23,7 +23,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 
 # Global Connection Pool
 _formatted_db_url = None
-pg_pool = None
+#
 _pool_lock = threading.Lock()
 
 def fix_indexes():
@@ -274,10 +274,10 @@ TABLE_SCHEMAS = {
 }
 
 def init_pool():
-    global _formatted_db_url, pg_pool
-    if not _formatted_db_url or not pg_pool:
+    global _engine, _formatted_db_url
+    if not _engine:
         with _pool_lock:
-            if not _formatted_db_url or not pg_pool:
+            if not _engine:
                 try:
                     import urllib.parse
                     raw_url = DATABASE_URL
@@ -286,92 +286,77 @@ def init_pool():
                         return
 
                     parsed = urllib.parse.urlparse(raw_url)
+                    # Форсируем порт PgBouncer для Serverless
                     if "supabase" in parsed.netloc and parsed.port == 5432:
-                        # Transaction mode (PgBouncer) is required for serverless
                         new_netloc = parsed.netloc.replace(":5432", ":6543")
                         parsed = parsed._replace(netloc=new_netloc)
 
-                    # Build DSN parameters safely
+                    # Вычищаем мусорные параметры
                     query_params = urllib.parse.parse_qs(parsed.query)
                     if 'pgbouncer' in query_params:
                         del query_params['pgbouncer']
 
                     parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
-                    base_url = urllib.parse.urlunparse(parsed)
 
-                    # Force Keepalives via DSN query string string
-                    # ?keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=5&connect_timeout=10
-                    separator = '&' if '?' in base_url else '?'
-                    _formatted_db_url = f"{base_url}{separator}keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=5&connect_timeout=10"
+                    # SQLAlchemy требует схему postgresql://
+                    if parsed.scheme == 'postgres':
+                        parsed = parsed._replace(scheme='postgresql')
 
-                    if not pg_pool:
-                        print(f"/// DB: Attempting to initialize pool with timeout...")
-                        # Remove custom keepalives kwargs, use only URL and options
-                        pg_pool = pool.ThreadedConnectionPool(
-                            1, 20,
-                            _formatted_db_url,
-                            options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000'
-                        )
+                    _formatted_db_url = urllib.parse.urlunparse(parsed)
 
-                    print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED) & POOL INITIALIZED")
+                    print("/// DB: Initializing SQLAlchemy Engine Pool...")
+                    # ТВЕРДОЕ: Создаем надежный пул без глобальных блокировок
+                    _engine = create_engine(
+                        _formatted_db_url,
+                        pool_size=20,
+                        max_overflow=10,
+                        pool_timeout=15,
+                        pool_pre_ping=True, # АВТОМАТИЧЕСКАЯ ЗАЩИТА ОТ МЕРТВЫХ СОЕДИНЕНИЙ
+                        connect_args={
+                            'connect_timeout': 10,
+                            'options': '-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000'
+                        }
+                    )
+                    print("/// DB ENGINE (SUPABASE TRANSACTIONS ENABLED) & POOL INITIALIZED")
                 except Exception as e:
-                    print(f"/// DB URL INIT ERROR: {e}")
+                    print(f"/// DB ENGINE INIT ERROR: {e}")
                     import traceback
                     traceback.print_exc()
 
 def reset_pool():
-    global pg_pool, _formatted_db_url
+    global _engine, _formatted_db_url
     with _pool_lock:
-        if pg_pool:
+        if _engine:
             try:
-                pg_pool.closeall()
+                _engine.dispose()
             except Exception as e:
                 print(f"/// DB POOL CLOSE ERROR: {e}")
-            pg_pool = None
+            _engine = None
         _formatted_db_url = None
 
 @contextmanager
 def db_session():
-    if not pg_pool:
+    global _engine
+    if not _engine:
         init_pool()
 
     conn = None
-    is_connection_error = False
-
     try:
-        print(f"/// DB: Checking out connection from pool...")
-        conn = pg_pool.getconn()
+        # Получаем чистый объект psycopg2 connection из пула SQLAlchemy
+        conn = _engine.raw_connection()
         yield conn
         conn.commit()
-    except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-        is_connection_error = True
-        if conn:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-        print(f"/// DB CONNECTION ERROR: {e}")
-        print(traceback.format_exc())
-        raise e
     except Exception as e:
         if conn:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-        print(f"/// DB ERROR: {e}")
-        print(traceback.format_exc())
+            try: conn.rollback()
+            except: pass
+        print(f"/// DB SESSION ERROR: {e}")
         raise e
     finally:
-        if conn and pg_pool:
-            try:
-                if is_connection_error or conn.closed != 0:
-                    pg_pool.putconn(conn, close=True)
-                else:
-                    pg_pool.putconn(conn)
-            except Exception as e:
-                print(f"/// DB PUTCONN ERROR: {e}")
-
+        if conn:
+            # Закрытие raw_connection возвращает его живым обратно в пул SQLAlchemy
+            try: conn.close()
+            except: pass
 
 @contextmanager
 def db_cursor(cursor_factory=None):
