@@ -402,7 +402,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                     SET buffer_xp = %s, signal = %s, buffer_coins = %s
                     WHERE uid = %s
                 """, (s['buffer_xp'], s['signal'], s['buffer_coins'], uid))
-                cur.execute("UPDATE players SET is_glitched = TRUE WHERE uid = %s", (uid,))
+                cur.execute("UPDATE players SET is_glitched = TRUE, anomaly_buff_expiry = %s WHERE uid = %s", (int(time.time() + 600), uid))
                 return True, f"🌀 <b>АНОМАЛИЯ</b>\n{glitch_text}", {'alert': strip_html(glitch_text), 'image': RAID_EVENT_IMAGES.get('glitch')}, u, 'glitch', 0
 
             # ПРОВЕРКА БОЯ
