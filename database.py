@@ -23,6 +23,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 
 # Global Connection Pool
 _formatted_db_url = None
+pg_pool = None
 _pool_lock = threading.Lock()
 
 def fix_indexes():
@@ -273,10 +274,10 @@ TABLE_SCHEMAS = {
 }
 
 def init_pool():
-    global _formatted_db_url
-    if not _formatted_db_url:
+    global _formatted_db_url, pg_pool
+    if not _formatted_db_url or not pg_pool:
         with _pool_lock:
-            if not _formatted_db_url:
+            if not _formatted_db_url or not pg_pool:
                 try:
                     import urllib.parse
                     raw_url = DATABASE_URL
@@ -295,27 +296,39 @@ def init_pool():
                     parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
                     _formatted_db_url = urllib.parse.urlunparse(parsed)
 
-                    print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED)")
+                    if not pg_pool:
+                        pg_pool = pool.SimpleConnectionPool(1, 20, _formatted_db_url, options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000', connect_timeout=10)
+
+                    print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED) & POOL INITIALIZED")
                 except Exception as e:
                     print(f"/// DB URL INIT ERROR: {e}")
 
 def reset_pool():
-    pass
+    global pg_pool, _formatted_db_url
+    with _pool_lock:
+        if pg_pool:
+            try:
+                pg_pool.closeall()
+            except Exception as e:
+                print(f"/// DB POOL CLOSE ERROR: {e}")
+            pg_pool = None
+        _formatted_db_url = None
 
 @contextmanager
 def db_session():
-    if not _formatted_db_url:
+    if not pg_pool:
         init_pool()
 
     conn = None
+    is_connection_error = False
 
     try:
-        print(f"/// DB: Attempting connection to {(_formatted_db_url or 'NULL')[:30]}...")
-        conn = psycopg2.connect(_formatted_db_url, options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000', connect_timeout=10)
-        print("/// DB: Connection established.")
+        # print(f"/// DB: Checking out connection from pool...")
+        conn = pg_pool.getconn()
         yield conn
         conn.commit()
     except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+        is_connection_error = True
         if conn:
             try:
                 conn.rollback()
@@ -334,11 +347,14 @@ def db_session():
         print(traceback.format_exc())
         raise e
     finally:
-        if conn:
+        if conn and pg_pool:
             try:
-                conn.close()
-            except Exception:
-                pass
+                if is_connection_error or conn.closed != 0:
+                    pg_pool.putconn(conn, close=True)
+                else:
+                    pg_pool.putconn(conn)
+            except Exception as e:
+                print(f"/// DB PUTCONN ERROR: {e}")
 
 
 @contextmanager
