@@ -306,10 +306,17 @@ def init_pool():
 
                     if not pg_pool:
                         pg_pool = pool.ThreadedConnectionPool(
-            1, 20,
-            _formatted_db_url,
-            options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000'
-        )
+
+                            1, 20,
+                            _formatted_db_url,
+                            options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000',
+                            connect_timeout=10,
+                            keepalives=1,
+                            keepalives_idle=30,
+                            keepalives_interval=10,
+                            keepalives_count=5
+                        )
+
 
                     print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED) & POOL INITIALIZED")
                 except Exception as e:
