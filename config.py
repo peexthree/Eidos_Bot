@@ -4,7 +4,7 @@ import os
 # 1. ТЕХНИЧЕСКИЙ СТАТУС
 # =============================================================================
 TOKEN = os.environ.get('BOT_TOKEN')
-WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
+WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL', 'https://eidos-bot-n5oo.onrender.com')
 DATABASE_URL = os.environ.get('DATABASE_URL')
 try:
     ADMIN_ID = int(os.environ.get('ADMIN_ID'))
