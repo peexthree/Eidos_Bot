@@ -137,18 +137,113 @@ def inventory_api():
         return flask.jsonify({"error": "Missing uid"}), 400
     try:
         uid = int(uid)
+
+        # Get equipped items to populate "doll"
+        equipped = db.get_equipped_items(uid)
+        equipped_data = {}
+        for slot, item_id in equipped.items():
+            if item_id:
+                info = config.ITEMS_INFO.get(item_id, {})
+                equipped_data[slot] = {
+                    "item_id": item_id,
+                    "name": info.get('name', item_id),
+                    "type": info.get('type', 'unknown'),
+                    "desc": info.get('desc', ''),
+                    "rarity": info.get('rarity', 'common')
+                }
+
         items = db.get_inventory(uid)
         inventory_data = []
         for item in items:
             item_id = item.get('item_id')
             qty = item.get('quantity', 0)
             item_info = config.ITEMS_INFO.get(item_id, {})
-            name = item_info.get('name', item_id)
-            inventory_data.append({"name": name, "quantity": qty})
-        return flask.jsonify({"items": inventory_data}), 200
+
+            # Determine type (weapon, armor, consumable, material, etc.)
+            item_type = item_info.get('type', 'misc')
+
+            inventory_data.append({
+                "item_id": item_id,
+                "name": item_info.get('name', item_id),
+                "quantity": qty,
+                "type": item_type,
+                "desc": item_info.get('desc', ''),
+                "rarity": item_info.get('rarity', 'common'),
+                "usable": item_info.get('usable', False)
+            })
+
+        return flask.jsonify({"items": inventory_data, "equipped": equipped_data}), 200
     except Exception as e:
         print(f"/// API INVENTORY ERROR: {e}")
         return flask.jsonify({"error": str(e)}), 500
+
+@app.route('/api/inventory/equip', methods=['POST'])
+def inventory_equip_api():
+    data = flask.request.json
+    uid = data.get('uid')
+    item_id = data.get('item_id')
+
+    if not uid or not item_id:
+        return flask.jsonify({"error": "Missing params"}), 400
+
+    try:
+        uid = int(uid)
+        item_info = config.ITEMS_INFO.get(item_id)
+        if not item_info:
+            return flask.jsonify({"error": "Item not found in database"}), 400
+
+        slot = item_info.get('type')
+        if slot not in ['weapon', 'head', 'body', 'software', 'artifact']:
+            return flask.jsonify({"error": "Item cannot be equipped"}), 400
+
+        # Check if user has the item
+        has_item = db.remove_item_from_inventory(uid, item_id, 1)
+        if not has_item:
+            return flask.jsonify({"error": "You don't have this item"}), 400
+
+        # If something is already equipped, put it back to inventory
+        equipped = db.get_equipped_items(uid)
+        old_item = equipped.get(slot)
+        if old_item:
+            db.add_item_to_inventory(uid, old_item, 1)
+
+        db.equip_item(uid, slot, item_id)
+
+        # Clear cache so menus update
+        import cache_db
+        cache_db.clear_cache(uid)
+
+        return flask.jsonify({"success": True}), 200
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@app.route('/api/inventory/unequip', methods=['POST'])
+def inventory_unequip_api():
+    data = flask.request.json
+    uid = data.get('uid')
+    slot = data.get('slot')
+
+    if not uid or not slot:
+        return flask.jsonify({"error": "Missing params"}), 400
+
+    try:
+        uid = int(uid)
+        equipped = db.get_equipped_items(uid)
+        item_id = equipped.get(slot)
+
+        if not item_id:
+            return flask.jsonify({"error": "Nothing equipped in this slot"}), 400
+
+        db.equip_item(uid, slot, None)
+        db.add_item_to_inventory(uid, item_id, 1)
+
+        import cache_db
+        cache_db.clear_cache(uid)
+
+        return flask.jsonify({"success": True}), 200
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
 
 def system_startup():
     try:
