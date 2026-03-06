@@ -6,7 +6,7 @@ _SessionFactory = None
 import os
 import psycopg2
 from psycopg2 import pool
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, execute_values
 from contextlib import contextmanager
 import time
 import logging
@@ -662,6 +662,18 @@ def _flush_xp_cache():
             try:
                 with db_session() as conn:
                     with conn.cursor() as cur:
+                        uids = list(cache_copy.keys())
+                        if not uids:
+                            continue
+
+                        # Fetch referrers in batch
+                        cur.execute("SELECT uid, referrer FROM players WHERE uid = ANY(%s)", (uids,))
+                        referrers = {row[0]: row[1] for row in cur.fetchall()}
+
+                        player_updates = []
+                        ref_updates = {}
+                        gen_updates = []
+
                         for uid, amount in cache_copy.items():
                             if amount == 0:
                                 continue
@@ -671,19 +683,40 @@ def _flush_xp_cache():
                             actual_amount = amount
 
                             if amount > 0:
-                                cur.execute("SELECT referrer FROM players WHERE uid = %s", (uid,))
-                                res = cur.fetchone()
-
-                                if res and res[0]:
-                                    ref_id = res[0]
+                                ref_id = referrers.get(uid)
+                                if ref_id:
                                     profit = int(amount * 0.1)
                                     actual_amount = amount - profit
 
-                            cur.execute("UPDATE players SET xp = xp + %s WHERE uid = %s", (actual_amount, uid))
+                            player_updates.append((uid, actual_amount))
 
                             if profit > 0 and ref_id:
-                                cur.execute("UPDATE players SET xp = xp + %s, ref_profit_xp = ref_profit_xp + %s WHERE uid = %s", (profit, profit, ref_id))
-                                cur.execute("UPDATE players SET generated_ref_xp = generated_ref_xp + %s WHERE uid = %s", (profit, uid))
+                                # We need to accumulate ref profits in case multiple referrals are updated
+                                if ref_id not in ref_updates:
+                                    ref_updates[ref_id] = 0
+                                ref_updates[ref_id] += profit
+
+                                gen_updates.append((uid, profit))
+
+                        if player_updates:
+                            execute_values(cur,
+                                "UPDATE players SET xp = xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
+                                player_updates
+                            )
+
+                        if ref_updates:
+                            ref_data = [(rid, p) for rid, p in ref_updates.items()]
+                            execute_values(cur,
+                                "UPDATE players SET xp = xp + data.amount, ref_profit_xp = ref_profit_xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
+                                ref_data
+                            )
+
+                        if gen_updates:
+                            execute_values(cur,
+                                "UPDATE players SET generated_ref_xp = generated_ref_xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
+                                gen_updates
+                            )
+
                     conn.commit()
             except Exception as e:
                 print(f"/// XP FLUSH ERROR: {e}")

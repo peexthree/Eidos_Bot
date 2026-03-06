@@ -133,10 +133,7 @@ def webhook():
                 return 'Parse Error', 200
 
             # 3. Process Update
-            try:
-                bot.process_new_updates([update])
-            except Exception as e:
-                print(f"/// TELEBOT WORKER ERROR: {e}")
+            bot.process_new_updates([update])
 
             return 'ALIVE', 200
         except Exception as e:
