@@ -138,7 +138,7 @@ def inventory_api():
     try:
         uid = int(uid)
 
-        # Get equipped items to populate "doll"
+            # Get equipped items to populate "doll"
                 equipped_data[slot] = {
                     "id": item.get("id"), "item_id": item_id,
                     "name": info.get('name', item_id),
