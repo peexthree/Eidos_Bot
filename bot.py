@@ -140,34 +140,40 @@ def inventory_api():
         inventory_data = []
         equipped_data = {}
 
-        def get_image_url(info):
+        def get_image_url(item_id, info):
             if info.get('url'):
                 return info.get('url')
             file_id = info.get('file_id')
+
+            if not file_id:
+                if hasattr(config, 'ITEM_IMAGES') and item_id in config.ITEM_IMAGES:
+                    file_id = config.ITEM_IMAGES[item_id]
+
             if file_id:
                 try:
-                    file_info = bot.get_file(file_id)
-                    return f"https://api.telegram.org/file/bot{TOKEN}/{file_info.file_path}"
+                    return bot.get_file_url(file_id)
                 except Exception as e:
                     print(f"/// API INVENTORY ERROR GETTING FILE_ID: {e}")
             return None
 
-        # 1. Собираем Куклу (надетые вещи)
+        # 1. Загружаем экипировку (исправляем маппинг типов)
         raw_equipped = db.get_user_equipment(uid) if hasattr(db, 'get_user_equipment') else {}
         if raw_equipped:
             for slot, item_id in raw_equipped.items():
                 if item_id:
                     info = config.ITEMS_INFO.get(item_id, {})
-                    equipped_data[slot] = {
+                    # Важно: приводим slot к единому стандарту фронтенда
+                    ui_slot = slot.replace('helmet', 'head').replace('armor', 'body')
+                    equipped_data[ui_slot] = {
                         "item_id": item_id,
                         "name": info.get('name', item_id),
-                        "type": slot,
+                        "type": ui_slot,
                         "desc": info.get('desc', ''),
                         "rarity": info.get('rarity', 'common'),
-                        "image_url": get_image_url(info)
+                        "image_url": get_image_url(item_id, info)
                     }
 
-        # 2. Собираем Инвентарь
+        # 2. Загружаем инвентарь
         items = db.get_inventory(uid)
         for item in items:
             item_id = item.get('item_id')
@@ -179,22 +185,31 @@ def inventory_api():
             qty = item.get('quantity', 0)
             item_info = config.ITEMS_INFO.get(item_id, {})
 
-            # Set type properly for categorization
-            item_type = item_info.get('type')
-            if not item_type:
-                # Fallback to consumable if not in EQUIPMENT_DB and no type given
-                item_type = 'consumable' if item_id not in config.EQUIPMENT_DB else 'misc'
+            # Определяем категорию для фильтров фронтенда
+            raw_type = item_info.get('type', 'misc')
+            category = raw_type
+            if raw_type in ['weapon'] or item_info.get('slot') == 'weapon': category = 'weapon'
+            elif raw_type in ['head', 'helmet', 'body', 'armor'] or item_info.get('slot') in ['head', 'helmet', 'body', 'armor']: category = 'armor'
+            elif raw_type in ['software'] or item_info.get('slot') == 'software': category = 'software'
+            elif raw_type in ['artifact'] or item_info.get('slot') == 'artifact': category = 'artifact'
+            elif raw_type in ['consumable', 'misc']: category = 'consumable'
+            else:
+                if item_id in config.EQUIPMENT_DB:
+                    slot = item_info.get('slot')
+                    if slot in ['head', 'helmet', 'body', 'armor']: category = 'armor'
+                    else: category = slot
+                else: category = 'consumable'
 
             inventory_data.append({
                 "id": item.get("id"),
                 "item_id": item_id,
                 "name": item_info.get('name', item_id),
                 "quantity": qty,
-                "type": item_type,
+                "type": category,
                 "desc": item_info.get('desc', ''),
                 "rarity": item_info.get('rarity', 'common'),
                 "usable": item_info.get('usable', False),
-                "image_url": get_image_url(item_info)
+                "image_url": get_image_url(item_id, item_info)
             })
 
         return flask.jsonify({"items": inventory_data, "equipped": equipped_data}), 200

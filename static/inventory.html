@@ -567,16 +567,16 @@
             let filtered = currentInventory;
             if (filter !== 'all') {
                 if (filter === 'equip') {
-                    filtered = currentInventory.filter(i => ['weapon', 'head', 'body'].includes(i.type));
+                    filtered = currentInventory.filter(i => ['weapon', 'armor'].includes(i.type));
                 } else if (filter === 'consumable') {
-                    filtered = currentInventory.filter(i => i.type === 'consumable' || !['weapon', 'head', 'body', 'software', 'artifact'].includes(i.type));
+                    filtered = currentInventory.filter(i => i.type === 'consumable' || !['weapon', 'armor', 'software', 'artifact'].includes(i.type));
                 } else {
                     filtered = currentInventory.filter(i => i.type === filter);
                 }
             }
 
             if (filtered.length === 0) {
-                itemsDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: rgba(255,255,255,0.5);">Ничего не найдено</div>';
+                itemsDiv.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); width: 100%;">Ничего не найдено</div>';
                 return;
             }
 
@@ -595,12 +595,12 @@
 
                 let iconHtml = `<span style="color:${color}">${icon}</span>`;
                 if (item.image_url) {
-                    iconHtml = `<img src="${item.image_url}" alt="icon" onerror="this.outerHTML='<span style=\\'color:${color}\\'>${icon}</span>'">`;
+                    iconHtml = `<img src="${item.image_url}" alt="icon" onerror="this.outerHTML='<span style=\\'color:${color}\\'>${icon}</span>'" style="width:100%; height:100%; object-fit:contain;">`;
                 }
 
                 itemEl.innerHTML = `
                     <div class="item-icon">${iconHtml}</div>
-                    <div class="item-details">
+                    <div class="item-info-block">
                         <div class="item-rarity-label" style="color:${color}">${rName}</div>
                         <div class="item-name">${displayName}</div>
                     </div>
