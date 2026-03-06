@@ -109,32 +109,16 @@ def health_check():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    print("/// WEBHOOK ENDPOINT HIT")
     if flask.request.method == 'POST':
         try:
-            # 1. Get raw data
             json_string = flask.request.get_data().decode('utf-8')
-            print(f"/// WEBHOOK RECEIVED PAYLOAD: {json_string}")
             if not json_string:
-                print("/// WEBHOOK ERROR: Received empty payload")
                 return 'Empty Data', 200
 
-            # 2. Parse JSON safely
-            try:
-                update = telebot.types.Update.de_json(json_string)
-                if update is None:
-                    print("/// WEBHOOK ERROR: telebot.types.Update.de_json returned None")
-                    return 'Invalid JSON', 200
-            except TypeError:
-                print(f"/// WEBHOOK WARNING: Received 'null' or invalid payload.")
-                return 'Invalid Payload', 200
-            except Exception as e:
-                print(f"/// WEBHOOK PARSE ERROR: {e}")
-                return 'Parse Error', 200
-
-            # 3. Process Update
-            bot.process_new_updates([update])
-
+            update = telebot.types.Update.de_json(json_string)
+            if update:
+                # Отдаем апдейт напрямую телеботу. Никаких threading.Thread(target=process_update_safe)
+                bot.process_new_updates([update])
             return 'ALIVE', 200
         except Exception as e:
             print(f"/// WEBHOOK CRITICAL ERROR: {e}")

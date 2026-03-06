@@ -1,6 +1,7 @@
 import time
 from datetime import date
 import database as db
+_top_1_cache = {"uid": None, "stats": None, "timestamp": 0}
 from config import LEVELS, LEVEL_UP_MSG, ACHIEVEMENTS_LIST, ITEMS_INFO
 
 def check_daily_streak(uid):
@@ -231,37 +232,37 @@ def get_user_stats(uid):
 
     # --- IMPOSTER SYNDROME (Chip) ---
     if eq.get('chip') == 'imposter_syndrome':
+        global _top_1_cache
+        now = time.time()
 
-        # Fetch Top 1 stats
-        import cache_db
-        top_user_data = cache_db.get_cached_state('top_1_user_imposter', lambda: db.get_leaderboard(limit=1, sort_by='xp'), ttl=300.0)
-
-        if top_user_data:
-            top_u = top_user_data[0]
-            # Avoid self-copy if already top 1? The item says "copy ... player at 1st place".
-            # If self is 1st, it copies self (no change).
-            if str(top_u['uid']) != str(uid):
-                # We need to get stats of that user.
-                # WARNING: Recursion if we call get_user_stats again?
-                # No, db.get_equipped_items is separate.
-                # But get_user_stats calls get_equipped_items.
-                # We need to calculate their stats manually here to avoid recursion loop if they also have Imposter Syndrome (though unlikely to matter, just one level).
-                # Actually, better to just get their base stats from equipment.
-
+        # Кэшируем Топ-1 на 5 минут (300 секунд), чтобы не убить базу
+        if now - _top_1_cache["timestamp"] > 300:
+            top_user_data = db.get_leaderboard(limit=1, sort_by='xp')
+            if top_user_data:
+                top_u = top_user_data[0]
                 top_eq = db.get_equipped_items(top_u['uid'])
                 top_stats = {'atk': 0, 'def': 0, 'luck': 0}
+
                 for _, t_item in top_eq.items():
                     t_info = ITEMS_INFO.get(t_item, {})
                     top_stats['atk'] += t_info.get('atk', 0)
                     top_stats['def'] += t_info.get('def', 0)
                     top_stats['luck'] += t_info.get('luck', 0)
 
-                # Apply school bonus for them
                 top_path = top_u.get('path') or 'general'
                 if top_path == 'mind': top_stats['def'] += 10
                 elif top_path == 'tech': top_stats['luck'] += 10
+                elif top_path == 'architect':
+                    top_stats['atk'] += 20
+                    top_stats['def'] += 20
+                    top_stats['luck'] += 20
 
-                stats = top_stats
+                _top_1_cache["uid"] = str(top_u['uid'])
+                _top_1_cache["stats"] = top_stats
+                _top_1_cache["timestamp"] = now
+
+        if _top_1_cache["stats"] and _top_1_cache["uid"] != str(uid):
+            stats = _top_1_cache["stats"].copy()
 
     return stats, u
 
