@@ -231,8 +231,9 @@ def get_user_stats(uid):
 
     # --- IMPOSTER SYNDROME (Chip) ---
     if eq.get('chip') == 'imposter_syndrome':
-        # Fetch Top 1 stats
-        top_user_data = db.get_leaderboard(limit=1, sort_by='xp')
+        # Fetch Top 1 stats (Cached)
+        import cache_db
+        top_user_data = cache_db.get_cached_state("leaderboard_top_1", lambda: db.get_leaderboard(limit=1, sort_by='xp'), ttl=300)
         if top_user_data:
             top_u = top_user_data[0]
             # Avoid self-copy if already top 1? The item says "copy ... player at 1st place".
