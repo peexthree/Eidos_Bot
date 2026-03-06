@@ -40,20 +40,12 @@ def sanitize_for_telegram(text: str) -> str:
     if not text:
         return ""
 
-    # Заменяем markdown жирный шрифт на HTML
     text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
-    # Заменяем markdown курсив на HTML
     text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
-
-    # Заменяем <br> и <p> на переносы строк
     text = re.sub(r'</?(br|p|div)>', '\n', text, flags=re.IGNORECASE)
-
-    # Убираем списки, заменяя <li> на маркер
     text = re.sub(r'<li>(.*?)</li>', r'• \1\n', text, flags=re.IGNORECASE|re.DOTALL)
     text = re.sub(r'</?(ul|ol|li)>', '', text, flags=re.IGNORECASE)
 
-    # Удаляем все теги, кроме разрешенных Telegram (b, strong, i, em, u, ins, s, strike, del, a, code, pre)
-    # Удаляем любые теги, которых нет в белом списке:
     allowed_tags = ['b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del', 'a', 'code', 'pre']
     tag_pattern = r'</?([a-zA-Z0-9]+)[^>]*>'
 
@@ -65,7 +57,6 @@ def sanitize_for_telegram(text: str) -> str:
 
     text = re.sub(tag_pattern, replacer, text)
 
-    # Защита от незакрытых тегов (базовая)
     for tag in ['b', 'i', 'code', 'u', 's', 'strong', 'em']:
         open_count = text.lower().count(f'<{tag}>')
         close_count = text.lower().count(f'</{tag}>')
@@ -82,15 +73,12 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
             except: pass
         return
 
-    """
-    Background worker for communicating with OpenRouter.
-    Includes retry logic and caching for Dossier.
-    """
     bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
 
     metrics = db.get_user_shadow_metrics(uid)
-    if not metrics:
-        bot.send_message(chat_id, "👁‍🗨 Сбой. Твоя телеметрия пуста. Ты призрак в этой системе.")
+    # ТВЕРДОЕ: Пустой словарь {} - это норма. Проверяем только на None.
+    if metrics is None:
+        bot.send_message(chat_id, "👁‍🗨 Сбой. Твоя телеметрия не найдена в базе данных.")
         return
 
     if not OPENROUTER_API_KEY:
@@ -120,7 +108,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
     for attempt in range(retries):
         response = None
         try:
-            print(f"/// DEBUG AI CALL: URL=OPENROUTER_URL, MODEL='{OPENROUTER_MODEL}'")
+            print(f"/// DEBUG AI CALL: URL={OPENROUTER_URL}, MODEL='{OPENROUTER_MODEL}'")
             response = requests.post(
                 OPENROUTER_URL,
                 headers=headers,
@@ -148,7 +136,20 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
     if result_text:
         result_text = sanitize_for_telegram(result_text)
 
-        # Send result
+        # === СОХРАНЕНИЕ ДОСЬЕ В БД (ТВЕРДОЕ) ===
+        if analysis_type == 'dossier':
+            try:
+                with db.db_session() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) "
+                            "ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", 
+                            (uid, result_text)
+                        )
+            except Exception as e:
+                print(f"/// AI WORKER DB SAVE ERROR: {e}")
+        # ==========================================
+
         final_msg = f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}"
         for i in range(0, len(final_msg), 4000):
             chunk = final_msg[i:i+4000]
@@ -170,10 +171,6 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             except: pass
         return
 
-    """
-    Background worker for Voice of Eidos.
-    Analyzes metrics and generates a personal artifact.
-    """
     bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
 
     if not OPENROUTER_API_KEY:
@@ -181,8 +178,9 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
         return
 
     metrics = db.get_user_shadow_metrics(uid)
-    if not metrics:
-        bot.send_message(chat_id, "👁‍🗨 Сбой. Твоя телеметрия пуста. Ты призрак в этой системе.")
+    # ИСПРАВЛЕНО: проверяем на None
+    if metrics is None:
+        bot.send_message(chat_id, "👁‍🗨 Сбой. Твоя телеметрия не найдена.")
         return
 
     problem_context = f"\nПроблема носителя: {user_text}" if user_text else "\nАнализ текущего вектора (автоматический режим)."
@@ -219,7 +217,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
     for attempt in range(retries):
         response = None
         try:
-            print(f"/// DEBUG AI CALL: URL=OPENROUTER_URL, MODEL='{OPENROUTER_MODEL}'")
+            print(f"/// DEBUG AI CALL: URL={OPENROUTER_URL}, MODEL='{OPENROUTER_MODEL}'")
             response = requests.post(
                 OPENROUTER_URL,
                 headers=headers,
@@ -254,14 +252,12 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
         bot.send_message(chat_id, "👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.")
         return
 
-    # Обработка выдачи артефакта в БД
     try:
         u = db.get_user(uid)
         first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
         total_spent = u.get('total_spent', 0) if u else 0
         current_level = max(1, total_spent // 500)
 
-        # Remove from inventory to enforce singleton in equipment
         with db.db_session() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = 'eidos_shard'", (uid,))
@@ -288,7 +284,6 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
 
     artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
 
-    # Split text if necessary since captions are limited to 1024 characters
     final_caption = (
         f"📦 МАТЕРИАЛИЗОВАН АРТЕФАКТ: Синхронизатор Абсолюта: [{first_name}] (Уровень {current_level})\n"
         f"Слот: Ментальное Ядро\n"
@@ -297,7 +292,6 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
 
     final_msg = f"👁 ГЛАС ЭЙДОСА:\n\n{result_text}"
 
-    # Send response text first
     for i in range(0, len(final_msg), 4000):
         chunk = final_msg[i:i+4000]
         try:
@@ -306,9 +300,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             print(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
             bot.send_message(chat_id, chunk)
 
-    # Send artifact image
     if len(final_caption) > 1024:
-        # If the caption itself is somehow too long, send image then text
         try:
             bot.send_photo(chat_id, artifact_img_id)
             for i in range(0, len(final_caption), 4000):
@@ -329,7 +321,6 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
             except: pass
         return
 
-    # Generates the CIA/Cyberpunk style Dossier for a specific user
     import config
     import database as db
     from modules.services.user import get_profile_stats
@@ -338,7 +329,6 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     import time
     import requests
     import urllib.parse
-    from modules.services.ai_worker import OPENROUTER_API_KEY, OPENROUTER_MODEL, OPENROUTER_URL, sanitize_for_telegram
 
     def update_progress(perc, status):
         if loading_msg_id:
@@ -367,14 +357,13 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     raid_count = profile_stats.get('raid_count', 0) if profile_stats else 0
     max_depth = profile_stats.get('max_depth', 0) if profile_stats else 0
 
-    # Fetch glitches count (hacks)
-    shadows = db.get_user_shadow_metrics(target_uid)
+    # ИСПРАВЛЕНО: Защита от пустых теней
+    shadows = db.get_user_shadow_metrics(target_uid) or {}
     glitches_count = shadows.get('glitches_encountered_count', 0)
     stability = max(0, 100 - (glitches_count * 7))
 
     update_progress(50, "Компиляция психопрофиля")
 
-    # Fetch equipment ONLY (no consumables)
     equip_list = []
     with db.db_cursor() as cur:
         if cur:
@@ -486,8 +475,6 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     except Exception as e:
         print(f"/// AI WORKER DB INSERT ERROR: {e}")
 
-
-    # Use avatar from config based on level
     img_id = config.USER_AVATARS.get(t_level, config.USER_AVATARS.get(1))
 
     from telebot import types
