@@ -5,3 +5,8 @@ gunicorn
 alembic
 requests
 sentry-sdk
+redis
+ujson
+apscheduler
+pydantic
+openai

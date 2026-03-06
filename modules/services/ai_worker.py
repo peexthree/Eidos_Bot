@@ -1,13 +1,21 @@
 import cache_db
 import os
-import json
+import ujson as json
 import time
 import requests
 import database as db
+from openai import OpenAI
+import re
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
+
+# Initialize OpenAI Client pointing to OpenRouter
+ai_client = OpenAI(
+    base_url=OPENROUTER_URL,
+    api_key=OPENROUTER_API_KEY,
+)
 
 PROMPTS = {
     'dossier': (
@@ -30,13 +38,7 @@ PROMPTS = {
     )
 }
 
-import re
-
 def sanitize_for_telegram(text: str) -> str:
-    """
-    Удаляет неподдерживаемые теги (например, списки, абзацы)
-    и конвертирует базовый маркдаун в HTML.
-    """
     if not text:
         return ""
 
@@ -65,78 +67,63 @@ def sanitize_for_telegram(text: str) -> str:
 
     return text.strip()
 
+def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
+    try:
+        stream = ai_client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content}
+            ],
+            stream=True
+        )
+
+        full_text = ""
+        last_edit_time = time.time()
+
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                full_text += chunk.choices[0].delta.content
+
+                # Update every 1.5s to avoid flood control
+                if time.time() - last_edit_time > 1.5:
+                    sanitized_chunk = sanitize_for_telegram(full_text)
+                    try:
+                        bot.edit_message_text(f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{sanitized_chunk} █", chat_id=chat_id, message_id=msg_id, parse_mode="HTML")
+                        last_edit_time = time.time()
+                    except Exception as e:
+                        if "message is not modified" not in str(e).lower():
+                            print(f"/// AI STREAM UPDATE ERR: {e}")
+
+        return full_text
+    except Exception as e:
+        print(f"/// AI STREAM API ERR: {e}")
+        return None
+
 def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
     if cache_db.check_throttle(uid, 'generate_eidos_response_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
-        if 'loading_msg_id' in locals() and loading_msg_id:
-            try: bot.delete_message(chat_id, loading_msg_id)
-            except: pass
         return
 
-    bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
+    init_msg = bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
 
     metrics = db.get_user_shadow_metrics(uid)
-    # ТВЕРДОЕ: Пустой словарь {} - это норма. Проверяем только на None.
     if metrics is None:
-        bot.send_message(chat_id, "👁‍🗨 Сбой. Твоя телеметрия не найдена в базе данных.")
+        bot.edit_message_text("👁‍🗨 Сбой. Твоя телеметрия не найдена в базе данных.", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
     if not OPENROUTER_API_KEY:
-        bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено (API_KEY missing).")
+        bot.edit_message_text("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено (API_KEY missing).", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
     system_prompt = PROMPTS.get(analysis_type, PROMPTS['dossier'])
+    user_content = f"Сырые метрики (shadow_metrics): {json.dumps(metrics)}"
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Сырые метрики (shadow_metrics): {json.dumps(metrics)}"}
-        ]
-    }
-
-    retries = 3
-    delay = 5
-    result_text = None
-    auth_failed = False
-
-    for attempt in range(retries):
-        response = None
-        try:
-            print(f"/// DEBUG AI CALL: URL={OPENROUTER_URL}, MODEL='{OPENROUTER_MODEL}'")
-            response = requests.post(
-                OPENROUTER_URL,
-                headers=headers,
-                json=payload,
-                timeout=45
-            )
-
-            if response.status_code == 401:
-                auth_failed = True
-                print("/// AI WORKER CRITICAL: OpenRouter 401 Unauthorized. Check OPENROUTER_API_KEY.")
-                break
-
-            response.raise_for_status()
-            data = response.json()
-            result_text = data['choices'][0]['message']['content']
-            break
-        except Exception as e:
-            error_body = getattr(response, 'text', 'No Response Body')
-            print(f"/// AI WORKER ERROR (Attempt {attempt+1}/{retries}): {e} | Body: {error_body}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-            else:
-                pass
+    result_text = stream_ai_response(bot, chat_id, init_msg.message_id, system_prompt, user_content)
 
     if result_text:
         result_text = sanitize_for_telegram(result_text)
 
-        # === СОХРАНЕНИЕ ДОСЬЕ В БД (ТВЕРДОЕ) ===
         if analysis_type == 'dossier':
             try:
                 with db.db_session() as conn:
@@ -148,39 +135,30 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
                         )
             except Exception as e:
                 print(f"/// AI WORKER DB SAVE ERROR: {e}")
-        # ==========================================
 
-        final_msg = f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}"
-        for i in range(0, len(final_msg), 4000):
-            chunk = final_msg[i:i+4000]
-            try:
-                bot.send_message(chat_id, chunk, parse_mode="HTML")
-            except Exception as e:
-                print(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
-                bot.send_message(chat_id, chunk)
-    elif auth_failed:
-        bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро отклонило запрос авторизации. Администратор уведомлен.")
+        # Final update to remove cursor block
+        try:
+            bot.edit_message_text(f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}", chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
+        except Exception as e:
+            if "message is not modified" not in str(e).lower():
+                print(f"/// FINAL MSG ERR: {e}")
     else:
-        bot.send_message(chat_id, "👁‍🗨 Нейро-ядро перегружено. Твоя телеметрия сохранена. Повтори запрос позже.")
+        bot.edit_message_text("👁‍🗨 Нейро-ядро перегружено. Твоя телеметрия сохранена. Повтори запрос позже.", chat_id=chat_id, message_id=init_msg.message_id)
 
 def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
     if cache_db.check_throttle(uid, 'generate_eidos_voice_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
-        if 'loading_msg_id' in locals() and loading_msg_id:
-            try: bot.delete_message(chat_id, loading_msg_id)
-            except: pass
         return
 
-    bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
+    init_msg = bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
 
     if not OPENROUTER_API_KEY:
-        bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено.")
+        bot.edit_message_text("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено.", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
     metrics = db.get_user_shadow_metrics(uid)
-    # ИСПРАВЛЕНО: проверяем на None
     if metrics is None:
-        bot.send_message(chat_id, "👁‍🗨 Сбой. Твоя телеметрия не найдена.")
+        bot.edit_message_text("👁‍🗨 Сбой. Твоя телеметрия не найдена.", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
     problem_context = f"\nПроблема носителя: {user_text}" if user_text else "\nАнализ текущего вектора (автоматический режим)."
@@ -194,63 +172,33 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
         "Ответ ДОЛЖЕН БЫТЬ строго в формате JSON без дополнительных комментариев, содержать ключи 'response_text' и 'artifact_lore'."
     )
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    try:
+        response = ai_client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
+            ]
+        )
 
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
-        ]
-    }
-
-    retries = 3
-    delay = 5
-    result_text = None
-    artifact_lore = None
-    auth_failed = False
-
-    for attempt in range(retries):
-        response = None
-        try:
-            print(f"/// DEBUG AI CALL: URL={OPENROUTER_URL}, MODEL='{OPENROUTER_MODEL}'")
-            response = requests.post(
-                OPENROUTER_URL,
-                headers=headers,
-                json=payload,
-                timeout=45
-            )
-
-            if response.status_code == 401:
-                auth_failed = True
-                print("/// AI WORKER CRITICAL: OpenRouter 401 Unauthorized. Check OPENROUTER_API_KEY.")
-                break
-
-            response.raise_for_status()
-            data = response.json()
-            result_json = data['choices'][0]['message']['content']
-
-            parsed = json.loads(result_json)
-            result_text = sanitize_for_telegram(parsed.get('response_text', 'Сбой декомпиляции.'))
-            artifact_lore = sanitize_for_telegram(parsed.get('artifact_lore', 'Память утеряна.'))
-            break
-        except Exception as e:
-            error_body = getattr(response, 'text', 'No Response Body')
-            print(f"/// AI WORKER VOICE ERROR (Attempt {attempt+1}/{retries}): {e} | Body: {error_body}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-
-    if auth_failed:
-        bot.send_message(chat_id, "👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро отклонило запрос авторизации. Администратор уведомлен.")
+        result_json = response.choices[0].message.content
+        parsed = json.loads(result_json)
+        result_text = sanitize_for_telegram(parsed.get('response_text', 'Сбой декомпиляции.'))
+        artifact_lore = sanitize_for_telegram(parsed.get('artifact_lore', 'Память утеряна.'))
+    except Exception as e:
+        print(f"/// AI WORKER VOICE ERROR: {e}")
+        bot.edit_message_text("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
     if not result_text or not artifact_lore:
-        bot.send_message(chat_id, "👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.")
+        bot.edit_message_text("👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.", chat_id=chat_id, message_id=init_msg.message_id)
         return
+
+    try:
+        bot.delete_message(chat_id, init_msg.message_id)
+    except:
+        pass
 
     try:
         u = db.get_user(uid)
@@ -270,13 +218,13 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
 
         with db.db_session() as conn:
             with conn.cursor() as cur:
-                 cur.execute("""
+                 cur.execute(\"\"\"
                      INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data)
                      VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s)
                      ON CONFLICT (uid, slot) DO UPDATE SET
                          item_id = EXCLUDED.item_id,
                          custom_data = EXCLUDED.custom_data
-                 """, (uid, new_custom_data))
+                 \"\"\", (uid, new_custom_data))
     except Exception as e:
         print(f"/// AI WORKER DB ERROR: {e}")
         bot.send_message(chat_id, "👁‍🗨 Сбой записи артефакта в матрицу.")
