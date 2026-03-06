@@ -287,40 +287,37 @@ def init_pool():
 
                     parsed = urllib.parse.urlparse(raw_url)
                     if "supabase" in parsed.netloc and parsed.port == 5432:
+                        # Transaction mode (PgBouncer) is required for serverless
                         new_netloc = parsed.netloc.replace(":5432", ":6543")
                         parsed = parsed._replace(netloc=new_netloc)
 
+                    # Build DSN parameters safely
                     query_params = urllib.parse.parse_qs(parsed.query)
                     if 'pgbouncer' in query_params:
                         del query_params['pgbouncer']
 
-                    # Enable TCP keepalives to prevent hanging on dropped connections
-                    query_params['keepalives'] = ['1']
-                    query_params['keepalives_idle'] = ['30']
-                    query_params['keepalives_interval'] = ['10']
-                    query_params['keepalives_count'] = ['5']
-                    query_params['connect_timeout'] = ['10']
-
                     parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
-                    _formatted_db_url = urllib.parse.urlunparse(parsed)
+                    base_url = urllib.parse.urlunparse(parsed)
+
+                    # Force Keepalives via DSN query string string
+                    # ?keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=5&connect_timeout=10
+                    separator = '&' if '?' in base_url else '?'
+                    _formatted_db_url = f"{base_url}{separator}keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=5&connect_timeout=10"
 
                     if not pg_pool:
+                        print(f"/// DB: Attempting to initialize pool with timeout...")
+                        # Remove custom keepalives kwargs, use only URL and options
                         pg_pool = pool.ThreadedConnectionPool(
-
                             1, 20,
                             _formatted_db_url,
-                            options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000',
-                            connect_timeout=10,
-                            keepalives=1,
-                            keepalives_idle=30,
-                            keepalives_interval=10,
-                            keepalives_count=5
+                            options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000'
                         )
-
 
                     print("/// DB URL FORMATTED (SUPABASE TRANSACTIONS ENABLED) & POOL INITIALIZED")
                 except Exception as e:
                     print(f"/// DB URL INIT ERROR: {e}")
+                    import traceback
+                    traceback.print_exc()
 
 def reset_pool():
     global pg_pool, _formatted_db_url
@@ -342,7 +339,7 @@ def db_session():
     is_connection_error = False
 
     try:
-        # print(f"/// DB: Checking out connection from pool...")
+        print(f"/// DB: Checking out connection from pool...")
         conn = pg_pool.getconn()
         yield conn
         conn.commit()
@@ -610,15 +607,21 @@ def _sanitize_player_data(data_dict):
 
 def get_user(uid, cursor=None):
     def _execute_logic(cur, uid):
-        cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
-        res = cur.fetchone()
-        if res:
-            if hasattr(res, 'keys'):
-                return _sanitize_player_data(dict(res))
-            else:
-                cols = [desc[0] for desc in cur.description]
-                return _sanitize_player_data(dict(zip(cols, res)))
-        return None
+        try:
+            print(f"/// DB GET_USER: Executing query for {uid}...")
+            cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
+            res = cur.fetchone()
+            print(f"/// DB GET_USER: Query done.")
+            if res:
+                if hasattr(res, 'keys'):
+                    return _sanitize_player_data(dict(res))
+                else:
+                    cols = [desc[0] for desc in cur.description]
+                    return _sanitize_player_data(dict(zip(cols, res)))
+            return None
+        except Exception as e:
+            print(f"/// DB GET_USER ERROR: {e}")
+            raise e
 
     if cursor:
         return _execute_logic(cursor, uid)
