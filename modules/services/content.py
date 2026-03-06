@@ -10,24 +10,19 @@ def get_content_logic(c_type, path='general', level=1, decoder=False):
     if c_type == 'protocol':
         path = 'all'
 
-    # 1. Try DB first
-    with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
-        query = "SELECT * FROM content WHERE type=%s AND level <= %s"
-        params = [c_type, level]
-
+    # 1. Try DB Cache first
+    db_items = db.get_content_cached(c_type)
+    if db_items:
+        # Filter in memory
+        filtered_db = [i for i in db_items if i['level'] <= level]
         if path != 'all':
-            if path != 'general':
-                query += " AND (path=%s OR path='general')"
-                params.append(path)
+            if path == 'general':
+                filtered_db = [i for i in filtered_db if i['path'] == 'general']
             else:
-                query += " AND path='general'"
-        # If 'all', we don't filter by path, so we get random path
+                filtered_db = [i for i in filtered_db if i['path'] == path or i['path'] == 'general']
 
-        query += " ORDER BY RANDOM() LIMIT 1"
-        cur.execute(query, tuple(params))
-        res = cur.fetchone()
-
-        if res: return res
+        if filtered_db:
+            return random.choice(filtered_db)
 
     # 2. Fallback to PRESETS
     pool = []

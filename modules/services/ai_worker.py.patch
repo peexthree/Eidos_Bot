@@ -1,7 +1,0 @@
-<<<<<<< SEARCH
-                    if eid in config.ITEMS_INFO:
-                        equip_lore += f"- {config.ITEMS_INFO[eid]['name']} ({config.ITEMS_INFO[eid].get('desc', 'Локальные данные утеряны')})\n"
-=======
-                    if eid in config.ITEMS_INFO:
-                        equip_lore += f"- {config.ITEMS_INFO[eid]['name']} ({config.ITEMS_INFO[eid].get('desc', 'Локальные данные утеряны')})\n"
->>>>>>> REPLACE

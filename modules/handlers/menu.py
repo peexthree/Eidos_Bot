@@ -640,8 +640,8 @@ def process_dossier_search(m):
 
     from modules.services.ai_worker import generate_user_dossier_worker
     import threading
-    t = threading.Thread(target=generate_user_dossier_worker, args=(bot, m.chat.id, uid, target_user_data, msg.message_id))
-    t.start()
+    from modules.services.worker_queue import enqueue_task
+    enqueue_task(generate_user_dossier_worker, m.chat.id, uid, target_user_data, msg.message_id)
 
 
 
