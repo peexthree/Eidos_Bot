@@ -140,6 +140,35 @@ def inventory_api():
         inventory_data = []
         equipped_data = {}
 
+        # Profile Data Fetching
+        user = db.get_user(uid)
+        profile_data = {}
+        if user:
+            level = user.get('level', 1)
+            avatar_file_id = config.USER_AVATARS.get(level, config.USER_AVATARS.get(1))
+            avatar_url = None
+            if avatar_file_id:
+                try:
+                    avatar_url = bot.get_file_url(avatar_file_id)
+                except Exception as e:
+                    print(f"/// API INVENTORY ERROR GETTING AVATAR: {e}")
+
+            from modules.services.utils import get_user_display_name
+
+            # Using basic stats logic
+            path_str = str(user.get('path', 'general')).lower()
+            faction_name = config.SCHOOLS.get(path_str, "НЕОФИТ")
+
+            profile_data = {
+                "name": get_user_display_name(user),
+                "username": user.get('username', ''),
+                "level": level,
+                "faction": faction_name,
+                "biocoin": user.get('biocoin', 0),
+                "xp": user.get('xp', 0),
+                "avatar_url": avatar_url
+            }
+
         def get_image_url(item_id, info):
             if info.get('url'):
                 return info.get('url')
@@ -156,8 +185,9 @@ def inventory_api():
                     print(f"/// API INVENTORY ERROR GETTING FILE_ID: {e}")
             return None
 
-        # 1. Загружаем экипировку (исправляем маппинг типов)
+        # 1. Загружаем экипировку
         raw_equipped = db.get_user_equipment(uid) if hasattr(db, 'get_user_equipment') else {}
+        print(f"/// API INVENTORY [uid={uid}] raw_equipped: {raw_equipped}")
         if raw_equipped:
             for slot, item_id in raw_equipped.items():
                 if item_id:
@@ -175,6 +205,8 @@ def inventory_api():
 
         # 2. Загружаем инвентарь
         items = db.get_inventory(uid)
+        print(f"/// API INVENTORY [uid={uid}] items raw count: {len(items)}")
+
         for item in items:
             item_id = item.get('item_id')
 
@@ -188,17 +220,29 @@ def inventory_api():
             # Определяем категорию для фильтров фронтенда
             raw_type = item_info.get('type', 'misc')
             category = raw_type
-            if raw_type in ['weapon'] or item_info.get('slot') == 'weapon': category = 'weapon'
-            elif raw_type in ['head', 'helmet', 'body', 'armor'] or item_info.get('slot') in ['head', 'helmet', 'body', 'armor']: category = 'armor'
-            elif raw_type in ['software'] or item_info.get('slot') == 'software': category = 'software'
-            elif raw_type in ['artifact'] or item_info.get('slot') == 'artifact': category = 'artifact'
-            elif raw_type in ['consumable', 'misc']: category = 'consumable'
+
+            # IMPROVED CATEGORIZATION
+            if raw_type in ['weapon'] or item_info.get('slot') == 'weapon':
+                category = 'weapon'
+            elif raw_type in ['head', 'helmet', 'body', 'armor'] or item_info.get('slot') in ['head', 'helmet', 'body', 'armor']:
+                category = 'equip' # Front uses 'equip' for armor and weapon combined sometimes, but tabs are 'equip', 'software', 'artifact', 'consumable'
+            elif raw_type in ['software'] or item_info.get('slot') == 'software':
+                category = 'software'
+            elif raw_type in ['artifact'] or item_info.get('slot') == 'artifact':
+                category = 'artifact'
+            elif raw_type in ['consumable', 'misc']:
+                category = 'consumable'
             else:
                 if item_id in config.EQUIPMENT_DB:
                     slot = item_info.get('slot')
-                    if slot in ['head', 'helmet', 'body', 'armor']: category = 'armor'
-                    else: category = slot
-                else: category = 'consumable'
+                    if slot in ['head', 'helmet', 'body', 'armor']:
+                        category = 'equip'
+                    else:
+                        category = slot
+                else:
+                    category = 'consumable'
+
+            print(f"/// API INVENTORY [uid={uid}] Processing item: {item_id}, qty: {qty}, assigned_category: {category}")
 
             inventory_data.append({
                 "id": item.get("id"),
@@ -212,9 +256,12 @@ def inventory_api():
                 "image_url": get_image_url(item_id, item_info)
             })
 
-        return flask.jsonify({"items": inventory_data, "equipped": equipped_data}), 200
+        print(f"/// API INVENTORY [uid={uid}] Returning {len(inventory_data)} items and {len(equipped_data)} equipped.")
+        return flask.jsonify({"items": inventory_data, "equipped": equipped_data, "profile": profile_data}), 200
     except Exception as e:
         print(f"/// API INVENTORY ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return flask.jsonify({"error": str(e)}), 500
 
 @app.route('/api/inventory/equip', methods=['POST'])

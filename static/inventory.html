@@ -402,6 +402,127 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
+
+        .profile-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--neon-blue);
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s;
+            z-index: 20;
+        }
+
+        .profile-btn:active {
+            transform: scale(0.9);
+        }
+
+        .profile-btn img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s;
+        }
+
+        .profile-content {
+            background: var(--card-bg);
+            border: 1px solid var(--neon-blue);
+            border-radius: 16px;
+            padding: 25px;
+            width: 85%;
+            max-width: 350px;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
+            position: relative;
+            text-align: center;
+            transform: scale(0.9);
+            animation: popIn 0.3s forwards;
+        }
+
+        @keyframes popIn {
+            to { transform: scale(1); }
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 3px solid var(--neon-blue);
+            margin: -60px auto 15px auto;
+            background: var(--bg-color);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+            overflow: hidden;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-main);
+            margin-bottom: 5px;
+            text-shadow: 0 0 5px rgba(255,255,255,0.3);
+        }
+
+        .profile-faction {
+            font-size: 14px;
+            color: var(--neon-blue);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .profile-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-box {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .stat-val {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--text-main);
+            margin-bottom: 2px;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--hint-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
     </style>
 
 </head>
@@ -410,6 +531,9 @@
     <div class="header">
         <h1>Инвентарь Осколка</h1>
         <div class="status-bar" id="status">Синхронизация с узлом...</div>
+        <div class="profile-btn" onclick="openProfileModal()">
+            <img id="header-avatar" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300f3ff'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>" alt="Profile">
+        </div>
     </div>
     
     <div class="tabs-container">
@@ -450,6 +574,35 @@
                 <div class="slot-title">Артефакт</div>
                 <div class="slot-content">Пусто</div>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal for Profile Details -->
+    <div id="profile-modal" class="profile-modal" onclick="if(event.target === this) closeProfileModal()">
+        <div class="profile-content">
+            <div class="modal-close" onclick="closeProfileModal()">✖</div>
+            <div class="profile-avatar">
+                <img id="modal-avatar" src="" alt="Avatar" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%2300f3ff\'><path d=\'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z\'/></svg>'">
+            </div>
+            <div id="profile-name" class="profile-name">Загрузка...</div>
+            <div id="profile-faction" class="profile-faction">---</div>
+
+            <div class="profile-stats">
+                <div class="stat-box">
+                    <div id="profile-lvl" class="stat-val">0</div>
+                    <div class="stat-label">Уровень</div>
+                </div>
+                <div class="stat-box">
+                    <div id="profile-xp" class="stat-val">0</div>
+                    <div class="stat-label">EXP</div>
+                </div>
+                <div class="stat-box" style="grid-column: span 2;">
+                    <div id="profile-biocoin" class="stat-val" style="color: #ffb700;">0</div>
+                    <div class="stat-label">BioCoin</div>
+                </div>
+            </div>
+
+            <button class="action-btn" onclick="closeProfileModal()">ЗАКРЫТЬ ДОСЬЕ</button>
         </div>
     </div>
 
@@ -510,6 +663,7 @@
         let currentEquipped = {};
         let selectedItem = null;
         let selectedSlot = null;
+        let currentProfile = null;
 
         // Use user ID from TG init data, default to fallback for web testing
         const uid = tg.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
@@ -531,6 +685,13 @@
                 currentInventory = data.items || [];
                 currentEquipped = data.equipped || {};
 
+                if (data.profile) {
+                    currentProfile = data.profile;
+                    if (data.profile.avatar_url) {
+                        document.getElementById('header-avatar').src = data.profile.avatar_url;
+                    }
+                }
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('status').innerText = 'Синхронизация завершена';
                 
@@ -541,6 +702,27 @@
                 document.getElementById('loading').innerText = 'ОШИБКА СИНХРОНИЗАЦИИ';
                 document.getElementById('loading').style.color = '#ff003c';
             }
+        }
+
+        function openProfileModal() {
+            if (!currentProfile) return;
+            tg.HapticFeedback.impactOccurred('medium');
+
+            document.getElementById('profile-name').innerHTML = currentProfile.name;
+            document.getElementById('profile-faction').innerText = currentProfile.faction;
+            document.getElementById('profile-lvl').innerText = currentProfile.level;
+            document.getElementById('profile-xp').innerText = currentProfile.xp.toLocaleString('ru-RU');
+            document.getElementById('profile-biocoin').innerText = currentProfile.biocoin.toLocaleString('ru-RU');
+
+            if (currentProfile.avatar_url) {
+                document.getElementById('modal-avatar').src = currentProfile.avatar_url;
+            }
+
+            document.getElementById('profile-modal').style.display = 'flex';
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profile-modal').style.display = 'none';
         }
 
         function switchTab(event, tabType) {
@@ -567,9 +749,9 @@
             let filtered = currentInventory;
             if (filter !== 'all') {
                 if (filter === 'equip') {
-                    filtered = currentInventory.filter(i => ['weapon', 'armor'].includes(i.type));
+                    filtered = currentInventory.filter(i => ['weapon', 'equip', 'armor', 'head', 'body'].includes(i.type));
                 } else if (filter === 'consumable') {
-                    filtered = currentInventory.filter(i => i.type === 'consumable' || !['weapon', 'armor', 'software', 'artifact'].includes(i.type));
+                    filtered = currentInventory.filter(i => ['consumable', 'misc'].includes(i.type));
                 } else {
                     filtered = currentInventory.filter(i => i.type === filter);
                 }
