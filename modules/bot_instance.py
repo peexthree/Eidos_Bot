@@ -10,7 +10,7 @@ TOKEN = os.environ.get('BOT_TOKEN')
 if not TOKEN:
     print("Error: BOT_TOKEN environment variable is not set.")
 
-WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
+WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL', 'https://eidos-bot-n5oo.onrender.com')
 
 # Enable Middleware
 telebot.apihelper.ENABLE_MIDDLEWARE = True
