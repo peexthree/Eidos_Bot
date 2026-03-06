@@ -1219,6 +1219,16 @@ def get_villain_by_id(vid, cursor=None):
         cur.execute("SELECT * FROM villains WHERE id = %s", (vid,))
         return cur.fetchone()
 
+def get_content_cached(c_type):
+    import cache_db
+    def _fetch_content():
+        with db_cursor(cursor_factory=RealDictCursor) as cur:
+            if not cur: return []
+            cur.execute("SELECT id, type, path, level, text FROM content WHERE type = %s", (c_type,))
+            return cur.fetchall()
+
+    return cache_db.get_cached_state(f"content_{c_type}", _fetch_content, ttl=300.0) or []
+
 def admin_add_content(c_type, text):
     with db_cursor() as cur:
         if not cur: return
