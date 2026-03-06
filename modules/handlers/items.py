@@ -326,7 +326,7 @@ def inventory_handler(call):
                 db.update_user(uid, is_glitched=True, anomaly_buff_type=glitch['effect'],
                                anomaly_buff_expiry=int(time.time() + glitch.get('effect_duration', 3600)))
             if glitch.get('reward_item'):
-                db.add_item_to_inventory(uid, glitch['reward_item'], 1)
+                db.add_item(uid, glitch['reward_item'], 1)
 
         txt = cache_db.get_cached_state(f"inv_txt_{uid}_equip", lambda: format_inventory(uid, category='equip'), ttl=5.0)
 
@@ -586,7 +586,7 @@ def item_action_handler(call):
             reward_item = random.choice(potential_items)
 
             db.update_user(uid, xp=int(u.get('xp', 0) or 0) + reward_xp)
-            db.add_item_to_inventory(uid, reward_item, 1)
+            db.add_item(uid, reward_item, 1)
 
             from modules.services.utils import apply_zalgo_effect
             msg = apply_zalgo_effect(f"ДАННЫЕ ВОССТАНОВЛЕНЫ. \n⚡️ +{reward_xp} XP\n📦 Получено: {reward_item}", 1)

@@ -141,7 +141,7 @@ def protocol_handler(call):
                     upd_args['is_glitched'] = True
 
                 if glitch.get('reward_item'):
-                    db.add_item_to_inventory(uid, glitch['reward_item'], 1)
+                    db.add_item(uid, glitch['reward_item'], 1)
                     reward_text += f"\n📦 <b>Получен предмет:</b> {glitch['reward_item']}"
 
                 if upd_args:
@@ -205,7 +205,7 @@ def protocol_handler(call):
                      upd_args['is_glitched'] = True
 
                  if glitch.get('reward_item'):
-                     db.add_item_to_inventory(uid, glitch['reward_item'], 1)
+                     db.add_item(uid, glitch['reward_item'], 1)
                      reward_text += f"\n📦 <b>Получен предмет:</b> {glitch['reward_item']}"
 
                  if upd_args:

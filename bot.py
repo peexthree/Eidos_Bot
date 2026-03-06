@@ -139,13 +139,8 @@ def inventory_api():
         uid = int(uid)
 
         # Get equipped items to populate "doll"
-        equipped = db.get_equipped_items(uid)
-        equipped_data = {}
-        for slot, item_id in equipped.items():
-            if item_id:
-                info = config.ITEMS_INFO.get(item_id, {})
                 equipped_data[slot] = {
-                    "item_id": item_id,
+                    "id": item.get("id"), "item_id": item_id,
                     "name": info.get('name', item_id),
                     "type": info.get('type', 'unknown'),
                     "desc": info.get('desc', ''),
@@ -163,7 +158,7 @@ def inventory_api():
             item_type = item_info.get('type', 'misc')
 
             inventory_data.append({
-                "item_id": item_id,
+                "id": item.get("id"), "item_id": item_id,
                 "name": item_info.get('name', item_id),
                 "quantity": qty,
                 "type": item_type,
@@ -182,8 +177,9 @@ def inventory_equip_api():
     data = flask.request.json
     uid = data.get('uid')
     item_id = data.get('item_id')
+    inv_id = data.get('inv_id')
 
-    if not uid or not item_id:
+    if not uid or not item_id or not inv_id:
         return flask.jsonify({"error": "Missing params"}), 400
 
     try:
@@ -196,18 +192,9 @@ def inventory_equip_api():
         if slot not in ['weapon', 'head', 'body', 'software', 'artifact']:
             return flask.jsonify({"error": "Item cannot be equipped"}), 400
 
-        # Check if user has the item
-        has_item = db.remove_item_from_inventory(uid, item_id, 1)
-        if not has_item:
-            return flask.jsonify({"error": "You don't have this item"}), 400
 
-        # If something is already equipped, put it back to inventory
-        equipped = db.get_equipped_items(uid)
-        old_item = equipped.get(slot)
-        if old_item:
-            db.add_item_to_inventory(uid, old_item, 1)
 
-        db.equip_item(uid, slot, item_id)
+        db.equip_item(uid, inv_id, slot)
 
         # Clear cache so menus update
         import cache_db
@@ -228,14 +215,8 @@ def inventory_unequip_api():
 
     try:
         uid = int(uid)
-        equipped = db.get_equipped_items(uid)
-        item_id = equipped.get(slot)
 
-        if not item_id:
-            return flask.jsonify({"error": "Nothing equipped in this slot"}), 400
-
-        db.equip_item(uid, slot, None)
-        db.add_item_to_inventory(uid, item_id, 1)
+        db.unequip_item(uid, slot)
 
         import cache_db
         cache_db.clear_cache(uid)

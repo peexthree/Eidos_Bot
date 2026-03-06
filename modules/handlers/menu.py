@@ -29,7 +29,7 @@ def profile_handler(call):
                 db.update_user(uid, is_glitched=True, anomaly_buff_type=glitch['effect'],
                                anomaly_buff_expiry=int(time.time() + glitch.get('effect_duration', 3600)))
             if glitch.get('reward_item'):
-                db.add_item_to_inventory(uid, glitch['reward_item'], 1)
+                db.add_item(uid, glitch['reward_item'], 1)
 
 
     if call.data == "profile":
