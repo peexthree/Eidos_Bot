@@ -218,13 +218,13 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
 
         with db.db_session() as conn:
             with conn.cursor() as cur:
-                 cur.execute(\"\"\"
+                 cur.execute("""
                      INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data)
                      VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s)
                      ON CONFLICT (uid, slot) DO UPDATE SET
                          item_id = EXCLUDED.item_id,
                          custom_data = EXCLUDED.custom_data
-                 \"\"\", (uid, new_custom_data))
+                 """, (uid, new_custom_data))
     except Exception as e:
         print(f"/// AI WORKER DB ERROR: {e}")
         bot.send_message(chat_id, "👁‍🗨 Сбой записи артефакта в матрицу.")
