@@ -5,3 +5,4 @@ gunicorn
 alembic
 SQLAlchemy
 requests
+sentry-sdk
