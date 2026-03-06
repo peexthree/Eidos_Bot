@@ -518,11 +518,16 @@ def get_user_display_name(uid, first_name=None, custom_data=None):
     Levels: 1-10: 💠, 11-20: ⚡️, 21+: 👁‍🗨. Format: <prefix> [Ур. <level>] <name>
     """
     import html
+
+    actual_uid = uid.get('uid') if isinstance(uid, dict) else uid
+    if isinstance(uid, dict) and first_name is None:
+        first_name = uid.get('first_name') or uid.get('name') or "Unknown"
+
     safe_name = html.escape(first_name or "Unknown")
 
     if custom_data is None:
         import database as db
-        eq = db.get_equipped_item_in_slot(uid, 'eidos_shard')
+        eq = db.get_equipped_item_in_slot(actual_uid, 'eidos_shard')
         if eq and isinstance(eq, dict) and eq.get('item_id') == 'eidos_shard':
             custom_data = eq.get('custom_data')
         elif eq and isinstance(eq, tuple) and eq[0] == 'eidos_shard':
