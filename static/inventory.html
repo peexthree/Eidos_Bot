@@ -1,72 +1,209 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>EIDOS: Inventory</title>
+    <title>EIDOS: Синхронизация</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-color: #050507;
+            --neon-blue: #00f3ff;
+            --neon-purple: #bc13fe;
+            --card-bg: rgba(10, 15, 30, 0.6);
+            --text-main: #e0f7fa;
+        }
+
         body {
-            background-color: #0d0d0d;
-            color: #00ff00;
-            font-family: 'Courier New', Courier, monospace;
-            padding: 20px;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 243, 255, 0.1) 0%, transparent 50%),
+                linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(5,5,7,1) 100%);
+            color: var(--text-main);
+            font-family: 'Rajdhani', sans-serif;
             margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
-        .container {
-            border: 1px solid #00ff00;
-            padding: 15px;
-            box-shadow: 0 0 10px #00ff00;
-        }
-        h1 {
+
+        .header {
             text-align: center;
-            border-bottom: 1px solid #00ff00;
-            padding-bottom: 10px;
+            margin-bottom: 30px;
+            position: relative;
         }
-        .item-list {
-            margin-top: 20px;
+
+        h1 {
+            font-size: 28px;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--neon-blue);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
         }
-        .item {
-            border: 1px solid #333;
-            padding: 10px;
+
+        .status-bar {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #loading {
+            text-align: center;
+            color: var(--neon-blue);
+            font-size: 18px;
+            animation: pulse 1.5s infinite;
+            margin-top: 50px;
+        }
+
+        .item-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .item-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideUp 0.5s forwards;
+        }
+
+        .item-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+            opacity: 0.5;
+        }
+
+        .item-card:active {
+            transform: scale(0.95);
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        .item-icon {
+            font-size: 32px;
             margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
+            display: block;
+        }
+
+        .item-name {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        .item-quantity {
+            display: inline-block;
+            background: rgba(0, 243, 255, 0.1);
+            color: var(--neon-blue);
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; text-shadow: 0 0 5px var(--neon-blue); }
+            50% { opacity: 1; text-shadow: 0 0 20px var(--neon-blue); }
+            100% { opacity: 0.5; text-shadow: 0 0 5px var(--neon-blue); }
+        }
+
+        @keyframes slideUp {
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>[INVENTORY_SYNC]</h1>
-        <div id="loading">Scanning matrix...</div>
-        <div id="items" class="item-list"></div>
+    <div class="header">
+        <h1>Хранилище</h1>
+        <div class="status-bar" id="status">Синхронизация с узлом...</div>
     </div>
+    
+    <div id="loading">Дешифровка данных...</div>
+    <div id="items" class="item-grid"></div>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+        tg.ready();
 
-        // Fetch inventory from bot API
+        // Устанавливаем цвета под тему Eidos
+        tg.setHeaderColor('#050507');
+        tg.setBackgroundColor('#050507');
+
+        // Временный словарь иконок (на случай, если бэкенд отдает только item_id)
+        const fallbackIcons = {
+            'chip': '💾',
+            'decoder': '📟',
+            'energy': '⚡',
+            'default': '📦'
+        };
+
         async function loadInventory() {
-            const uid = tg.initDataUnsafe.user.id;
+            // Защита для тестирования вне телеграма
+            const uid = tg.initDataUnsafe?.user?.id || 'TEST_USER'; 
+            
             try {
                 const response = await fetch(`/api/inventory?uid=${uid}`);
                 const data = await response.json();
+                
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('status').innerText = 'Синхронизация завершена';
+                
                 const itemsDiv = document.getElementById('items');
+                
                 if (!data.items || data.items.length === 0) {
-                    itemsDiv.innerHTML = '<p>No items found.</p>';
+                    itemsDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: rgba(255,255,255,0.5);">Хранилище пусто</div>';
                     return;
                 }
-                data.items.forEach(item => {
+
+                data.items.forEach((item, index) => {
                     const itemEl = document.createElement('div');
-                    itemEl.className = 'item';
-                    itemEl.innerHTML = `<span>${item.name} x${item.quantity}</span>`;
+                    itemEl.className = 'item-card';
+                    itemEl.style.animationDelay = `${index * 0.1}s`; // Каскадное появление
+                    
+                    // Обрабатываем ситуацию, если бэкенд не прислал имя/иконку
+                    const displayName = item.name || item.item_id || 'Неизвестный фрагмент';
+                    const icon = item.icon || fallbackIcons[item.item_id] || fallbackIcons['default'];
+
+                    itemEl.innerHTML = `
+                        <span class="item-icon">${icon}</span>
+                        <div class="item-name">${displayName}</div>
+                        <div class="item-quantity">x${item.quantity}</div>
+                    `;
+
+                    // Тактильный отклик при нажатии на предмет
+                    itemEl.onclick = () => {
+                        tg.HapticFeedback.impactOccurred('light');
+                        // Здесь потом добавим логику использования
+                    };
+
                     itemsDiv.appendChild(itemEl);
                 });
             } catch (e) {
-                document.getElementById('loading').innerText = 'Sync failed.';
+                document.getElementById('loading').innerText = 'ОШИБКА ПОДКЛЮЧЕНИЯ';
+                document.getElementById('loading').style.color = '#ff003c';
             }
         }
+        
         loadInventory();
     </script>
 </body>
