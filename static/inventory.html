@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>EIDOS: Inventory</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            background-color: #0d0d0d;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            border: 1px solid #00ff00;
+            padding: 15px;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 1px solid #00ff00;
+            padding-bottom: 10px;
+        }
+        .item-list {
+            margin-top: 20px;
+        }
+        .item {
+            border: 1px solid #333;
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>[INVENTORY_SYNC]</h1>
+        <div id="loading">Scanning matrix...</div>
+        <div id="items" class="item-list"></div>
+    </div>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Fetch inventory from bot API
+        async function loadInventory() {
+            const uid = tg.initDataUnsafe.user.id;
+            try {
+                const response = await fetch(`/api/inventory?uid=${uid}`);
+                const data = await response.json();
+                document.getElementById('loading').style.display = 'none';
+                const itemsDiv = document.getElementById('items');
+                if (!data.items || data.items.length === 0) {
+                    itemsDiv.innerHTML = '<p>No items found.</p>';
+                    return;
+                }
+                data.items.forEach(item => {
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'item';
+                    itemEl.innerHTML = `<span>${item.name} x${item.quantity}</span>`;
+                    itemsDiv.appendChild(itemEl);
+                });
+            } catch (e) {
+                document.getElementById('loading').innerText = 'Sync failed.';
+            }
+        }
+        loadInventory();
+    </script>
+</body>
+</html>

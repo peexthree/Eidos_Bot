@@ -1,3 +1,4 @@
+import cache_db
 import os
 import json
 import time
@@ -74,6 +75,13 @@ def sanitize_for_telegram(text: str) -> str:
     return text.strip()
 
 def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
+    if cache_db.check_throttle(uid, 'generate_eidos_response_worker', timeout=60):
+        bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
+        if 'loading_msg_id' in locals() and loading_msg_id:
+            try: bot.delete_message(chat_id, loading_msg_id)
+            except: pass
+        return
+
     """
     Background worker for communicating with OpenRouter.
     Includes retry logic and caching for Dossier.
@@ -155,6 +163,13 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
         bot.send_message(chat_id, "👁‍🗨 Нейро-ядро перегружено. Твоя телеметрия сохранена. Повтори запрос позже.")
 
 def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
+    if cache_db.check_throttle(uid, 'generate_eidos_voice_worker', timeout=60):
+        bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
+        if 'loading_msg_id' in locals() and loading_msg_id:
+            try: bot.delete_message(chat_id, loading_msg_id)
+            except: pass
+        return
+
     """
     Background worker for Voice of Eidos.
     Analyzes metrics and generates a personal artifact.
@@ -307,6 +322,13 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
 
 def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None):
+    if cache_db.check_throttle(uid, 'generate_user_dossier_worker', timeout=60):
+        bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
+        if 'loading_msg_id' in locals() and loading_msg_id:
+            try: bot.delete_message(chat_id, loading_msg_id)
+            except: pass
+        return
+
     # Generates the CIA/Cyberpunk style Dossier for a specific user
     import config
     import database as db

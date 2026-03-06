@@ -119,6 +119,7 @@ def check_level_up(uid):
 
     if new_level > current_level:
         db.update_user(uid, level=new_level)
+        db.log_analytics(uid, "level_up", {"old": current_level, "new": new_level})
         msg = LEVEL_UP_MSG.get(new_level, f"🔓 <b>LVL {new_level}</b>\nУровень повышен!")
         return new_level, msg
 

@@ -1,3 +1,5 @@
+from modules.services.worker_queue import start_worker
+import logging_setup
 import cache_db
 import telebot
 import flask
@@ -126,6 +128,7 @@ def system_startup():
     try:
         with app.app_context():
             print("/// SYSTEM STARTUP INITIATED...")
+            db.fix_indexes()
 
             if WEBHOOK_URL:
                 try:
@@ -195,6 +198,7 @@ def notification_loop():
         time.sleep(60)
 
 
+start_worker(bot)
 threading.Thread(target=system_startup, daemon=True).start()
 threading.Thread(target=notification_loop, daemon=True).start()
 

@@ -1,3 +1,8 @@
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from modules.models import Base, Player, Inventory, BotState, Analytics
+_engine = None
+_SessionFactory = None
 import os
 import psycopg2
 from psycopg2 import pool
@@ -1517,3 +1522,17 @@ def admin_clear_all_glitches():
             cur.execute("UPDATE user_shadow_metrics SET last_hard_glitch_time = %s", (int(time.time()),))
             return count
     return 0
+
+@contextmanager
+def sa_session():
+    if not _SessionFactory:
+        init_pool()
+    session = _SessionFactory()
+    try:
+        yield session
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()

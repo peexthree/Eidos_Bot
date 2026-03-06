@@ -12,6 +12,7 @@ from modules.services.utils import (
     format_combat_screen, generate_raid_report, handle_death_log,
     draw_bar
 )
+from modules.services.content import get_content_logic
 
 def get_raid_entry_cost(uid):
     u = db.get_user(uid)
@@ -46,6 +47,45 @@ def generate_balanced_event_type(last_type, current_streak):
         new_type = generate_random_event_type()
 
     return new_type
+
+
+def process_claim_body(uid, s, cur, u):
+    depth = s['depth']
+    grave = db.get_random_grave(depth)
+
+    extra_loot_msg = ""
+    # 20% base chance to find a cache
+    if random.random() < 0.2:
+        db.add_item(uid, 'encrypted_cache', cursor=cur)
+        extra_loot_msg += "\n📦 <b>НАЙДЕНО:</b> Зашифрованный кэш."
+
+    # 15% chance to find a "Memory Fragment" (Lore/Protocol)
+    if random.random() < 0.15:
+        proto = get_content_logic('protocol', u.get('path', 'general'), u.get('level', 1))
+        if proto:
+            db.save_knowledge(uid, proto['id'])
+            extra_loot_msg += f"\n📜 <b>ЛОГ:</b> {proto['text'][:50]}..."
+
+    if grave:
+        if db.delete_grave(grave['id']):
+            try:
+                loot = json.loads(grave['loot_json'])
+                coins = loot.get('coins', 0)
+                items_str = loot.get('items', '')
+            except:
+                coins = 0
+                items_str = ""
+
+            cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (coins, uid))
+            if items_str:
+                cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (items_str, uid))
+
+            return True, f"💰 <b>МАРОДЕРСТВО:</b> Вы забрали {coins} BC и снаряжение.{extra_loot_msg}", {'alert': f"💰 +{coins} BC"}, 'loot_claimed'
+
+    if extra_loot_msg:
+         return True, f"🔍 <b>ПОИСК:</b> Среди обломков вы нашли ценные данные.{extra_loot_msg}", {'alert': "📦 ДАННЫЕ НАЙДЕНЫ"}, 'loot_claimed'
+
+    return False, "❌ Останки уже разграблены или исчезли.", None, 'neutral'
 
 def generate_loot(depth, luck):
     """Генерирует тир лута на основе удачи (Новая система редкости)."""
@@ -517,31 +557,9 @@ def process_raid_step(uid, answer=None, start_depth=None):
                  res_arch, msg_arch, extra_arch, type_arch = process_architect_key(uid, s, cur, u)
                  return res_arch, msg_arch, extra_arch, u, type_arch, 0
 
-            from modules.services.raid_patch import patch_claim_body
             if answer == 'claim_body':
-                 res_c, msg_c, extra_c, type_c = patch_claim_body(uid, s, cur)
+                 res_c, msg_c, extra_c, type_c = process_claim_body(uid, s, cur, u)
                  return res_c, msg_c, extra_c, u, type_c, 0
-                 # Old logic:
-                 grave = db.get_random_grave(depth)
-                 if grave:
-                     if db.delete_grave(grave['id']):
-
-                         try:
-                             loot = json.loads(grave['loot_json'])
-                             coins = loot.get('coins', 0)
-                             items_str = loot.get('items', '')
-                         except:
-                             coins = 0
-                             items_str = ""
-
-                         cur.execute("UPDATE raid_sessions SET buffer_coins=buffer_coins+%s WHERE uid=%s", (coins, uid))
-                         if items_str:
-                             cur.execute("UPDATE raid_sessions SET buffer_items = COALESCE(buffer_items, '') || ',' || %s WHERE uid=%s", (items_str, uid))
-
-                         # # conn.commit() handled by db_cursor/db_session internally managed by db_cursor/db_session internally if needed, but we use standalone cursors now
-
-                         return True, f"💰 <b>МАРОДЕРСТВО:</b> Вы забрали {coins} BC и снаряжение.", {'alert': f"💰 +{coins} BC"}, u, 'loot_claimed', 0
-                 return False, "❌ Останки уже разграблены или исчезли.", None, u, 'neutral', 0
 
             # 2.5 ДЕЙСТВИЕ: ИСПОЛЬЗОВАНИЕ РАСХОДНИКОВ
             if answer == 'use_battery':

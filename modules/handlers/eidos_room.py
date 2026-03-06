@@ -68,7 +68,9 @@ def eidos_purchase_handler(call):
             bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             import threading
             from modules.services.ai_worker import generate_eidos_response_worker
-            threading.Thread(target=generate_eidos_response_worker, args=(bot, call.message.chat.id, uid, 'dossier')).start()
+            from modules.services.worker_queue import enqueue_task
+
+            enqueue_task(generate_eidos_response_worker, call.message.chat.id, uid, 'dossier')
             return
 
         try:
@@ -91,7 +93,9 @@ def eidos_purchase_handler(call):
             bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             import threading
             from modules.services.ai_worker import generate_eidos_response_worker
-            threading.Thread(target=generate_eidos_response_worker, args=(bot, call.message.chat.id, uid, 'forecast')).start()
+            from modules.services.worker_queue import enqueue_task
+
+            enqueue_task(generate_eidos_response_worker, call.message.chat.id, uid, 'forecast')
             return
 
         try:
@@ -154,9 +158,13 @@ def got_payment(message):
     from modules.services.ai_worker import generate_eidos_response_worker
 
     if payload == "eidos_dossier":
-        threading.Thread(target=generate_eidos_response_worker, args=(bot, message.chat.id, uid, 'dossier')).start()
+        from modules.services.worker_queue import enqueue_task
+
+        enqueue_task(generate_eidos_response_worker, message.chat.id, uid, 'dossier')
     elif payload == "eidos_forecast":
-        threading.Thread(target=generate_eidos_response_worker, args=(bot, message.chat.id, uid, 'forecast')).start()
+        from modules.services.worker_queue import enqueue_task
+
+        enqueue_task(generate_eidos_response_worker, message.chat.id, uid, 'forecast')
     elif payload == "voice_of_eidos":
         db.set_state(uid, "wait_eidos_premium_question"); cache_db.clear_cache(uid)
         bot.send_message(uid, "👁‍🗨 Глас Абсолюта готов. Опиши свою проблему, и я разберу твой код на части.")
@@ -191,4 +199,6 @@ def handle_eidos_premium_question(message):
     bot.send_message(uid, "👁‍🗨 Запрос принят. Начинаю декомпиляцию твоей проблемы...")
     import threading
     from modules.services.ai_worker import generate_eidos_voice_worker
-    threading.Thread(target=generate_eidos_voice_worker, args=(bot, message.chat.id, uid, text)).start()
+    from modules.services.worker_queue import enqueue_task
+
+    enqueue_task(generate_eidos_voice_worker, message.chat.id, uid, text)
