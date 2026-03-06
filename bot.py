@@ -71,17 +71,6 @@ def stats_callback_middleware(bot_instance, call):
         uid = int(call.from_user.id)
         STATS_QUEUE.put((uid, 'clicks'))
     except: pass
-def process_update_safe(update):
-    try:
-        uid = getattr(update.message or update.callback_query, "from_user", None)
-        uid = int(uid.id) if uid else 0
-        print(f"/// DEBUG: Starting process_new_updates for update {update.update_id} (User: {uid})")
-        bot.process_new_updates([update])
-        print(f"/// DEBUG: Finished process_new_updates for update {update.update_id}")
-    except Exception as e:
-        print(f"/// UNHANDLED EXCEPTION IN UPDATE THREAD: {e}")
-        import traceback; traceback.print_exc()
-
 @app.route('/health', methods=['GET'])
 def health_check():
     return "OK", 200
@@ -112,8 +101,11 @@ def webhook():
                 return 'Parse Error', 200
 
             # 3. Process Update
-            print(f"/// WEBHOOK: STARTING THREAD TO PROCESS UPDATE {update.update_id}")
-            threading.Thread(target=process_update_safe, args=(update,)).start()
+            try:
+                bot.process_new_updates([update])
+            except Exception as e:
+                print(f"/// TELEBOT WORKER ERROR: {e}")
+
             return 'ALIVE', 200
         except Exception as e:
             print(f"/// WEBHOOK CRITICAL ERROR: {e}")
