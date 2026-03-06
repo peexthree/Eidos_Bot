@@ -25,6 +25,35 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 _formatted_db_url = None
 _pool_lock = threading.Lock()
 
+def fix_indexes():
+    print("/// DEBUG: Checking and fixing indexes...")
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                # Players
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_last_active ON players(last_active);")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_level_xp ON players(level, xp);")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_max_depth_xp ON players(max_depth, xp);")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_biocoin_xp ON players(biocoin, xp);")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_total_spent_xp ON players(total_spent, xp);")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_protocol_notified_active ON players(last_protocol_time, notified, is_active);")
+
+                # Inventory
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_inventory_uid_item_id ON inventory(uid, item_id);")
+
+                # Equipment
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_user_equipment_uid_slot ON user_equipment(uid, slot);")
+
+                # PVP
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_pvp_logs_target_timestamp_anonymous ON pvp_logs(target_uid, timestamp, is_anonymous);")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_pvp_logs_attacker_target_timestamp ON pvp_logs(attacker_uid, target_uid, timestamp);")
+
+                conn.commit()
+                print("/// FIX: Indexes verified and created successfully.")
+    except Exception as e:
+        print(f"/// FIX INDEXES ERROR: {e}")
+
+
 # --- SCHEMA DEFINITIONS ---
 TABLE_SCHEMAS = {
     'players': {
@@ -1537,30 +1566,3 @@ def sa_session():
     finally:
         session.close()
 
-def fix_indexes():
-    print("/// DEBUG: Checking and fixing indexes...")
-    try:
-        with db_session() as conn:
-            with conn.cursor() as cur:
-                # Players
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_last_active ON players(last_active);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_level_xp ON players(level, xp);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_max_depth_xp ON players(max_depth, xp);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_biocoin_xp ON players(biocoin, xp);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_total_spent_xp ON players(total_spent, xp);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_players_protocol_notified_active ON players(last_protocol_time, notified, is_active);")
-
-                # Inventory
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_inventory_uid_item_id ON inventory(uid, item_id);")
-
-                # Equipment
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_user_equipment_uid_slot ON user_equipment(uid, slot);")
-
-                # PVP
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_pvp_logs_target_timestamp_anonymous ON pvp_logs(target_uid, timestamp, is_anonymous);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_pvp_logs_attacker_target_timestamp ON pvp_logs(attacker_uid, target_uid, timestamp);")
-
-                conn.commit()
-                print("/// FIX: Indexes verified and created successfully.")
-    except Exception as e:
-        print(f"/// FIX INDEXES ERROR: {e}")
