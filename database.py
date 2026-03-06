@@ -1,8 +1,3 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from modules.models import Base, Player, Inventory, BotState, Analytics
-_engine = None
-_SessionFactory = None
 import os
 import psycopg2
 from psycopg2 import pool
@@ -273,88 +268,79 @@ TABLE_SCHEMAS = {
     }
 }
 
+
+import urllib.parse
+import threading
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor, execute_values
+from contextlib import contextmanager
+
+_formatted_db_url = None
+_db_lock = threading.Lock()
+
 def init_pool():
-    global _engine, _formatted_db_url
-    if not _engine:
-        with _pool_lock:
-            if not _engine:
+    global _formatted_db_url
+    if not _formatted_db_url:
+        with _db_lock:
+            if not _formatted_db_url:
                 try:
-                    import urllib.parse
-                    raw_url = DATABASE_URL
-                    if not raw_url:
-                        print("/// DB CRITICAL: DATABASE_URL is not set!")
-                        return
+                    raw_url = os.environ.get('DATABASE_URL')
+                    if not raw_url: return
 
                     parsed = urllib.parse.urlparse(raw_url)
-                    # Форсируем порт PgBouncer для Serverless
+                    # Форсируем транзакционный порт PgBouncer (6543)
                     if "supabase" in parsed.netloc and parsed.port == 5432:
                         new_netloc = parsed.netloc.replace(":5432", ":6543")
                         parsed = parsed._replace(netloc=new_netloc)
 
-                    # Вычищаем мусорные параметры
                     query_params = urllib.parse.parse_qs(parsed.query)
                     if 'pgbouncer' in query_params:
                         del query_params['pgbouncer']
 
                     parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
-
-                    # SQLAlchemy требует схему postgresql://
-                    if parsed.scheme == 'postgres':
-                        parsed = parsed._replace(scheme='postgresql')
+                    if parsed.scheme == 'postgresql':
+                        parsed = parsed._replace(scheme='postgres')
 
                     _formatted_db_url = urllib.parse.urlunparse(parsed)
-
-                    print("/// DB: Initializing SQLAlchemy Engine Pool...")
-                    # ТВЕРДОЕ: Создаем надежный пул без глобальных блокировок
-                    _engine = create_engine(
-                        _formatted_db_url,
-                        pool_size=20,
-                        max_overflow=10,
-                        pool_timeout=15,
-                        pool_pre_ping=True, # АВТОМАТИЧЕСКАЯ ЗАЩИТА ОТ МЕРТВЫХ СОЕДИНЕНИЙ
-                        connect_args={
-                            'connect_timeout': 10,
-                            'options': '-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000'
-                        }
-                    )
-                    print("/// DB ENGINE (SUPABASE TRANSACTIONS ENABLED) & POOL INITIALIZED")
+                    print("/// DB URL FORMATTED FOR DIRECT PGBOUNCER CONNECTION")
                 except Exception as e:
-                    print(f"/// DB ENGINE INIT ERROR: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    print(f"/// DB INIT ERROR: {e}")
 
 def reset_pool():
-    global _engine, _formatted_db_url
-    with _pool_lock:
-        if _engine:
-            try:
-                _engine.dispose()
-            except Exception as e:
-                print(f"/// DB POOL CLOSE ERROR: {e}")
-            _engine = None
-        _formatted_db_url = None
+    global _formatted_db_url
+    _formatted_db_url = None
 
 @contextmanager
 def db_session():
-    global _engine
-    if not _engine:
+    global _formatted_db_url
+    if not _formatted_db_url:
         init_pool()
 
     conn = None
     try:
-        # Получаем чистый объект psycopg2 connection из пула SQLAlchemy
-        conn = _engine.raw_connection()
+        # ТВЕРДОЕ: Никаких клиентских пулов. Прямой вызов psycopg2.connect()
+        # Мы используем keepalives на уровне сокета, чтобы мертвые сессии отваливались
+        conn = psycopg2.connect(
+            _formatted_db_url,
+            connect_timeout=10,
+            options='-c search_path=public,public -c lock_timeout=5000 -c statement_timeout=5000',
+            keepalives=1,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5
+        )
         yield conn
         conn.commit()
     except Exception as e:
         if conn:
             try: conn.rollback()
             except: pass
-        print(f"/// DB SESSION ERROR: {e}")
+        print(f"/// DB SESSION CRASH: {e}")
         raise e
     finally:
         if conn:
-            # Закрытие raw_connection возвращает его живым обратно в пул SQLAlchemy
+            # Закрытие соединения отдает его обратно PgBouncer-у мгновенно
             try: conn.close()
             except: pass
 
@@ -1717,17 +1703,3 @@ def populate_content():
 def get_user_equipment(uid):
     """Связующее звено для API инвентаря в bot.py"""
     return get_equipped_items(uid)
-@contextmanager
-def sa_session():
-    if not _SessionFactory:
-        init_pool()
-    session = _SessionFactory()
-    try:
-        yield session
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        raise e
-    finally:
-        session.close()
-
