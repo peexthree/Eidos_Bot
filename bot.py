@@ -137,28 +137,34 @@ def inventory_api():
         return flask.jsonify({"error": "Missing uid"}), 400
     try:
         uid = int(uid)
-
-            # Get equipped items to populate "doll"
-                equipped_data[slot] = {
-                    "id": item.get("id"), "item_id": item_id,
-                    "name": info.get('name', item_id),
-                    "type": info.get('type', 'unknown'),
-                    "desc": info.get('desc', ''),
-                    "rarity": info.get('rarity', 'common')
-                }
-
-        items = db.get_inventory(uid)
         inventory_data = []
+        equipped_data = {}
+
+        # 1. Собираем Куклу (надетые вещи)
+        raw_equipped = db.get_user_equipment(uid) if hasattr(db, 'get_user_equipment') else {}
+        if raw_equipped:
+            for slot, item_id in raw_equipped.items():
+                if item_id:
+                    info = config.ITEMS_INFO.get(item_id, {})
+                    equipped_data[slot] = {
+                        "item_id": item_id,
+                        "name": info.get('name', item_id),
+                        "type": slot,
+                        "desc": info.get('desc', ''),
+                        "rarity": info.get('rarity', 'common')
+                    }
+
+        # 2. Собираем Инвентарь
+        items = db.get_inventory(uid)
         for item in items:
             item_id = item.get('item_id')
             qty = item.get('quantity', 0)
             item_info = config.ITEMS_INFO.get(item_id, {})
-
-            # Determine type (weapon, armor, consumable, material, etc.)
             item_type = item_info.get('type', 'misc')
 
             inventory_data.append({
-                "id": item.get("id"), "item_id": item_id,
+                "id": item.get("id"),
+                "item_id": item_id,
                 "name": item_info.get('name', item_id),
                 "quantity": qty,
                 "type": item_type,
