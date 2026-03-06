@@ -62,33 +62,7 @@ def stats_worker():
         finally:
             STATS_QUEUE.task_done()
 
-def stats_flusher():
-    while True:
-        time.sleep(30)
-        with _stats_lock:
-            if not _stats_cache:
-                continue
-            cache_copy = dict(_stats_cache)
-            _stats_cache.clear()
 
-        try:
-            with db.db_session() as conn:
-                with conn.cursor() as cur:
-                    for uid, stats in cache_copy.items():
-                        for stat_type, amount in stats.items():
-                            cur.execute(f"UPDATE players SET {stat_type} = {stat_type} + %s WHERE uid = %s", (amount, uid))
-                conn.commit()
-        except Exception as e:
-            print(f"/// STATS FLUSHER ERR: {e}")
-            with _stats_lock:
-                for uid, stats in cache_copy.items():
-                    if uid not in _stats_cache:
-                        _stats_cache[uid] = {}
-                    for stat_type, amount in stats.items():
-                        _stats_cache[uid][stat_type] = _stats_cache[uid].get(stat_type, 0) + amount
-
-threading.Thread(target=stats_worker, daemon=True).start()
-threading.Thread(target=stats_flusher, daemon=True).start()
 
 # --- MIDDLEWARE FOR STATS TRACKING & GLITCHES ---
 @bot.middleware_handler(update_types=['message'])
@@ -137,18 +111,32 @@ def inventory_webapp():
 
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
-    uid = flask.request.args.get('uid')
-    if not uid:
+    uid_str = flask.request.args.get('uid')
+    if not uid_str:
         return flask.jsonify({"error": "Missing uid"}), 400
+
     try:
-        uid = int(uid)
+        uid = int(uid_str)
+    except ValueError:
+        return flask.jsonify({"error": "Invalid uid type"}), 400
+
+    try:
         inventory_data = []
         equipped_data = {}
 
         # Profile Data Fetching
-        user = db.get_user(uid)
+        from modules.schemas import User # Pydantic import
+        user_dict = db.get_user(uid)
+
         profile_data = {}
-        if user:
+        if user_dict:
+            # Strictly validate user structure again just for safety (or rely on DB return)
+            try:
+                user = User(**user_dict).model_dump()
+            except Exception as e:
+                print(f"/// API INVENTORY PYDANTIC USER ERROR: {e}")
+                user = user_dict
+
             level = user.get('level', 1)
             avatar_file_id = config.USER_AVATARS.get(level, config.USER_AVATARS.get(1))
             avatar_url = None
@@ -187,17 +175,15 @@ def inventory_api():
                 try:
                     return bot.get_file_url(file_id)
                 except Exception as e:
-                    print(f"/// API INVENTORY ERROR GETTING FILE_ID: {e}")
+                    pass
             return None
 
-        # 1. Загружаем экипировку
+        # 1. Load Equipment
         raw_equipped = db.get_user_equipment(uid) if hasattr(db, 'get_user_equipment') else {}
-        print(f"/// API INVENTORY [uid={uid}] raw_equipped: {raw_equipped}")
         if raw_equipped:
             for slot, item_id in raw_equipped.items():
                 if item_id:
                     info = config.ITEMS_INFO.get(item_id, {})
-                    # Важно: приводим slot к единому стандарту фронтенда
                     ui_slot = slot.replace('helmet', 'head').replace('armor', 'body')
                     equipped_data[ui_slot] = {
                         "item_id": item_id,
@@ -208,29 +194,33 @@ def inventory_api():
                         "image_url": get_image_url(item_id, info)
                     }
 
-        # 2. Загружаем инвентарь
+        # 2. Load Inventory
         items = db.get_inventory(uid)
-        print(f"/// API INVENTORY [uid={uid}] items raw count: {len(items)}")
+        from modules.schemas import InventoryItem
 
         for item in items:
-            item_id = item.get('item_id')
+            # Validate through Pydantic
+            try:
+                valid_item = InventoryItem(**item)
+            except Exception as valid_err:
+                print(f"/// API INV PYDANTIC ITEM ERR (UID {uid}): {valid_err}")
+                continue # Skip corrupted item records
 
-            # Filter out PVP items from general inventory to match telegram logic
-            if item_id in config.PVP_ITEMS:
+            item_id = valid_item.item_id
+
+            if item_id in getattr(config, 'PVP_ITEMS', []):
                 continue
 
-            qty = item.get('quantity', 0)
+            qty = valid_item.quantity
             item_info = config.ITEMS_INFO.get(item_id, {})
 
-            # Определяем категорию для фильтров фронтенда
             raw_type = item_info.get('type', 'misc')
             category = raw_type
 
-            # IMPROVED CATEGORIZATION
             if raw_type in ['weapon'] or item_info.get('slot') == 'weapon':
                 category = 'weapon'
             elif raw_type in ['head', 'helmet', 'body', 'armor'] or item_info.get('slot') in ['head', 'helmet', 'body', 'armor']:
-                category = 'equip' # Front uses 'equip' for armor and weapon combined sometimes, but tabs are 'equip', 'software', 'artifact', 'consumable'
+                category = 'equip'
             elif raw_type in ['software'] or item_info.get('slot') == 'software':
                 category = 'software'
             elif raw_type in ['artifact'] or item_info.get('slot') == 'artifact':
@@ -238,7 +228,7 @@ def inventory_api():
             elif raw_type in ['consumable', 'misc']:
                 category = 'consumable'
             else:
-                if item_id in config.EQUIPMENT_DB:
+                if item_id in getattr(config, 'EQUIPMENT_DB', {}):
                     slot = item_info.get('slot')
                     if slot in ['head', 'helmet', 'body', 'armor']:
                         category = 'equip'
@@ -247,10 +237,8 @@ def inventory_api():
                 else:
                     category = 'consumable'
 
-            print(f"/// API INVENTORY [uid={uid}] Processing item: {item_id}, qty: {qty}, assigned_category: {category}")
-
             inventory_data.append({
-                "id": item.get("id"),
+                "id": valid_item.id,
                 "item_id": item_id,
                 "name": item_info.get('name', item_id),
                 "quantity": qty,
@@ -261,7 +249,6 @@ def inventory_api():
                 "image_url": get_image_url(item_id, item_info)
             })
 
-        print(f"/// API INVENTORY [uid={uid}] Returning {len(inventory_data)} items and {len(equipped_data)} equipped.")
         return flask.jsonify({"items": inventory_data, "equipped": equipped_data, "profile": profile_data}), 200
     except Exception as e:
         print(f"/// API INVENTORY ERROR: {e}")
@@ -343,63 +330,7 @@ def system_startup():
     except Exception as e:
         print(f"/// SYSTEM STARTUP FATAL ERROR: {e}")
 
-def notification_loop():
-    if getattr(db, '_formatted_db_url', None) is None:
-        db.init_pool()
 
-    while True:
-        users = []
-        try:
-            with db.db_session() as conn:
-                with conn.cursor() as cur:
-                    now = int(time.time())
-                    # Check Protocol Cooldowns
-                    cur.execute("""
-                        SELECT uid FROM players
-                        WHERE last_protocol_time > 0
-                        AND (last_protocol_time + 1800) < %s
-                        AND notified = FALSE
-                        AND is_active = TRUE
-                        LIMIT 200
-                    """, (now,))
-                    users = cur.fetchall()
-        except Exception as db_err:
-            print(f"/// NOTIFICATION LOOP DB ERROR: {db_err}")
-            if isinstance(db_err, (psycopg2.OperationalError, psycopg2.InterfaceError)):
-                print("/// CRITICAL DB ERROR in Notification Loop. Waiting 10s...")
-                time.sleep(10)
-
-        for row in users:
-            uid = row[0]
-            try:
-                bot.send_message(uid, "🔄 <b>СИНХРОНИЗАЦИЯ ГОТОВА</b>\nНовые знания ждут тебя.", parse_mode="HTML")
-                try:
-                    with db.db_session() as conn2:
-                        with conn2.cursor() as cur2:
-                            cur2.execute("UPDATE players SET notified = TRUE WHERE uid = %s", (uid,))
-                            conn2.commit()
-                except Exception as update_err:
-                    print(f"/// DB UPDATE ERROR {uid}: {update_err}")
-            except Exception as e:
-                print(f"Notify Error {uid}: {e}")
-                if "forbidden" in str(e).lower() or "blocked" in str(e).lower():
-                    try:
-                        with db.db_session() as conn3:
-                            with conn3.cursor() as cur3:
-                                cur3.execute("UPDATE players SET is_active = FALSE WHERE uid = %s", (uid,))
-                                conn3.commit()
-                    except Exception as block_err:
-                        print(f"/// DB BLOCK ERROR {uid}: {block_err}")
-
-            # Rate limiting the telegram API call, not holding the DB connection inside sleep
-            time.sleep(0.05)
-
-        time.sleep(60)
-
-
-start_worker(bot)
-threading.Thread(target=system_startup, daemon=True).start()
-threading.Thread(target=notification_loop, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))

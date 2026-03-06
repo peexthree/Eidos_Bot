@@ -577,18 +577,27 @@ def _sanitize_player_data(data_dict):
     return data_dict
 
 def get_user(uid, cursor=None):
+    from modules.schemas import User
+
     def _execute_logic(cur, uid):
         try:
-            print(f"/// DB GET_USER: Executing query for {uid}...")
             cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
             res = cur.fetchone()
-            print(f"/// DB GET_USER: Query done.")
             if res:
                 if hasattr(res, 'keys'):
-                    return _sanitize_player_data(dict(res))
+                    raw_dict = dict(res)
                 else:
                     cols = [desc[0] for desc in cur.description]
-                    return _sanitize_player_data(dict(zip(cols, res)))
+                    raw_dict = dict(zip(cols, res))
+
+                sanitized = _sanitize_player_data(raw_dict)
+                # Pydantic Validation & Fallback
+                try:
+                    user_model = User(**sanitized)
+                    return user_model.model_dump() # Return dict to maintain legacy compatibility
+                except Exception as model_err:
+                    print(f"/// PYDANTIC VALIDATION ERROR for UID {uid}: {model_err}")
+                    return sanitized # Fallback to dict
             return None
         except Exception as e:
             print(f"/// DB GET_USER ERROR: {e}")
@@ -634,88 +643,82 @@ _xp_cache = {}
 _xp_cache_lock = threading.Lock()
 
 def _flush_xp_cache():
-    while True:
+    with _xp_cache_lock:
+        if not _xp_cache:
+            return
+        cache_copy = dict(_xp_cache)
+        _xp_cache.clear()
+
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cur:
+                uids = list(cache_copy.keys())
+                if not uids:
+                    return
+
+                # Fetch referrers in batch
+                cur.execute("SELECT uid, referrer FROM players WHERE uid = ANY(%s)", (uids,))
+                referrers = {row[0]: row[1] for row in cur.fetchall()}
+
+                player_updates = []
+                ref_updates = {}
+                gen_updates = []
+
+                for uid, amount in cache_copy.items():
+                    if amount == 0:
+                        continue
+
+                    profit = 0
+                    ref_id = None
+                    actual_amount = amount
+
+                    if amount > 0:
+                        ref_id = referrers.get(uid)
+                        if ref_id:
+                            profit = int(amount * 0.1)
+                            actual_amount = amount - profit
+
+                    player_updates.append((uid, actual_amount))
+
+                    if profit > 0 and ref_id:
+                        # We need to accumulate ref profits in case multiple referrals are updated
+                        if ref_id not in ref_updates:
+                            ref_updates[ref_id] = 0
+                        ref_updates[ref_id] += profit
+
+                        gen_updates.append((uid, profit))
+
+                if player_updates:
+                    execute_values(cur,
+                        "UPDATE players SET xp = xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
+                        player_updates
+                    )
+
+                if ref_updates:
+                    ref_data = [(rid, p) for rid, p in ref_updates.items()]
+                    execute_values(cur,
+                        "UPDATE players SET xp = xp + data.amount, ref_profit_xp = ref_profit_xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
+                        ref_data
+                    )
+
+                if gen_updates:
+                    execute_values(cur,
+                        "UPDATE players SET generated_ref_xp = generated_ref_xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
+                        gen_updates
+                    )
+
+            conn.commit()
+    except Exception as e:
+        print(f"/// XP FLUSH ERROR: {e}")
         try:
-            time.sleep(60) # Flush every 1 minute
-            with _xp_cache_lock:
-                if not _xp_cache:
-                    continue
-                cache_copy = dict(_xp_cache)
-                _xp_cache.clear()
+            conn.rollback()
+        except:
+            pass
+        # Restore the failed XP updates back to cache so they aren't lost
+        with _xp_cache_lock:
+            for uid, amount in cache_copy.items():
+                _xp_cache[uid] = _xp_cache.get(uid, 0) + amount
 
-            try:
-                with db_session() as conn:
-                    with conn.cursor() as cur:
-                        uids = list(cache_copy.keys())
-                        if not uids:
-                            continue
-
-                        # Fetch referrers in batch
-                        cur.execute("SELECT uid, referrer FROM players WHERE uid = ANY(%s)", (uids,))
-                        referrers = {row[0]: row[1] for row in cur.fetchall()}
-
-                        player_updates = []
-                        ref_updates = {}
-                        gen_updates = []
-
-                        for uid, amount in cache_copy.items():
-                            if amount == 0:
-                                continue
-
-                            profit = 0
-                            ref_id = None
-                            actual_amount = amount
-
-                            if amount > 0:
-                                ref_id = referrers.get(uid)
-                                if ref_id:
-                                    profit = int(amount * 0.1)
-                                    actual_amount = amount - profit
-
-                            player_updates.append((uid, actual_amount))
-
-                            if profit > 0 and ref_id:
-                                # We need to accumulate ref profits in case multiple referrals are updated
-                                if ref_id not in ref_updates:
-                                    ref_updates[ref_id] = 0
-                                ref_updates[ref_id] += profit
-
-                                gen_updates.append((uid, profit))
-
-                        if player_updates:
-                            execute_values(cur,
-                                "UPDATE players SET xp = xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
-                                player_updates
-                            )
-
-                        if ref_updates:
-                            ref_data = [(rid, p) for rid, p in ref_updates.items()]
-                            execute_values(cur,
-                                "UPDATE players SET xp = xp + data.amount, ref_profit_xp = ref_profit_xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
-                                ref_data
-                            )
-
-                        if gen_updates:
-                            execute_values(cur,
-                                "UPDATE players SET generated_ref_xp = generated_ref_xp + data.amount FROM (VALUES %s) AS data (uid, amount) WHERE players.uid = data.uid",
-                                gen_updates
-                            )
-
-                    conn.commit()
-            except Exception as e:
-                print(f"/// XP FLUSH ERROR: {e}")
-                try:
-                    conn.rollback()
-                except:
-                    pass
-                # Restore the failed XP updates back to cache so they aren't lost
-                with _xp_cache_lock:
-                    for uid, amount in cache_copy.items():
-                        _xp_cache[uid] = _xp_cache.get(uid, 0) + amount
-        except Exception as outer_e:
-            print(f"/// XP FLUSH FATAL: {outer_e}")
-
-threading.Thread(target=_flush_xp_cache, daemon=True).start()
 # ---------------------------
 
 def add_xp_to_user(uid, amount, cursor=None):

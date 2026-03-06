@@ -1,3 +1,9 @@
+import re
+
+with open('cache_db.py', 'r') as f:
+    content = f.read()
+
+new_imports = """
 import threading
 import time
 import traceback
@@ -25,15 +31,16 @@ if REDIS_URL:
     except Exception as e:
         print(f"/// REDIS CONNECTION ERROR: {e}")
         redis_client = None
+"""
 
-_cache = {}
-_lock = threading.Lock()
+content = re.sub(r'import threading\nimport time\nimport traceback', new_imports.strip(), content, count=1)
 
+new_get_cached = """
 def get_cached_state(key, db_func, ttl=2.0):
-    """
+    \"\"\"
     Generic caching function.
     'key' should be a unique string including the UID and the data type.
-    """
+    \"\"\"
     now = time.time()
 
     # REDIS PATH
@@ -59,8 +66,6 @@ def get_cached_state(key, db_func, ttl=2.0):
             if now < expiry:
                 return val
 
-
-
     # DB call outside lock to prevent deadlock
     try:
         val = db_func()
@@ -71,19 +76,11 @@ def get_cached_state(key, db_func, ttl=2.0):
     with _lock:
         _cache[key] = (val, now + ttl)
     return val
+"""
+content = re.sub(r'def get_cached_state.*?return val', new_get_cached.strip(), content, flags=re.DOTALL)
 
-def get_cached_user(uid, ttl=5.0):
-    import database as db
-    return get_cached_state(f"u_{uid}", lambda: db.get_user(uid), ttl=ttl)
 
-def get_cached_user_state(uid, ttl=2.0):
-    import database as db
-    return get_cached_state(f"state_{uid}", lambda: db.get_state(uid), ttl=ttl)
-
-def get_cached_admin_status(uid, ttl=10.0):
-    import database as db
-    return get_cached_state(f"admin_{uid}", lambda: db.is_user_admin(uid), ttl=ttl)
-
+new_clear = """
 def clear_cache(uid):
     uid_str = str(uid)
 
@@ -103,12 +100,16 @@ def clear_cache(uid):
         keys_to_del = [k for k in _cache.keys() if uid_str in k]
         for k in keys_to_del:
             _cache.pop(k, None)
+"""
+content = re.sub(r'def clear_cache.*?_cache\.pop\(k, None\)', new_clear.strip(), content, flags=re.DOTALL)
 
+
+new_throttle = """
 def check_throttle(uid, action, timeout=1.5):
-    """
+    \"\"\"
     Returns True if action is throttled (blocked), False otherwise.
     Sets timeout for the next allowed action.
-    """
+    \"\"\"
     key = f"throttle_{uid}_{action}"
 
     if redis_client:
@@ -131,3 +132,9 @@ def check_throttle(uid, action, timeout=1.5):
 
         _cache[key] = (True, now + timeout)
         return False
+"""
+content = re.sub(r'def check_throttle.*?return False', new_throttle.strip(), content, flags=re.DOTALL)
+
+
+with open('cache_db.py', 'w') as f:
+    f.write(content)

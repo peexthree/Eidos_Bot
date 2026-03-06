@@ -5,7 +5,7 @@ import keyboards as kb
 from modules.services.utils import menu_update, strip_html
 from modules.services import pvp
 from telebot import types
-import json
+import ujson as json
 import time
 import datetime
 import random
