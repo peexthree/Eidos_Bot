@@ -34,14 +34,14 @@ const RARITY_NAMES = {
 };
 
 const ICONS = {
-    'weapon': '⚔️',
-    'head': '🪖',
-    'body': '🦺',
-    'software': '💾',
-    'artifact': '💎',
-    'consumable': '💊',
-    'misc': '📦',
-    'default': '❓'
+    'weapon': '<img src="IMG/eidos_weapon-attack.svg" class="item-type-icon">',
+    'head': '<img src="IMG/eidos_biometric-id.svg" class="item-type-icon">',
+    'body': '<img src="IMG/eidos_shield-armor.svg" class="item-type-icon">',
+    'software': '<img src="IMG/eidos_neuro-brain.svg" class="item-type-icon">',
+    'artifact': '<img src="IMG/eidos_shard-premium.svg" class="item-type-icon">',
+    'consumable': '<img src="IMG/eidos_medkit-repair.svg" class="item-type-icon">',
+    'misc': '<img src="IMG/eidos_data-mine.svg" class="item-type-icon">',
+    'default': '<img src="IMG/eidos_sys-warning.svg" class="item-type-icon">'
 };
 
 // DOM Elements
@@ -683,34 +683,43 @@ function showBootSequence() {
 
     const bootEl = document.getElementById('boot-text');
     const loadingOverlay = document.getElementById('loading-overlay');
+    const progBar = document.getElementById('sys-progress');
 
     if (!bootEl || !loadingOverlay) return;
 
     const sequence = [
-        "DECRYPTING NEURAL LINK...",
-        "MOUNTING CORE_DATA...",
-        "INITIALIZING EIDOS SUB-ROUTINES...",
-        "SYNCING QUANTUM STATE...",
-        "WELCOME, ANOMALY."
+        "ПОДКЛЮЧЕНИЕ К УЗЛУ SUPABASE...",
+        "ДЕШИФРОВКА НЕЙРОЛИНКА...",
+        "СИНХРОНИЗАЦИЯ БАЗЫ ЭКИПИРОВКИ...",
+        "ИНЖЕКЦИЯ ЛОГОВ...",
+        "ДОСТУП РАЗРЕШЕН. ДОБРО ПОЖАЛОВАТЬ."
     ];
 
     loadingOverlay.style.display = 'flex';
     let i = 0;
+    let progress = 0;
 
     function nextLine() {
         if (i < sequence.length) {
             bootEl.innerHTML += `> ${sequence[i]}<br>`;
             if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+            // Advance progress bar
+            progress += (100 / sequence.length);
+            if (progBar) progBar.style.width = `${progress}%`;
+
             i++;
-            setTimeout(nextLine, i === sequence.length ? 800 : Math.random() * 300 + 100);
+            setTimeout(nextLine, Math.random() * 400 + 200);
         } else {
             bootFinished = true;
-            loadingOverlay.style.opacity = '0';
             setTimeout(() => {
-                loadingOverlay.style.display = 'none';
-                pushLog('SYSTEM ONLINE. AWAITING COMMANDS.', 'SYS');
-                loadData(); // Load actual data after boot
-            }, 500);
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                    pushLog('СИСТЕМА АКТИВИРОВАНА.', 'SYS');
+                    loadData(); // Load actual data after boot
+                }, 500);
+            }, 800);
         }
     }
 
