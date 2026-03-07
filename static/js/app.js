@@ -54,6 +54,7 @@ const els = {
     statAtk: document.getElementById('stat-atk'),
     statDef: document.getElementById('stat-def'),
     statLuck: document.getElementById('stat-luck'),
+    statSignal: document.getElementById('stat-signal'),
     xpBar: document.getElementById('xp-bar'),
     xpText: document.getElementById('xp-text'),
     inventoryList: document.getElementById('inventory-list'),
@@ -103,28 +104,54 @@ function renderProfile() {
         els.profileAvatar.src = p.avatar_url;
     }
 
-    els.statAtk.innerText = p.atk || 0;
-    els.statDef.innerText = p.def || 0;
-    els.statLuck.innerText = p.luck || 0;
+    animateStatChange(els.statAtk, p.atk || 0);
+    animateStatChange(els.statDef, p.def || 0);
+    animateStatChange(els.statLuck, p.luck || 0);
+    animateStatChange(els.statSignal, `${p.signal || 100}%`);
 
     const xp = p.xp || 0;
-    const max_xp = p.max_xp || 1000;
-    const pct = Math.min(100, Math.max(0, (xp / max_xp) * 100));
-
-    els.xpBar.style.width = `${pct}%`;
-    els.xpText.innerText = `${xp} / ${max_xp} XP`;
+    const nXp = p.next_xp || 100;
+    els.xpText.innerText = `${xp} / ${nXp} XP`;
+    let pct = Math.min((xp / nXp) * 100, 100);
+    els.xpBar.style.width = pct + '%';
 }
 
-function renderDoll() {
-    const slots = ['head', 'body', 'weapon', 'software', 'artifact'];
+function animateStatChange(el, newValue) {
+    if (!el) return;
+    const oldVal = el.innerText;
+    if (oldVal !== String(newValue)) {
+        el.innerText = newValue;
 
-    slots.forEach(slotType => {
-        const slotEl = document.getElementById(`slot-${slotType}`);
+        // Convert to int for comparison if possible
+        const oldNum = parseInt(oldVal.replace('%', ''));
+        const newNum = parseInt(String(newValue).replace('%', ''));
+
+        if (!isNaN(oldNum) && !isNaN(newNum)) {
+            el.classList.remove('stat-up', 'stat-down');
+            void el.offsetWidth; // trigger reflow
+            if (newNum > oldNum) {
+                el.classList.add('stat-up');
+            } else if (newNum < oldNum) {
+                el.classList.add('stat-down');
+            }
+        }
+    }
+}function renderDoll() {
+    const equipped = inventoryData.equipped || {};
+
+    const slotsMap = {
+        'head': els.dollContainer.querySelector('#slot-head'),
+        'weapon': els.dollContainer.querySelector('#slot-weapon'),
+        'body': els.dollContainer.querySelector('#slot-body'),
+        'software': els.dollContainer.querySelector('#slot-software'),
+        'artifact': els.dollContainer.querySelector('#slot-artifact')
+    };
+
+    Object.keys(slotsMap).forEach(slotType => {
+        const item = equipped[slotType];
+        const slotEl = slotsMap[slotType];
         if (!slotEl) return;
 
-        const item = inventoryData.equipped[slotType];
-
-        // Setup drop zone
         slotEl.ondragover = (e) => handleDragOver(e, slotType);
         slotEl.ondragleave = (e) => handleDragLeave(e);
         slotEl.ondrop = (e) => handleDrop(e, slotType);
@@ -133,19 +160,26 @@ function renderDoll() {
             const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
             const icon = item.image_url ? `<img src="${item.image_url}" alt="icon">` : `<span style="font-size:24px; color:${color}">${ICONS[slotType] || ICONS['default']}</span>`;
 
+            // Generate durability UI
+            let durHtml = '';
+            if (item.durability !== undefined && item.durability !== null) {
+                const isLow = item.durability <= 3;
+                durHtml = `<div class="item-durability ${isLow ? 'low' : ''}">ОЗ: ${item.durability}</div>`;
+            }
+
             slotEl.innerHTML = `
                 <div class="equip-slot-label">${slotType.toUpperCase()}</div>
                 <div class="equipped-item" draggable="true" onclick="openUnequipModal('${slotType}')" style="box-shadow: inset 0 0 10px ${color}40; border: 1px solid ${color};">
                     ${icon}
                     <span class="equipped-item-name" style="color:${color}">${item.name}</span>
+                    ${durHtml}
                 </div>
             `;
 
-            // Drag to unequip
             const dragEl = slotEl.querySelector('.equipped-item');
             dragEl.ondragstart = (e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify({ action: 'unequip', slot: slotType }));
-                tg.HapticFeedback.impactOccurred('light');
+                if(window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             };
         } else {
             slotEl.style.borderColor = '#444';
@@ -204,17 +238,36 @@ function renderInventory() {
             openModal(item);
         };
 
+
         if (isEquippable) {
             card.ondragstart = (e) => {
-                e.dataTransfer.setData('application/json', JSON.stringify({
+                const data = {
                     action: 'equip',
                     inv_id: item.id,
                     item_id: item.item_id,
                     type: item.type
-                }));
-                tg.HapticFeedback.impactOccurred('medium');
+                };
+                e.dataTransfer.setData('application/json', JSON.stringify(data));
+
+                // Audio Context Haptics
+                if(window.tg && tg.HapticFeedback) {
+                    if(item.rarity === 'legendary') tg.HapticFeedback.notificationOccurred('success');
+                    else tg.HapticFeedback.impactOccurred('medium');
+                }
+
+                // Thermal Emission
+                if(item.rarity === 'legendary') card.classList.add('legendary-glow');
+
+                // Action Log
+                pushLog(`[PREPARING TO EQUIP]: ${item.name}`, 'SYNC');
+            };
+
+            card.ondragend = (e) => {
+                card.classList.remove('legendary-glow');
+                clearPreviewStats();
             };
         }
+
 
         els.inventoryList.appendChild(card);
     });
@@ -244,10 +297,21 @@ async function handleDrop(e, slotType) {
         const data = JSON.parse(dataStr);
 
         if (data.action === 'equip') {
+            // Normalize types
+            let itemType = data.type;
+            if (itemType === 'helmet') itemType = 'head';
+            if (itemType === 'armor') itemType = 'body';
+
             // Check slot match
-            if (data.type !== slotType) {
-                tg.HapticFeedback.notificationOccurred('error');
-                tg.showAlert(`Неверный слот! Этот предмет типа: ${data.type}`);
+            if (itemType !== slotType) {
+                if(window.tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+
+                // Red flash effect
+                document.body.style.boxShadow = 'inset 0 0 50px #ff3333';
+                setTimeout(() => document.body.style.boxShadow = 'none', 300);
+
+                if(window.tg) tg.showAlert(`Неверный слот! Этот предмет типа: ${data.type}`);
+                else alert(`Неверный слот! Этот предмет типа: ${data.type}`);
                 return;
             }
             await equipItemAPI(data.inv_id, data.item_id);
@@ -416,3 +480,257 @@ tg.MainButton.show();
 tg.MainButton.onClick(() => tg.close());
 
 loadData();
+
+// === SPA Navigation Logic ===
+const navItems = document.querySelectorAll('.nav-item');
+const views = document.querySelectorAll('.view');
+
+navItems.forEach(nav => {
+    nav.addEventListener('click', (e) => {
+        const targetViewId = e.currentTarget.dataset.target;
+
+        // Haptic feedback
+        if (window.tg && tg.HapticFeedback) {
+            tg.HapticFeedback.impactOccurred('light');
+        }
+
+        // Update Nav UI
+        navItems.forEach(n => n.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+
+        // Update View UI
+        views.forEach(v => {
+            v.classList.remove('active');
+            if (v.id === targetViewId) {
+                // Short timeout to restart animation
+                setTimeout(() => v.classList.add('active'), 10);
+            }
+        });
+
+        // Logic for specific views
+        if (targetViewId === 'view-shop') {
+            renderShop();
+        } else if (targetViewId === 'view-craft') {
+            // init craft logic
+        } else if (targetViewId === 'view-raids') {
+            // load raids
+        } else if (targetViewId === 'view-social') {
+            // load social
+        }
+    });
+});
+
+// Remove Profile-header display from loadData to prevent duplication
+// (Stats are now fixed at the top)
+
+function renderShop() {
+    const shopList = document.getElementById('shop-list');
+    shopList.innerHTML = '<div style="text-align:center; padding: 20px; color:#888;">Модуль Торгового Шлюза загружается...</div>';
+
+    // Will implement shop fetch and render in next step
+}
+
+
+function updateSignalUI() {
+    const p = inventoryData.profile;
+    if (!p) return;
+
+    els.statSignal.innerText = `${p.signal}%`;
+    els.statSignal.style.color = p.signal > 50 ? '#00ff00' : (p.signal > 20 ? '#ffcc00' : '#ff3333');
+}
+
+// Ensure signal is updated
+const _oldLoad = loadData;
+loadData = async function() {
+    await _oldLoad();
+    updateSignalUI();
+};
+
+function renderDoll() {
+    const equipped = inventoryData.equipped || {};
+
+    const slotsMap = {
+        'head': els.dollContainer.querySelector('#slot-head'),
+        'weapon': els.dollContainer.querySelector('#slot-weapon'),
+        'body': els.dollContainer.querySelector('#slot-body'),
+        'software': els.dollContainer.querySelector('#slot-software'),
+        'artifact': els.dollContainer.querySelector('#slot-artifact')
+    };
+
+    Object.keys(slotsMap).forEach(slotType => {
+        const item = equipped[slotType];
+        const slotEl = slotsMap[slotType];
+        if (!slotEl) return;
+
+        slotEl.ondragover = (e) => handleDragOver(e, slotType);
+        slotEl.ondragleave = (e) => handleDragLeave(e);
+        slotEl.ondrop = (e) => handleDrop(e, slotType);
+
+        if (item) {
+            const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
+            const icon = item.image_url ? `<img src="${item.image_url}" alt="icon">` : `<span style="font-size:24px; color:${color}">${ICONS[slotType] || ICONS['default']}</span>`;
+
+            slotEl.innerHTML = `
+                <div class="equip-slot-label">${slotType.toUpperCase()}</div>
+                <div class="equipped-item" draggable="true" onclick="openUnequipModal('${slotType}')" style="box-shadow: inset 0 0 10px ${color}40; border: 1px solid ${color};">
+                    ${icon}
+                    <span class="equipped-item-name" style="color:${color}">${item.name}</span>
+                </div>
+            `;
+
+            const dragEl = slotEl.querySelector('.equipped-item');
+            dragEl.ondragstart = (e) => {
+                e.dataTransfer.setData('application/json', JSON.stringify({ action: 'unequip', slot: slotType }));
+                if(window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            };
+        } else {
+            slotEl.style.borderColor = '#444';
+            slotEl.innerHTML = `
+                <div class="equip-slot-label">${slotType.toUpperCase()}</div>
+                <div style="opacity: 0.3; font-size: 24px;">${ICONS[slotType] || '⬛'}</div>
+                <div style="font-size: 10px; color: #666; margin-top: 5px;">ПУСТО</div>
+            `;
+            slotEl.onclick = null;
+        }
+    });
+}
+
+/* === CREATIVE UI MODULE === */
+
+// Action Log System
+function pushLog(text, type = "SYS") {
+    const el = document.getElementById('action-log-text');
+    const pEl = document.querySelector('.log-prefix');
+    if (!el || !pEl) return;
+
+    // Animate resetting text
+    el.innerText = '';
+    el.style.opacity = 0;
+
+    setTimeout(() => {
+        pEl.innerText = `[${type}]`;
+        pEl.style.color = type === 'ERR' ? '#ff3333' : (type === 'SYNC' ? '#33ccff' : '#666');
+        el.innerText = text;
+        el.style.color = type === 'ERR' ? '#ff3333' : '#00ff00';
+        el.style.opacity = 1;
+
+        // Glitch type effect
+        let typed = '';
+        let i = 0;
+        const speed = 20;
+        const origText = text;
+
+        const typeWriter = () => {
+            if (i < origText.length) {
+                typed += origText.charAt(i);
+                el.innerText = typed;
+                i++;
+                setTimeout(typeWriter, speed);
+            }
+        };
+        typeWriter();
+
+    }, 100);
+}
+
+// Low Signal Effect
+function checkLowSignal(signalStr) {
+    const signal = parseInt(String(signalStr).replace('%', ''));
+    if (!isNaN(signal)) {
+        if (signal < 20) {
+            document.body.classList.add('low-signal');
+            pushLog('CRITICAL SIGNAL LOSS. SYSTEM UNSTABLE.', 'ERR');
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+        } else {
+            document.body.classList.remove('low-signal');
+        }
+    }
+}
+
+// Ghost Stats Preview
+function previewStats(draggedItemInfo) {
+    if (!inventoryData || !inventoryData.profile) return;
+    const p = inventoryData.profile;
+    const eq = inventoryData.equipped || {};
+
+    // We need to parse item stats. They are not explicitly passed in the list except from DB.
+    // For now, visual feedback: highlight the target slot type.
+    const type = draggedItemInfo.type;
+    const targetSlot = document.getElementById(`slot-${type}`);
+
+    if (targetSlot) {
+        targetSlot.classList.add('drag-over');
+        // If we had actual stat numbers in item payload, we would inject them into the header here
+        // As a visual fallback:
+        els.statAtk.classList.add('stat-up');
+        els.statDef.classList.add('stat-up');
+    }
+}
+
+function clearPreviewStats() {
+    const slots = document.querySelectorAll('.equip-slot');
+    slots.forEach(s => s.classList.remove('drag-over'));
+
+    els.statAtk.classList.remove('stat-up', 'stat-down');
+    els.statDef.classList.remove('stat-up', 'stat-down');
+}
+
+// Boot Sequence
+let bootFinished = false;
+
+function showBootSequence() {
+    if (bootFinished) return;
+
+    const bootEl = document.getElementById('boot-text');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    if (!bootEl || !loadingOverlay) return;
+
+    const sequence = [
+        "DECRYPTING NEURAL LINK...",
+        "MOUNTING CORE_DATA...",
+        "INITIALIZING EIDOS SUB-ROUTINES...",
+        "SYNCING QUANTUM STATE...",
+        "WELCOME, ANOMALY."
+    ];
+
+    loadingOverlay.style.display = 'flex';
+    let i = 0;
+
+    function nextLine() {
+        if (i < sequence.length) {
+            bootEl.innerHTML += `> ${sequence[i]}<br>`;
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            i++;
+            setTimeout(nextLine, i === sequence.length ? 800 : Math.random() * 300 + 100);
+        } else {
+            bootFinished = true;
+            loadingOverlay.style.opacity = '0';
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                pushLog('SYSTEM ONLINE. AWAITING COMMANDS.', 'SYS');
+                loadData(); // Load actual data after boot
+            }, 500);
+        }
+    }
+
+    nextLine();
+}
+
+// Redefine showLoading to use simpler spinner after boot
+const _originalShowLoading = showLoading;
+showLoading = function(show) {
+    if (!bootFinished) return; // Don't interrupt boot
+    _originalShowLoading(show);
+};
+
+// Hook checkLowSignal into updateSignalUI
+const _updateSignalUI = updateSignalUI;
+updateSignalUI = function() {
+    _updateSignalUI();
+    if(inventoryData && inventoryData.profile) {
+        checkLowSignal(inventoryData.profile.signal);
+    }
+}
+
+// Replace loadData execution at bottom with boot sequence

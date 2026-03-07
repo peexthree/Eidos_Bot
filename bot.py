@@ -184,6 +184,7 @@ def inventory_api():
                 "atk": stats.get('atk', 0),
                 "def": stats.get('def', 0),
                 "luck": stats.get('luck', 0),
+                "signal": user.get('signal', 100),
                 "avatar_url": avatar_url
             }
 
@@ -216,7 +217,8 @@ def inventory_api():
                         "type": ui_slot,
                         "desc": info.get('desc', ''),
                         "rarity": info.get('rarity', 'common'),
-                        "image_url": get_image_url(item_id, info)
+                        "image_url": get_image_url(item_id, info),
+                        "durability": durability
                     }
 
         # 2. Load Inventory
