@@ -6,16 +6,24 @@ import requests
 import database as db
 from openai import OpenAI
 import re
+import logging
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-2-27b-it")
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 
-# Initialize OpenAI Client pointing to OpenRouter
-ai_client = OpenAI(
-    base_url=OPENROUTER_URL,
-    api_key=OPENROUTER_API_KEY,
-)
+# Initialize OpenAI Client safely
+ai_client = None
+if OPENROUTER_API_KEY:
+    try:
+        ai_client = OpenAI(
+            base_url=OPENROUTER_URL,
+            api_key=OPENROUTER_API_KEY,
+        )
+    except Exception as e:
+        logging.error(f"/// AI CLIENT INIT ERROR: {e}")
+else:
+    logging.warning("/// OPENROUTER_API_KEY is missing! AI features will be disabled.")
 
 PROMPTS = {
     'dossier': (
@@ -68,6 +76,8 @@ def sanitize_for_telegram(text: str) -> str:
     return text.strip()
 
 def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
+    if not ai_client:
+        return None
     try:
         stream = ai_client.chat.completions.create(
             model=OPENROUTER_MODEL,
@@ -93,11 +103,11 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
                         last_edit_time = time.time()
                     except Exception as e:
                         if "message is not modified" not in str(e).lower():
-                            print(f"/// AI STREAM UPDATE ERR: {e}")
+                            logging.error(f"/// AI STREAM UPDATE ERR: {e}")
 
         return full_text
     except Exception as e:
-        print(f"/// AI STREAM API ERR: {e}")
+        logging.error(f"/// AI STREAM API ERR: {e}")
         return None
 
 def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
@@ -112,8 +122,8 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
         bot.edit_message_text("👁‍🗨 Сбой. Твоя телеметрия не найдена в базе данных.", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
-    if not OPENROUTER_API_KEY:
-        bot.edit_message_text("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено (API_KEY missing).", chat_id=chat_id, message_id=init_msg.message_id)
+    if not ai_client:
+        bot.edit_message_text("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено (API connection failed).", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
     system_prompt = PROMPTS.get(analysis_type, PROMPTS['dossier'])
@@ -130,16 +140,16 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
                     with conn.cursor() as cur:
                                 cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (uid, result_text))
             except Exception as e:
-                print(f"/// AI WORKER DB SAVE ERROR: {e}")
+                logging.error(f"/// AI WORKER DB SAVE ERROR: {e}")
 
         # Final update to remove cursor block
         try:
             bot.edit_message_text(f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}", chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
         except Exception as e:
             if "message is not modified" not in str(e).lower():
-                print(f"/// FINAL MSG ERR: {e}")
+                logging.error(f"/// FINAL MSG ERR: {e}")
     else:
-        bot.edit_message_text("👁‍🗨 Нейро-ядро перегружено. Твоя телеметрия сохранена. Повтори запрос позже.", chat_id=chat_id, message_id=init_msg.message_id)
+        bot.edit_message_text("👁‍🗨 Нейро-ядро перегружено или недоступно. Твоя телеметрия сохранена. Повтори запрос позже.", chat_id=chat_id, message_id=init_msg.message_id)
 
 def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
     if cache_db.check_throttle(uid, 'generate_eidos_voice_worker', timeout=60):
@@ -148,7 +158,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
 
     init_msg = bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
 
-    if not OPENROUTER_API_KEY:
+    if not ai_client:
         bot.edit_message_text("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено.", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
@@ -202,7 +212,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             artifact_lore = "Память утеряна."
 
     except Exception as e:
-        print(f"/// AI WORKER VOICE ERROR: {e}")
+        logging.error(f"/// AI WORKER VOICE ERROR: {e}")
         bot.edit_message_text("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.", chat_id=chat_id, message_id=init_msg.message_id)
         return
 
@@ -235,7 +245,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             with conn.cursor() as cur:
                 cur.execute("INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data) VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s) ON CONFLICT (uid, slot) DO UPDATE SET item_id = EXCLUDED.item_id, custom_data = EXCLUDED.custom_data", (uid, new_custom_data))
     except Exception as e:
-        print(f"/// AI WORKER DB ERROR: {e}")
+        logging.error(f"/// AI WORKER DB ERROR: {e}")
         bot.send_message(chat_id, "👁‍🗨 Сбой записи артефакта в матрицу.")
         return
 
@@ -254,7 +264,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
         try:
             bot.send_message(chat_id, chunk, parse_mode="HTML")
         except Exception as e:
-            print(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
+            logging.warning(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
             bot.send_message(chat_id, chunk)
 
     if len(final_caption) > 1024:
@@ -263,12 +273,12 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
             for i in range(0, len(final_caption), 4000):
                 bot.send_message(chat_id, final_caption[i:i+4000])
         except Exception as e:
-            print(f"/// AI WORKER PHOTO ERROR: {e}")
+            logging.error(f"/// AI WORKER PHOTO ERROR: {e}")
     else:
         try:
             bot.send_photo(chat_id, artifact_img_id, caption=final_caption)
         except Exception as e:
-            print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
+            logging.error(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
 
 def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None):
     if cache_db.check_throttle(uid, 'generate_user_dossier_worker', timeout=60):
@@ -384,20 +394,9 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
 
     update_progress(70, "Запрос к архивам OpenRouter")
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "messages": [
-            {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": 0.8,
-        "max_tokens": 1000
-    }
+    if not ai_client:
+        bot.edit_message_text("❌ [СИСТЕМНЫЙ СБОЙ] ИИ-ядро не подключено.", chat_id=chat_id, message_id=loading_msg_id)
+        return
 
     ai_text = ""
     last_edit_time = time.time()
@@ -426,7 +425,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
             ai_text = sanitize_for_telegram(ai_text)
             break
         except Exception as e:
-            print(f"/// AI WORKER DOSSIER STREAM ERR: {e}")
+            logging.error(f"/// AI WORKER DOSSIER STREAM ERR: {e}")
             time.sleep(2)
 
     if loading_msg_id:
@@ -443,7 +442,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
                 cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (target_uid, ai_text))
                 conn.commit()
     except Exception as e:
-        print(f"/// AI WORKER DB INSERT ERROR: {e}")
+        logging.error(f"/// AI WORKER DB INSERT ERROR: {e}")
 
     img_id = config.USER_AVATARS.get(t_level, config.USER_AVATARS.get(1))
 

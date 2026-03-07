@@ -12,6 +12,7 @@ import time
 import random
 import threading
 import traceback
+import re
 from telebot import types
 
 # Helper for Shadow Broker (Middleware-ish)
@@ -22,8 +23,18 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
 
     if action_args is None: action_args = {}
 
+    # NEW: Visual feedback in message body instead of blocking the only allowed callback answer
     try:
-        bot.answer_callback_query(call.id, "Идет сканирование сектора...")
+        # Prepend scanning status to current message
+        current_text = call.message.caption or call.message.text or ""
+        # Clean previous tags if any
+        clean_text = re.sub(r'<code>\[ .*? \]</code>\n\n', '', current_text)
+        loading_text = f"<code>[ СИСТЕМНОЕ СКАНЕРОВАНИЕ СЕКТОРА... ]</code>\n\n{clean_text}"
+
+        if call.message.content_type == 'photo':
+            bot.edit_message_caption(caption=loading_text, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=call.message.reply_markup, parse_mode="HTML")
+        else:
+            bot.edit_message_text(text=loading_text, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=call.message.reply_markup, parse_mode="HTML")
     except:
         pass
 
@@ -47,7 +58,7 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
                       except: pass
                  menu_update(call, txt, kb.back_button())
             else:
-                 try: bot.answer_callback_query(call.id, txt, show_alert=True)
+                 try: bot.answer_callback_query(call.id, strip_html(txt), show_alert=True)
                  except: pass
             return
 
@@ -61,6 +72,13 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
             if alert:
                  try: bot.answer_callback_query(call.id, strip_html(alert), show_alert=True)
                  except: pass
+            else:
+                 # Must answer anyway to stop the spinner
+                 try: bot.answer_callback_query(call.id)
+                 except: pass
+        else:
+            # Spinner was likely answered in callback
+            pass
 
         full_text = text_prefix + txt
         consumables = get_consumables(uid)
