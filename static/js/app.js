@@ -673,6 +673,7 @@ function clearPreviewStats() {
     els.statDef.classList.remove('stat-up', 'stat-down');
 }
 
+
 // Boot Sequence
 let bootFinished = false;
 
@@ -682,6 +683,7 @@ function showBootSequence() {
     const bootEl = document.getElementById('boot-text');
     const loadingOverlay = document.getElementById('loading-overlay');
     const progBar = document.getElementById('sys-progress');
+    const progText = document.getElementById('progress-text');
 
     if (!bootEl || !loadingOverlay) return;
 
@@ -690,7 +692,7 @@ function showBootSequence() {
         "ДЕШИФРОВКА НЕЙРОЛИНКА...",
         "СИНХРОНИЗАЦИЯ БАЗЫ ЭКИПИРОВКИ...",
         "ИНЖЕКЦИЯ ЛОГОВ...",
-        "ДОСТУП РАЗРЕШЕН. ДОБРО ПОЖАЛОВАТЬ."
+        "ДОСТУП РАЗРЕШЕН."
     ];
 
     loadingOverlay.style.display = 'flex';
@@ -699,12 +701,16 @@ function showBootSequence() {
 
     function nextLine() {
         if (i < sequence.length) {
-            bootEl.innerHTML += `> ${sequence[i]}<br>`;
+            const el = document.createElement('div');
+            el.innerText = `> ${sequence[i]}`;
+            bootEl.appendChild(el);
+            if(bootEl.children.length > 5) bootEl.removeChild(bootEl.firstChild);
+
             if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 
-            // Advance progress bar
             progress += (100 / sequence.length);
             if (progBar) progBar.style.width = `${progress}%`;
+            if (progText) progText.innerText = `ИНИЦИАЛИЗАЦИЯ: ${Math.round(progress)}%`;
 
             i++;
             setTimeout(nextLine, Math.random() * 400 + 200);
@@ -715,7 +721,7 @@ function showBootSequence() {
                 setTimeout(() => {
                     loadingOverlay.style.display = 'none';
                     pushLog('СИСТЕМА АКТИВИРОВАНА.', 'SYS');
-                    loadData(); // Load actual data after boot
+                    loadData();
                 }, 500);
             }, 800);
         }
@@ -755,3 +761,21 @@ if (pBox) {
         pBox.appendChild(p);
     }
 }
+
+// Initialize NEXUS GRID particles
+document.addEventListener('DOMContentLoaded', () => {
+    const pBox = document.getElementById('p-box');
+    if (pBox) {
+        for(let i=0; i<35; i++) {
+            let p = document.createElement('div');
+            p.className = 'particle';
+            let size = Math.random() * 3 + 1;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            p.style.left = (Math.random() * 100) + '%';
+            p.style.setProperty('--duration', (Math.random() * 6 + 3) + 's');
+            p.style.animationDelay = (Math.random() * 5) + 's';
+            pBox.appendChild(p);
+        }
+    }
+});

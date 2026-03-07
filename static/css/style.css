@@ -1014,3 +1014,39 @@ body.low-signal .view-title {
 
 @keyframes grid-move { 0% { background-position: 0 0; } 100% { background-position: 0 35px; } }
 @keyframes float-up { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 50% { opacity: 0.6; } 100% { transform: translateY(-10vh) scale(1); opacity: 0; } }
+
+/* ====== SIZE FIXES FOR NEW SVGs ====== */
+.item-type-icon {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+}
+
+.item-card .item-type-icon {
+    width: 32px;
+    height: 32px;
+}
+
+.modal-icon .item-type-icon {
+    width: 64px;
+    height: 64px;
+}
+
+.equipped-item .item-type-icon {
+    width: 32px;
+    height: 32px;
+}
+
+/* Glassmorphism over NEXUS grid */
+.equip-doll, .stats-header, .bottom-nav, .item-card, .shop-item, .modal-content, .craft-container, .social-container {
+    background-color: rgba(11, 12, 16, 0.7) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(102, 252, 241, 0.2);
+}
+
+.equipped-item {
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
