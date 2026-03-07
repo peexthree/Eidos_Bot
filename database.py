@@ -1010,6 +1010,16 @@ def unequip_item(uid, slot):
         print(f"Unequip Error: {e}")
         return False
 
+def get_equipped_items_full(uid, cursor=None):
+    if cursor:
+        cursor.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
+        return {row["slot"]: {"item_id": row["item_id"], "durability": row["durability"]} for row in cursor.fetchall()}
+
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return {}
+        cur.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
+        return {row["slot"]: {"item_id": row["item_id"], "durability": row["durability"]} for row in cur.fetchall()}
+
 def get_equipped_items(uid, cursor=None):
     if cursor:
         cursor.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
@@ -1712,4 +1722,4 @@ def populate_content():
 # === АЛИАС ДЛЯ WEBAPP ИНВЕНТАРЯ ===
 def get_user_equipment(uid):
     """Связующее звено для API инвентаря в bot.py"""
-    return get_equipped_items(uid)
+    return get_equipped_items_full(uid)
