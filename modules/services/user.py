@@ -232,7 +232,6 @@ def get_user_stats(uid):
 
     # --- IMPOSTER SYNDROME (Chip) ---
     if eq.get('chip') == 'imposter_syndrome':
-        global _top_1_cache
         now = time.time()
 
         # Кэшируем Топ-1 на 5 минут (300 секунд), чтобы не убить базу

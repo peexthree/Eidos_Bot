@@ -1001,6 +1001,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
                 cur.execute("UPDATE raid_sessions SET buffer_xp=0, buffer_coins=0, buffer_items='', signal=1 WHERE uid=%s", (uid,))
                 msg_event += "\n☢️ <b>САВАН:</b> Взрыв спас жизнь, но уничтожил лут."
                 # We survived, return normally
+                extra_ret = None
                 return True, interface, extra_ret, u, event['type'], next_step_cost
 
             # СМЕРТЬ
