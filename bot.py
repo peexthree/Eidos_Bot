@@ -106,6 +106,13 @@ def send_css(path):
     static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/css')
     return flask.send_from_directory(static_dir, path)
 
+
+@app.route('/IMG/<path:path>', methods=['GET'])
+def send_img(path):
+    import os
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/IMG')
+    return flask.send_from_directory(static_dir, path)
+
 @app.route('/js/<path:path>', methods=['GET'])
 def send_js(path):
     import os

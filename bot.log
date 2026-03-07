@@ -1,1 +1,31 @@
 2026-03-06 19:54:07,075 - root - INFO - /// TASK WORKER STARTED
+2026-03-07 20:59:37,539 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-07 20:59:37,540 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-07 20:59:37,540 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-07 20:59:37,545 - apscheduler.scheduler - INFO - Added job "aps_stats_flusher" to job store "default"
+2026-03-07 20:59:37,545 - apscheduler.scheduler - INFO - Added job "_flush_xp_cache" to job store "default"
+2026-03-07 20:59:37,546 - apscheduler.scheduler - INFO - Added job "aps_notification_loop" to job store "default"
+2026-03-07 20:59:37,546 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-07 20:59:37,547 - root - INFO - /// TASK WORKER STARTED
+2026-03-07 20:59:37,550 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.2:5000
+2026-03-07 20:59:37,550 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-03-07 20:59:40,693 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /inventory HTTP/1.1" 200 -
+2026-03-07 20:59:40,803 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /css/style.css HTTP/1.1" 200 -
+2026-03-07 20:59:40,804 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_tab-all.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,812 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_tab-equip.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,879 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_tab-consum.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,883 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_head-shop.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,892 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /js/app.js HTTP/1.1" 200 -
+2026-03-07 20:59:40,901 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_head-forge.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,906 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_tab-craft.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,911 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_head-raid.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,916 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_head-psycho.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,923 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/nav_head-eidos.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,929 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/eidos_demiurge-user.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,935 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/eidos_black-market.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,940 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/eidos_forge-craft.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,947 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/eidos_raid-boss.svg HTTP/1.1" 200 -
+2026-03-07 20:59:40,952 - werkzeug - INFO - 127.0.0.1 - - [07/Mar/2026 20:59:40] "GET /IMG/eidos_comm-link.svg HTTP/1.1" 200 -
