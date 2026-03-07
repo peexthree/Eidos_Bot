@@ -313,7 +313,6 @@ def reset_pool():
 
 @contextmanager
 def db_session():
-    global _formatted_db_url
     if not _formatted_db_url:
         init_pool()
 
