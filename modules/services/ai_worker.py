@@ -7,6 +7,7 @@ import database as db
 from openai import OpenAI
 import re
 import logging
+import config
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it")
@@ -95,7 +96,6 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
             if chunk.choices and chunk.choices[0].delta.content:
                 full_text += chunk.choices[0].delta.content
 
-                # Update every 1.5s to avoid flood control
                 if time.time() - last_edit_time > 1.5:
                     sanitized_chunk = sanitize_for_telegram(full_text)
                     try:
@@ -136,13 +136,13 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
 
         if analysis_type == 'dossier':
             try:
-                with db.db_session() as conn:
-                    with conn.cursor() as cur:
-                                cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (uid, result_text))
+                # ИСПРАВЛЕНИЕ 1: Перевод на db_cursor() вместо db_session()
+                with db.db_cursor() as cur:
+                    if cur:
+                        cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (uid, result_text))
             except Exception as e:
                 logging.error(f"/// AI WORKER DB SAVE ERROR: {e}")
 
-        # Final update to remove cursor block
         try:
             bot.edit_message_text(f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}", chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
         except Exception as e:
@@ -231,19 +231,18 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
         total_spent = u.get('total_spent', 0) if u else 0
         current_level = max(1, total_spent // 500)
 
-        with db.db_session() as conn:
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM inventory WHERE uid = %s AND item_id = 'eidos_shard'", (uid,))
-
         new_custom_data = json.dumps({
             "level": current_level,
             "lore": artifact_lore,
             "name": f"Синхронизатор Абсолюта: [{first_name}]"
         })
 
-        with db.db_session() as conn:
-            with conn.cursor() as cur:
+        # ИСПРАВЛЕНИЕ 2: db_cursor(), таблица user_equipment для удаления и вставки, одна транзакция
+        with db.db_cursor() as cur:
+            if cur:
+                cur.execute("DELETE FROM user_equipment WHERE uid = %s AND item_id = 'eidos_shard'", (uid,))
                 cur.execute("INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data) VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s) ON CONFLICT (uid, slot) DO UPDATE SET item_id = EXCLUDED.item_id, custom_data = EXCLUDED.custom_data", (uid, new_custom_data))
+                
     except Exception as e:
         logging.error(f"/// AI WORKER DB ERROR: {e}")
         bot.send_message(chat_id, "👁‍🗨 Сбой записи артефакта в матрицу.")
@@ -288,13 +287,9 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
             except: pass
         return
 
-    import config
     import database as db
     from modules.services.user import get_profile_stats
     import random
-    import json
-    import time
-    import requests
     import urllib.parse
 
     def update_progress(perc, status):
@@ -324,7 +319,6 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     raid_count = profile_stats.get('raid_count', 0) if profile_stats else 0
     max_depth = profile_stats.get('max_depth', 0) if profile_stats else 0
 
-    # ИСПРАВЛЕНО: Защита от пустых теней
     shadows = db.get_user_shadow_metrics(target_uid) or {}
     glitches_count = shadows.get('glitches_encountered_count', 0)
     stability = max(0, 100 - (glitches_count * 7))
@@ -340,7 +334,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
                 for (eid,) in equipped:
                     if eid in config.ITEMS_INFO:
                         equip_list.append(config.ITEMS_INFO[eid]['name'])
-                    elif eid in config.EQUIPMENT_DB:
+                    elif hasattr(config, 'EQUIPMENT_DB') and eid in config.EQUIPMENT_DB:
                         equip_list.append(config.EQUIPMENT_DB[eid]['name'])
 
     inv_text = ", ".join(equip_list) if equip_list else "Отсутствует"
@@ -354,7 +348,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
         threat_level = "MEDIUM_DEVIANT"
 
     d_id = f"{random.randint(1000, 9999)}-{t_name.upper()[:10]}"
-    school_name = config.SCHOOLS.get(t_path, 'ОБЩАЯ')
+    school_name = getattr(config, 'SCHOOLS', {}).get(t_path, 'ОБЩАЯ')
 
     sys_prompt = (
         "Ты — бездушная кибер-система «Эйдос», проводящая глубокий психоанализ и технический аудит объекта.\n"
@@ -437,14 +431,14 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
         return
 
     try:
-        with db.db_session() as conn:
-            with conn.cursor() as cur:
+        # ИСПРАВЛЕНИЕ 3: Переход на db_cursor()
+        with db.db_cursor() as cur:
+            if cur:
                 cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (target_uid, ai_text))
-                conn.commit()
     except Exception as e:
         logging.error(f"/// AI WORKER DB INSERT ERROR: {e}")
 
-    img_id = config.USER_AVATARS.get(t_level, config.USER_AVATARS.get(1))
+    img_id = getattr(config, 'USER_AVATARS', {}).get(t_level, getattr(config, 'USER_AVATARS', {}).get(1))
 
     from telebot import types
     m = types.InlineKeyboardMarkup(row_width=1)
@@ -460,7 +454,8 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     m.add(types.InlineKeyboardButton("🔙 Вернуться к рейтингу", callback_data="leaderboard"))
 
     try:
-        bot.send_photo(chat_id, img_id, caption="<b>СОБРАНО ДОСЬЕ</b>", parse_mode="HTML")
+        if img_id:
+            bot.send_photo(chat_id, img_id, caption="<b>СОБРАНО ДОСЬЕ</b>", parse_mode="HTML")
         if len(ai_text) > 4000:
             for i in range(0, len(ai_text), 4000):
                 bot.send_message(chat_id, ai_text[i:i+4000], parse_mode="HTML", reply_markup=m if i+4000 >= len(ai_text) else None)
