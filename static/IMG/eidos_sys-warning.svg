@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-sys-warning" width="100%" height="100%">
+                <defs>
+                    <linearGradient id="grad-sys-warning" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#00ff41" />
+                        <stop offset="100%" stop-color="#00ffff" />
+                    </linearGradient>
+                    <filter id="glow-sys-warning" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="1" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <style>
+                        /* ИНКАПСУЛИРОВАННАЯ ЛОГИКА ДВИЖЕНИЯ */
+                        @keyframes spin-sys-warning { 100% { transform: rotate(360deg); } }
+                        @keyframes rev-spin-sys-warning { 100% { transform: rotate(-360deg); } }
+                        @keyframes pulse-sys-warning { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.08); filter: brightness(1.3); } }
+                        @keyframes pulse-fast-sys-warning { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); filter: brightness(1.5); } }
+                        @keyframes float-sys-warning { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+                        @keyframes glitch-sys-warning { 0%, 90%, 100% { transform: translate(0,0) skew(0deg); stroke: url(#grad-sys-warning); } 92% { transform: translate(-2px, 1px) skew(-5deg); stroke: #ff003c; } 96% { transform: translate(2px, -1px) skew(5deg); stroke: #00ffff; } }
+                        @keyframes glitch-heavy-sys-warning { 0%, 80%, 100% { transform: translate(0,0) scale(1); stroke: url(#grad-sys-warning); } 82% { transform: translate(-4px, 2px) scale(1.1); stroke: #ff003c; } 86% { transform: translate(4px, -2px) scale(0.9); stroke: #00ffff; } 88% { stroke: #ffffff; } }
+                        @keyframes draw-sys-warning { 0% { stroke-dashoffset: 100; } 50% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -100; } }
+                        @keyframes breathe-sys-warning { 0%, 100% { opacity: 0.6; stroke-width: 1; } 50% { opacity: 1; stroke-width: 1.8; filter: drop-shadow(0 0 5px #00ff41); } }
+                        @keyframes blink-sys-warning { 0%, 50% { opacity: 1; stroke: #ff003c; } 51%, 100% { opacity: 0.3; stroke: url(#grad-sys-warning); } }
+                        @keyframes wave-sys-warning { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.3); } }
+                        @keyframes shake-sys-warning { 0%, 80%, 100% { transform: rotate(0deg); } 85% { transform: rotate(-8deg); } 90% { transform: rotate(8deg); } 95% { transform: rotate(-8deg); } }
+
+                        #svg-sys-warning .hud-spin { transform-origin: 12px 12px; animation: spin-sys-warning 30s linear infinite; }
+                        #svg-sys-warning .core-anim { transform-origin: 12px 12px; animation: blink-sys-warning 2s steps(2, start) infinite; }
+                    </style>
+                </defs>
+                <!-- Tactical HUD Grid (Фоновый слой сканирования) -->
+                <g opacity="0.3" stroke="#00ffff" stroke-width="0.3" fill="none">
+                    <g class="hud-spin">
+                        <circle cx="12" cy="12" r="10" stroke-dasharray="1 4" />
+                        <line x1="12" y1="0" x2="12" y2="24" stroke-dasharray="2 8" opacity="0.3" />
+                        <line x1="0" y1="12" x2="24" y2="12" stroke-dasharray="2 8" opacity="0.3" />
+                    </g>
+                    <!-- Статичные углы калибровки -->
+                    <path d="M 2 2 L 4 2 M 22 2 L 20 2 M 2 22 L 4 22 M 22 22 L 20 22 M 2 2 L 2 4 M 22 2 L 22 4 M 2 22 L 2 20 M 22 22 L 22 20" />
+                </g>
+                <!-- Основной динамический контур -->
+                <g stroke="url(#grad-sys-warning)" stroke-width="1.2" fill="none" stroke-linecap="square" stroke-linejoin="miter" class="core-anim" filter="url(#glow-sys-warning)">
+                    <polygon points="12,2 22,20 2,20"/><line x1="12" y1="8" x2="12" y2="14"/><circle cx="12" cy="17" r="1"/>
+                </g>
+            </svg>
