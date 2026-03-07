@@ -86,7 +86,7 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}
             ],
-            stream=True
+            stream=True, timeout=15.0
         )
 
         full_text = ""
@@ -111,6 +111,7 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
         return None
 
 def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=None, amount=None):
+    logging.info(f"AI Worker started for UID {uid} (Analysis Type: {analysis_type})")
     if cache_db.check_throttle(uid, 'generate_eidos_response_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         return
@@ -146,6 +147,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
 
         if result_text:
             result_text = sanitize_for_telegram(result_text)
+            logging.info(f"AI Worker successfully generated response for UID {uid}")
 
             if analysis_type == 'dossier':
                 try:
@@ -179,6 +181,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
 def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=None, amount=None):
+    logging.info(f"AI Worker started for UID {uid} (Voice Request)")
     if cache_db.check_throttle(uid, 'generate_eidos_voice_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         return
@@ -229,7 +232,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
                 ],
-                stream=True
+                stream=True, timeout=15.0
             )
 
             for chunk in stream:
@@ -247,6 +250,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
             if len(parts) > 1:
                 result_text = sanitize_for_telegram(parts[0].replace("ОТВЕТ:", "").strip())
                 artifact_lore = sanitize_for_telegram(parts[1].strip())
+                logging.info(f"AI Worker successfully generated response for UID {uid}")
             else:
                 result_text = sanitize_for_telegram(full_text.replace("ОТВЕТ:", "").strip())
                 artifact_lore = "Память утеряна."
@@ -323,6 +327,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
 def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None, refund_bc=None):
+    logging.info(f"AI Worker started for UID {uid} (User Dossier: {target_user_data.get('uid')})")
     if cache_db.check_throttle(uid, 'generate_user_dossier_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         if 'loading_msg_id' in locals() and loading_msg_id:
@@ -452,7 +457,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
                     {"role": "system", "content": sys_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                stream=True
+                stream=True, timeout=15.0
             )
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
@@ -467,6 +472,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
 
             ai_text = ai_text.replace('```html', '').replace('```', '').strip()
             ai_text = sanitize_for_telegram(ai_text)
+            logging.info(f"AI Worker successfully generated response for UID {uid}")
             break
         except Exception as e:
             logging.error(f"/// AI WORKER DOSSIER STREAM ERR: {e}")
