@@ -128,11 +128,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
             try:
                 with db.db_session() as conn:
                     with conn.cursor() as cur:
-                        cur.execute(
-                            "INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) "
-                            "ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", 
-                            (uid, result_text)
-                        )
+                                cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (uid, result_text))
             except Exception as e:
                 print(f"/// AI WORKER DB SAVE ERROR: {e}")
 
@@ -169,23 +165,42 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
         "Выдай жесткий,честный, проницательный ответ на вопрос пользователя, возвращающий его в жизнь. "
         "Выдай чуть расширенное объяснение ответа на его вопрос "
         "Сгенерируй одно жесткое философское предложение-напоминание, которое станет лором его личного артефакта. "
-        "Ответ ДОЛЖЕН БЫТЬ строго в формате JSON без дополнительных комментариев, содержать ключи 'response_text' и 'artifact_lore'."
+        "Твой ответ ДОЛЖЕН БЫТЬ строго в следующем текстовом формате:\n"
+        "ОТВЕТ: <твой жесткий философский ответ и анализ>\n\n"
+        "ЛОР: <одно философское предложение для артефакта>"
     )
 
+    full_text = ""
+    last_edit_time = time.time()
     try:
-        response = ai_client.chat.completions.create(
+        stream = ai_client.chat.completions.create(
             model=OPENROUTER_MODEL,
-            response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
-            ]
+            ],
+            stream=True
         )
 
-        result_json = response.choices[0].message.content
-        parsed = json.loads(result_json)
-        result_text = sanitize_for_telegram(parsed.get('response_text', 'Сбой декомпиляции.'))
-        artifact_lore = sanitize_for_telegram(parsed.get('artifact_lore', 'Память утеряна.'))
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                full_text += chunk.choices[0].delta.content
+                if time.time() - last_edit_time > 1.5:
+                    sanitized_chunk = sanitize_for_telegram(full_text)
+                    try:
+                        bot.edit_message_text(f"👁‍🗨 <b>СИНХРОНИЗАЦИЯ...</b>\n\n{sanitized_chunk} █", chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
+                        last_edit_time = time.time()
+                    except Exception as e:
+                        pass
+
+        parts = full_text.split("ЛОР:")
+        if len(parts) > 1:
+            result_text = sanitize_for_telegram(parts[0].replace("ОТВЕТ:", "").strip())
+            artifact_lore = sanitize_for_telegram(parts[1].strip())
+        else:
+            result_text = sanitize_for_telegram(full_text.replace("ОТВЕТ:", "").strip())
+            artifact_lore = "Память утеряна."
+
     except Exception as e:
         print(f"/// AI WORKER VOICE ERROR: {e}")
         bot.edit_message_text("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.", chat_id=chat_id, message_id=init_msg.message_id)
@@ -218,13 +233,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
 
         with db.db_session() as conn:
             with conn.cursor() as cur:
-                 cur.execute("""
-                     INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data)
-                     VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s)
-                     ON CONFLICT (uid, slot) DO UPDATE SET
-                         item_id = EXCLUDED.item_id,
-                         custom_data = EXCLUDED.custom_data
-                 """, (uid, new_custom_data))
+                cur.execute("INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data) VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s) ON CONFLICT (uid, slot) DO UPDATE SET item_id = EXCLUDED.item_id, custom_data = EXCLUDED.custom_data", (uid, new_custom_data))
     except Exception as e:
         print(f"/// AI WORKER DB ERROR: {e}")
         bot.send_message(chat_id, "👁‍🗨 Сбой записи артефакта в матрицу.")
@@ -315,9 +324,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     equip_list = []
     with db.db_cursor() as cur:
         if cur:
-            cur.execute("""
-                SELECT item_id FROM user_equipment WHERE uid = %s
-            """, (target_uid,))
+            cur.execute("SELECT item_id FROM user_equipment WHERE uid = %s", (target_uid,))
             equipped = cur.fetchall()
             if equipped:
                 for (eid,) in equipped:
@@ -392,19 +399,34 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
         "max_tokens": 1000
     }
 
-    ai_text = None
+    ai_text = ""
+    last_edit_time = time.time()
     for attempt in range(3):
         try:
-            r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=45)
-            if r.status_code == 200:
-                data = r.json()
-                ai_text = data['choices'][0]['message']['content'].strip()
-                ai_text = ai_text.replace('```html', '').replace('```', '').strip()
-                ai_text = sanitize_for_telegram(ai_text)
-                break
-            else:
-                time.sleep(2)
-        except:
+            stream = ai_client.chat.completions.create(
+                model=OPENROUTER_MODEL,
+                messages=[
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                stream=True
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    ai_text += chunk.choices[0].delta.content
+                    if loading_msg_id and time.time() - last_edit_time > 1.5:
+                        sanitized_chunk = sanitize_for_telegram(ai_text)
+                        try:
+                            bot.edit_message_text(f"📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nДешифровка данных...\n\n{sanitized_chunk} █", chat_id=chat_id, message_id=loading_msg_id, parse_mode="HTML")
+                            last_edit_time = time.time()
+                        except Exception as e:
+                            pass
+
+            ai_text = ai_text.replace('```html', '').replace('```', '').strip()
+            ai_text = sanitize_for_telegram(ai_text)
+            break
+        except Exception as e:
+            print(f"/// AI WORKER DOSSIER STREAM ERR: {e}")
             time.sleep(2)
 
     if loading_msg_id:
