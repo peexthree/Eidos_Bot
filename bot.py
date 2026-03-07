@@ -207,7 +207,14 @@ def inventory_api():
         # 1. Load Equipment
         raw_equipped = db.get_user_equipment(uid) if hasattr(db, 'get_user_equipment') else {}
         if raw_equipped:
-            for slot, item_id in raw_equipped.items():
+            for slot, data in raw_equipped.items():
+                if isinstance(data, dict):
+                    item_id = data.get("item_id")
+                    durability = data.get("durability")
+                else:
+                    item_id = data
+                    durability = None
+
                 if item_id:
                     info = config.ITEMS_INFO.get(item_id, {})
                     ui_slot = slot.replace('helmet', 'head').replace('armor', 'body')
