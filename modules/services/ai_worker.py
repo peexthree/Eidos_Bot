@@ -9,7 +9,7 @@ import re
 import logging
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-2-27b-it")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it")
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 
 # Initialize OpenAI Client safely
