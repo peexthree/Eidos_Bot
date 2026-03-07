@@ -8,28 +8,29 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
     <!-- NEXUS.GRID 3D Background -->
-    <div class="nexus-grid-container">
-        <div class="nexus-grid"></div>
-        <div class="nexus-glow"></div>
-    </div>
+    <div class="sys-scanline"></div>
+    <div class="nexus-grid-container"><div class="nexus-grid-plane"></div></div>
+    <div class="nexus-particles" id="p-box"></div>
+
+
+
     <!-- Boot Sequence (SYS.BOOT Loading Screen) -->
     <div id="loading-overlay" class="sys-boot-overlay">
-        <div class="boot-container">
-            <div class="boot-core">
-                <div class="core-ring core-ring-1"></div>
-                <div class="core-ring core-ring-2"></div>
-                <div class="core-center"></div>
-            </div>
-            <div class="boot-progress-wrapper">
-                <div class="boot-progress-bar" id="sys-progress"></div>
-            </div>
-            <div class="boot-terminal">
-                <div id="boot-text"></div>
-                <div class="cursor">_</div>
-            </div>
-        </div>
-    </div>
+        <div class="sys-scanline"></div><div class="sys-vignette"></div>
+        <svg class="sys-boot-core" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00ff41" /><stop offset="100%" stop-color="#00ffff" /></linearGradient></defs>
+            <circle class="sys-spin-cw" cx="50" cy="50" r="45" fill="none" stroke="url(#g)" stroke-width="1" stroke-dasharray="10 5 30 5" opacity="0.6"/>
+            <circle class="sys-spin-ccw" cx="50" cy="50" r="35" fill="none" stroke="#00ffff" stroke-width="2" stroke-dasharray="20 10" opacity="0.8"/>
+            <polygon class="sys-spin-cw" points="50,25 72,37.5 72,62.5 50,75 28,62.5 28,37.5" fill="none" stroke="#00ff41" stroke-width="1.5"/>
+            <circle cx="50" cy="50" r="5" fill="#00ff41" />
+            <circle cx="50" cy="50" r="12" fill="none" stroke="#00ff41" stroke-width="0.5" stroke-dasharray="2 2" />
+        </svg>
+        <div class="sys-title">EIDOS<span>_AGI</span></div>
+        <div class="sys-progress-box"><div id="sys-progress" class="sys-progress-bar"></div></div>
+        <div id="progress-text" class="sys-progress-text">ИНИЦИАЛИЗАЦИЯ: 0%</div>
+        <div class="sys-log-container" id="boot-logs"></div>
     </div>
 
     <!-- Real-time Stats Engine (Fixed Top) -->

@@ -69,6 +69,26 @@ const els = {
     modalClose: document.getElementById('modal-close')
 };
 
+
+// Setup NEXUS GRID Particles
+function setupNexusGrid() {
+    const box = document.getElementById('p-box');
+    if (!box) return;
+    for(let i=0; i<35; i++) {
+        let p = document.createElement('div');
+        p.className = 'nexus-particle';
+        let size = Math.random() * 3 + 1;
+        p.style.width = size + 'px';
+        p.style.height = size + 'px';
+        p.style.left = (Math.random() * 100) + '%';
+        p.style.setProperty('--duration', (Math.random() * 6 + 3) + 's');
+        p.style.animationDelay = (Math.random() * 5) + 's';
+        box.appendChild(p);
+    }
+}
+setupNexusGrid();
+
+
 // Main Load Function
 async function loadData() {
     showLoading(true);
@@ -675,42 +695,53 @@ function clearPreviewStats() {
     els.statDef.classList.remove('stat-up', 'stat-down');
 }
 
+
 // Boot Sequence
 let bootFinished = false;
 
 function showBootSequence() {
     if (bootFinished) return;
 
-    const bootEl = document.getElementById('boot-text');
     const loadingOverlay = document.getElementById('loading-overlay');
     const progBar = document.getElementById('sys-progress');
+    const txt = document.getElementById('progress-text');
+    const logBox = document.getElementById('boot-logs');
 
-    if (!bootEl || !loadingOverlay) return;
+    if (!loadingOverlay) return;
 
-    const sequence = [
-        "ПОДКЛЮЧЕНИЕ К УЗЛУ SUPABASE...",
-        "ДЕШИФРОВКА НЕЙРОЛИНКА...",
-        "СИНХРОНИЗАЦИЯ БАЗЫ ЭКИПИРОВКИ...",
-        "ИНЖЕКЦИЯ ЛОГОВ...",
-        "ДОСТУП РАЗРЕШЕН. ДОБРО ПОЖАЛОВАТЬ."
+    const logs = [
+        "Запуск ядра...",
+        "Подключение API...",
+        "Чтение базы данных...",
+        "Синхронизация инвентаря...",
+        "Анализ сектора...",
+        "Оптимизация нейросетей...",
+        "Загрузка завершена."
     ];
 
     loadingOverlay.style.display = 'flex';
-    let i = 0;
-    let progress = 0;
+    let p = 0;
+    let idx = 0;
 
-    function nextLine() {
-        if (i < sequence.length) {
-            bootEl.innerHTML += `> ${sequence[i]}<br>`;
+    function addLog() {
+        if(idx < logs.length) {
+            const el = document.createElement('div');
+            el.innerText = '> ' + logs[idx++];
+            logBox.appendChild(el);
+            if(logBox.children.length > 5) logBox.removeChild(logBox.firstChild);
             if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+    }
 
-            // Advance progress bar
-            progress += (100 / sequence.length);
-            if (progBar) progBar.style.width = `${progress}%`;
-
-            i++;
-            setTimeout(nextLine, Math.random() * 400 + 200);
+    const intervalId = setInterval(() => {
+        if(p < 100) {
+            p += Math.floor(Math.random() * 8) + 2;
+            if(p > 100) p = 100;
+            if (progBar) progBar.style.width = p + '%';
+            if (txt) txt.innerText = 'СИНХРОНИЗАЦИЯ: ' + p + '%';
+            if(p % 15 === 0 || p % 20 === 0 || p === 100) addLog();
         } else {
+            clearInterval(intervalId);
             bootFinished = true;
             setTimeout(() => {
                 loadingOverlay.style.opacity = '0';
@@ -721,10 +752,9 @@ function showBootSequence() {
                 }, 500);
             }, 800);
         }
-    }
-
-    nextLine();
+    }, 150);
 }
+
 
 // Redefine showLoading to use simpler spinner after boot
 const _originalShowLoading = showLoading;
