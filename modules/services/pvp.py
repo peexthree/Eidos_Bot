@@ -1,6 +1,6 @@
 import time
 import random
-import ujson as json
+import json
 import database as db
 import config
 from modules.services.user import get_user_stats
