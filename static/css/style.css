@@ -962,3 +962,55 @@ body.low-signal .view-title {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
 }
+
+/* Force large size for modal and card icons since we removed font-size wrappers */
+.item-card .item-type-icon {
+    width: 32px;
+    height: 32px;
+}
+.modal-icon .item-type-icon {
+    width: 64px;
+    height: 64px;
+}
+.equipped-item .item-type-icon {
+    width: 32px;
+    height: 32px;
+}
+
+/* ====== INJECTED SYS.BOOT & NEXUS.GRID ====== */
+.scanline { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2)); background-size: 100% 4px; pointer-events: none; z-index: 100; }
+.vignette { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.9) 100%); pointer-events: none; z-index: 99; }
+
+.boot-core { width: 140px; height: 140px; animation: pulse-core 2s infinite alternate; margin-bottom: 20px; }
+.spin-cw { animation: spin 8s linear infinite; transform-origin: 50% 50%; }
+.spin-ccw { animation: spin-reverse 12s linear infinite; transform-origin: 50% 50%; }
+
+.title { font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: 0.3em; color: white; text-shadow: 0 0 10px #00ff41; margin-bottom: 30px; text-align: center; }
+.title span { color: #00ff41; }
+
+.progress-box { width: 85%; max-width: 300px; border: 1px solid #00ff41; height: 8px; background: rgba(0, 255, 65, 0.1); position: relative; }
+#sys-progress { height: 100%; width: 0%; background: #00ff41; box-shadow: 0 0 10px #00ff41; transition: width 0.2s ease-out; }
+#progress-text { font-size: 12px; margin-top: 8px; letter-spacing: 2px; opacity: 0.8; }
+
+.log-container { width: 85%; max-width: 300px; height: 100px; margin-top: 20px; overflow: hidden; font-size: 11px; color: rgba(0, 255, 65, 0.7); display: flex; flex-direction: column; justify-content: flex-end; }
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+@keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
+@keyframes pulse-core { 0% { filter: drop-shadow(0 0 5px #00ff41); } 100% { filter: drop-shadow(0 0 20px #00ffff); } }
+
+.grid-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 85vh; perspective: 800px; overflow: hidden; }
+.grid-plane {
+    position: absolute; width: 300%; height: 200%; bottom: -50%; left: -100%;
+    background-image: linear-gradient(#00ffff 1px, transparent 1px), linear-gradient(90deg, #00ffff 1px, transparent 1px);
+    background-size: 35px 35px;
+    transform: rotateX(80deg);
+    animation: grid-move 2.5s linear infinite; opacity: 0.35;
+    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
+    mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
+}
+
+.particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.particle { position: absolute; background: #00ffff; border-radius: 50%; opacity: 0; animation: float-up var(--duration) ease-in infinite; box-shadow: 0 0 5px #00ffff; }
+
+@keyframes grid-move { 0% { background-position: 0 0; } 100% { background-position: 0 35px; } }
+@keyframes float-up { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 50% { opacity: 0.6; } 100% { transform: translateY(-10vh) scale(1); opacity: 0; } }

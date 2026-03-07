@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEXUS.GRID</title>
+    <style>
+        body {
+            background-color: #020302; margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden;
+            background-image: radial-gradient(circle at 50% 30%, rgba(0, 255, 255, 0.05) 0%, transparent 70%);
+        }
+        .scanline { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2)); background-size: 100% 4px; pointer-events: none; z-index: 100; }
+
+        /* Сетка адаптирована под вертикальный мобильный экран */
+        .grid-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 85vh; perspective: 800px; overflow: hidden; }
+        .grid-plane {
+            position: absolute; width: 300%; height: 200%; bottom: -50%; left: -100%;
+            background-image: linear-gradient(#00ffff 1px, transparent 1px), linear-gradient(90deg, #00ffff 1px, transparent 1px);
+            background-size: 35px 35px;
+            transform: rotateX(80deg); /* Острый угол для вертикали */
+            animation: grid-move 2.5s linear infinite; opacity: 0.35;
+            -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
+            mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
+        }
+
+        .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .particle { position: absolute; background: #00ffff; border-radius: 50%; opacity: 0; animation: float-up var(--duration) ease-in infinite; box-shadow: 0 0 5px #00ffff; }
+
+        @keyframes grid-move { 0% { background-position: 0 0; } 100% { background-position: 0 35px; } }
+        @keyframes float-up { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 50% { opacity: 0.6; } 100% { transform: translateY(-10vh) scale(1); opacity: 0; } }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    <div class="grid-container"><div class="grid-plane"></div></div>
+    <div class="particles" id="p-box"></div>
+    <script>
+        const box = document.getElementById('p-box');
+        for(let i=0; i<35; i++) {
+            let p = document.createElement('div'); p.className = 'particle';
+            let size = Math.random() * 3 + 1;
+            p.style.width = size + 'px'; p.style.height = size + 'px';
+            p.style.left = (Math.random() * 100) + '%';
+            p.style.setProperty('--duration', (Math.random() * 6 + 3) + 's');
+            p.style.animationDelay = (Math.random() * 5) + 's';
+            box.appendChild(p);
+        }
+    </script>
+</body>
+</html>

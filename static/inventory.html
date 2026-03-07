@@ -5,31 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Eidos Inventory</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <!-- NEXUS.GRID 3D Background -->
-    <div class="nexus-grid-container">
-        <div class="nexus-grid"></div>
-        <div class="nexus-glow"></div>
+    <div id="nexus-bg" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; background-color: #020302; background-image: radial-gradient(circle at 50% 30%, rgba(0, 255, 255, 0.05) 0%, transparent 70%);">
+        <div class="scanline"></div>
+        <div class="grid-container"><div class="grid-plane"></div></div>
+        <div class="particles" id="p-box"></div>
     </div>
+
+
     <!-- Boot Sequence (SYS.BOOT Loading Screen) -->
-    <div id="loading-overlay" class="sys-boot-overlay">
-        <div class="boot-container">
-            <div class="boot-core">
-                <div class="core-ring core-ring-1"></div>
-                <div class="core-ring core-ring-2"></div>
-                <div class="core-center"></div>
-            </div>
-            <div class="boot-progress-wrapper">
-                <div class="boot-progress-bar" id="sys-progress"></div>
-            </div>
-            <div class="boot-terminal">
-                <div id="boot-text"></div>
-                <div class="cursor">_</div>
-            </div>
-        </div>
-    </div>
+    <div id="loading-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: #020302; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease-out; font-family: 'Share Tech Mono', monospace; color: #00ff41; user-select: none;">
+        <div class="scanline"></div><div class="vignette"></div>
+        <svg class="boot-core" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00ff41" /><stop offset="100%" stop-color="#00ffff" /></linearGradient></defs>
+            <circle class="spin-cw" cx="50" cy="50" r="45" fill="none" stroke="url(#g)" stroke-width="1" stroke-dasharray="10 5 30 5" opacity="0.6"/>
+            <circle class="spin-ccw" cx="50" cy="50" r="35" fill="none" stroke="#00ffff" stroke-width="2" stroke-dasharray="20 10" opacity="0.8"/>
+            <polygon class="spin-cw" points="50,25 72,37.5 72,62.5 50,75 28,62.5 28,37.5" fill="none" stroke="#00ff41" stroke-width="1.5"/>
+            <circle cx="50" cy="50" r="5" fill="#00ff41" />
+            <circle cx="50" cy="50" r="12" fill="none" stroke="#00ff41" stroke-width="0.5" stroke-dasharray="2 2" />
+        </svg>
+        <div class="title">EIDOS<span>_AGI</span></div>
+        <div class="progress-box"><div id="sys-progress"></div></div>
+        <div id="progress-text">ИНИЦИАЛИЗАЦИЯ: 0%</div>
+        <div class="log-container" id="boot-text"></div>
     </div>
 
     <!-- Real-time Stats Engine (Fixed Top) -->

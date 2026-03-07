@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SYS.BOOT</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #020302; color: #00ff41; font-family: 'Share Tech Mono', monospace;
+            margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            user-select: none; -webkit-user-select: none;
+        }
+        .scanline { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.25) 50%, rgba(0,0,0,0.25)); background-size: 100% 4px; pointer-events: none; z-index: 100; }
+        .vignette { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.9) 100%); pointer-events: none; z-index: 99; }
+
+        .boot-core { width: 140px; height: 140px; animation: pulse-core 2s infinite alternate; margin-bottom: 20px; }
+        .spin-cw { animation: spin 8s linear infinite; transform-origin: 50% 50%; }
+        .spin-ccw { animation: spin-reverse 12s linear infinite; transform-origin: 50% 50%; }
+
+        .title { font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: 0.3em; color: white; text-shadow: 0 0 10px #00ff41; margin-bottom: 30px; text-align: center; }
+        .title span { color: #00ff41; }
+
+        .progress-box { width: 85%; max-width: 300px; border: 1px solid #00ff41; height: 8px; background: rgba(0, 255, 65, 0.1); position: relative; }
+        #progress-bar { height: 100%; width: 0%; background: #00ff41; box-shadow: 0 0 10px #00ff41; transition: width 0.2s ease-out; }
+        #progress-text { font-size: 12px; margin-top: 8px; letter-spacing: 2px; opacity: 0.8; }
+
+        .log-container { width: 85%; max-width: 300px; height: 100px; margin-top: 20px; overflow: hidden; font-size: 11px; color: rgba(0, 255, 65, 0.7); display: flex; flex-direction: column; justify-content: flex-end; }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
+        @keyframes pulse-core { 0% { filter: drop-shadow(0 0 5px #00ff41); } 100% { filter: drop-shadow(0 0 20px #00ffff); } }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div><div class="vignette"></div>
+    <svg class="boot-core" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00ff41" /><stop offset="100%" stop-color="#00ffff" /></linearGradient></defs>
+        <circle class="spin-cw" cx="50" cy="50" r="45" fill="none" stroke="url(#g)" stroke-width="1" stroke-dasharray="10 5 30 5" opacity="0.6"/>
+        <circle class="spin-ccw" cx="50" cy="50" r="35" fill="none" stroke="#00ffff" stroke-width="2" stroke-dasharray="20 10" opacity="0.8"/>
+        <polygon class="spin-cw" points="50,25 72,37.5 72,62.5 50,75 28,62.5 28,37.5" fill="none" stroke="#00ff41" stroke-width="1.5"/>
+        <circle cx="50" cy="50" r="5" fill="#00ff41" />
+        <circle cx="50" cy="50" r="12" fill="none" stroke="#00ff41" stroke-width="0.5" stroke-dasharray="2 2" />
+    </svg>
+    <div class="title">EIDOS<span>_AGI</span></div>
+    <div class="progress-box"><div id="progress-bar"></div></div>
+    <div id="progress-text">ИНИЦИАЛИЗАЦИЯ: 0%</div>
+    <div class="log-container" id="boot-logs"></div>
+    <script>
+        const logs = ["Запуск ядра...", "Подключение API...", "Чтение базы данных...", "Синхронизация инвентаря...", "Анализ сектора...", "Оптимизация нейросетей...", "Загрузка завершена."];
+        let p = 0, idx = 0;
+        const bar = document.getElementById('progress-bar'), txt = document.getElementById('progress-text'), logBox = document.getElementById('boot-logs');
+        function addLog() {
+            if(idx < logs.length) {
+                const el = document.createElement('div'); el.innerText = '> ' + logs[idx++]; logBox.appendChild(el);
+                if(logBox.children.length > 5) logBox.removeChild(logBox.firstChild);
+            }
+        }
+        setInterval(() => {
+            if(p < 100) {
+                p += Math.floor(Math.random() * 8) + 2; if(p > 100) p = 100;
+                bar.style.width = p + '%'; txt.innerText = 'СИНХРОНИЗАЦИЯ: ' + p + '%';
+                if(p % 15 === 0 || p % 20 === 0 || p === 100) addLog();
+            } else {
+                // Если нужно чтобы лоадер крутился бесконечно, раскомментируй строку ниже
+                // p = 0; idx = 0; logBox.innerHTML = ""; bar.style.width = "0%";
+            }
+        }, 150);
+    </script>
+</body>
+</html>

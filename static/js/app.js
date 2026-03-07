@@ -158,7 +158,7 @@ function animateStatChange(el, newValue) {
 
         if (item) {
             const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
-            const icon = item.image_url ? `<img src="${item.image_url}" alt="icon">` : `<span style="font-size:24px; color:${color}">${ICONS[slotType] || ICONS['default']}</span>`;
+            const icon = ICONS[slotType] || ICONS["default"];
 
             // Generate durability UI
             let durHtml = '';
@@ -214,9 +214,7 @@ function renderInventory() {
     filtered.forEach(item => {
         const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
         const rName = RARITY_NAMES[item.rarity] || 'Обычный';
-        const iconHtml = item.image_url
-            ? `<img src="${item.image_url}" alt="icon">`
-            : `<span style="color:${color}">${ICONS[item.type] || ICONS['default']}</span>`;
+        const iconHtml = ICONS[item.type] || ICONS["default"];
 
         const card = document.createElement('div');
         card.className = 'item-card';
@@ -568,7 +566,7 @@ function renderDoll() {
 
         if (item) {
             const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
-            const icon = item.image_url ? `<img src="${item.image_url}" alt="icon">` : `<span style="font-size:24px; color:${color}">${ICONS[slotType] || ICONS['default']}</span>`;
+            const icon = ICONS[slotType] || ICONS["default"];
 
             slotEl.innerHTML = `
                 <div class="equip-slot-label">${slotType.toUpperCase()}</div>
@@ -743,3 +741,17 @@ updateSignalUI = function() {
 }
 
 showBootSequence();
+
+// Generate Particles
+const pBox = document.getElementById('p-box');
+if (pBox) {
+    for(let i=0; i<35; i++) {
+        let p = document.createElement('div'); p.className = 'particle';
+        let size = Math.random() * 3 + 1;
+        p.style.width = size + 'px'; p.style.height = size + 'px';
+        p.style.left = (Math.random() * 100) + '%';
+        p.style.setProperty('--duration', (Math.random() * 6 + 3) + 's');
+        p.style.animationDelay = (Math.random() * 5) + 's';
+        pBox.appendChild(p);
+    }
+}
