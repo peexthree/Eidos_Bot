@@ -479,7 +479,7 @@ tg.MainButton.text = "ЗАКРЫТЬ ИНТЕРФЕЙС";
 tg.MainButton.show();
 tg.MainButton.onClick(() => tg.close());
 
-loadData();
+// loadData();
 
 // === SPA Navigation Logic ===
 const navItems = document.querySelectorAll('.nav-item');
@@ -733,4 +733,4 @@ updateSignalUI = function() {
     }
 }
 
-// Replace loadData execution at bottom with boot sequence
+showBootSequence();
