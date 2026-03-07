@@ -34,14 +34,14 @@ const RARITY_NAMES = {
 };
 
 const ICONS = {
-    'weapon': '⚔️',
-    'head': '🪖',
-    'body': '🦺',
-    'software': '💾',
-    'artifact': '💎',
-    'consumable': '💊',
-    'misc': '📦',
-    'default': '❓'
+    'weapon': '<img src="IMG/eidos_weapon-attack.svg" class="item-type-icon">',
+    'head': '<img src="IMG/eidos_biometric-id.svg" class="item-type-icon">',
+    'body': '<img src="IMG/eidos_shield-armor.svg" class="item-type-icon">',
+    'software': '<img src="IMG/eidos_neuro-brain.svg" class="item-type-icon">',
+    'artifact': '<img src="IMG/eidos_shard-premium.svg" class="item-type-icon">',
+    'consumable': '<img src="IMG/eidos_medkit-repair.svg" class="item-type-icon">',
+    'misc': '<img src="IMG/eidos_data-mine.svg" class="item-type-icon">',
+    'default': '<img src="IMG/eidos_sys-warning.svg" class="item-type-icon">'
 };
 
 // DOM Elements

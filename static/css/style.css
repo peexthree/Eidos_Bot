@@ -756,3 +756,20 @@ body.low-signal .view-title {
     from { opacity: 0; transform: translateY(0); }
     to { opacity: 1; transform: translateY(-5px); }
 }
+
+/* Icon styling */
+.item-type-icon {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+}
+
+.nav-icon img {
+    width: 24px;
+    height: 24px;
+    filter: drop-shadow(0 0 5px var(--tg-theme-hint-color));
+}
+
+.nav-item.active .nav-icon img {
+    filter: drop-shadow(0 0 10px var(--rarity-legendary));
+}
