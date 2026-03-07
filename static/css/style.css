@@ -773,3 +773,34 @@ body.low-signal .view-title {
 .nav-item.active .nav-icon img {
     filter: drop-shadow(0 0 10px var(--rarity-legendary));
 }
+
+/* Tab and Header Icons Styling */
+.tab-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    vertical-align: text-bottom;
+    filter: drop-shadow(0 0 2px currentColor);
+}
+
+.header-icon {
+    width: 28px;
+    height: 28px;
+    margin-right: 10px;
+    vertical-align: middle;
+    filter: drop-shadow(0 0 8px currentColor);
+}
+
+.btn-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    vertical-align: middle;
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
