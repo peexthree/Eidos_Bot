@@ -143,8 +143,9 @@ def checkout(pre_checkout_query):
 def got_payment(message):
     uid = int(message.from_user.id)
     payload = message.successful_payment.invoice_payload
-
+    charge_id = message.successful_payment.telegram_payment_charge_id
     amount = message.successful_payment.total_amount
+
     u = db.get_user(uid)
     if u:
         new_total_spent = u.get('total_spent', 0) + amount
@@ -159,14 +160,12 @@ def got_payment(message):
 
     if payload == "eidos_dossier":
         from modules.services.worker_queue import enqueue_task
-
-        enqueue_task(generate_eidos_response_worker, message.chat.id, uid, 'dossier')
+        enqueue_task(generate_eidos_response_worker, message.chat.id, uid, 'dossier', charge_id, amount)
     elif payload == "eidos_forecast":
         from modules.services.worker_queue import enqueue_task
-
-        enqueue_task(generate_eidos_response_worker, message.chat.id, uid, 'forecast')
+        enqueue_task(generate_eidos_response_worker, message.chat.id, uid, 'forecast', charge_id, amount)
     elif payload == "voice_of_eidos":
-        db.set_state(uid, "wait_eidos_premium_question"); cache_db.clear_cache(uid)
+        db.set_state(uid, f"wait_eidos_premium_question:{charge_id}:{amount}"); cache_db.clear_cache(uid)
         bot.send_message(uid, "👁‍🗨 Глас Абсолюта готов. Опиши свою проблему, и я разберу твой код на части.")
     elif payload == "eidos_symbiosis":
         db.set_state(uid, "awaiting_demiurge_question"); cache_db.clear_cache(uid)
@@ -190,15 +189,21 @@ def handle_demiurge_question(message):
         for i in range(0, len(admin_msg), 4000):
             bot.send_message(config.ADMIN_ID, admin_msg[i:i+4000], parse_mode="Markdown")
 
-@bot.message_handler(func=lambda message: cache_db.get_cached_user_state(message.from_user.id) == 'wait_eidos_premium_question')
+@bot.message_handler(func=lambda message: cache_db.get_cached_user_state(message.from_user.id) and str(cache_db.get_cached_user_state(message.from_user.id)).startswith('wait_eidos_premium_question'))
 def handle_eidos_premium_question(message):
     print(f'/// DEBUG: handle_eidos_premium_question triggered for user {message.from_user.id}')
     uid = int(message.from_user.id)
     text = message.text
+
+    state_val = str(cache_db.get_cached_user_state(uid))
+    parts = state_val.split(':')
+    charge_id = parts[1] if len(parts) > 1 else None
+    amount = int(parts[2]) if len(parts) > 2 else None
+
     db.delete_state(uid); cache_db.clear_cache(uid)
     bot.send_message(uid, "👁‍🗨 Запрос принят. Начинаю декомпиляцию твоей проблемы...")
     import threading
     from modules.services.ai_worker import generate_eidos_voice_worker
     from modules.services.worker_queue import enqueue_task
 
-    enqueue_task(generate_eidos_voice_worker, message.chat.id, uid, text)
+    enqueue_task(generate_eidos_voice_worker, message.chat.id, uid, text, charge_id, amount)
