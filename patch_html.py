@@ -1,19 +1,14 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Eidos Inventory</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-    <!-- Boot Sequence (Loading Screen) -->
+import re
+
+with open('static/inventory.html', 'r', encoding='utf-8') as f:
+    html = f.read()
+
+# Replace body structure
+new_body = """<body>
+    <!-- Loading Screen -->
     <div id="loading-overlay">
-        <div class="boot-terminal">
-            <div id="boot-text"></div>
-            <div class="cursor">_</div>
-        </div>
+        <div class="spinner"></div>
+        <div style="color: var(--tg-theme-hint-color); font-size: 14px; letter-spacing: 2px;">СИНХРОНИЗАЦИЯ...</div>
     </div>
 
     <!-- Real-time Stats Engine (Fixed Top) -->
@@ -147,13 +142,6 @@
 
     </div>
 
-        <!-- Action Log Terminal (Fixed Bottom) -->
-    <div class="action-log-terminal" id="action-log-terminal">
-        <div class="log-content">
-            <span class="log-prefix">[SYS]</span> <span id="action-log-text">SYSTEM INITIALIZED. WAITING FOR INPUT...</span>
-        </div>
-    </div>
-
     <!-- Bottom Navigation Bar -->
     <nav class="bottom-nav">
         <div class="nav-item active" data-target="view-inventory">
@@ -193,5 +181,9 @@
     </div>
 
     <script src="js/app.js"></script>
-</body>
-</html>
+</body>"""
+
+html = re.sub(r'<body>.*</body>', new_body, html, flags=re.DOTALL)
+
+with open('static/inventory.html', 'w', encoding='utf-8') as f:
+    f.write(html)
