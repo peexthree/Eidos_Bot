@@ -8,12 +8,28 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- Boot Sequence (Loading Screen) -->
-    <div id="loading-overlay">
-        <div class="boot-terminal">
-            <div id="boot-text"></div>
-            <div class="cursor">_</div>
+    <!-- NEXUS.GRID 3D Background -->
+    <div class="nexus-grid-container">
+        <div class="nexus-grid"></div>
+        <div class="nexus-glow"></div>
+    </div>
+    <!-- Boot Sequence (SYS.BOOT Loading Screen) -->
+    <div id="loading-overlay" class="sys-boot-overlay">
+        <div class="boot-container">
+            <div class="boot-core">
+                <div class="core-ring core-ring-1"></div>
+                <div class="core-ring core-ring-2"></div>
+                <div class="core-center"></div>
+            </div>
+            <div class="boot-progress-wrapper">
+                <div class="boot-progress-bar" id="sys-progress"></div>
+            </div>
+            <div class="boot-terminal">
+                <div id="boot-text"></div>
+                <div class="cursor">_</div>
+            </div>
         </div>
+    </div>
     </div>
 
     <!-- Real-time Stats Engine (Fixed Top) -->
