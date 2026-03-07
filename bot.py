@@ -235,6 +235,7 @@ def inventory_api():
         for item in items:
             # Validate through Pydantic
             try:
+                item["uid"] = uid
                 valid_item = InventoryItem(**item)
             except Exception as valid_err:
                 print(f"/// API INV PYDANTIC ITEM ERR (UID {uid}): {valid_err}")
