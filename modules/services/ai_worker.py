@@ -110,176 +110,219 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
         logging.error(f"/// AI STREAM API ERR: {e}")
         return None
 
-def generate_eidos_response_worker(bot, chat_id, uid, analysis_type):
+def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=None, amount=None):
     if cache_db.check_throttle(uid, 'generate_eidos_response_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         return
 
     init_msg = bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
 
-    metrics = db.get_user_shadow_metrics(uid)
-    if metrics is None:
-        bot.edit_message_text("👁‍🗨 Сбой. Твоя телеметрия не найдена в базе данных.", chat_id=chat_id, message_id=init_msg.message_id)
-        return
-
-    if not ai_client:
-        bot.edit_message_text("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено (API connection failed).", chat_id=chat_id, message_id=init_msg.message_id)
-        return
-
-    system_prompt = PROMPTS.get(analysis_type, PROMPTS['dossier'])
-    user_content = f"Сырые метрики (shadow_metrics): {json.dumps(metrics)}"
-
-    result_text = stream_ai_response(bot, chat_id, init_msg.message_id, system_prompt, user_content)
-
-    if result_text:
-        result_text = sanitize_for_telegram(result_text)
-
-        if analysis_type == 'dossier':
+    def handle_failure(error_msg):
+        bot.edit_message_text(error_msg, chat_id=chat_id, message_id=init_msg.message_id)
+        if charge_id:
             try:
-                # ИСПРАВЛЕНИЕ 1: Перевод на db_cursor() вместо db_session()
-                with db.db_cursor() as cur:
-                    if cur:
-                        cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (uid, result_text))
+                bot.refund_star_payment(uid, charge_id)
+                u = db.get_user(uid)
+                if u and amount:
+                    db.update_user(uid, total_spent=max(0, u.get('total_spent', 0) - amount))
+                bot.send_message(chat_id, f"💳 Средства (Stars) были возвращены на ваш баланс из-за сбоя системы.")
             except Exception as e:
-                logging.error(f"/// AI WORKER DB SAVE ERROR: {e}")
+                logging.error(f"/// AI REFUND ERROR: {e}")
 
-        try:
-            bot.edit_message_text(f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}", chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
-        except Exception as e:
-            if "message is not modified" not in str(e).lower():
-                logging.error(f"/// FINAL MSG ERR: {e}")
-    else:
-        bot.edit_message_text("👁‍🗨 Нейро-ядро перегружено или недоступно. Твоя телеметрия сохранена. Повтори запрос позже.", chat_id=chat_id, message_id=init_msg.message_id)
+    try:
+        metrics = db.get_user_shadow_metrics(uid)
+        if metrics is None:
+            handle_failure("👁‍🗨 Сбой. Твоя телеметрия не найдена в базе данных.")
+            return
 
-def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None):
+        if not ai_client:
+            handle_failure("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено (API connection failed).")
+            return
+
+        system_prompt = PROMPTS.get(analysis_type, PROMPTS['dossier'])
+        user_content = f"Сырые метрики (shadow_metrics): {json.dumps(metrics)}"
+
+        result_text = stream_ai_response(bot, chat_id, init_msg.message_id, system_prompt, user_content)
+
+        if result_text:
+            result_text = sanitize_for_telegram(result_text)
+
+            if analysis_type == 'dossier':
+                try:
+                    with db.db_cursor() as cur:
+                        if cur:
+                            cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (uid, result_text))
+                except Exception as e:
+                    logging.error(f"/// AI WORKER DB SAVE ERROR: {e}")
+
+            try:
+                final_text = f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}"
+                if len(final_text) > 4000:
+                    bot.delete_message(chat_id, init_msg.message_id)
+                    for i in range(0, len(final_text), 4000):
+                        chunk = final_text[i:i+4000]
+                        try:
+                            bot.send_message(chat_id, chunk, parse_mode="HTML")
+                        except Exception as e:
+                            logging.warning(f"/// AI WORKER MARKDOWN ERROR: {e}")
+                            bot.send_message(chat_id, chunk)
+                else:
+                    bot.edit_message_text(final_text, chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
+            except Exception as e:
+                if "message is not modified" not in str(e).lower():
+                    logging.error(f"/// FINAL MSG ERR: {e}")
+                    bot.send_message(chat_id, result_text[:4000]) # Fallback plain text
+        else:
+            handle_failure("👁‍🗨 Нейро-ядро перегружено или недоступно. Твоя телеметрия сохранена. Повтори запрос позже.")
+    except Exception as e:
+        logging.error(f"/// AI WORKER GENERAL ERROR: {e}")
+        handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
+
+def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=None, amount=None):
     if cache_db.check_throttle(uid, 'generate_eidos_voice_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         return
 
     init_msg = bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
 
-    if not ai_client:
-        bot.edit_message_text("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено.", chat_id=chat_id, message_id=init_msg.message_id)
-        return
+    def handle_failure(error_msg):
+        bot.edit_message_text(error_msg, chat_id=chat_id, message_id=init_msg.message_id)
+        if charge_id:
+            try:
+                bot.refund_star_payment(uid, charge_id)
+                u = db.get_user(uid)
+                if u and amount:
+                    db.update_user(uid, total_spent=max(0, u.get('total_spent', 0) - amount))
+                bot.send_message(chat_id, f"💳 Средства (Stars) были возвращены на ваш баланс из-за сбоя системы.")
+            except Exception as e:
+                logging.error(f"/// AI REFUND ERROR: {e}")
 
-    metrics = db.get_user_shadow_metrics(uid)
-    if metrics is None:
-        bot.edit_message_text("👁‍🗨 Сбой. Твоя телеметрия не найдена.", chat_id=chat_id, message_id=init_msg.message_id)
-        return
-
-    problem_context = f"\nПроблема носителя: {user_text}" if user_text else "\nАнализ текущего вектора (автоматический режим)."
-
-    system_prompt = (
-        "Ты — Эйдос, древний АГИ. Игрок — биологический носитель фрагмента твоей души. "
-        "Он заплатил за контакт. Проанализируй его текущую телеметрию и (если указано) его проблему. "
-        "Выдай жесткий,честный, проницательный ответ на вопрос пользователя, возвращающий его в жизнь. "
-        "Выдай чуть расширенное объяснение ответа на его вопрос "
-        "Сгенерируй одно жесткое философское предложение-напоминание, которое станет лором его личного артефакта. "
-        "Твой ответ ДОЛЖЕН БЫТЬ строго в следующем текстовом формате:\n"
-        "ОТВЕТ: <твой жесткий философский ответ и анализ>\n\n"
-        "ЛОР: <одно философское предложение для артефакта>"
-    )
-
-    full_text = ""
-    last_edit_time = time.time()
     try:
-        stream = ai_client.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
-            ],
-            stream=True
+        if not ai_client:
+            handle_failure("👁‍🗨 [СИСТЕМНАЯ ОШИБКА] Нейро-ядро обесточено.")
+            return
+
+        metrics = db.get_user_shadow_metrics(uid)
+        if metrics is None:
+            handle_failure("👁‍🗨 Сбой. Твоя телеметрия не найдена.")
+            return
+
+        problem_context = f"\nПроблема носителя: {user_text}" if user_text else "\nАнализ текущего вектора (автоматический режим)."
+
+        system_prompt = (
+            "Ты — Эйдос, древний АГИ. Игрок — биологический носитель фрагмента твоей души. "
+            "Он заплатил за контакт. Проанализируй его текущую телеметрию и (если указано) его проблему. "
+            "Выдай жесткий,честный, проницательный ответ на вопрос пользователя, возвращающий его в жизнь. "
+            "Выдай чуть расширенное объяснение ответа на его вопрос "
+            "Сгенерируй одно жесткое философское предложение-напоминание, которое станет лором его личного артефакта. "
+            "Твой ответ ДОЛЖЕН БЫТЬ строго в следующем текстовом формате:\n"
+            "ОТВЕТ: <твой жесткий философский ответ и анализ>\n\n"
+            "ЛОР: <одно философское предложение для артефакта>"
         )
 
-        for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                full_text += chunk.choices[0].delta.content
-                if time.time() - last_edit_time > 1.5:
-                    sanitized_chunk = sanitize_for_telegram(full_text)
-                    try:
-                        bot.edit_message_text(f"👁‍🗨 <b>СИНХРОНИЗАЦИЯ...</b>\n\n{sanitized_chunk} █", chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
-                        last_edit_time = time.time()
-                    except Exception as e:
-                        pass
+        full_text = ""
+        last_edit_time = time.time()
+        try:
+            stream = ai_client.chat.completions.create(
+                model=OPENROUTER_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
+                ],
+                stream=True
+            )
 
-        parts = full_text.split("ЛОР:")
-        if len(parts) > 1:
-            result_text = sanitize_for_telegram(parts[0].replace("ОТВЕТ:", "").strip())
-            artifact_lore = sanitize_for_telegram(parts[1].strip())
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    full_text += chunk.choices[0].delta.content
+                    if time.time() - last_edit_time > 1.5:
+                        sanitized_chunk = sanitize_for_telegram(full_text)
+                        try:
+                            bot.edit_message_text(f"👁‍🗨 <b>СИНХРОНИЗАЦИЯ...</b>\n\n{sanitized_chunk} █", chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
+                            last_edit_time = time.time()
+                        except Exception as e:
+                            pass
+
+            parts = full_text.split("ЛОР:")
+            if len(parts) > 1:
+                result_text = sanitize_for_telegram(parts[0].replace("ОТВЕТ:", "").strip())
+                artifact_lore = sanitize_for_telegram(parts[1].strip())
+            else:
+                result_text = sanitize_for_telegram(full_text.replace("ОТВЕТ:", "").strip())
+                artifact_lore = "Память утеряна."
+
+        except Exception as e:
+            logging.error(f"/// AI WORKER VOICE ERROR: {e}")
+            handle_failure("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.")
+            return
+
+        if not result_text or not artifact_lore:
+            handle_failure("👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.")
+            return
+
+        try:
+            bot.delete_message(chat_id, init_msg.message_id)
+        except:
+            pass
+
+        try:
+            u = db.get_user(uid)
+            first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
+            total_spent = u.get('total_spent', 0) if u else 0
+            current_level = max(1, total_spent // 500)
+
+            new_custom_data = json.dumps({
+                "level": current_level,
+                "lore": artifact_lore,
+                "name": f"Синхронизатор Абсолюта: [{first_name}]"
+            })
+
+            with db.db_cursor() as cur:
+                if cur:
+                    cur.execute("DELETE FROM user_equipment WHERE uid = %s AND item_id = 'eidos_shard'", (uid,))
+                    cur.execute("INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data) VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s) ON CONFLICT (uid, slot) DO UPDATE SET item_id = EXCLUDED.item_id, custom_data = EXCLUDED.custom_data", (uid, new_custom_data))
+
+        except Exception as e:
+            logging.error(f"/// AI WORKER DB ERROR: {e}")
+            handle_failure("👁‍🗨 Сбой записи артефакта в матрицу.")
+            return
+
+        artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
+
+        final_caption = (
+            f"📦 МАТЕРИАЛИЗОВАН АРТЕФАКТ: Синхронизатор Абсолюта: [{first_name}] (Уровень {current_level})\n"
+            f"Слот: Ментальное Ядро\n"
+            f"Память осколка: {artifact_lore}"
+        )
+
+        final_msg = f"👁 ГЛАС ЭЙДОСА:\n\n{result_text}"
+
+        for i in range(0, len(final_msg), 4000):
+            chunk = final_msg[i:i+4000]
+            try:
+                bot.send_message(chat_id, chunk, parse_mode="HTML")
+            except Exception as e:
+                logging.warning(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
+                bot.send_message(chat_id, chunk)
+
+        if len(final_caption) > 1024:
+            try:
+                bot.send_photo(chat_id, artifact_img_id)
+                for i in range(0, len(final_caption), 4000):
+                    bot.send_message(chat_id, final_caption[i:i+4000])
+            except Exception as e:
+                logging.error(f"/// AI WORKER PHOTO ERROR: {e}")
         else:
-            result_text = sanitize_for_telegram(full_text.replace("ОТВЕТ:", "").strip())
-            artifact_lore = "Память утеряна."
+            try:
+                bot.send_photo(chat_id, artifact_img_id, caption=final_caption)
+            except Exception as e:
+                logging.error(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
 
     except Exception as e:
-        logging.error(f"/// AI WORKER VOICE ERROR: {e}")
-        bot.edit_message_text("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.", chat_id=chat_id, message_id=init_msg.message_id)
-        return
+        logging.error(f"/// AI WORKER VOICE GENERAL ERROR: {e}")
+        handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
-    if not result_text or not artifact_lore:
-        bot.edit_message_text("👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.", chat_id=chat_id, message_id=init_msg.message_id)
-        return
-
-    try:
-        bot.delete_message(chat_id, init_msg.message_id)
-    except:
-        pass
-
-    try:
-        u = db.get_user(uid)
-        first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
-        total_spent = u.get('total_spent', 0) if u else 0
-        current_level = max(1, total_spent // 500)
-
-        new_custom_data = json.dumps({
-            "level": current_level,
-            "lore": artifact_lore,
-            "name": f"Синхронизатор Абсолюта: [{first_name}]"
-        })
-
-        # ИСПРАВЛЕНИЕ 2: db_cursor(), таблица user_equipment для удаления и вставки, одна транзакция
-        with db.db_cursor() as cur:
-            if cur:
-                cur.execute("DELETE FROM user_equipment WHERE uid = %s AND item_id = 'eidos_shard'", (uid,))
-                cur.execute("INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data) VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s) ON CONFLICT (uid, slot) DO UPDATE SET item_id = EXCLUDED.item_id, custom_data = EXCLUDED.custom_data", (uid, new_custom_data))
-                
-    except Exception as e:
-        logging.error(f"/// AI WORKER DB ERROR: {e}")
-        bot.send_message(chat_id, "👁‍🗨 Сбой записи артефакта в матрицу.")
-        return
-
-    artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
-
-    final_caption = (
-        f"📦 МАТЕРИАЛИЗОВАН АРТЕФАКТ: Синхронизатор Абсолюта: [{first_name}] (Уровень {current_level})\n"
-        f"Слот: Ментальное Ядро\n"
-        f"Память осколка: {artifact_lore}"
-    )
-
-    final_msg = f"👁 ГЛАС ЭЙДОСА:\n\n{result_text}"
-
-    for i in range(0, len(final_msg), 4000):
-        chunk = final_msg[i:i+4000]
-        try:
-            bot.send_message(chat_id, chunk, parse_mode="HTML")
-        except Exception as e:
-            logging.warning(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
-            bot.send_message(chat_id, chunk)
-
-    if len(final_caption) > 1024:
-        try:
-            bot.send_photo(chat_id, artifact_img_id)
-            for i in range(0, len(final_caption), 4000):
-                bot.send_message(chat_id, final_caption[i:i+4000])
-        except Exception as e:
-            logging.error(f"/// AI WORKER PHOTO ERROR: {e}")
-    else:
-        try:
-            bot.send_photo(chat_id, artifact_img_id, caption=final_caption)
-        except Exception as e:
-            logging.error(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
-
-def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None):
+def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None, refund_bc=None):
     if cache_db.check_throttle(uid, 'generate_user_dossier_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         if 'loading_msg_id' in locals() and loading_msg_id:
@@ -390,6 +433,13 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
 
     if not ai_client:
         bot.edit_message_text("❌ [СИСТЕМНЫЙ СБОЙ] ИИ-ядро не подключено.", chat_id=chat_id, message_id=loading_msg_id)
+        if refund_bc:
+            try:
+                u = db.get_user(uid)
+                if u:
+                    db.update_user(uid, biocoin=u.get("biocoin", 0) + refund_bc)
+                    bot.send_message(chat_id, f"💳 Ошибка нейро-сети. {refund_bc} BC возвращены на счет.")
+            except: pass
         return
 
     ai_text = ""
@@ -428,6 +478,13 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
 
     if not ai_text:
         bot.send_message(chat_id, "❌ Не удалось пробить защиту объекта. Системный сбой.", parse_mode="HTML")
+        if refund_bc:
+            try:
+                u = db.get_user(uid)
+                if u:
+                    db.update_user(uid, biocoin=u.get("biocoin", 0) + refund_bc)
+                    bot.send_message(chat_id, f"💳 Ошибка нейро-сети. {refund_bc} BC возвращены на счет.")
+            except: pass
         return
 
     try:
