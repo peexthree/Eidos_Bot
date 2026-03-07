@@ -1,6 +1,6 @@
 import cache_db
 import os
-import ujson as json
+import json
 import time
 import requests
 import database as db

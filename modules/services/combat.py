@@ -1,7 +1,7 @@
 import random
 import time
 import database as db
-import ujson as json
+import json
 from modules.services.user import get_user_stats
 from modules.services.utils import get_biome_modifiers, generate_raid_report, handle_death_log
 

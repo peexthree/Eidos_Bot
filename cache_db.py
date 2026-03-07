@@ -2,7 +2,7 @@ import threading
 import time
 import traceback
 import os
-import ujson as json
+import json
 import redis
 from datetime import date, datetime
 
