@@ -5,7 +5,7 @@ import logging
 TASK_QUEUE = queue.Queue()
 
 def task_worker(bot):
-    logging.info("/// TASK WORKER STARTED")
+    print("/// TASK WORKER STARTED", flush=True)
     while True:
         try:
             task = TASK_QUEUE.get()
@@ -15,11 +15,11 @@ def task_worker(bot):
             try:
                 func(bot, *args, **kwargs)
             except Exception as e:
-                logging.error(f"/// TASK EXECUTION ERROR: {e}", exc_info=True)
+                import traceback; print(f"/// TASK EXECUTION ERROR: {e}", flush=True); traceback.print_exc()
             finally:
                 TASK_QUEUE.task_done()
         except Exception as e:
-            logging.error(f"/// TASK WORKER CRITICAL ERROR: {e}", exc_info=True)
+            import traceback; print(f"/// TASK WORKER CRITICAL ERROR: {e}", flush=True); traceback.print_exc()
 
 def start_worker(bot):
     t = threading.Thread(target=task_worker, args=(bot,), daemon=True)
