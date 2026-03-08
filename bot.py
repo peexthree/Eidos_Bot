@@ -10,6 +10,21 @@ import threading
 import traceback
 import psycopg2
 
+# Sentry integration
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+sentry_dsn = os.environ.get("SENTRY_DSN")
+if sentry_dsn:
+    try:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[FlaskIntegration()],
+            traces_sample_rate=1.0
+        )
+    except Exception as e:
+        print(f"/// SENTRY INIT ERROR: {e}")
+
+
 sys.stdout.reconfigure(line_buffering=True)
 import config
 import database as db
@@ -192,7 +207,13 @@ def inventory_api():
                 "def": stats.get('def', 0),
                 "luck": stats.get('luck', 0),
                 "signal": user.get('signal', 100),
-                "avatar_url": avatar_url
+                "avatar_url": avatar_url,
+                "hp": user.get('hp', 100),
+                "max_hp": user.get('max_hp', 100),
+                "class": faction_name,
+                "anomalies": user.get('anomalies', []),
+                "dossier": user.get('dossier', ""),
+                "artifact_lore": user.get('artifact_lore', "")
             }
 
         def get_image_url(item_id, info):
@@ -243,6 +264,7 @@ def inventory_api():
             # Validate through Pydantic
             try:
                 item["uid"] = uid
+                item['durability'] = max(0, item.get('durability', 0))
                 valid_item = InventoryItem(**item)
             except Exception as valid_err:
                 print(f"/// API INV PYDANTIC ITEM ERR (UID {uid}): {valid_err}")
@@ -291,7 +313,24 @@ def inventory_api():
                 "image_url": get_image_url(item_id, item_info)
             })
 
-        return flask.jsonify({"items": inventory_data, "equipped": equipped_data, "profile": profile_data}), 200
+        return flask.jsonify({
+            "items": inventory_data,
+            "equipped": equipped_data,
+            "profile": profile_data,
+            "inventory": inventory_data,
+            "hp": profile_data.get("hp", 100),
+            "max_hp": profile_data.get("max_hp", 100),
+            "xp": profile_data.get("xp", 0),
+            "max_xp": profile_data.get("max_xp", 1000),
+            "level": profile_data.get("level", 1),
+            "biocoin": profile_data.get("biocoin", 0),
+            "class": profile_data.get("class", ""),
+            "atk": profile_data.get("atk", 0),
+            "def": profile_data.get("def", 0),
+            "anomalies": profile_data.get("anomalies", []),
+            "dossier": profile_data.get("dossier", ""),
+            "artifact_lore": profile_data.get("artifact_lore", "")
+        }), 200
     except Exception as e:
         print(f"/// API INVENTORY ERROR: {e}")
         import traceback

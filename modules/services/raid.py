@@ -441,7 +441,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                         # Durability Decay (10% chance)
                         if random.random() < 0.1:
-                            new_dur = scanner_res['durability'] - 1
+                            new_dur = max(0, scanner_res['durability'] - 1)
                             if new_dur <= 0:
                                 if scanner_res['quantity'] > 1:
                                     cur.execute("UPDATE inventory SET quantity = quantity - 1, durability = 20 WHERE uid=%s AND item_id='tactical_scanner'", (uid,))
@@ -684,7 +684,7 @@ def process_raid_step(uid, answer=None, start_depth=None):
 
                         # Durability Decay (10% chance)
                         if random.random() < 0.1:
-                            new_dur = scanner_res['durability'] - 1
+                            new_dur = max(0, scanner_res['durability'] - 1)
                             if new_dur <= 0:
                                 if scanner_res['quantity'] > 1:
                                     cur.execute("UPDATE inventory SET quantity = quantity - 1, durability = 20 WHERE uid=%s AND item_id='tactical_scanner'", (uid,))

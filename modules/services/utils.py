@@ -507,9 +507,12 @@ def check_and_update_eidos_shard(uid, bot, chat_id, total_spent):
 
                 if current_level > 0:
                     try:
-                         bot.send_message(chat_id, f"💠 <b>СИНДИКАТ:</b> Твой Синхронизатор Абсолюта достиг уровня {new_level}!", parse_mode="HTML")
-                    except:
-                         pass
+                        bot.send_message(chat_id, f"📦 <b>АРТЕФАКТ ЭВОЛЮЦИОНИРОВАЛ:</b> Уровень {new_level}\n\nСвязь с Нейро-ядром установлена...", parse_mode="HTML")
+                        from modules.services.worker_queue import enqueue_task
+                        from modules.services.ai_worker import generate_eidos_response_worker
+                        enqueue_task(generate_eidos_response_worker, bot, chat_id, uid, "artifact_evolution")
+                    except Exception as e:
+                        print(f"Error triggering artifact evolution: {e}")
 
 def get_user_display_name(uid, first_name=None, custom_data=None):
     """
@@ -547,3 +550,21 @@ def get_user_display_name(uid, first_name=None, custom_data=None):
              pass
 
     return safe_name
+
+
+from telebot.apihelper import ApiTelegramException
+import logging
+
+def safe_answer_callback(bot, call_id, text=None, show_alert=False):
+    try:
+        if text:
+            bot.answer_callback_query(call_id, text, show_alert=show_alert)
+        else:
+            bot.answer_callback_query(call_id)
+    except ApiTelegramException as e:
+        if "query is too old" in str(e):
+            pass # Ignore, the user clicked too long ago or network lagged
+        else:
+            logging.error(f"Callback answer error: {e}")
+    except Exception as e:
+        logging.error(f"Unexpected callback error: {e}")

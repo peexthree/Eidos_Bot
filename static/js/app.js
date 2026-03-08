@@ -15,6 +15,21 @@ if (!uid) {
     document.body.innerHTML = '<h2 style="color:red;text-align:center;margin-top:50px;">ОШИБКА АВТОРИЗАЦИИ (NO UID)</h2>';
 }
 
+
+let isActionLocked = false;
+async function fetchWithLock(url, options) {
+    if(isActionLocked) return {error: "Locked"};
+    isActionLocked = true;
+    if(window.tg && tg.MainButton) { tg.MainButton.showProgress(); tg.MainButton.disable(); }
+    try {
+        const res = await fetch(url, options);
+        return res;
+    } finally {
+        isActionLocked = false;
+        if(window.tg && tg.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.enable(); }
+    }
+}
+
 let inventoryData = { items: [], equipped: {}, profile: {} };
 let currentFilter = 'all';
 
@@ -346,7 +361,7 @@ async function equipItemAPI(inv_id, item_id) {
     tg.HapticFeedback.notificationOccurred('success');
     showLoading(true);
     try {
-        const res = await fetch('/api/inventory/equip', {
+        const res = await fetchWithLock('/api/inventory/equip', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ uid, inv_id, item_id })
@@ -369,7 +384,7 @@ async function unequipItemAPI(slotType) {
     tg.HapticFeedback.notificationOccurred('success');
     showLoading(true);
     try {
-        const res = await fetch('/api/inventory/unequip', {
+        const res = await fetchWithLock('/api/inventory/unequip', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ uid, slot: slotType })

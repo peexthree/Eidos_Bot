@@ -1,7 +1,7 @@
 :root {
-    --tg-theme-bg-color: #0b0c10;
+    --tg-theme-bg-color: #0a0a0a;
     --tg-theme-text-color: #c5c6c7;
-    --tg-theme-button-color: #45a29e;
+    --tg-theme-button-color: #00ff41;
     --tg-theme-button-text-color: #ffffff;
     --tg-theme-hint-color: #66fcf1;
 
@@ -877,3 +877,27 @@ Jpx);
 @keyframes spin { 100% { transform: rotate(360deg); } }
 @keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
 @keyframes pulse-core { 0% { filter: drop-shadow(0 0 5px #00ff41); } 100% { filter: drop-shadow(0 0 20px #00ffff); } }
+
+.sys-scanline {
+    opacity: 0.05 !important;
+}
+
+.terminal-text {
+    text-shadow: 0 0 5px rgba(0,255,65,0.4);
+}
+
+.views-container {
+    transform: translate3d(0,0,0);
+}
+
+/* Skeleton Loaders */
+.skeleton-box {
+    background-color: #333;
+    animation: pulse 1.5s infinite;
+    border-radius: 4px;
+}
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}

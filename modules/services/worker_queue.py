@@ -2,6 +2,8 @@ import queue
 import threading
 import sys
 import traceback
+import sentry_sdk
+import logging
 import os
 
 # ABSOLUTE SINGLETON STATE
@@ -23,13 +25,13 @@ def task_worker(bot):
                 print(f"/// WORKER: Executing {func.__name__} with args: {args}", flush=True)
                 func(bot, *args, **kwargs)
             except Exception as e:
-                print(f"/// TASK EXECUTION ERROR: {e}", flush=True)
-                traceback.print_exc()
+                logging.error(f"/// TASK EXECUTION ERROR: {e}", exc_info=True)
+                sentry_sdk.capture_exception(e)
             finally:
                 q.task_done()
         except Exception as e:
-            print(f"/// TASK WORKER CRITICAL ERROR: {e}", flush=True)
-            traceback.print_exc()
+            logging.error(f"/// TASK WORKER CRITICAL ERROR: {e}", exc_info=True)
+            sentry_sdk.capture_exception(e)
 
 def start_worker(bot):
     t = threading.Thread(target=task_worker, args=(bot,), daemon=True)

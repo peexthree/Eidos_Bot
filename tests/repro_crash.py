@@ -1,3 +1,26 @@
+import sys
+from unittest.mock import MagicMock
+sys.modules['openai'] = MagicMock()
+sys.modules['sentry_sdk'] = MagicMock()
+sys.modules['sentry_sdk.integrations'] = MagicMock()
+sys.modules['sentry_sdk.integrations.flask'] = MagicMock()
+sys.modules['flask'] = MagicMock()
+sys.modules['telebot'] = MagicMock()
+sys.modules['telebot.types'] = MagicMock()
+sys.modules['telebot.apihelper'] = MagicMock()
+import sys
+from unittest.mock import MagicMock
+sys.modules['psycopg2.extras'] = MagicMock()
+sys.modules['psycopg2.pool'] = MagicMock()
+import sys
+from unittest.mock import MagicMock
+sys.modules['psycopg2'] = MagicMock()
+import sys
+from unittest.mock import MagicMock
+sys.modules['requests'] = MagicMock()
+import sys
+from unittest.mock import MagicMock
+sys.modules['redis'] = MagicMock()
 
 import sys
 import os

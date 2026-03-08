@@ -1,3 +1,4 @@
+from modules.services.utils import safe_answer_callback
 from modules.bot_instance import bot
 import cache_db
 import database as db
@@ -122,14 +123,14 @@ def phase3_anchor_handler(call):
     uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u or u.get('onboarding_stage', 0) != 3:
-        bot.answer_callback_query(call.id, "❌ Доступно только на этапе Якоря.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Доступно только на этапе Якоря.", show_alert=True)
         return
 
     # Reward
     db.add_xp_to_user(uid, 50)
     db.set_onboarding_stage(uid, 4); cache_db.clear_cache(uid)
 
-    bot.answer_callback_query(call.id, "✅ СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА. +50 XP", show_alert=True)
+    safe_answer_callback(bot, call.id, "✅ СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА. +50 XP", show_alert=True)
 
     msg = (
         "🌌 <b>ФАЗА 4: СБОРКА И АНТИ-ЧИТ</b>\n\n"
@@ -156,7 +157,7 @@ def exam_start_handler(call):
     uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u or u.get('onboarding_stage', 0) != 4:
-         bot.answer_callback_query(call.id, "❌ Рано.", show_alert=True)
+         safe_answer_callback(bot, call.id, "❌ Рано.", show_alert=True)
          return
 
     q = random.choice(QUESTIONS)

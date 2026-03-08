@@ -10,7 +10,7 @@ import logging
 import config
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-27b-it:free")
+OPENROUTER_MODEL = "google/gemma-3-27b-it:free"
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 
 # Initialize OpenAI Client safely
@@ -189,7 +189,11 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
         else:
             handle_failure("👁‍🗨 Нейро-ядро перегружено или недоступно. Твоя телеметрия сохранена. Повтори запрос позже.")
     except Exception as e:
-        import traceback; print(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", flush=True); traceback.print_exc()
+        import traceback
+        import sentry_sdk
+        import logging
+        logging.error(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", exc_info=True)
+        sentry_sdk.capture_exception(e)
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
 def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=None, amount=None):
@@ -274,7 +278,8 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
                 artifact_lore = "Память утеряна."
 
         except Exception as e:
-            print(f"/// AI WORKER VOICE ERROR: {e}", flush=True)
+            logging.error(f"/// AI WORKER VOICE ERROR: {e}", exc_info=True)
+            sentry_sdk.capture_exception(e)
             handle_failure("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.")
             return
 
@@ -287,27 +292,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
         except:
             pass
 
-        try:
-            u = db.get_user(uid)
-            first_name = u.get('first_name', 'Искатель') if u else 'Искатель'
-            total_spent = u.get('total_spent', 0) if u else 0
-            current_level = max(1, total_spent // 500)
 
-            new_custom_data = json.dumps({
-                "level": current_level,
-                "lore": artifact_lore,
-                "name": f"Синхронизатор Абсолюта: [{first_name}]"
-            })
-
-            with db.db_cursor() as cur:
-                if cur:
-                    cur.execute("DELETE FROM user_equipment WHERE uid = %s AND item_id = 'eidos_shard'", (uid,))
-                    cur.execute("INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data) VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s) ON CONFLICT (uid, slot) DO UPDATE SET item_id = EXCLUDED.item_id, custom_data = EXCLUDED.custom_data", (uid, new_custom_data))
-
-        except Exception as e:
-            print(f"/// AI WORKER DB ERROR: {e}", flush=True)
-            handle_failure("👁‍🗨 Сбой записи артефакта в матрицу.")
-            return
 
         artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
 
@@ -351,7 +336,11 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
                 print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}", flush=True)
 
     except Exception as e:
-        import traceback; print(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", flush=True); traceback.print_exc()
+        import traceback
+        import sentry_sdk
+        import logging
+        logging.error(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", exc_info=True)
+        sentry_sdk.capture_exception(e)
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
 def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None, refund_bc=None, *args, **kwargs):
