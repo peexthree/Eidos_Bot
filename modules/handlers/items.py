@@ -596,7 +596,7 @@ def item_action_handler(call):
 
             # Show result
             call.data = "inventory"
-            from modules.handlers.items import inventory_handler
+
             inventory_handler(call)
             bot.send_message(uid, f"👁‍🗨 <b>РЕЗУЛЬТАТ РАСШИФРОВКИ:</b>\n\n{msg}", parse_mode="HTML")
             return
