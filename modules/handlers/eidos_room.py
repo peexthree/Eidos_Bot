@@ -4,6 +4,7 @@ import telebot
 from telebot.types import LabeledPrice
 import database as db
 import keyboards as kb
+from modules.services.worker_queue import enqueue_task
 from modules.services.utils import menu_update
 import config
 
@@ -68,7 +69,6 @@ def eidos_purchase_handler(call):
             bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             import threading
             from modules.services.ai_worker import generate_eidos_response_worker
-            from modules.services.worker_queue import enqueue_task
 
             enqueue_task(generate_eidos_response_worker, call.message.chat.id, uid, 'dossier')
             return
@@ -93,7 +93,6 @@ def eidos_purchase_handler(call):
             bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             import threading
             from modules.services.ai_worker import generate_eidos_response_worker
-            from modules.services.worker_queue import enqueue_task
 
             enqueue_task(generate_eidos_response_worker, call.message.chat.id, uid, 'forecast')
             return
@@ -159,10 +158,8 @@ def got_payment(message):
     from modules.services.ai_worker import generate_eidos_response_worker
 
     if payload == "eidos_dossier":
-        from modules.services.worker_queue import enqueue_task
         enqueue_task(generate_eidos_response_worker, message.chat.id, uid, 'dossier', charge_id, amount)
     elif payload == "eidos_forecast":
-        from modules.services.worker_queue import enqueue_task
         enqueue_task(generate_eidos_response_worker, message.chat.id, uid, 'forecast', charge_id, amount)
     elif payload == "voice_of_eidos":
         db.set_state(uid, f"wait_eidos_premium_question:{charge_id}:{amount}"); cache_db.clear_cache(uid)
@@ -191,19 +188,27 @@ def handle_demiurge_question(message):
 
 @bot.message_handler(func=lambda message: cache_db.get_cached_user_state(message.from_user.id) and str(cache_db.get_cached_user_state(message.from_user.id)).startswith('wait_eidos_premium_question'))
 def handle_eidos_premium_question(message):
-    print(f'/// DEBUG: handle_eidos_premium_question triggered for user {message.from_user.id}')
+    print(f'/// DEBUG: handle_eidos_premium_question triggered for user {message.from_user.id}', flush=True)
     uid = int(message.from_user.id)
     text = message.text
 
+    # SAFELY PARSE STATE
     state_val = str(cache_db.get_cached_user_state(uid))
     parts = state_val.split(':')
-    charge_id = parts[1] if len(parts) > 1 else None
-    amount = int(parts[2]) if len(parts) > 2 else None
+    charge_id = parts[1] if len(parts) > 1 and parts[1] != 'None' else None
+
+    amount = None
+    if len(parts) > 2 and parts[2] != 'None':
+        try:
+            amount = int(parts[2])
+        except ValueError:
+            amount = None
 
     db.delete_state(uid); cache_db.clear_cache(uid)
     bot.send_message(uid, "👁‍🗨 Запрос принят. Начинаю декомпиляцию твоей проблемы...")
-    import threading
-    from modules.services.ai_worker import generate_eidos_voice_worker
-    from modules.services.worker_queue import enqueue_task
 
+    # Import here to avoid circular dependency
+    from modules.services.ai_worker import generate_eidos_voice_worker
+
+    # Enqueue task globally
     enqueue_task(generate_eidos_voice_worker, message.chat.id, uid, text, charge_id, amount)
