@@ -105,6 +105,9 @@ async function loadData() {
         tg.showAlert('Сбой соединения с сервером Eidos.');
     } finally {
         showLoading(false);
+        if (window.removeEidosLoader) {
+            window.removeEidosLoader();
+        }
     }
 }
 
@@ -362,6 +365,9 @@ async function equipItemAPI(inv_id, item_id) {
         tg.showAlert('Сбой сети при экипировке.');
     } finally {
         showLoading(false);
+        if (window.removeEidosLoader) {
+            window.removeEidosLoader();
+        }
     }
 }
 
@@ -385,6 +391,9 @@ async function unequipItemAPI(slotType) {
         tg.showAlert('Сбой сети при снятии.');
     } finally {
         showLoading(false);
+        if (window.removeEidosLoader) {
+            window.removeEidosLoader();
+        }
     }
 }
 
@@ -773,3 +782,37 @@ updateSignalUI = function() {
 }
 
 showBootSequence();
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Set exactly to 8 seconds (8000ms)
+    const MIN_LOADING_TIME = 8000;
+    const startTime = Date.now();
+    let loaderRemoved = false;
+
+    // 2. The main fade-out function
+    window.removeEidosLoader = function() {
+        if (loaderRemoved) return;
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, MIN_LOADING_TIME - elapsedTime);
+
+        setTimeout(() => {
+            executeLoaderFade();
+        }, remainingTime);
+    }
+
+    // 3. The manual SKIP function (Tap to Skip)
+    window.forceCloseLoader = function() {
+        executeLoaderFade();
+    }
+
+    function executeLoaderFade() {
+        if (loaderRemoved) return;
+        const loader = document.getElementById('eidos-loader');
+        if (loader) {
+            loaderRemoved = true;
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 800);
+        }
+    }
+});
