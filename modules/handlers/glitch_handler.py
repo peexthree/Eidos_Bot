@@ -12,7 +12,7 @@ def check_for_glitch_state(uid, bot, chat_id):
         try:
             q_idx = int(state_tuple[1])
             q_data = GLITCH_QUESTIONS[q_idx]
-            msg = "<code>" + zalgo_text(q_data['text'], 1) + "</code>"
+            msg = zalgo_text(q_data['text'], 1)
             img = q_data.get('image')
             if img:
                 bot.send_photo(chat_id, img, caption=msg, reply_markup=kb.glitch_question_answers(q_data['answers']), parse_mode='HTML')
@@ -27,7 +27,7 @@ def check_for_glitch_state(uid, bot, chat_id):
     if glitch_data:
         db.set_state(uid, 'glitch_question', str(GLITCH_QUESTIONS.index(glitch_data)))
         cache_db.clear_cache(uid)
-        msg = "<code>" + zalgo_text(glitch_data['text'], 1) + "</code>"
+        msg = zalgo_text(glitch_data['text'], 1)
         img = glitch_data.get('image')
         time.sleep(1.5)
         if img:

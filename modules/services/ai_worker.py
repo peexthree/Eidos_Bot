@@ -22,9 +22,9 @@ if OPENROUTER_API_KEY:
             api_key=OPENROUTER_API_KEY,
         )
     except Exception as e:
-        logging.error(f"/// AI CLIENT INIT ERROR: {e}")
+        print(f"/// AI CLIENT INIT ERROR: {e}", flush=True)
 else:
-    logging.warning("/// OPENROUTER_API_KEY is missing! AI features will be disabled.")
+    print("/// OPENROUTER_API_KEY is missing! AI features will be disabled.", flush=True)
 
 PROMPTS = {
     'dossier': (
@@ -103,15 +103,15 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
                         last_edit_time = time.time()
                     except Exception as e:
                         if "message is not modified" not in str(e).lower():
-                            logging.error(f"/// AI STREAM UPDATE ERR: {e}")
+                            print(f"/// AI STREAM UPDATE ERR: {e}", flush=True)
 
         return full_text
     except Exception as e:
-        logging.error(f"/// AI STREAM API ERR: {e}")
+        print(f"/// AI STREAM API ERR: {e}", flush=True)
         return None
 
 def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=None, amount=None):
-    logging.info(f"AI Worker started for UID {uid} (Analysis Type: {analysis_type})")
+    print(f"[AI WORKER] Started processing request for UID {uid}", flush=True)
     if cache_db.check_throttle(uid, 'generate_eidos_response_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         return
@@ -128,7 +128,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
                     db.update_user(uid, total_spent=max(0, u.get('total_spent', 0) - amount))
                 bot.send_message(chat_id, f"💳 Средства (Stars) были возвращены на ваш баланс из-за сбоя системы.")
             except Exception as e:
-                logging.error(f"/// AI REFUND ERROR: {e}")
+                print(f"/// AI REFUND ERROR: {e}", flush=True)
 
     try:
         metrics = db.get_user_shadow_metrics(uid)
@@ -143,11 +143,12 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
         system_prompt = PROMPTS.get(analysis_type, PROMPTS['dossier'])
         user_content = f"Сырые метрики (shadow_metrics): {json.dumps(metrics)}"
 
+        print(f"[AI WORKER] Sending request to OpenRouter for UID {uid}...", flush=True)
         result_text = stream_ai_response(bot, chat_id, init_msg.message_id, system_prompt, user_content)
 
         if result_text:
             result_text = sanitize_for_telegram(result_text)
-            logging.info(f"AI Worker successfully generated response for UID {uid}")
+            print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
 
             if analysis_type == 'dossier':
                 try:
@@ -155,9 +156,10 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
                         if cur:
                             cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (uid, result_text))
                 except Exception as e:
-                    logging.error(f"/// AI WORKER DB SAVE ERROR: {e}")
+                    print(f"/// AI WORKER DB SAVE ERROR: {e}", flush=True)
 
             try:
+                print(f"[AI WORKER] Attempting to send text to Telegram for UID {uid}...", flush=True)
                 final_text = f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{result_text}"
                 if len(final_text) > 4000:
                     bot.delete_message(chat_id, init_msg.message_id)
@@ -165,23 +167,26 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
                         chunk = final_text[i:i+4000]
                         try:
                             bot.send_message(chat_id, chunk, parse_mode="HTML")
+                            print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
                         except Exception as e:
-                            logging.warning(f"/// AI WORKER MARKDOWN ERROR: {e}")
+                            print(f"/// AI WORKER MARKDOWN ERROR: {e}", flush=True)
                             bot.send_message(chat_id, chunk)
                 else:
                     bot.edit_message_text(final_text, chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
+                    print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
             except Exception as e:
                 if "message is not modified" not in str(e).lower():
-                    logging.error(f"/// FINAL MSG ERR: {e}")
+                    print(f"/// FINAL MSG ERR: {e}", flush=True)
                     bot.send_message(chat_id, result_text[:4000]) # Fallback plain text
+                    print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
         else:
             handle_failure("👁‍🗨 Нейро-ядро перегружено или недоступно. Твоя телеметрия сохранена. Повтори запрос позже.")
     except Exception as e:
-        logging.error(f"/// AI WORKER GENERAL ERROR: {e}")
+        import traceback; print(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", flush=True); traceback.print_exc()
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
 def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=None, amount=None):
-    logging.info(f"AI Worker started for UID {uid} (Voice Request)")
+    print(f"[AI WORKER] Started processing request for UID {uid}", flush=True)
     if cache_db.check_throttle(uid, 'generate_eidos_voice_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         return
@@ -198,7 +203,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
                     db.update_user(uid, total_spent=max(0, u.get('total_spent', 0) - amount))
                 bot.send_message(chat_id, f"💳 Средства (Stars) были возвращены на ваш баланс из-за сбоя системы.")
             except Exception as e:
-                logging.error(f"/// AI REFUND ERROR: {e}")
+                print(f"/// AI REFUND ERROR: {e}", flush=True)
 
     try:
         if not ai_client:
@@ -226,6 +231,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
         full_text = ""
         last_edit_time = time.time()
         try:
+            print(f"[AI WORKER] Sending request to OpenRouter for UID {uid}...", flush=True)
             stream = ai_client.chat.completions.create(
                 model=OPENROUTER_MODEL,
                 messages=[
@@ -250,13 +256,13 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
             if len(parts) > 1:
                 result_text = sanitize_for_telegram(parts[0].replace("ОТВЕТ:", "").strip())
                 artifact_lore = sanitize_for_telegram(parts[1].strip())
-                logging.info(f"AI Worker successfully generated response for UID {uid}")
+                print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
             else:
                 result_text = sanitize_for_telegram(full_text.replace("ОТВЕТ:", "").strip())
                 artifact_lore = "Память утеряна."
 
         except Exception as e:
-            logging.error(f"/// AI WORKER VOICE ERROR: {e}")
+            print(f"/// AI WORKER VOICE ERROR: {e}", flush=True)
             handle_failure("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.")
             return
 
@@ -287,7 +293,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
                     cur.execute("INSERT INTO user_equipment (uid, slot, item_id, durability, custom_data) VALUES (%s, 'eidos_shard', 'eidos_shard', 100, %s) ON CONFLICT (uid, slot) DO UPDATE SET item_id = EXCLUDED.item_id, custom_data = EXCLUDED.custom_data", (uid, new_custom_data))
 
         except Exception as e:
-            logging.error(f"/// AI WORKER DB ERROR: {e}")
+            print(f"/// AI WORKER DB ERROR: {e}", flush=True)
             handle_failure("👁‍🗨 Сбой записи артефакта в матрицу.")
             return
 
@@ -299,14 +305,16 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
             f"Память осколка: {artifact_lore}"
         )
 
+        print(f"[AI WORKER] Attempting to send text to Telegram for UID {uid}...", flush=True)
         final_msg = f"👁 ГЛАС ЭЙДОСА:\n\n{result_text}"
 
         for i in range(0, len(final_msg), 4000):
             chunk = final_msg[i:i+4000]
             try:
                 bot.send_message(chat_id, chunk, parse_mode="HTML")
+                print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
             except Exception as e:
-                logging.warning(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.")
+                print(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.", flush=True)
                 bot.send_message(chat_id, chunk)
 
         if len(final_caption) > 1024:
@@ -314,20 +322,22 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
                 bot.send_photo(chat_id, artifact_img_id)
                 for i in range(0, len(final_caption), 4000):
                     bot.send_message(chat_id, final_caption[i:i+4000])
+                    print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
             except Exception as e:
-                logging.error(f"/// AI WORKER PHOTO ERROR: {e}")
+                print(f"/// AI WORKER PHOTO ERROR: {e}", flush=True)
         else:
             try:
                 bot.send_photo(chat_id, artifact_img_id, caption=final_caption)
+                print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
             except Exception as e:
-                logging.error(f"/// AI WORKER PHOTO CAPTION ERROR: {e}")
+                print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}", flush=True)
 
     except Exception as e:
-        logging.error(f"/// AI WORKER VOICE GENERAL ERROR: {e}")
+        import traceback; print(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", flush=True); traceback.print_exc()
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
 def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None, refund_bc=None):
-    logging.info(f"AI Worker started for UID {uid} (User Dossier: {target_user_data.get('uid')})")
+    print(f"[AI WORKER] Started processing request for UID {uid}", flush=True)
     if cache_db.check_throttle(uid, 'generate_user_dossier_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
         if 'loading_msg_id' in locals() and loading_msg_id:
@@ -451,6 +461,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     last_edit_time = time.time()
     for attempt in range(3):
         try:
+            print(f"[AI WORKER] Sending request to OpenRouter for UID {uid}...", flush=True)
             stream = ai_client.chat.completions.create(
                 model=OPENROUTER_MODEL,
                 messages=[
@@ -472,10 +483,10 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
 
             ai_text = ai_text.replace('```html', '').replace('```', '').strip()
             ai_text = sanitize_for_telegram(ai_text)
-            logging.info(f"AI Worker successfully generated response for UID {uid}")
+            print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
             break
         except Exception as e:
-            logging.error(f"/// AI WORKER DOSSIER STREAM ERR: {e}")
+            print(f"/// AI WORKER DOSSIER STREAM ERR: {e}", flush=True)
             time.sleep(2)
 
     if loading_msg_id:
@@ -499,7 +510,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
             if cur:
                 cur.execute("INSERT INTO user_dossiers (uid, dossier_text) VALUES (%s, %s) ON CONFLICT (uid) DO UPDATE SET dossier_text = EXCLUDED.dossier_text, generated_at = CURRENT_TIMESTAMP", (target_uid, ai_text))
     except Exception as e:
-        logging.error(f"/// AI WORKER DB INSERT ERROR: {e}")
+        print(f"/// AI WORKER DB INSERT ERROR: {e}", flush=True)
 
     img_id = getattr(config, 'USER_AVATARS', {}).get(t_level, getattr(config, 'USER_AVATARS', {}).get(1))
 
@@ -517,12 +528,16 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     m.add(types.InlineKeyboardButton("🔙 Вернуться к рейтингу", callback_data="leaderboard"))
 
     try:
+        print(f"[AI WORKER] Attempting to send text to Telegram for UID {uid}...", flush=True)
         if img_id:
             bot.send_photo(chat_id, img_id, caption="<b>СОБРАНО ДОСЬЕ</b>", parse_mode="HTML")
         if len(ai_text) > 4000:
             for i in range(0, len(ai_text), 4000):
                 bot.send_message(chat_id, ai_text[i:i+4000], parse_mode="HTML", reply_markup=m if i+4000 >= len(ai_text) else None)
+                print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
         else:
             bot.send_message(chat_id, ai_text, parse_mode="HTML", reply_markup=m)
+            print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
     except Exception:
         bot.send_message(chat_id, f"<b>СОБРАНО ДОСЬЕ</b>\n\n{ai_text}", parse_mode="HTML", reply_markup=m)
+        print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
