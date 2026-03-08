@@ -107,6 +107,20 @@ def profile_handler(call):
             f"└ 🪙 Кошелек: <b>{int(u.get('biocoin', 0) or 0)} BC</b> {accel_status}\n"
         )
 
+        # Add anomaly active buffs if applicable
+        if u.get('is_glitched') and u.get('anomaly_buff_expiry', 0) > time.time():
+            b_type = u.get('anomaly_buff_type')
+            if b_type == 'stealth_night':
+                b_name = "Призрак в Сети (Редкость элитных врагов снижена на 30%)"
+            elif b_type == 'glitch_berserk':
+                b_name = "Сбой Ядра (Защита отключена, урон максимизирован)"
+            elif b_type == 'visual_distortion':
+                b_name = "Переполнение Буфера (Интерфейс поврежден, Опыт х2)"
+            else:
+                b_name = "Неизвестная Аномалия (Система нестабильна)"
+            msg += f"\n🌀 <b>Действующие бафы:</b>\n- {b_name}"
+
+
         # Determine avatar based on level
         avatar_id = config.USER_AVATARS.get(u.get('level') or 1)
         if not avatar_id:
@@ -124,6 +138,9 @@ def profile_handler(call):
 
     elif call.data.startswith("set_path_"):
         path = call.data.replace("set_path_", "")
+        if path == "architect":
+            bot.answer_callback_query(call.id, "❌ Доступ закрыт. Требуется Ключ Архитектора. Вы — лишь наблюдатель, пока не найдете способ изменить сам код Системы.", show_alert=True)
+            return
         info = SCHOOLS_INFO.get(path)
         txt = (f"🧬 <b>ВЫБОР: {info['name']}</b>\n\n"
                f"✅ Бонус: {info['bonus']}\n"
@@ -131,7 +148,18 @@ def profile_handler(call):
                f"📜 <i>{info['ideology']}</i>\n\n"
                f"💳 Баланс: {int(u.get('xp', 0) or 0)} XP | {int(u.get('biocoin', 0) or 0)} BC\n\n"
                "Подтвердить выбор?")
-        menu_update(call, txt, kb.faction_confirm_menu(path))
+
+        # Select appropriate image for faction
+        if path == "money":
+            faction_img = config.MENU_IMAGE_URL_MONEY
+        elif path == "mind":
+            faction_img = config.MENU_IMAGE_URL_MIND
+        elif path == "tech":
+            faction_img = config.MENU_IMAGE_URL_TECH
+        else:
+            faction_img = config.MENU_IMAGE_URL
+
+        menu_update(call, txt, kb.faction_confirm_menu(path), image_url=faction_img)
 
     elif call.data.startswith("confirm_path_"):
         path = call.data.replace("confirm_path_", "")
@@ -777,3 +805,21 @@ def process_dossier_msg(m):
     except:
         bot.send_message(m.chat.id, "❌ Не удалось доставить сообщение. BC возвращены.")
         db.update_user(uid, biocoin=db.get_user(uid).get('biocoin', 0) + 100)
+
+@bot.callback_query_handler(func=lambda call: call.data == "remove_anomaly")
+def remove_anomaly_handler(call):
+    uid = int(call.from_user.id)
+    u = db.get_user(uid)
+    if not u or not u.get('is_glitched') or u.get('anomaly_buff_expiry', 0) <= time.time():
+        bot.answer_callback_query(call.id, "❌ Аномалия уже рассеялась или отсутствует.", show_alert=True)
+        return
+
+    if int(u.get('biocoin', 0)) < 1000:
+        bot.answer_callback_query(call.id, "❌ Недостаточно BC (нужно 1000).", show_alert=True)
+        return
+
+    db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 1000, is_glitched=False, anomaly_buff_type=None, anomaly_buff_expiry=0)
+    bot.answer_callback_query(call.id, "Аномалия успешно удалена с вашего профиля.", show_alert=True)
+
+    call.data = 'profile'
+    profile_handler(call)
