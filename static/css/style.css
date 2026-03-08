@@ -1,12 +1,83 @@
-/* ====== GLOBAL ATMOSPHERIC LAYERS ====== */
-.sys-scanline {
-    opacity: 0.05 !important;
-    pointer-events: none;
-    z-index: 10000;
+/* ====== ROOT & VARIABLES ====== */
+:root {
+    --eidos-bg: #030405;
+    --eidos-neon: #00ff41;
+    --eidos-cyan: #66FCF1;
+    --eidos-red: #ff3333;
+    --eidos-glass: rgba(5, 7, 10, 0.75);
+    /* Safe areas для современных телефонов (iPhone Notch, Android swipe bars) */
+    --safe-top: env(safe-area-inset-top, 20px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
 }
 
-body::after {
-    content: '';
+/* ====== НАТИВНЫЙ МОБИЛЬНЫЙ СБРОС (APPLE-LIKE UX) ====== */
+* {
+    box-sizing: border-box;
+    /* Убираем синюю вспышку при тапе на мобилках */
+    -webkit-tap-highlight-color: transparent; 
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--eidos-bg);
+    color: #ffffff;
+    font-family: 'Rajdhani', sans-serif;
+    /* Запрещаем выделение текста, чтобы ощущалось как Приложение, а не Сайт */
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden; /* Глобальный скролл отключен, скроллится только контейнер */
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Разрешаем выделение только для терминальных логов, если нужно */
+.ai-screen, code {
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+/* ====== 3D ФУТУРИСТИЧНАЯ СЕТКА (BACKGROUND) ====== */
+.sys-background {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: -2;
+    background: radial-gradient(circle at 50% 30%, #0a0f14 0%, #000000 100%);
+    overflow: hidden;
+}
+
+.nexus-grid-container {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 65vh; /* Сетка занимает нижнюю часть экрана */
+    perspective: 700px; /* Глубина 3D */
+    z-index: -1;
+}
+
+.nexus-grid-plane {
+    position: absolute;
+    width: 200%; height: 200%;
+    bottom: -50%; left: -50%;
+    /* Неоновые линии сетки */
+    background-image: 
+        linear-gradient(rgba(102, 252, 241, 0.4) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(102, 252, 241, 0.4) 1px, transparent 1px);
+    background-size: 40px 40px;
+    transform: rotateX(75deg); /* Наклон от зрителя */
+    animation: gridMove 4s linear infinite;
+    /* Градиентная маска: сетка растворяется вдали */
+    mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
+    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
+}
+
+@keyframes gridMove {
+    0% { transform: rotateX(75deg) translateY(0); }
+    100% { transform: rotateX(75deg) translateY(40px); }
+}
+
+/* ====== АТМОСФЕРНЫЕ СЛОИ ====== */
+.sys-scanline {
     position: fixed;
     top: 0; left: 0;
     width: 100vw; height: 100vh;
@@ -14,81 +85,106 @@ body::after {
     background-size: 100% 4px;
     z-index: 10000;
     pointer-events: none;
-    opacity: 0.05;
+    opacity: 0.15;
 }
 
-#skip-btn {
-    position: absolute;
-    bottom: 30px;
-    right: 30px;
-    background: transparent;
-    color: #00ff41;
-    border: 1px solid #00ff41;
-    padding: 10px 20px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    z-index: 1000000;
-    transition: all 0.3s ease;
-    text-transform: uppercase;
+/* ====== КАРКАС ПРИЛОЖЕНИЯ ====== */
+/* Header с эффектом Glassmorphism (как в iOS) */
+.stats-header {
+    position: fixed;
+    top: 0; left: 0; width: 100%;
+    padding: calc(10px + var(--safe-top)) 15px 10px; /* Учет "челки" iPhone */
+    background: var(--eidos-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px); /* Для iPhone */
+    border-bottom: 1px solid rgba(102, 252, 241, 0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    z-index: 8500;
 }
 
-#skip-btn:hover {
-    background: #00ff41;
-    color: #000;
+#views-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    /* Отступ сверху под Header + снизу под домашнюю полоску iOS */
+    padding-top: calc(90px + var(--safe-top)); 
+    padding-bottom: calc(40px + var(--safe-bottom));
+    overflow-y: auto;
+    /* Плавная кинетическая прокрутка как в нативных приложениях */
+    -webkit-overflow-scrolling: touch; 
+    scroll-behavior: smooth;
+    z-index: 1;
+}
+
+.view-panel { display: none !important; }
+.view-panel.active { 
+    display: block !important; 
+    animation: fadeScaleIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes fadeScaleIn {
+    0% { opacity: 0; transform: scale(0.97) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 /* ====== NEXUS GRID (GOTHIC TECH-HUB) ====== */
 .nexus-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    gap: 15px;
-    width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
+    /* Адаптивный зазор для разных экранов */
+    gap: clamp(10px, 4vw, 20px);
+    padding: 15px;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 .nexus-tile {
     position: relative;
-    background-color: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(102, 252, 241, 0.3);
+    background-color: rgba(10, 15, 20, 0.65);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(102, 252, 241, 0.2);
+    /* Скошенные углы - основа дизайна EIDOS */
     clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-    padding: 20px;
+    padding: 2vh 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s ease, border-color 0.2s ease;
+    transition: all 0.2s ease-out;
     cursor: pointer;
-    min-height: 120px;
+    min-height: 14vh; /* Адаптивная высота */
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
 }
 
-.view { display: none !important; }
-.view.active { display: block !important; }
+/* Эффект "физического" нажатия */
+.nexus-tile:active {
+    transform: scale(0.94);
+    border-color: var(--eidos-cyan);
+    background-color: rgba(102, 252, 241, 0.1);
+}
+
 /* ====== MICRO-ANIMATIONS ====== */
 .stat-up {
     animation: statUp 0.8s ease;
-    text-shadow: 0 0 10px #00ff41;
+    text-shadow: 0 0 15px var(--eidos-neon);
 }
 .stat-down {
     animation: statDown 0.8s ease;
-    text-shadow: 0 0 10px #ff003c;
+    text-shadow: 0 0 15px var(--eidos-red);
 }
 
 @keyframes statUp {
     0% { transform: translateY(0); }
-    50% { transform: translateY(-5px); color: #00ff41; }
+    50% { transform: translateY(-5px); color: var(--eidos-neon); }
     100% { transform: translateY(0); }
 }
 @keyframes statDown {
     0% { transform: translateX(0); }
-    20% { transform: translateX(-2px); color: #ff003c; }
-    40% { transform: translateX(2px); }
-    60% { transform: translateX(-2px); }
-    80% { transform: translateX(2px); }
+    20% { transform: translateX(-3px); color: var(--eidos-red); }
+    40% { transform: translateX(3px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
     100% { transform: translateX(0); }
 }
 
@@ -96,15 +192,12 @@ body::after {
     animation: overheatPulseAnim 1.5s infinite alternate;
 }
 @keyframes overheatPulseAnim {
-    from { box-shadow: inset 0 0 10px rgba(255,102,0,0.5), 0 0 5px rgba(255,102,0,0.5); }
+    from { box-shadow: inset 0 0 10px rgba(255,102,0,0.5), 0 0 5px rgba(255,102,0,0.5); border-color: rgba(255,102,0,0.5); }
     to { box-shadow: inset 0 0 25px rgba(255,51,0,0.8), 0 0 15px rgba(255,51,0,0.8); border-color: #ff3300 !important; }
 }
 
-#views-container {
-    padding-top: 90px;
-    padding-bottom: 20px;
-    position: relative;
+/* Скрываем скроллбар (как в нативных приложениях), но оставляем функционал */
+::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
 }
-
-.view-panel { display: none !important; }
-.view-panel.active { display: block !important; }
