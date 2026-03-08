@@ -226,7 +226,11 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
     init_msg = bot.send_message(chat_id, "👁‍🗨 Соединение с Нейро-ядром установлено. Идет анализ метрик...")
 
     def handle_failure(error_msg):
-        bot.edit_message_text(error_msg, chat_id=chat_id, message_id=init_msg.message_id)
+        try:
+            bot.edit_message_text(error_msg, chat_id=chat_id, message_id=init_msg.message_id)
+        except Exception:
+            bot.send_message(chat_id, error_msg) # Если сообщение уже удалено, отправляем новое
+            
         if charge_id:
             try:
                 bot.refund_star_payment(uid, charge_id)
@@ -316,13 +320,6 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
             handle_failure("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.")
             return
 
-        try:
-            bot.delete_message(chat_id, init_msg.message_id)
-        except:
-            pass
-
-        # ... (В твоем оригинальном коде здесь были first_name и current_level, которые не определены в области видимости, 
-        # я оставляю их как есть, чтобы не трогать твой код)
         artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
 
         final_caption = (
@@ -334,8 +331,9 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
         print(f"[AI WORKER] Attempting to send text to Telegram for UID {uid}...", flush=True)
         final_msg = f"👁 ГЛАС ЭЙДОСА:\n\n{result_text}"
 
+        # === ИСПРАВЛЕНИЕ ТУТ: ПРАВИЛЬНАЯ ЛОГИКА ОТПРАВКИ/УДАЛЕНИЯ ===
         if len(final_msg) > 4000:
-            try: bot.delete_message(chat_id, init_msg.message_id)
+            try: bot.delete_message(chat_id, init_msg.message_id) # Удаляем только если бьем на куски
             except: pass
             for i in range(0, len(final_msg), 4000):
                 chunk = final_msg[i:i+4000]
@@ -343,11 +341,13 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
                     bot.send_message(chat_id, chunk, parse_mode="HTML")
                 except Exception as e:
                     logging.error("CRITICAL ERROR", exc_info=True)
-                    try: sentry_sdk.capture_exception(e)
-                    except: pass
                     bot.send_message(chat_id, chunk)
         else:
-            bot.edit_message_text(final_msg, chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
+            try:
+                bot.edit_message_text(final_msg, chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
+            except Exception:
+                bot.send_message(chat_id, final_msg, parse_mode="HTML") # Fallback, если удалить все же умудрились
+        # ============================================================
 
         if len(final_caption) > 1024:
             try:
