@@ -2,207 +2,153 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Eidos Inventory</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>EIDOS | TERMINAL</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-    <div id="eidos-loader" onclick="forceCloseLoader()" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000000; z-index: 99999; display: flex; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; cursor: pointer;">
-        <video src="video/LOGO.mp4" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover; mix-blend-mode: screen;"></video>
+    <div id="eidos-loader" onclick="forceCloseLoader()">
+        <video src="video/LOGO.mp4" autoplay muted playsinline></video>
+        <div class="loader-overlay-text">ПОДКЛЮЧЕНИЕ К НЕЙРОСЕТИ...</div>
     </div>
 
+    <div class="sys-background">
+        <div class="sys-scanline"></div>
+        <div class="nexus-grid-container"><div class="nexus-grid-plane"></div></div>
+        <div class="nexus-particles" id="p-box"></div>
+    </div>
 
-    <!-- NEXUS.GRID 3D Background -->
-    <div class="sys-scanline"></div>
-    <div class="nexus-grid-container"><div class="nexus-grid-plane"></div></div>
-    <div class="nexus-particles" id="p-box"></div>
-
-
-
-    <!-- Boot Sequence (SYS.BOOT Loading Screen) -->
     <div id="loading-overlay" class="sys-boot-overlay">
-        <div class="sys-scanline"></div><div class="sys-vignette"></div>
-        <svg class="sys-boot-core" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00ff41" /><stop offset="100%" stop-color="#00ffff" /></linearGradient></defs>
-            <circle class="sys-spin-cw" cx="50" cy="50" r="45" fill="none" stroke="url(#g)" stroke-width="1" stroke-dasharray="10 5 30 5" opacity="0.6"/>
-            <circle class="sys-spin-ccw" cx="50" cy="50" r="35" fill="none" stroke="#00ffff" stroke-width="2" stroke-dasharray="20 10" opacity="0.8"/>
-            <polygon class="sys-spin-cw" points="50,25 72,37.5 72,62.5 50,75 28,62.5 28,37.5" fill="none" stroke="#00ff41" stroke-width="1.5"/>
-            <circle cx="50" cy="50" r="5" fill="#00ff41" />
-            <circle cx="50" cy="50" r="12" fill="none" stroke="#00ff41" stroke-width="0.5" stroke-dasharray="2 2" />
-        </svg>
-        <div class="sys-title">EIDOS<span>_AGI</span></div>
-        <div class="sys-progress-box"><div id="sys-progress" class="sys-progress-bar"></div></div>
-        <div id="progress-text" class="sys-progress-text">ИНИЦИАЛИЗАЦИЯ: 0%</div>
-        <div class="sys-log-container" id="boot-logs"></div>
+        <div class="boot-content">
+            <svg class="sys-boot-core" viewBox="0 0 100 100">
+                <circle class="sys-spin-cw" cx="50" cy="50" r="45" fill="none" stroke="#00ff41" stroke-width="1" stroke-dasharray="10 5" opacity="0.4"/>
+                <circle class="sys-spin-ccw" cx="50" cy="50" r="35" fill="none" stroke="#00ffff" stroke-width="2" stroke-dasharray="20 10"/>
+                <circle cx="50" cy="50" r="5" fill="#00ff41">
+                    <animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite" />
+                </circle>
+            </svg>
+            <div class="sys-title">EIDOS<span>_INTERFACE</span></div>
+            <div class="sys-progress-box"><div id="sys-progress" class="sys-progress-bar"></div></div>
+            <div id="progress-text" class="sys-progress-text">DECRYPTING: 0%</div>
+        </div>
     </div>
 
-    <!-- Real-time Stats Engine (Fixed Top) -->
-    <div class="stats-header" id="stats-header">
+    <header class="stats-header">
         <div class="stats-grid">
-            <div class="stat-item">
-                <span>ATK</span>
-                <div id="stat-atk" class="stat-value" style="color: #ff3333;">0</div>
+            <div class="stat-box" data-label="ATK">
+                <span class="stat-icon">⚔️</span>
+                <div id="stat-atk" class="stat-value text-red">0</div>
             </div>
-            <div class="stat-item">
-                <span>DEF</span>
-                <div id="stat-def" class="stat-value" style="color: #33ccff;">0</div>
+            <div class="stat-box" data-label="DEF">
+                <span class="stat-icon">🛡️</span>
+                <div id="stat-def" class="stat-value text-blue">0</div>
             </div>
-            <div class="stat-item">
-                <span>LUCK</span>
-                <div id="stat-luck" class="stat-value" style="color: #ffcc00;">0</div>
+            <div class="stat-box" data-label="LUCK">
+                <span class="stat-icon">🎲</span>
+                <div id="stat-luck" class="stat-value text-gold">0</div>
             </div>
-            <div class="stat-item">
-                <span>SIGNAL</span>
-                <div id="stat-signal" class="stat-value" style="color: #00ff00;">100%</div>
+            <div class="stat-box" data-label="SIGNAL">
+                <span class="stat-icon">📡</span>
+                <div id="stat-signal" class="stat-value text-green">100%</div>
             </div>
         </div>
-        <div class="progress-container">
-            <div id="xp-bar" class="progress-bar"></div>
-            <div id="xp-text" class="progress-text">0 / 0 XP</div>
+        <div class="xp-container">
+            <div id="xp-bar" class="xp-fill"></div>
+            <div id="xp-text" class="xp-label">0 / 0 XP</div>
         </div>
-    </div>
+    </header>
 
-    <!-- Main Content Area -->
-    <div id="views-container" class="views-container">
+    <main id="views-container">
 
-        <!-- INVENTORY / PROFILE VIEW -->
-        <div id="view-inventory" class="view active">
-            <!-- Profile Info -->
-            <div class="profile-info-compact">
-                <img id="profile-avatar" class="avatar" src="https://via.placeholder.com/60" alt="Avatar">
-                <div class="user-details">
-                    <h2 id="profile-name">Загрузка...</h2>
-                    <p><span id="profile-lvl">Lvl 0</span> | <span id="profile-faction">Н/Д</span></p>
+        <section id="view-inventory" class="view-panel active">
+            
+            <div class="profile-card">
+                <div class="avatar-wrapper">
+                    <img id="profile-avatar" src="IMG/default_avatar.png" alt="User">
+                    <div class="lvl-badge" id="profile-lvl">1</div>
                 </div>
-            </div>
-
-            <!-- Interactive Equipment Slots (Doll) -->
-            <div class="doll-container" id="doll-container">
-                <div class="equip-slot" id="slot-head" style="grid-column: 1 / span 2; max-width: 50%; margin: 0 auto;"></div>
-                <div class="equip-slot" id="slot-weapon"></div>
-                <div class="equip-slot" id="slot-body"></div>
-                <div class="equip-slot" id="slot-software"></div>
-                <div class="equip-slot" id="slot-artifact"></div>
-            </div>
-
-            <!-- Tabs Menu -->
-            <div class="tabs">
-                <div class="tab active" data-filter="all"><img src="IMG/nav_tab-all.svg" class="tab-icon">ВСЕ</div>
-                <div class="tab" data-filter="equip"><img src="IMG/nav_tab-equip.svg" class="tab-icon">СНАРЯЖЕНИЕ</div>
-                <div class="tab" data-filter="consumable"><img src="IMG/nav_tab-consum.svg" class="tab-icon">РАСХОДНИКИ</div>
-            </div>
-
-            <!-- Inventory List Area -->
-            <div class="items-list" id="inventory-list"></div>
-        </div>
-
-        <!-- SHOP VIEW -->
-        <div id="view-shop" class="view">
-            <h2 class="view-title" style="color: var(--rarity-legendary);"><img src="IMG/nav_head-shop.svg" class="header-icon"> ТОРГОВЫЙ ШЛЮЗ</h2>
-            <div class="shop-filters tabs">
-                <div class="tab active" data-shop-filter="all"><img src="IMG/nav_tab-all.svg" class="tab-icon">ВСЕ</div>
-                <div class="tab" data-shop-filter="equip"><img src="IMG/nav_tab-equip.svg" class="tab-icon">ЭКИПИРОВКА</div>
-                <div class="tab" data-shop-filter="consumable"><img src="IMG/nav_tab-consum.svg" class="tab-icon">РАСХОДНИКИ</div>
-            </div>
-            <div class="items-list" id="shop-list"></div>
-        </div>
-
-        <!-- CRAFT VIEW -->
-        <div id="view-craft" class="view">
-            <h2 class="view-title" style="color: var(--tg-theme-hint-color);"><img src="IMG/nav_head-forge.svg" class="header-icon"> ТЕХНО-КУЗНЯ</h2>
-            <div class="craft-container">
-                <div class="craft-slot" id="craft-slot-main">
-                    <div class="craft-slot-label">ПРЕДМЕТ</div>
-                    <div class="craft-slot-empty">+</div>
-                </div>
-                <div class="craft-plus">+</div>
-                <div class="craft-slot" id="craft-slot-mat1">
-                    <div class="craft-slot-label">МАТЕРИАЛ</div>
-                    <div class="craft-slot-empty">+</div>
-                </div>
-                <div class="craft-plus">+</div>
-                <div class="craft-slot" id="craft-slot-mat2">
-                    <div class="craft-slot-label">МАТЕРИАЛ</div>
-                    <div class="craft-slot-empty">+</div>
-                </div>
-            </div>
-            <div class="craft-action">
-                <div class="craft-probability">Шанс успеха: <span id="craft-prob-val">0%</span></div>
-                <button class="action-btn" id="btn-craft" disabled><img src="IMG/nav_tab-craft.svg" class="btn-icon"> СИНТЕЗ</button>
-            </div>
-        </div>
-
-        <!-- RAIDS VIEW -->
-        <div id="view-raids" class="view">
-            <h2 class="view-title" style="color: #ff3333;"><img src="IMG/nav_head-raid.svg" class="header-icon"> ВИЗУАЛИЗАТОР АКТИВНОСТЕЙ</h2>
-            <div id="raids-list" class="items-list">
-                <!-- Raids will be populated here -->
-                <div style="text-align:center; padding: 20px; color:#888;">Модуль сканирования секторов...</div>
-            </div>
-        </div>
-
-        <!-- SOCIAL / AI VIEW -->
-        <div id="view-social" class="view">
-            <div class="tabs">
-                <div class="tab active" data-social-tab="leaderboard"><img src="IMG/nav_head-psycho.svg" class="tab-icon">СЕТЬ</div>
-                <div class="tab" data-social-tab="ai" style="color: var(--rarity-epic);"><img src="IMG/nav_head-eidos.svg" class="tab-icon">ЭЙДОС</div>
-            </div>
-
-            <div id="social-leaderboard">
-                <div class="items-list" id="leaderboard-list">
-                    <div style="text-align:center; padding: 20px; color:#888;">Загрузка данных Синдиката...</div>
-                </div>
-            </div>
-
-            <div id="social-ai" style="display: none;">
-                <div class="ai-terminal">
-                    <div class="ai-header">ОТДЕЛ ПСИХОАНАЛИЗА</div>
-                    <div class="ai-log" id="ai-log">
-                        <div class="ai-msg system">Установка соединения с Ядром...</div>
+                <div class="profile-text">
+                    <h2 id="profile-name">IDENTIFYING...</h2>
+                    <p id="profile-faction">FACTION: NEUTRAL</p>
+                    <div class="currency-display">
+                        <span id="profile-biocoins">0</span> <small>BIOCOINS</small>
                     </div>
-                    <button class="action-btn" id="btn-dossier" style="margin-top: 10px; border-color: var(--rarity-epic); color: var(--rarity-epic);">ЗАПРОСИТЬ ДОСЬЕ (100 BC)</button>
                 </div>
             </div>
+
+            <div class="doll-grid">
+                <div class="doll-slot head" id="slot-head" title="Head"></div>
+                <div class="doll-slot weapon" id="slot-weapon" title="Weapon"></div>
+                <div class="doll-slot body" id="slot-body" title="Body"></div>
+                <div class="doll-slot software" id="slot-software" title="Software"></div>
+                <div class="doll-slot artifact" id="slot-artifact" title="Artifact"></div>
+            </div>
+
+            <div class="filter-tabs">
+                <button class="tab-btn active" data-filter="all">ВСЕ</button>
+                <button class="tab-btn" data-filter="equip">СНАРЯЖЕНИЕ</button>
+                <button class="tab-btn" data-filter="consumable">РАСХОДНИКИ</button>
+            </div>
+
+            <div class="scroll-area" id="inventory-list">
+                </div>
+        </section>
+
+        <section id="view-shop" class="view-panel">
+            <div class="section-header">ТОРГОВЫЙ ШЛЮЗ</div>
+            <div class="scroll-area" id="shop-list"></div>
+        </section>
+
+        <section id="view-social" class="view-panel">
+            <div class="sub-tabs">
+                <div class="tab-btn active" data-social-tab="leaderboard">СЕТЬ</div>
+                <div class="tab-btn" data-social-tab="ai">ЭЙДОС</div>
+            </div>
+            <div id="social-leaderboard" class="scroll-area">
+                <div id="leaderboard-list"></div>
+            </div>
+            <div id="social-ai" style="display: none;">
+                <div class="ai-terminal-box">
+                    <div id="ai-log" class="ai-screen"></div>
+                    <button class="action-btn glow-purple" id="btn-dossier">АНАЛИЗ ОБЪЕКТА (100 BIOCOINS)</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="action-log-terminal">
+        <div class="log-line">
+            <span class="log-tag">[SYS]</span>
+            <span id="action-log-text">TERMINAL_READY</span>
         </div>
+    </footer>
 
-    </div>
-
-        <!-- Action Log Terminal (Fixed Bottom) -->
-    <div class="action-log-terminal" id="action-log-terminal">
-        <div class="log-content">
-            <span class="log-prefix">[SYS]</span> <span id="action-log-text">SYSTEM INITIALIZED. WAITING FOR INPUT...</span>
-        </div>
-    </div>
-
-    <!-- Bottom Navigation Bar -->
     <nav class="bottom-nav">
         <div class="nav-item active" data-target="view-inventory">
-            <div class="nav-icon"><img src="IMG/nav_head-psycho.svg" alt="Профиль"></div>
-            <div class="nav-label">PSYCHO-PROFILE</div>
+            <img src="IMG/nav_head-psycho.svg">
+            <span>ПРОФИЛЬ</span>
         </div>
         <div class="nav-item" data-target="view-shop">
-            <div class="nav-icon"><img src="IMG/eidos_inventory-cache.svg" alt="Кэш"></div>
-            <div class="nav-label">CACHE</div>
+            <img src="IMG/eidos_inventory-cache.svg">
+            <span>МАРКЕТ</span>
         </div>
         <div class="nav-item" data-target="view-social">
-            <div class="nav-icon"><img src="IMG/eidos_terminal-log.svg" alt="Терминал"></div>
-            <div class="nav-label">TERMINAL</div>
+            <img src="IMG/eidos_terminal-log.svg">
+            <span>СЕТЬ</span>
         </div>
     </nav>
 
-    <!-- Modal for Items -->
     <div class="modal-overlay" id="item-modal">
-        <div class="modal-content">
+        <div class="modal-frame">
             <div class="modal-close" id="modal-close">×</div>
-            <div class="modal-icon" id="modal-icon"></div>
-            <div class="modal-title" id="modal-title">Название</div>
-            <div class="modal-rarity" id="modal-rarity" style="font-size: 11px; margin-bottom: 10px;">Редкость</div>
-            <div class="modal-desc" id="modal-desc">Описание</div>
-            <div class="modal-actions" id="modal-actions">
-                <!-- Action Buttons Rendered via JS -->
-            </div>
+            <div id="modal-icon" class="modal-main-icon"></div>
+            <h3 id="modal-title">OBJECT_NAME</h3>
+            <div id="modal-rarity" class="rarity-tag">COMMON</div>
+            <div id="modal-desc" class="modal-body">ERROR: NO_DATA</div>
+            <div id="modal-actions" class="modal-footer"></div>
         </div>
     </div>
 
