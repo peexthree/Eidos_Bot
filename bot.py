@@ -31,7 +31,7 @@ import database as db
 # Import Bot Instance
 from modules.bot_instance import bot, app, TOKEN, WEBHOOK_URL
 
-# Import Handlers (Registers them)
+# Import Handlers
 import modules.handlers.start
 import modules.handlers.admin
 import modules.handlers.eidos_room
@@ -58,6 +58,7 @@ def webhook():
     else:
         flask.abort(403)
 
+# Static Routes
 @app.route('/css/<path:path>', methods=['GET'])
 def send_css(path):
     static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/css')
@@ -101,7 +102,7 @@ def inventory_api():
     if not user:
         return flask.jsonify({"error": "User not found"}), 404
 
-    # Profile Data
+    # --- Profile Data ---
     from modules.services.utils import get_user_display_name
     from modules.services.user import get_user_stats
 
@@ -113,13 +114,13 @@ def inventory_api():
     avatar_url = None
     if avatar_file_id:
         try: avatar_url = bot.get_file_url(avatar_file_id)
-        except: pass
+        except: avatar_url = None
 
     profile = {
         "name": get_user_display_name(user),
         "level": level,
         "faction": config.SCHOOLS.get(user.get('path', 'none'), 'NEUTRAL'),
-        "biocoin": user.get('biocoin', 0),
+        "biocoins": user.get('biocoin', 0), # Гарантируем biocoins
         "xp": user.get('xp', 0),
         "next_xp": level * 1000,
         "atk": stats.get('atk', 0),
@@ -129,39 +130,51 @@ def inventory_api():
         "avatar_url": avatar_url
     }
 
-    # Items
+    # --- Items (Inventory) ---
     items = []
     raw_items = db.get_inventory(uid)
     for i in raw_items:
         info = config.ITEMS_INFO.get(i['item_id'], {})
         items.append({
-            "id": i['id'],
+            "id": i['id'], # Уникальный ID записи в БД
             "item_id": i['item_id'],
             "name": info.get('name', i['item_id']),
             "quantity": i.get('quantity', 1),
             "type": info.get('type', 'misc'),
-            "description": info.get('desc', ''),
+            "description": info.get('desc', 'Описание отсутствует.'),
             "rarity": info.get('rarity', 'common'),
-            "image_url": None # Simplified for now
+            "stats": info.get('stats', {}),
+            "image_url": f"IMG/{i['item_id']}.png" # Предполагаем наличие иконок
         })
 
-    # Equipped
-    equipped = db.get_user_equipment(uid)
+    # --- Equipped (Enriching Data for WebApp) ---
+    raw_equipped = db.get_user_equipment(uid)
+    enriched_equipped = {}
+    for slot, item_data in raw_equipped.items():
+        # База может вернуть либо строку с ID, либо словарь. Обрабатываем оба варианта.
+        iid = item_data['item_id'] if isinstance(item_data, dict) else item_data
+        if iid:
+            info = config.ITEMS_INFO.get(iid, {})
+            enriched_equipped[slot] = {
+                "item_id": iid,
+                "name": info.get('name', iid),
+                "rarity": info.get('rarity', 'common'),
+                "type": info.get('type', slot),
+                "stats": info.get('stats', {})
+            }
+        else:
+            enriched_equipped[slot] = None
 
     return flask.jsonify({
         "profile": profile,
         "items": items,
-        "equipped": equipped
+        "equipped": enriched_equipped
     })
 
 @app.route('/api/inventory/equip', methods=['POST'])
 def inventory_equip():
     data = flask.request.json
-    uid = data.get('uid')
-    item_id = data.get('item_id')
-    # Use service logic to handle inv_id vs item_id if necessary
-    # For SPA we usually pass inv_id or item_id.
-    # Let's assume the service handles it.
+    uid, item_id = data.get('uid'), data.get('item_id')
     from modules.services.inventory import equip_item
     success = equip_item(uid, item_id)
     return flask.jsonify({"success": success})
@@ -169,8 +182,7 @@ def inventory_equip():
 @app.route('/api/inventory/unequip', methods=['POST'])
 def inventory_unequip():
     data = flask.request.json
-    uid = data.get('uid')
-    slot = data.get('slot')
+    uid, slot = data.get('uid'), data.get('slot')
     from modules.services.inventory import unequip_item
     success = unequip_item(uid, slot)
     return flask.jsonify({"success": success})
@@ -178,16 +190,16 @@ def inventory_unequip():
 @app.route('/api/inventory/use', methods=['POST'])
 def inventory_use():
     data = flask.request.json
-    uid = data.get('uid')
-    item_id = data.get('item_id')
+    uid, item_id = data.get('uid'), data.get('item_id')
+    # Добавляем базовую проверку на использование
     success = db.use_item(uid, item_id, 1)
     return flask.jsonify({"success": success})
 
 @app.route('/api/inventory/dismantle', methods=['POST'])
 def inventory_dismantle():
     data = flask.request.json
-    uid = data.get('uid')
-    item_id = data.get('item_id')
+    uid, item_id = data.get('uid'), data.get('item_id')
+    # Возвращаем биокоины при разборе
     success = db.dismantle_item(uid, item_id)
     return flask.jsonify({"success": success})
 
@@ -203,21 +215,14 @@ def shop_api():
 @app.route('/api/shop/buy', methods=['POST'])
 def shop_buy():
     data = flask.request.json
-    uid = data.get('uid')
-    item_id = data.get('item_id')
+    uid, item_id = data.get('uid'), data.get('item_id')
     u = db.get_user(uid)
     cost = config.PRICES.get(item_id, 9999)
     if u and u.get('biocoin', 0) >= cost:
         db.update_user(uid, biocoin=u['biocoin'] - cost)
         db.add_item(uid, item_id, 1)
         return flask.jsonify({"success": True})
-    return flask.jsonify({"success": False}), 400
-
-@app.route('/api/raids', methods=['GET'])
-def raids_api():
-    from modules.services.raid_architect import RAID_PRESETS
-    raids = [{"id": k, "name": v['name'], "difficulty": v['difficulty']} for k, v in RAID_PRESETS.items()]
-    return flask.jsonify({"raids": raids})
+    return flask.jsonify({"success": False, "reason": "Insufficient biocoins"}), 400
 
 @app.route('/api/leaderboard', methods=['GET'])
 def leaderboard_api():
@@ -231,15 +236,14 @@ def dossier_api():
         cur.execute("SELECT dossier_text FROM user_dossiers WHERE uid = %s", (uid,))
         res = cur.fetchone()
         if res:
-            return flask.jsonify({"text": res[0]})
+            return flask.jsonify({"status": "ready", "text": res[0]})
 
     from modules.services.worker_queue import enqueue_task
     enqueue_task("generate_user_dossier_worker", uid=uid, chat_id=uid, target_user_data=db.get_user(uid))
-    return flask.jsonify({"text": "ГЕНЕРАЦИЯ ДОСЬЕ ЗАПУЩЕНА. ПРОВЕРЬТЕ ПОЗЖЕ."})
+    return flask.jsonify({"status": "processing", "text": "ГЕНЕРАЦИЯ ДОСЬЕ ЗАПУЩЕНА..."})
 
 # --- STARTUP & SCHEDULER ---
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 
 scheduler = BackgroundScheduler()
 
@@ -263,8 +267,10 @@ def system_startup():
             bot.remove_webhook()
             bot.set_webhook(url=WEBHOOK_URL + "/webhook")
             print(f"/// WEBHOOK SET: {WEBHOOK_URL}")
-        except: pass
-    scheduler.start()
+        except Exception as e:
+            print(f"/// WEBHOOK ERROR: {e}")
+    if not scheduler.running:
+        scheduler.start()
 
 # Fallback handlers for bot
 @bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker'])
@@ -277,5 +283,6 @@ def fallback_callback(call):
 
 if __name__ == "__main__":
     start_worker(bot)
+    # Запуск системы в отдельном потоке
     threading.Thread(target=system_startup, daemon=True).start()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
