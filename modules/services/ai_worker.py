@@ -567,9 +567,16 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
     from telebot import types
     m = types.InlineKeyboardMarkup(row_width=1)
 
-    share_msg = f"Эйдос присвоил статус в системе. Узнай свой уровень угрозы в @Eidos_Chronicles_bot"
-    share_url = f"https://t.me/share/url?url=https://t.me/Eidos_Chronicles_bot&text={urllib.parse.quote(share_msg)}"
-    m.add(types.InlineKeyboardButton("📢 Поделиться Досье", url=share_url))
+ # Формируем жесткую персонализированную выжимку
+    share_msg = (
+        f"⚠️ СИСТЕМА ЭЙДОС: Мой психопрофиль дешифрован.\n\n"
+        f"👤 Объект: {t_name}\n"
+        f"⚡ Уровень угрозы: {threat_level}\n"
+        f"🧠 Ментальная стабильность: {stability}%\n\n"
+        f"Узнай свой истинный статус в Системе ⬇️"
+    )
+    share_url = f"https://t.me/share/url?url=https://t.me/Eidos_Interface_bot&text={urllib.parse.quote(share_msg)}"
+    m.add(types.InlineKeyboardButton("📢 Поделиться статусом", url=share_url))
 
     if target_uid != uid:
         m.add(types.InlineKeyboardButton("⚔️ Атаковать (PvP)", callback_data=f"dossier_attack_{target_uid}"))
