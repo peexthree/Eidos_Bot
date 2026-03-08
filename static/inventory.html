@@ -62,19 +62,18 @@
 
     <main id="views-container">
 
-
         <section id="view-nexus" class="view-panel active">
             <div class="nexus-grid" id="nexus-grid-tiles"></div>
         </section>
 
-        <section id="view-inventory" class="view">
+        <section id="view-inventory" class="view-panel">
             
-            <div class="profile-card">
+            <div class="profile-header">
                 <div class="avatar-wrapper">
-                    <img id="profile-avatar" src="IMG/eidos_demiurge-user.svg" alt="User">
+                    <img id="profile-avatar" src="IMG/eidos_demiurge-user.svg" class="avatar" alt="User">
                     <div class="lvl-badge" id="profile-lvl">1</div>
                 </div>
-                <div class="profile-text">
+                <div class="user-details">
                     <h2 id="profile-name">IDENTIFYING...</h2>
                     <p id="profile-faction">FACTION: NEUTRAL</p>
                     <div class="currency-display">
@@ -83,33 +82,32 @@
                 </div>
             </div>
 
-            <div class="doll-grid">
-                <div class="doll-slot head" id="slot-head" title="Head"></div>
-                <div class="doll-slot weapon" id="slot-weapon" title="Weapon"></div>
-                <div class="doll-slot body" id="slot-body" title="Body"></div>
-                <div class="doll-slot software" id="slot-software" title="Software"></div>
-                <div class="doll-slot artifact" id="slot-artifact" title="Artifact"></div>
+            <div class="doll-container">
+                <div class="equip-slot head" id="slot-head" title="Head"></div>
+                <div class="equip-slot weapon" id="slot-weapon" title="Weapon"></div>
+                <div class="equip-slot body" id="slot-body" title="Body"></div>
+                <div class="equip-slot software" id="slot-software" title="Software"></div>
+                <div class="equip-slot artifact" id="slot-artifact" title="Artifact"></div>
             </div>
 
-            <div class="filter-tabs">
-                <button class="tab-btn active" data-filter="all">ВСЕ</button>
-                <button class="tab-btn" data-filter="equip">СНАРЯЖЕНИЕ</button>
-                <button class="tab-btn" data-filter="consumable">РАСХОДНИКИ</button>
+            <div class="tabs">
+                <div class="tab active" data-filter="all">ВСЕ</div>
+                <div class="tab" data-filter="equip">СНАРЯЖЕНИЕ</div>
+                <div class="tab" data-filter="consumable">РАСХОДНИКИ</div>
             </div>
 
-            <div class="scroll-area" id="inventory-list">
-                </div>
+            <div class="items-list" id="inventory-list"></div>
         </section>
 
-        <section id="view-shop" class="view">
-            <div class="section-header">ТОРГОВЫЙ ШЛЮЗ</div>
+        <section id="view-shop" class="view-panel">
+            <div class="view-title">ТОРГОВЫЙ ШЛЮЗ</div>
             <div class="scroll-area" id="shop-list"></div>
         </section>
 
-        <section id="view-social" class="view">
-            <div class="sub-tabs">
-                <div class="tab-btn active" data-social-tab="leaderboard">СЕТЬ</div>
-                <div class="tab-btn" data-social-tab="ai">ЭЙДОС</div>
+        <section id="view-social" class="view-panel">
+            <div class="tabs">
+                <div class="tab active" data-social-tab="leaderboard">СЕТЬ</div>
+                <div class="tab" data-social-tab="ai">ЭЙДОС</div>
             </div>
             <div id="social-leaderboard" class="scroll-area">
                 <div id="leaderboard-list"></div>
@@ -131,15 +129,14 @@
         </div>
     </footer>
 
-
     <div class="modal-overlay" id="item-modal">
-        <div class="modal-frame">
+        <div class="modal-content">
             <div class="modal-close" id="modal-close">×</div>
-            <div id="modal-icon" class="modal-main-icon"></div>
-            <h3 id="modal-title">OBJECT_NAME</h3>
-            <div id="modal-rarity" class="rarity-tag">COMMON</div>
-            <div id="modal-desc" class="modal-body">ERROR: NO_DATA</div>
-            <div id="modal-actions" class="modal-footer"></div>
+            <div id="modal-icon" class="modal-icon"></div>
+            <h3 id="modal-title" class="modal-title">OBJECT_NAME</h3>
+            <div id="modal-rarity" class="item-rarity" style="margin-bottom:10px;">COMMON</div>
+            <div id="modal-desc" class="modal-desc">ERROR: NO_DATA</div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
 
