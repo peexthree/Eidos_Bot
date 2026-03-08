@@ -11,6 +11,15 @@ import config
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = "google/gemma-3-27b-it:free"
+
+MODELS = [
+    "google/gemma-3-27b-it:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "openai/gpt-oss-120b:free",
+    "google/gemma-3n-e4b-it:free",
+    "nvidia/nemotron-3-nano-30b-a3b:free"
+]
+
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 
 # Initialize OpenAI Client safely
@@ -191,7 +200,6 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
     except Exception as e:
         import traceback
         import sentry_sdk
-        import logging
         logging.error(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", exc_info=True)
         sentry_sdk.capture_exception(e)
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
@@ -338,7 +346,6 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
     except Exception as e:
         import traceback
         import sentry_sdk
-        import logging
         logging.error(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", exc_info=True)
         sentry_sdk.capture_exception(e)
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
