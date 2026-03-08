@@ -136,6 +136,10 @@ def profile_menu(u, has_accel=False, has_purification=False):
     if has_purification:
         m.add(types.InlineKeyboardButton("🔮 АКТИВИРОВАТЬ ОЧИЩЕНИЕ", callback_data="activate_purification"))
 
+    import time
+    if u.get('is_glitched') and u.get('anomaly_buff_expiry', 0) > time.time():
+        m.add(types.InlineKeyboardButton("🧬 УНИЧТОЖИТЬ АНОМАЛИЮ (1000 BC)", callback_data="remove_anomaly"))
+
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
 
@@ -380,7 +384,8 @@ def change_path_keyboard(cost):
     m.add(
         types.InlineKeyboardButton(f"🏦 МАТЕРИЯ (-{cost} XP)", callback_data="set_path_money"),
         types.InlineKeyboardButton(f"🧠 РАЗУМ (-{cost} XP)", callback_data="set_path_mind"),
-        types.InlineKeyboardButton(f"🤖 ТЕХНО (-{cost} XP)", callback_data="set_path_tech")
+        types.InlineKeyboardButton(f"🤖 ТЕХНО (-{cost} XP)", callback_data="set_path_tech"),
+        types.InlineKeyboardButton(f"🏛 АРХИТЕКТОРЫ", callback_data="set_path_architect")
     )
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="profile"))
     return m

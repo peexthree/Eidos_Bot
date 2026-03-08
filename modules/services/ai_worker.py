@@ -116,6 +116,7 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
         return None
 
 def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=None, amount=None):
+    logging.info(f"AI Worker started for UID {uid} (Analysis Type: {analysis_type})")
     print(f"[AI WORKER] Started processing request for UID {uid}", flush=True)
     if cache_db.check_throttle(uid, 'generate_eidos_response_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
@@ -153,6 +154,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
 
         if result_text:
             result_text = sanitize_for_telegram(result_text)
+            logging.info(f"AI Worker successfully generated response for UID {uid}")
             print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
 
             if analysis_type == 'dossier':
@@ -191,6 +193,7 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
 def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=None, amount=None):
+    logging.info(f"AI Worker started for UID {uid} (Voice Request)")
     print(f"[AI WORKER] Started processing request for UID {uid}", flush=True)
     if cache_db.check_throttle(uid, 'generate_eidos_voice_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
@@ -264,6 +267,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
             if len(parts) > 1:
                 result_text = sanitize_for_telegram(parts[0].replace("ОТВЕТ:", "").strip())
                 artifact_lore = sanitize_for_telegram(parts[1].strip())
+                logging.info(f"AI Worker successfully generated response for UID {uid}")
                 print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
             else:
                 result_text = sanitize_for_telegram(full_text.replace("ОТВЕТ:", "").strip())
@@ -316,14 +320,20 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
         print(f"[AI WORKER] Attempting to send text to Telegram for UID {uid}...", flush=True)
         final_msg = f"👁 ГЛАС ЭЙДОСА:\n\n{result_text}"
 
-        for i in range(0, len(final_msg), 4000):
-            chunk = final_msg[i:i+4000]
-            try:
-                bot.send_message(chat_id, chunk, parse_mode="HTML")
-                print(f"[AI WORKER] Successfully sent Telegram message for UID {uid}.", flush=True)
-            except Exception as e:
-                print(f"/// AI WORKER MARKDOWN ERROR: {e}. Falling back to plain text.", flush=True)
-                bot.send_message(chat_id, chunk)
+        if len(final_msg) > 4000:
+            try: bot.delete_message(chat_id, init_msg.message_id)
+            except: pass
+            for i in range(0, len(final_msg), 4000):
+                chunk = final_msg[i:i+4000]
+                try:
+                    bot.send_message(chat_id, chunk, parse_mode="HTML")
+                except Exception as e:
+                    logging.error("CRITICAL ERROR", exc_info=True)
+                    try: sentry_sdk.capture_exception(e)
+                    except: pass
+                    bot.send_message(chat_id, chunk)
+        else:
+            bot.edit_message_text(final_msg, chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
 
         if len(final_caption) > 1024:
             try:
@@ -503,6 +513,7 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
 
             ai_text = ai_text.replace('```html', '').replace('```', '').strip()
             ai_text = sanitize_for_telegram(ai_text)
+            logging.info(f"AI Worker successfully generated response for UID {uid}")
             print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
             break
         except Exception as e:
