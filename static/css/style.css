@@ -10,7 +10,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 1s ease;
     pointer-events: all;
 }
 
@@ -1040,26 +1040,4 @@ body::after {
     z-index: 10000;
     pointer-events: none;
     opacity: 0.05;
-}
-
-#skip-btn {
-    position: absolute;
-    bottom: 30px;
-    right: 30px;
-    background: transparent;
-    color: var(--neon-green, #00ff41);
-    border: 1px solid var(--neon-green, #00ff41);
-    padding: 10px 20px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    z-index: 1000000;
-    transition: all 0.3s ease;
-    text-transform: uppercase;
-}
-
-#skip-btn:hover {
-    background: var(--neon-green, #00ff41);
-    color: #000;
 }
