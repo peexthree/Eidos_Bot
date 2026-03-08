@@ -20,7 +20,7 @@ if (!uid) {
 function getHeaders() {
     return {
         'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': window.tg && tg.initData ? tg.initData : ''
+        'X-Telegram-Init-Data': window.tg && tg.initData ? tg.initData : (uid ? `query_id=mock&user=%7B%22id%22%3A${uid}%7D` : '')
     };
 }
 
