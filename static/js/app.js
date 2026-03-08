@@ -245,9 +245,164 @@ function pushLog(text, type = "SYS") {
     el.innerText = text;
 }
 
-// Рендер куклы и инвентаря (сокращено для краткости, используй свои рабочие функции)
-function renderDoll() { /* Твоя логика отрисовки слотов */ }
-function renderInventory() { /* Твоя логика отрисовки карточек */ }
+// === РЕНДЕР КУКЛЫ (СЛОТЫ ЭКИПИРОВКИ) ===
+function renderDoll() {
+    const slots = ['head', 'weapon', 'body', 'software', 'artifact'];
+    slots.forEach(slot => {
+        const item = inventoryData.equipped[slot];
+        const slotEl = document.getElementById(`slot-${slot}`);
+        if (!slotEl) return;
+
+        if (item) {
+            const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
+            slotEl.innerHTML = `
+                <div class="equipped-item" style="border: 1px solid ${color}; box-shadow: inset 0 0 15px ${color}40; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background: rgba(0,0,0,0.6);">
+                    <div style="font-size: 28px; filter: drop-shadow(0 0 5px ${color});">${ICONS[slot] || ICONS['default']}</div>
+                    <div style="font-size: 8px; color: ${color}; text-align: center; margin-top:5px; word-wrap: break-word; padding: 0 2px;">${item.name}</div>
+                </div>`;
+            slotEl.onclick = () => openUnequipModal(slot, item);
+        } else {
+            slotEl.innerHTML = `<div style="opacity: 0.15; font-size: 28px; display:flex; align-items:center; justify-content:center; height:100%;">${ICONS[slot] || ICONS['default']}</div>`;
+            slotEl.onclick = null;
+        }
+    });
+}
+
+// === РЕНДЕР ИНВЕНТАРЯ (СПИСОК ЛУТА) ===
+function renderInventory() {
+    els.inventoryList.innerHTML = '';
+    
+    // Фильтрация
+    const items = inventoryData.items.filter(i => {
+        if (currentFilter === 'all') return true;
+        if (currentFilter === 'equip') return ['weapon', 'head', 'body', 'software', 'artifact'].includes(i.type);
+        if (currentFilter === 'consumable') return ['consumable', 'misc'].includes(i.type);
+        return true;
+    });
+
+    if (items.length === 0) {
+        els.inventoryList.innerHTML = '<div style="text-align:center; padding:30px; color:#555; font-family: Orbitron; letter-spacing: 2px;">СЕКТОР ПУСТ</div>';
+        return;
+    }
+
+    items.forEach(item => {
+        const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.style.borderLeft = `3px solid ${color}`;
+        card.innerHTML = `
+            <div class="item-icon" style="color:${color}; width: 40px; text-align: center;">${ICONS[item.type] || ICONS['default']}</div>
+            <div class="item-details" style="flex: 1; margin-left: 10px;">
+                <div class="item-name" style="color:${color}; font-weight: bold; font-size: 14px;">${item.name}</div>
+                <div class="item-rarity" style="opacity:0.6; font-size:10px; text-transform: uppercase;">${RARITY_NAMES[item.rarity] || item.rarity}</div>
+            </div>
+            ${item.quantity > 1 ? `<div class="item-qty" style="color:#fff; background:#333; padding:2px 6px; border-radius:4px; font-size:12px;">x${item.quantity}</div>` : ''}
+        `;
+        card.onclick = () => openItemModal(item);
+        els.inventoryList.appendChild(card);
+    });
+}
+
+// === ЛОГИКА ВКЛАДОК (ФИЛЬТРЫ) ===
+document.querySelectorAll('.tab[data-filter]').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab[data-filter]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentFilter = tab.getAttribute('data-filter');
+        renderInventory();
+    });
+});
+
+// === МОДАЛЬНЫЕ ОКНА И ДЕЙСТВИЯ ===
+function openItemModal(item) {
+    const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
+    els.modalIcon.innerHTML = ICONS[item.type] || ICONS['default'];
+    els.modalTitle.innerText = item.name;
+    els.modalTitle.style.color = color;
+    els.modalRarity.innerText = RARITY_NAMES[item.rarity] || item.rarity;
+    els.modalRarity.style.color = color;
+    els.modalDesc.innerHTML = item.description || '<i>Нет данных в базе Эйдоса.</i>';
+    
+    els.modalActions.innerHTML = '';
+    
+    // Кнопка: ЭКИПИРОВАТЬ
+    if (['weapon', 'head', 'body', 'software', 'artifact'].includes(item.type)) {
+        const btnEquip = document.createElement('button');
+        btnEquip.className = 'action-btn';
+        btnEquip.innerText = 'ЭКИПИРОВАТЬ';
+        btnEquip.onclick = () => performAction('/api/inventory/equip', {uid, item_id: item.item_id});
+        els.modalActions.appendChild(btnEquip);
+    }
+    
+    // Кнопка: ИСПОЛЬЗОВАТЬ
+    if (item.type === 'consumable') {
+        const btnUse = document.createElement('button');
+        btnUse.className = 'action-btn';
+        btnUse.innerText = 'ИСПОЛЬЗОВАТЬ';
+        btnUse.onclick = () => performAction('/api/inventory/use', {uid, item_id: item.item_id});
+        els.modalActions.appendChild(btnUse);
+    }
+
+    // Кнопка: РАЗОБРАТЬ (С защитой от случайного клика)
+    const btnDismantle = document.createElement('button');
+    btnDismantle.className = 'action-btn';
+    btnDismantle.style.borderColor = '#ff3333';
+    btnDismantle.style.color = '#ff3333';
+    btnDismantle.innerText = 'РАЗОБРАТЬ';
+    btnDismantle.onclick = () => {
+        // Вызов нативного окна подтверждения Telegram
+        tg.showConfirm(`Уничтожить [${item.name}] ради ByteCoins? Действие необратимо.`, (confirmed) => {
+            if (confirmed) performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
+        });
+    };
+    els.modalActions.appendChild(btnDismantle);
+
+    els.modal.classList.add('active');
+}
+
+function openUnequipModal(slot, item) {
+    const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
+    els.modalIcon.innerHTML = ICONS[slot];
+    els.modalTitle.innerText = item.name;
+    els.modalTitle.style.color = color;
+    els.modalRarity.innerText = 'УСТАНОВЛЕНО В СЛОТ';
+    els.modalRarity.style.color = '#00ff41';
+    els.modalDesc.innerHTML = 'Снять модификацию с куклы?';
+    
+    els.modalActions.innerHTML = '';
+    const btnUnequip = document.createElement('button');
+    btnUnequip.className = 'action-btn';
+    btnUnequip.innerText = 'СНЯТЬ (UNEQUIP)';
+    btnUnequip.onclick = () => performAction('/api/inventory/unequip', {uid, slot: slot});
+    els.modalActions.appendChild(btnUnequip);
+
+    els.modal.classList.add('active');
+}
+
+if (els.modalClose) {
+    els.modalClose.onclick = () => els.modal.classList.remove('active');
+}
+
+// === ОТПРАВКА ДЕЙСТВИЯ НА БЭКЕНД ===
+async function performAction(endpoint, payload) {
+    els.modal.classList.remove('active');
+    const res = await fetchWithLock(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    
+    if (res && res.ok) {
+        tg.HapticFeedback.notificationOccurred('success');
+        pushLog('ТРАНЗАКЦИЯ УСПЕШНА', 'SYS');
+        // Реактивно перезагружаем данные после изменения!
+        loadData(); 
+    } else {
+        tg.HapticFeedback.notificationOccurred('error');
+        pushLog('ОТКАЗ СИСТЕМЫ', 'ERR');
+        tg.showAlert('Операция отклонена сервером.');
+    }
+}
 
 // Главная кнопка Telegram
 tg.MainButton.text = "ЗАКРЫТЬ ИНТЕРФЕЙС";
