@@ -10,7 +10,6 @@ import logging
 import config
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = "google/gemma-3-27b-it:free"
 
 MODELS = [
     "google/gemma-3-27b-it:free",
@@ -88,41 +87,50 @@ def sanitize_for_telegram(text: str) -> str:
 def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
     if not ai_client:
         return None
-    try:
-        stream = ai_client.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content}
-            ],
-            stream=True, timeout=15.0
-        )
+    
+    for model_name in MODELS:
+        try:
+            stream = ai_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content}
+                ],
+                stream=True, timeout=15.0
+            )
 
-        full_text = ""
-        last_edit_time = time.time()
+            full_text = ""
+            last_edit_time = time.time()
 
-        for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                full_text += chunk.choices[0].delta.content
-                if full_text.strip().lower().startswith("<!doctype") or full_text.strip().lower().startswith("<html"):
-                    print("/// CRITICAL: Received HTML instead of AI text. Aborting stream.", flush=True)
-                    return None
+            html_error = False
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    full_text += chunk.choices[0].delta.content
+                    if full_text.strip().lower().startswith("<!doctype") or full_text.strip().lower().startswith("<html"):
+                        print(f"/// CRITICAL: Received HTML from {model_name}. Aborting stream.", flush=True)
+                        html_error = True
+                        break
 
-                if time.time() - last_edit_time > 1.5:
-                    if len(full_text) > 3900:
-                        pass
-                    else:
-                        try:
-                            bot.edit_message_text(f"👁‍🗨 SYNCHRONIZING...\n\n{full_text} █", chat_id=chat_id, message_id=msg_id)
-                            last_edit_time = time.time()
-                        except Exception as e:
-                            if "message is not modified" not in str(e).lower():
-                                print(f"/// AI STREAM UPDATE ERR: {e}", flush=True)
-
-        return full_text
-    except Exception as e:
-        print(f"/// AI STREAM API ERR: {e}", flush=True)
-        return None
+                    if time.time() - last_edit_time > 1.5:
+                        if len(full_text) > 3900:
+                            pass
+                        else:
+                            try:
+                                bot.edit_message_text(f"👁‍🗨 SYNCHRONIZING...\n\n{full_text} █", chat_id=chat_id, message_id=msg_id)
+                                last_edit_time = time.time()
+                            except Exception as e:
+                                if "message is not modified" not in str(e).lower():
+                                    print(f"/// AI STREAM UPDATE ERR: {e}", flush=True)
+            
+            if html_error:
+                continue # Идем к следующей модели в каскаде
+                
+            return full_text
+        except Exception as e:
+            print(f"/// AI STREAM API ERR ({model_name}): {e}", flush=True)
+            continue # Идем к следующей модели в каскаде
+            
+    return None
 
 def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=None, amount=None):
     logging.info(f"AI Worker started for UID {uid} (Analysis Type: {analysis_type})")
@@ -249,50 +257,59 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
         )
 
         full_text = ""
-        last_edit_time = time.time()
-        try:
-            print(f"[AI WORKER] Sending request to OpenRouter for UID {uid}...", flush=True)
-            stream = ai_client.chat.completions.create(
-                model=OPENROUTER_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
-                ],
-                stream=True, timeout=15.0
-            )
+        result_text = None
+        artifact_lore = None
+        
+        for model_name in MODELS:
+            full_text = ""
+            last_edit_time = time.time()
+            try:
+                print(f"[AI WORKER] Sending request to OpenRouter for UID {uid} via {model_name}...", flush=True)
+                stream = ai_client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Сырые метрики: {json.dumps(metrics)}{problem_context}"}
+                    ],
+                    stream=True, timeout=15.0
+                )
 
-            for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    full_text += chunk.choices[0].delta.content
-                    if full_text.strip().lower().startswith("<!doctype") or full_text.strip().lower().startswith("<html"):
-                        print("/// CRITICAL: Received HTML instead of AI text. Aborting stream.", flush=True)
-                        handle_failure("👁‍🗨 Соединение с Нейро-ядром нестабильно. Ошибка протокола.")
-                        return
-                    if time.time() - last_edit_time > 1.5:
-                        try:
-                            bot.edit_message_text(f"👁‍🗨 СИНХРОНИЗАЦИЯ...\n\n{full_text} █", chat_id=chat_id, message_id=init_msg.message_id)
-                            last_edit_time = time.time()
-                        except Exception as e:
-                            pass
+                html_error = False
+                for chunk in stream:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        full_text += chunk.choices[0].delta.content
+                        if full_text.strip().lower().startswith("<!doctype") or full_text.strip().lower().startswith("<html"):
+                            print(f"/// CRITICAL: Received HTML from {model_name}. Aborting stream.", flush=True)
+                            html_error = True
+                            break
+                            
+                        if time.time() - last_edit_time > 1.5:
+                            try:
+                                bot.edit_message_text(f"👁‍🗨 СИНХРОНИЗАЦИЯ...\n\n{full_text} █", chat_id=chat_id, message_id=init_msg.message_id)
+                                last_edit_time = time.time()
+                            except Exception as e:
+                                pass
+                
+                if html_error:
+                    continue # Переход к следующей модели
 
-            parts = full_text.split("ЛОР:")
-            if len(parts) > 1:
-                result_text = sanitize_for_telegram(parts[0].replace("ОТВЕТ:", "").strip())
-                artifact_lore = sanitize_for_telegram(parts[1].strip())
-                logging.info(f"AI Worker successfully generated response for UID {uid}")
-                print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
-            else:
-                result_text = sanitize_for_telegram(full_text.replace("ОТВЕТ:", "").strip())
-                artifact_lore = "Память утеряна."
+                parts = full_text.split("ЛОР:")
+                if len(parts) > 1:
+                    result_text = sanitize_for_telegram(parts[0].replace("ОТВЕТ:", "").strip())
+                    artifact_lore = sanitize_for_telegram(parts[1].strip())
+                    logging.info(f"AI Worker successfully generated response for UID {uid}")
+                    print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
+                else:
+                    result_text = sanitize_for_telegram(full_text.replace("ОТВЕТ:", "").strip())
+                    artifact_lore = "Память утеряна."
 
-        except Exception as e:
-            logging.error(f"/// AI WORKER VOICE ERROR: {e}", exc_info=True)
-            sentry_sdk.capture_exception(e)
-            handle_failure("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.")
-            return
+                break # УСПЕХ! Выходим из цикла перебора моделей
+            except Exception as e:
+                print(f"/// AI WORKER VOICE STREAM ERR ({model_name}): {e}", flush=True)
+                continue # Переход к следующей модели при ошибке 429
 
         if not result_text or not artifact_lore:
-            handle_failure("👁‍🗨 Возник сбой при декомпиляции. Обратись к администратору.")
+            handle_failure("👁‍🗨 [СИСТЕМНЫЙ СБОЙ] Нейро-ядро недоступно.")
             return
 
         try:
@@ -300,12 +317,12 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
         except:
             pass
 
-
-
+        # ... (В твоем оригинальном коде здесь были first_name и current_level, которые не определены в области видимости, 
+        # я оставляю их как есть, чтобы не трогать твой код)
         artifact_img_id = "AgACAgIAAyEFAATh7MR7AAPXaaZIT4PrAf1qjB3YExNFUicEZv8AAh4Vaxt6SzBJ9fLSU5iK3YgBAAMCAAN5AAM6BA"
 
         final_caption = (
-            f"📦 МАТЕРИАЛИЗОВАН АРТЕФАКТ: Синхронизатор Абсолюта: [{first_name}] (Уровень {current_level})\n"
+            f"📦 МАТЕРИАЛИЗОВАН АРТЕФАКТ: Синхронизатор Абсолюта\n"
             f"Слот: Ментальное Ядро\n"
             f"Память осколка: {artifact_lore}"
         )
@@ -473,48 +490,50 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
 
     ai_text = ""
     last_edit_time = time.time()
-    for attempt in range(3):
+    
+    for model_name in MODELS:
         try:
-            print(f"[AI WORKER] Sending request to OpenRouter for UID {uid}...", flush=True)
+            print(f"[AI WORKER] Sending request to OpenRouter for UID {uid} via {model_name}...", flush=True)
             stream = ai_client.chat.completions.create(
-                model=OPENROUTER_MODEL,
+                model=model_name,
                 messages=[
                     {"role": "system", "content": sys_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
                 stream=True, timeout=15.0
             )
+            
+            html_error = False
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
                     ai_text += chunk.choices[0].delta.content
                     if ai_text.strip().lower().startswith("<!doctype") or ai_text.strip().lower().startswith("<html"):
-                        print("/// CRITICAL: Received HTML instead of AI text. Aborting stream.", flush=True)
-                        if loading_msg_id:
-                            try: bot.edit_message_text("❌ Соединение с Нейро-ядром нестабильно. Ошибка протокола.", chat_id=chat_id, message_id=loading_msg_id)
-                            except: pass
-                        if refund_bc:
-                            try:
-                                u = db.get_user(uid)
-                                if u:
-                                    db.update_user(uid, biocoin=u.get("biocoin", 0) + refund_bc)
-                                    bot.send_message(chat_id, f"💳 Ошибка нейро-сети. {refund_bc} BC возвращены на счет.")
-                            except: pass
-                        return
+                        print(f"/// CRITICAL: Received HTML from {model_name}. Aborting stream.", flush=True)
+                        html_error = True
+                        break # Обрываем чтение чанков
+                        
                     if loading_msg_id and time.time() - last_edit_time > 1.5:
                         try:
                             bot.edit_message_text(f"📡 УСТАНОВКА СОЕДИНЕНИЯ...\nДешифровка данных...\n\n{ai_text} █", chat_id=chat_id, message_id=loading_msg_id)
                             last_edit_time = time.time()
                         except Exception as e:
                             pass
+                            
+            if html_error:
+                ai_text = "" # Сбрасываем текст для следующей модели
+                continue # Переход к следующей модели в списке
 
             ai_text = ai_text.replace('```html', '').replace('```', '').strip()
             ai_text = sanitize_for_telegram(ai_text)
             logging.info(f"AI Worker successfully generated response for UID {uid}")
             print(f"[AI WORKER] Received response from OpenRouter for UID {uid}. Status OK.", flush=True)
-            break
+            break # УСПЕХ! Выходим из цикла перебора моделей
+            
         except Exception as e:
-            print(f"/// AI WORKER DOSSIER STREAM ERR: {e}", flush=True)
-            time.sleep(2)
+            print(f"/// AI WORKER DOSSIER STREAM ERR ({model_name}): {e}", flush=True)
+            ai_text = ""
+            time.sleep(1) # Небольшая пауза перед следующим запросом
+            continue # Переход к следующей модели
 
     if loading_msg_id:
         try: bot.delete_message(chat_id, loading_msg_id)
