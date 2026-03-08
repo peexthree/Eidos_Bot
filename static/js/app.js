@@ -15,8 +15,6 @@ if (!uid) {
     document.body.innerHTML = '<h2 style="color:red;text-align:center;margin-top:50px;">ОШИБКА АВТОРИЗАЦИИ (NO UID)</h2>';
 }
 
-
-
 function getHeaders() {
     return {
         'Content-Type': 'application/json',
@@ -51,10 +49,10 @@ const RARITY_COLORS = {
 };
 
 const RARITY_NAMES = {
-    'common': 'Обычный',
-    'rare': 'Редкий',
-    'epic': 'Эпический',
-    'legendary': 'Легендарный'
+    'common': 'БАЗОВЫЙ',
+    'rare': 'РЕДКИЙ',
+    'epic': 'ЭЛИТНЫЙ',
+    'legendary': 'РЕЛИКТ'
 };
 
 const ICONS = {
@@ -101,21 +99,18 @@ let introFinished = false;
 
 // === ЛОГИКА ЗАГРУЗКИ ДАННЫХ ===
 async function loadData() {
-    // 1. Пытаемся принудительно запустить видео сразу при входе в функцию
     const vfxVideo = document.querySelector('#eidos-loader video');
     if (vfxVideo) {
         vfxVideo.play().catch(err => console.log("Video wait for interaction"));
     }
 
-    // 2. Таймер для запасного SVG-лоадера (включаем его, только если данные совсем застряли)
     const loaderTimeout = setTimeout(() => {
         if (!dataLoaded && els.loading) {
-            // Скрываем видео, если оно не загрузилось за 3 секунды, и показываем SVG
             const videoLoader = document.getElementById('eidos-loader');
             if (videoLoader) videoLoader.style.display = 'none';
             els.loading.style.display = 'flex';
         }
-    }, 3000); // Даем видео 3 секунды на старт до того как выкинуть запасной лоадер
+    }, 3000);
 
     try {
         console.log("/// EIDOS: Fetching inventory...");
@@ -124,7 +119,6 @@ async function loadData() {
         
         inventoryData = await res.json();
 
-        // Рендерим всё за кулисами (пока висит заставка)
         renderProfile();
         renderNexusGrid();
         renderDoll();
@@ -133,12 +127,10 @@ async function loadData() {
         dataLoaded = true;
         clearTimeout(loaderTimeout);
         
-        // Переходим к проверке времени (чтобы заставка не исчезла мгновенно)
         checkAndRemoveLoader();
         
     } catch (e) {
         console.error('Fetch error:', e);
-        // Если всё упало, убираем видео-заглушку, чтобы юзер видел ошибку
         const videoLoader = document.getElementById('eidos-loader');
         if (videoLoader) videoLoader.style.display = 'none';
         tg.showAlert('Сбой соединения с сервером Eidos.');
@@ -147,7 +139,6 @@ async function loadData() {
 
 // Проверка: и видео доиграло, и данные есть
 let skipClicked = false;
-
 let loaderFadeTimeout = null;
 
 function checkAndRemoveLoader() {
@@ -163,7 +154,6 @@ function checkAndRemoveLoader() {
     }
 }
 
-
 function executeLoaderFade() {
     const loader = document.getElementById('eidos-loader');
     if (loader) {
@@ -174,6 +164,9 @@ function executeLoaderFade() {
             pushLog('СИСТЕМА АКТИВИРОВАНА.', 'SYS');
             showView('view-nexus');
         }, 800);
+    } else {
+        if (els.loading) els.loading.style.display = 'none';
+        showView('view-nexus');
     }
 }
 
@@ -194,10 +187,8 @@ window.forceCloseLoader = function() {
 
 // === ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ DOM ===
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Запуск NEXUS GRID
     setupNexusGrid();
     
-    // 2. Принудительный старт видео (лечим "черный экран")
     const vfxVideo = document.querySelector('#eidos-loader video');
     if (vfxVideo) {
         vfxVideo.play().catch(() => {
@@ -205,12 +196,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. Запуск загрузки данных
     loadData();
 });
 
-// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ОСТАВЛЕНЫ БЕЗ ИЗМЕНЕНИЙ) ===
-
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 function setupNexusGrid() {
     const box = document.getElementById('p-box');
     if (!box) return;
@@ -230,9 +219,9 @@ function setupNexusGrid() {
 function renderProfile() {
     const p = inventoryData.profile;
     if (!p) return;
-    els.profileName.innerText = p.name || 'Аноним';
+    els.profileName.innerText = p.name || 'ОБЪЕКТ НЕИЗВЕСТЕН';
     els.profileLvl.innerText = `Lvl ${p.level || 1}`;
-    els.profileFaction.innerText = p.faction || 'Неизвестно';
+    els.profileFaction.innerText = p.faction || 'ФРАКЦИЯ: НЕЙТРАЛ';
     if (p.avatar_url) els.profileAvatar.src = p.avatar_url;
 
     animateStatChange(els.statAtk, p.atk || 0);
@@ -242,7 +231,7 @@ function renderProfile() {
 
     const xp = p.xp || 0;
     const nXp = p.next_xp || 100;
-    els.xpText.innerText = `${xp} / ${nXp} XP`;
+    els.xpText.innerText = `${xp} / ${nXp} ОПЫТ`;
     let pct = Math.min((xp / nXp) * 100, 100);
     els.xpBar.style.width = pct + '%';
 }
@@ -253,7 +242,7 @@ function animateStatChange(el, newValue) {
     el.innerText = newValue;
     if (newValue !== oldVal && oldVal !== 0) {
         el.classList.remove('stat-up', 'stat-down');
-        void el.offsetWidth; // force reflow
+        void el.offsetWidth; 
         if (newValue > oldVal) {
             el.classList.add('stat-up');
         } else {
@@ -290,6 +279,14 @@ function pushLog(text, type = "SYS") {
     el.innerText = text;
 }
 
+// === УМНЫЙ ШЛЮЗ ИКОНОК ===
+function getItemIcon(item, fallbackType) {
+    if (item && item.image_url && !item.image_url.includes('IMG/None') && item.image_url !== 'IMG/.png') {
+        return `<img src="${item.image_url}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; filter: drop-shadow(0 0 2px rgba(255,255,255,0.2));">`;
+    }
+    return ICONS[fallbackType] || ICONS['default'];
+}
+
 // === РЕНДЕР КУКЛЫ (СЛОТЫ ЭКИПИРОВКИ) ===
 function renderDoll() {
     const slots = ['head', 'weapon', 'body', 'software', 'artifact'];
@@ -303,16 +300,14 @@ function renderDoll() {
         const currentItemId = slotEl.getAttribute('data-item-id');
         const newItemId = item ? String(item.item_id) : 'empty';
 
-        // Solid Check: если предмет тот же — не перерисовывать
         if (currentItemId === newItemId) return;
         slotEl.setAttribute('data-item-id', newItemId);
 
         if (item) {
             const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
-
-            // Visual excellence logic
             let extraStyle = '';
             let extraClass = '';
+            
             if (item.rarity === 'legendary') {
                 extraClass = 'overheatPulse';
                 extraStyle = `border: 1px solid ${color};`;
@@ -322,17 +317,20 @@ function renderDoll() {
                 extraStyle = `border: 1px solid ${color}; box-shadow: inset 0 0 15px ${color}40;`;
             }
 
+            const iconContent = getItemIcon(item, slot);
+
             slotEl.innerHTML = `
                 <div class="equipped-item ${extraClass}" style="${extraStyle} width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background: rgba(0,0,0,0.6);">
-                    <div style="font-size: 28px; filter: drop-shadow(0 0 5px ${color});">${ICONS[slot] || ICONS['default']}</div>
+                    <div style="width: 32px; height: 32px; display:flex; align-items:center; justify-content:center;">
+                        ${iconContent}
+                    </div>
                     <div style="font-size: 8px; color: ${color}; text-align: center; margin-top:5px; word-wrap: break-word; padding: 0 2px;">${item.name}</div>
                 </div>`;
             slotEl.onclick = () => openUnequipModal(slot, item);
         } else {
-            // Empty state canonical icon
             let rawIcon = ICONS[slot] || ICONS['default'];
             let modifiedIcon = rawIcon.replace('<img ', '<img style="opacity: 0.1; filter: grayscale(1);" ');
-            slotEl.innerHTML = `<div style="font-size: 28px; display:flex; align-items:center; justify-content:center; height:100%;">${modifiedIcon}</div>`;
+            slotEl.innerHTML = `<div style="width: 32px; height: 32px; margin: auto; display:flex; align-items:center; justify-content:center; height:100%;">${modifiedIcon}</div>`;
             slotEl.onclick = null;
         }
     });
@@ -342,7 +340,6 @@ function renderDoll() {
 function renderInventory() {
     els.inventoryList.innerHTML = '';
     
-    // Фильтрация
     const items = inventoryData.items.filter(i => {
         if (currentFilter === 'all') return true;
         if (currentFilter === 'equip') return ['weapon', 'head', 'body', 'software', 'artifact'].includes(i.type);
@@ -362,13 +359,16 @@ function renderInventory() {
         const card = document.createElement('div');
         card.className = 'item-card';
         card.style.borderLeft = `3px solid ${color}`;
+        
+        const iconContent = getItemIcon(item, item.type);
+
         card.innerHTML = `
-            <div class="item-icon" style="color:${color}; width: 40px; text-align: center;">${ICONS[item.type] || ICONS['default']}</div>
+            <div class="item-icon" style="color:${color}; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">${iconContent}</div>
             <div class="item-details" style="flex: 1; margin-left: 10px;">
-                <div class="item-name" style="color:${color}; font-weight: bold; font-size: 14px;">${item.name}</div>
-                <div class="item-rarity" style="opacity:0.6; font-size:10px; text-transform: uppercase;">${RARITY_NAMES[item.rarity] || item.rarity}</div>
+                <div class="item-name" style="color:${color}; font-weight: bold; font-size: 14px; text-shadow: 0 0 5px ${color};">${item.name}</div>
+                <div class="item-rarity" style="opacity:0.8; font-size:10px; color: #a0a0a0; text-transform: uppercase;">${RARITY_NAMES[item.rarity] || item.rarity}</div>
             </div>
-            ${item.quantity > 1 ? `<div class="item-qty" style="color:#fff; background:#333; padding:2px 6px; border-radius:4px; font-size:12px;">x${item.quantity}</div>` : ''}
+            ${item.quantity > 1 ? `<div class="item-qty" style="color:#000; background:#66FCF1; padding:2px 6px; border-radius:4px; font-size:12px; font-weight: bold;">x${item.quantity}</div>` : ''}
         `;
         card.onclick = () => openItemModal(item);
         fragment.appendChild(card);
@@ -383,6 +383,7 @@ document.querySelectorAll('.tab[data-filter]').forEach(tab => {
         document.querySelectorAll('.tab[data-filter]').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         currentFilter = tab.getAttribute('data-filter');
+        if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
         renderInventory();
     });
 });
@@ -391,28 +392,29 @@ document.querySelectorAll('.tab[data-filter]').forEach(tab => {
 function openItemModal(item) {
     if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
     const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
-    els.modalIcon.innerHTML = ICONS[item.type] || ICONS['default'];
+    
+    els.modalIcon.innerHTML = `<div style="width: 80px; height: 80px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">${getItemIcon(item, item.type)}</div>`;
+    
     els.modalTitle.innerText = item.name;
     els.modalTitle.style.color = color;
+    els.modalTitle.style.textShadow = `0 0 8px ${color}`;
     els.modalRarity.innerText = RARITY_NAMES[item.rarity] || item.rarity;
     els.modalRarity.style.color = color;
-    els.modalDesc.innerHTML = item.description || '<i>Нет данных в базе Эйдоса.</i>';
+    els.modalDesc.innerHTML = item.description || '<i style="color:#555;">ДАННЫЕ ОТСУТСТВУЮТ.</i>';
     
     els.modalActions.innerHTML = '';
     
-    // Кнопка: ЭКИПИРОВАТЬ
     if (['weapon', 'head', 'body', 'software', 'artifact'].includes(item.type)) {
         const btnEquip = document.createElement('button');
         btnEquip.className = 'action-btn';
         btnEquip.innerText = 'ЭКИПИРОВАТЬ';
         btnEquip.onclick = () => {
-        if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-        performAction('/api/inventory/equip', {uid, item_id: item.item_id});
-    };
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            performAction('/api/inventory/equip', {uid, item_id: item.item_id});
+        };
         els.modalActions.appendChild(btnEquip);
     }
     
-    // Кнопка: ИСПОЛЬЗОВАТЬ
     if (item.type === 'consumable') {
         const btnUse = document.createElement('button');
         btnUse.className = 'action-btn';
@@ -421,17 +423,19 @@ function openItemModal(item) {
         els.modalActions.appendChild(btnUse);
     }
 
-    // Кнопка: РАЗОБРАТЬ (С защитой от случайного клика)
     const btnDismantle = document.createElement('button');
     btnDismantle.className = 'action-btn';
     btnDismantle.style.borderColor = '#ff3333';
     btnDismantle.style.color = '#ff3333';
     btnDismantle.innerText = 'РАЗОБРАТЬ';
     btnDismantle.onclick = () => {
-        // Вызов нативного окна подтверждения Telegram
-        tg.showConfirm(`Уничтожить [${item.name}] ради BCoins? Действие необратимо.`, (confirmed) => {
-            if (confirmed) performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
-        });
+        if (window.tg && tg.showConfirm) {
+            tg.showConfirm(`Разобрать объект [${item.name}] на компоненты?`, (confirmed) => {
+                if (confirmed) performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
+            });
+        } else {
+            performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
+        }
     };
     els.modalActions.appendChild(btnDismantle);
 
@@ -441,17 +445,20 @@ function openItemModal(item) {
 function openUnequipModal(slot, item) {
     if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
     const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
-    els.modalIcon.innerHTML = ICONS[slot];
+    
+    els.modalIcon.innerHTML = `<div style="width: 80px; height: 80px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">${getItemIcon(item, slot)}</div>`;
+    
     els.modalTitle.innerText = item.name;
     els.modalTitle.style.color = color;
-    els.modalRarity.innerText = 'УСТАНОВЛЕНО В СЛОТ';
+    els.modalTitle.style.textShadow = `0 0 8px ${color}`;
+    els.modalRarity.innerText = 'ПОДКЛЮЧЕНО К ЯДРУ';
     els.modalRarity.style.color = '#00ff41';
-    els.modalDesc.innerHTML = 'Снять модификацию ?';
+    els.modalDesc.innerHTML = 'Инициировать извлечение модуля?';
     
     els.modalActions.innerHTML = '';
     const btnUnequip = document.createElement('button');
     btnUnequip.className = 'action-btn';
-    btnUnequip.innerText = 'СНЯТЬ';
+    btnUnequip.innerText = 'ИЗВЛЕЧЬ';
     btnUnequip.onclick = () => {
         if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
         performAction('/api/inventory/unequip', {uid, slot: slot});
@@ -462,7 +469,10 @@ function openUnequipModal(slot, item) {
 }
 
 if (els.modalClose) {
-    els.modalClose.onclick = () => els.modal.classList.remove('active');
+    els.modalClose.onclick = () => {
+        if(window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+        els.modal.classList.remove('active');
+    };
 }
 
 // === ОТПРАВКА ДЕЙСТВИЯ НА БЭКЕНД ===
@@ -475,43 +485,42 @@ async function performAction(endpoint, payload) {
     });
     
     if (res && res.ok) {
-        tg.HapticFeedback.notificationOccurred('success');
+        if(window.tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         pushLog('ТРАНЗАКЦИЯ УСПЕШНА', 'SYS');
-        // Реактивно перезагружаем данные после изменения!
         loadData(); 
     } else {
-        tg.HapticFeedback.notificationOccurred('error');
+        if(window.tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
         pushLog('ОТКАЗ СИСТЕМЫ', 'ERR');
-        tg.showAlert('Операция отклонена сервером.');
+        if(window.tg && tg.showAlert) tg.showAlert('Операция отклонена сервером.');
     }
 }
 
-// Главная кнопка Telegram
-tg.MainButton.text = "ЗАКРЫТЬ ИНТЕРФЕЙС";
+// === НАВИГАЦИЯ И ВИДИМОСТЬ (С КНОПКОЙ НАЗАД) ===
+tg.MainButton.text = "ЗАКРЫТЬ ТЕРМИНАЛ";
 tg.MainButton.show();
 tg.MainButton.onClick(() => tg.close());
 
-// Expose forceCloseLoader to window for testing
-window.forceCloseLoader = function() {
-    const loader = document.getElementById('eidos-loader');
-    if (loader) {
-        loader.classList.add('fade-out');
-        setTimeout(() => {
-            loader.style.display = 'none';
-        }, 800);
-    }
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.style.display = 'none';
-};
-
+// Слушатель нативной кнопки "Назад" в Telegram
+if (tg.BackButton) {
+    tg.BackButton.onClick(() => {
+        showView('view-nexus');
+    });
+}
 
 function showView(viewId) {
-    document.querySelectorAll('.view, .view-panel').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
     const target = document.getElementById(viewId);
     if (target) {
         target.classList.add('active');
         if (window.tg && tg.HapticFeedback) {
             tg.HapticFeedback.impactOccurred('light');
+        }
+        
+        // Логика кнопки "Назад": показываем везде, кроме Нексуса
+        if (viewId === 'view-nexus') {
+            if (tg.BackButton) tg.BackButton.hide();
+        } else {
+            if (tg.BackButton) tg.BackButton.show();
         }
     }
 }
@@ -523,12 +532,11 @@ function renderNexusGrid() {
     const profile = inventoryData.profile || {};
     const items = inventoryData.items || [];
 
-    // Calculate raid cooldown string if any
     let raidCooldownStr = '';
     if (profile.raid_cooldown && new Date() < new Date(profile.raid_cooldown)) {
         const diffMs = new Date(profile.raid_cooldown) - new Date();
         const diffMins = Math.ceil(diffMs / 60000);
-        raidCooldownStr = `<div class="nexus-tile-status nexus-tile-cooldown"><img src="IMG/eidos_time-cycle.svg">${diffMins}m</div>`;
+        raidCooldownStr = `<div class="nexus-tile-status nexus-tile-cooldown"><img src="IMG/eidos_time-cycle.svg">${diffMins}м</div>`;
     }
 
     const tilesData = [
@@ -542,34 +550,32 @@ function renderNexusGrid() {
 
     const fragment = document.createDocumentFragment();
 
-    tilesData.forEach((tile, index) => {
+    tilesData.forEach((tile) => {
         const tileEl = document.createElement('div');
         tileEl.className = 'nexus-tile stagger-boot';
 
-        // Access Control Logic
         const pLevel = profile.level || 1;
         if (pLevel < tile.reqLevel) {
             tileEl.classList.add('sector-locked');
             tileEl.innerHTML = `
                 <img class="nexus-tile-icon" src="IMG/eidos_security-key.svg" alt="LOCKED">
-                <div class="nexus-tile-label">УРОВЕНЬ ${tile.reqLevel}</div>
+                <div class="nexus-tile-label" style="color:#888;">ДОСТУП ЗАКРЫТ</div>
             `;
             tileEl.addEventListener('click', () => {
-                if(window.tg && tg.showAlert) tg.showAlert('УРОВЕНЬ ДОСТУПА НЕДОСТАТОЧЕН');
+                if(window.tg && tg.showAlert) tg.showAlert(`ТРЕБУЕТСЯ УРОВЕНЬ ${tile.reqLevel} ДЛЯ ДОСТУПА.`);
                 if(window.tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
             });
         } else {
             tileEl.innerHTML = `
                 ${tile.status}
                 <img class="nexus-tile-icon" src="IMG/${tile.icon}" alt="${tile.label}">
-                <div class="nexus-tile-label">${tile.label}</div>
+                <div class="nexus-tile-label" style="color:#fff; text-shadow: 0 0 5px #66FCF1;">${tile.label}</div>
             `;
             tileEl.addEventListener('click', () => {
                 if(window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
                 showView(tile.id);
             });
         }
-
         fragment.appendChild(tileEl);
     });
 
