@@ -1167,69 +1167,33 @@ def _sanitize_player_data(data_dict):
 
 
 def get_user(uid, cursor=None):
-
-    from modules.schemas import User
-
-
-
     def _execute_logic(cur, uid):
-
         try:
-
             cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
-
             res = cur.fetchone()
-
             if res:
-
                 if hasattr(res, 'keys'):
-
                     raw_dict = dict(res)
-
                 else:
-
                     cols = [desc[0] for desc in cur.description]
-
                     raw_dict = dict(zip(cols, res))
 
-
-
                 sanitized = _sanitize_player_data(raw_dict)
-
-                # Pydantic Validation & Fallback
-
-                try:
-
-                    user_model = User(**sanitized)
-
-                    return user_model.model_dump() # Return dict to maintain legacy compatibility
-
-                except Exception as model_err:
-
-                    print(f"/// PYDANTIC VALIDATION ERROR for UID {uid}: {model_err}")
-
-                    return sanitized # Fallback to dict
-
+                # Ensure core fields have defaults
+                sanitized['xp'] = sanitized.get('xp') or 0
+                sanitized['biocoin'] = sanitized.get('biocoin') or 0
+                sanitized['level'] = sanitized.get('level') or 1
+                return sanitized
             return None
-
         except Exception as e:
-
             print(f"/// DB GET_USER ERROR: {e}")
-
             raise e
 
-
-
     if cursor:
-
         return _execute_logic(cursor, uid)
-
     else:
-
         with db_cursor(cursor_factory=RealDictCursor) as cur:
-
             if not cur: return None
-
             return _execute_logic(cur, uid)
 
 
@@ -1567,166 +1531,94 @@ def reset_daily_stats(uid):
 
 
 def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
-
-    # Import locally to avoid circular deps if any
-
     from config import EQUIPMENT_DB, CURSED_CHEST_DROPS, ITEMS_INFO
-
     from psycopg2.extras import execute_values
+    import cache_db
 
-
+    success = False
 
     def _add_logic(cur):
-
         is_equipment = item_id in EQUIPMENT_DB
-
         item_info = ITEMS_INFO.get(item_id, {})
-
         max_stack = item_info.get("max_stack", 1) if not is_equipment else 1
 
-
-
         if is_equipment:
-
-            # Check limits
-
             cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
-
             res = cur.fetchone()
-
             count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
 
+            from config import INVENTORY_LIMIT
             if count + qty > int(INVENTORY_LIMIT or 20):
-
                 return False
 
-
-
             if specific_durability:
-
                 durability = specific_durability
-
             elif item_id in CURSED_CHEST_DROPS:
-
                 durability = 50
-
             else:
-
+                import random
                 durability = random.randint(5, 10)
 
-
-
             values = [(uid, item_id, 1, durability, None) for _ in range(qty)]
-
             execute_values(cur, """
-
                 INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
-
                 VALUES %s
-
             """, values)
-
+            return True
         else:
-
-            # Consumables: Find existing stacks
-
             cur.execute("SELECT id, quantity FROM inventory WHERE uid=%s AND item_id=%s ORDER BY id", (uid, item_id))
-
             stacks = cur.fetchall()
-
-
 
             remaining_qty = qty
 
-
-
-            # Fill existing stacks
-
             for stack in stacks:
-
                 inv_id, current_qty = stack
-
                 if isinstance(stack, dict):
-
                     inv_id = stack['id']
-
                     current_qty = stack['quantity']
 
-
-
                 space_in_stack = max_stack - current_qty
-
                 if space_in_stack > 0:
-
                     add_to_stack = min(remaining_qty, space_in_stack)
-
                     cur.execute("UPDATE inventory SET quantity = quantity + %s WHERE id = %s", (add_to_stack, inv_id))
-
                     remaining_qty -= add_to_stack
-
                 if remaining_qty <= 0:
-
                     break
 
-
-
-            # Need new stacks
-
             if remaining_qty > 0:
-
                 new_stacks_needed = (remaining_qty + max_stack - 1) // max_stack
 
-
-
                 cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
-
                 res = cur.fetchone()
-
                 count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
 
-
-
+                from config import INVENTORY_LIMIT
                 if count + new_stacks_needed > int(INVENTORY_LIMIT or 20):
-
-                    return False # Transaction fails if limits exceeded
-
-
+                    return False
 
                 values = []
-
                 while remaining_qty > 0:
-
                     stack_qty = min(remaining_qty, max_stack)
-
                     values.append((uid, item_id, stack_qty, 100, None))
-
                     remaining_qty -= stack_qty
 
-
-
                 execute_values(cur, """
-
                     INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
-
                     VALUES %s
-
                 """, values)
-
-
-
-        return True
-
-
-
-    import cache_db
+            return True
 
     if cursor:
+        success = _add_logic(cursor)
+    else:
+        with db_cursor() as cur:
+            if cur:
+                success = _add_logic(cur)
 
-        res = _add_logic(cursor)
+    if success:
+        cache_db.clear_cache(uid)
 
-        if res: cache_db.clear_cache(uid)
-
-        return res
+    return success
 
 
 
@@ -2021,22 +1913,23 @@ def unequip_item(uid, slot):
 
 
 def get_equipped_items_full(uid, cursor=None):
+    slots = ['head', 'weapon', 'body', 'software', 'artifact']
+    result = {slot: None for slot in slots}
 
     if cursor:
-
         cursor.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
-
-        return {row["slot"]: {"item_id": row["item_id"], "durability": row["durability"]} for row in cursor.fetchall()}
-
-
+        for row in cursor.fetchall():
+            if row["slot"] in slots:
+                result[row["slot"]] = {"item_id": row["item_id"], "durability": row["durability"]}
+        return result
 
     with db_cursor(cursor_factory=RealDictCursor) as cur:
-
-        if not cur: return {}
-
+        if not cur: return result
         cur.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
-
-        return {row["slot"]: {"item_id": row["item_id"], "durability": row["durability"]} for row in cur.fetchall()}
+        for row in cur.fetchall():
+            if row["slot"] in slots:
+                result[row["slot"]] = {"item_id": row["item_id"], "durability": row["durability"]}
+        return result
 
 
 
@@ -2167,36 +2060,48 @@ def repair_item(uid, inv_id):
 
 
 def dismantle_item(uid, inv_id):
-
-    # Deletes item or decrements stack
+    from config import ITEMS_INFO
+    import cache_db
+    success = False
 
     with db_cursor() as cur:
-
         if not cur: return False
 
-
-
-        cur.execute("SELECT quantity FROM inventory WHERE id=%s AND uid=%s", (inv_id, uid))
-
+        cur.execute("SELECT item_id, quantity FROM inventory WHERE id=%s AND uid=%s", (inv_id, uid))
         res = cur.fetchone()
-
         if not res: return False
 
-        qty = res[0]
-
-
+        item_id = res[0]
+        qty = res[1]
 
         if qty > 1:
-
              cur.execute("UPDATE inventory SET quantity = quantity - 1 WHERE id=%s", (inv_id,))
-
-             return True
-
+             success = True
         else:
-
              cur.execute("DELETE FROM inventory WHERE id=%s", (inv_id,))
+             success = cur.rowcount > 0
 
-             return cur.rowcount > 0
+        if success:
+            item_info = ITEMS_INFO.get(item_id, {})
+            rarity = item_info.get("rarity", "common").lower()
+
+            coins_to_add = 0
+            if rarity == "common":
+                coins_to_add = 50
+            elif rarity == "rare":
+                coins_to_add = 150
+            elif rarity == "epic":
+                coins_to_add = 500
+            elif rarity == "legendary":
+                coins_to_add = 1500
+
+            if coins_to_add > 0:
+                cur.execute("UPDATE players SET biocoin = biocoin + %s WHERE uid = %s", (coins_to_add, uid))
+
+    if success:
+        cache_db.clear_cache(uid)
+
+    return success
 
 
 
@@ -3389,56 +3294,6 @@ def admin_clear_all_glitches():
             return count
 
     return 0
-
-# === ВОССТАНОВЛЕННЫЕ ФУНКЦИИ КОНТЕНТА ===
-
-
-
-def get_content_cached(c_type):
-
-    with db_cursor(cursor_factory=RealDictCursor) as cur:
-
-        if not cur: return []
-
-        cur.execute("SELECT * FROM content WHERE type = %s", (c_type,))
-
-        return cur.fetchall()
-
-
-
-def populate_content():
-
-    try:
-
-        from content_presets import CONTENT_DATA
-
-        with db_session() as conn:
-
-            with conn.cursor() as cur:
-
-                for c_type, items in CONTENT_DATA.items():
-
-                    for item in items:
-
-                        if isinstance(item, dict):
-
-                            cur.execute("INSERT INTO content (type, path, level, text) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
-
-                                        (c_type, item.get('path', 'general'), item.get('level', 1), item.get('text')))
-
-                        else:
-
-                            # Фолбэк для простых строк
-
-                            cur.execute("INSERT INTO content (type, text) VALUES (%s, %s) ON CONFLICT DO NOTHING", (c_type, item))
-
-    except Exception as e:
-
-        print(f"/// POPULATE CONTENT ERROR: {e}")
-
-
-
-# === АЛИАС ДЛЯ WEBAPP ИНВЕНТАРЯ ===
 
 def get_user_equipment(uid):
 
