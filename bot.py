@@ -227,16 +227,46 @@ def inventory_use():
 
 @app.route('/api/inventory/dismantle', methods=['POST'])
 def inventory_dismantle():
-
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
     if not init_data:
         return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
 
-    data = flask.request.json
-    uid, item_id = data.get('uid'), data.get('item_id')
-    # Возвращаем биокоины при разборе
-    success = db.dismantle_item(uid, item_id)
-    return flask.jsonify({"success": success})
+    try:
+        data = flask.request.json
+        uid = data.get('uid')
+        item_id_str = data.get('item_id') # Получаем СТРОКУ (напр. "soft_aegis_v1")
+
+        if not uid or not item_id_str:
+            return flask.jsonify({"error": "Missing parameters"}), 400
+
+        # /// ТВЕРДОЕ: Находим числовой ID (bigint) для конкретного предмета пользователя
+        inv_id = None
+        with db.db_cursor() as cur:
+            if cur:
+                # Ищем первую попавшуюся запись этого предмета у пользователя
+                cur.execute(
+                    "SELECT id FROM inventory WHERE uid=%s AND item_id=%s AND quantity > 0 LIMIT 1",
+                    (uid, item_id_str)
+                )
+                row = cur.fetchone()
+                if row:
+                    inv_id = row[0]
+
+        if not inv_id:
+            return flask.jsonify({"error": "Item not found in inventory"}), 404
+
+        # Передаем правильный числовой ID в старую функцию разбора
+        success = db.dismantle_item(uid, inv_id)
+
+        if success:
+            return flask.jsonify({"status": "ok"})
+        else:
+            return flask.jsonify({"error": "Failed to dismantle"}), 400
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return flask.jsonify({"error": "Internal Server Error"}), 500
 
 @app.route('/api/shop', methods=['GET'])
 def shop_api():
