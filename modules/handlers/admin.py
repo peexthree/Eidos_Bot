@@ -1,3 +1,4 @@
+from modules.services.utils import safe_answer_callback
 import cache_db
 from modules.bot_instance import bot
 import database as db
@@ -25,7 +26,7 @@ def admin_callbacks(call):
          if db.is_user_admin(uid):
              menu_update(call, "⚡️ <b>GOD MODE: MAIN TERMINAL</b>", kb.admin_main_menu(), image_url=config.MENU_IMAGES["admin_panel"])
          else:
-             bot.answer_callback_query(call.id, "❌ ACCESS DENIED")
+             safe_answer_callback(bot, call.id, "❌ ACCESS DENIED")
          return
 
     # --- ADMIN SUB-MENUS ---
@@ -104,7 +105,7 @@ def admin_callbacks(call):
     elif call.data == "admin_summon_broker":
          if not db.is_user_admin(uid): return
          db.update_user(uid, shadow_broker_expiry=int(time.time() + 900))
-         bot.answer_callback_query(call.id, "✅ БРОКЕР ПРИЗВАН (15 мин)", show_alert=True)
+         safe_answer_callback(bot, call.id, "✅ БРОКЕР ПРИЗВАН (15 мин)", show_alert=True)
          # Refresh main menu if possible, but admin is deep in menu.
          # Just alert is enough.
 
@@ -130,7 +131,7 @@ def admin_callbacks(call):
          if not db.is_user_admin(uid): return
          item_id = call.data.replace("admin_del_", "")
          db.admin_force_delete_item(uid, item_id)
-         bot.answer_callback_query(call.id, f"✅ {item_id} УДАЛЕН")
+         safe_answer_callback(bot, call.id, f"✅ {item_id} УДАЛЕН")
 
          # Refresh list
          items = db.get_inventory(uid)

@@ -1,3 +1,4 @@
+from modules.services.utils import safe_answer_callback
 from modules.bot_instance import bot
 import database as db
 import config
@@ -37,7 +38,7 @@ def pvp_menu_handler(call):
     if not u: return
 
     if int(u.get('level', 1) or 1) <= config.QUARANTINE_LEVEL:
-        bot.answer_callback_query(call.id, "⛔️ КАРАНТИННАЯ ЗОНА (LVL <= 5)", show_alert=True)
+        safe_answer_callback(bot, call.id, "⛔️ КАРАНТИННАЯ ЗОНА (LVL <= 5)", show_alert=True)
         return
 
     # Clear temp states
@@ -72,7 +73,7 @@ def pvp_inventory_handler(call):
 
     if not u or int(u.get('level', 1) or 1) <= config.QUARANTINE_LEVEL:
         try:
-            bot.answer_callback_query(call.id, "⛔️ КАРАНТИННАЯ ЗОНА (LVL <= 5)", show_alert=True)
+            safe_answer_callback(bot, call.id, "⛔️ КАРАНТИННАЯ ЗОНА (LVL <= 5)", show_alert=True)
         except: pass
         return
 
@@ -81,27 +82,27 @@ def pvp_inventory_handler(call):
         if call.data.startswith("pvp_hw_equip_"):
             item_id = call.data.replace("pvp_hw_equip_", "")
             pvp.toggle_hardware(uid, item_id)
-            bot.answer_callback_query(call.id, "⚡️ АКТИВИРОВАНО")
+            safe_answer_callback(bot, call.id, "⚡️ АКТИВИРОВАНО")
 
         elif call.data.startswith("pvp_hw_unequip_"):
             item_id = call.data.replace("pvp_hw_unequip_", "")
             pvp.toggle_hardware(uid, item_id)
-            bot.answer_callback_query(call.id, "🛑 ОТКЛЮЧЕНО")
+            safe_answer_callback(bot, call.id, "🛑 ОТКЛЮЧЕНО")
 
         elif call.data.startswith("pvp_dismantle_"):
             item_id = call.data.replace("pvp_dismantle_", "")
             if not item_id:
-                bot.answer_callback_query(call.id, "❌ Ошибка данных.", show_alert=True)
+                safe_answer_callback(bot, call.id, "❌ Ошибка данных.", show_alert=True)
                 return
 
             # Check if equipped in deck?
             deck = pvp.get_deck(uid)
             if item_id in deck['config'].values():
-                bot.answer_callback_query(call.id, "❌ Нельзя разобрать (установлено в деку)!", show_alert=True)
+                safe_answer_callback(bot, call.id, "❌ Нельзя разобрать (установлено в деку)!", show_alert=True)
                 return
 
             success, msg = pvp.dismantle_pvp_item(uid, item_id)
-            bot.answer_callback_query(call.id, strip_html(msg))
+            safe_answer_callback(bot, call.id, strip_html(msg))
             import cache_db
             cache_db.clear_cache(uid)
 
@@ -126,7 +127,7 @@ def pvp_inventory_handler(call):
     except Exception as e:
         print(f"PVP INVENTORY ERROR: {e}")
         try:
-            bot.answer_callback_query(call.id, "❌ Произошла ошибка интерфейса.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Произошла ошибка интерфейса.", show_alert=True)
         except: pass
 
 # =============================================================================
@@ -151,7 +152,7 @@ def pvp_slot_handler(call):
     slot_id = call.data.split('_')[2]
 
     if slot_id == "locked":
-        bot.answer_callback_query(call.id, "🔒 Слот заблокирован. Улучшите деку!", show_alert=True)
+        safe_answer_callback(bot, call.id, "🔒 Слот заблокирован. Улучшите деку!", show_alert=True)
         return
 
     inventory = pvp.get_software_inventory(uid)
@@ -171,7 +172,7 @@ def pvp_equip_handler(call):
 
     success, msg = pvp.set_slot(uid, slot_id, sid)
 
-    bot.answer_callback_query(call.id, strip_html(msg), show_alert=not success)
+    safe_answer_callback(bot, call.id, strip_html(msg), show_alert=not success)
 
     # Return to config
     pvp_config_handler(call)
@@ -181,16 +182,16 @@ def pvp_upgrade_handler(call):
     uid = int(call.from_user.id)
     success, msg = pvp.upgrade_deck(uid)
     if success:
-        bot.answer_callback_query(call.id, "⚡️ Апгрейд запущен")
+        safe_answer_callback(bot, call.id, "⚡️ Апгрейд запущен")
         menu_update(call, "📡 <b>Подключение к терминалу...</b>", kb.back_button())
         time.sleep(1)
         menu_update(call, "💾 <b>Перепрошивка деки...</b>", kb.back_button())
         time.sleep(1)
-        bot.answer_callback_query(call.id, strip_html(msg))
+        safe_answer_callback(bot, call.id, strip_html(msg))
         import cache_db
         cache_db.clear_cache(uid)
     else:
-        bot.answer_callback_query(call.id, strip_html(msg))
+        safe_answer_callback(bot, call.id, strip_html(msg))
         import cache_db
         cache_db.clear_cache(uid)
     from modules.handlers.pvp import pvp_config_handler
@@ -232,7 +233,7 @@ def pvp_buy_handler(call):
 
 def process_purchase(call, uid, sid, is_hardware):
     success, msg = pvp.buy_software(uid, sid, is_hardware=is_hardware)
-    bot.answer_callback_query(call.id, strip_html(msg))
+    safe_answer_callback(bot, call.id, strip_html(msg))
     import cache_db
     cache_db.clear_cache(uid)
     if success:
@@ -243,7 +244,7 @@ def show_item_info(call, sid, is_hardware):
     if is_hardware:
         info = config.ITEMS_INFO.get(sid)
         if not info:
-            bot.answer_callback_query(call.id, "❌ Ошибка: Предмет не найден.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Ошибка: Предмет не найден.", show_alert=True)
             return
 
         cost = config.PRICES.get(sid, 0)
@@ -262,7 +263,7 @@ def show_item_info(call, sid, is_hardware):
         # Software
         soft = config.SOFTWARE_DB.get(sid)
         if not soft:
-            bot.answer_callback_query(call.id, "❌ Ошибка: ПО не найдено.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Ошибка: ПО не найдено.", show_alert=True)
             return
 
         info = soft
@@ -296,7 +297,7 @@ def pvp_search_handler(call):
     u = db.get_user(uid)
 
     if int(u.get('xp', 0) or 0) < config.PVP_FIND_COST:
-        bot.answer_callback_query(call.id, f"❌ Не хватает XP ({config.PVP_FIND_COST})", show_alert=True)
+        safe_answer_callback(bot, call.id, f"❌ Не хватает XP ({config.PVP_FIND_COST})", show_alert=True)
         return
 
     # Deduct XP
@@ -306,7 +307,7 @@ def pvp_search_handler(call):
 
     if not target:
         db.update_user(uid, xp=int(u.get('xp', 0) or 0)) # Refund
-        bot.answer_callback_query(call.id, "📡 Нет подходящих целей. Попробуйте позже.", show_alert=True)
+        safe_answer_callback(bot, call.id, "📡 Нет подходящих целей. Попробуйте позже.", show_alert=True)
         return
 
     # Initialize Attack State
@@ -331,7 +332,7 @@ def pvp_search_handler(call):
         db.set_state(uid, 'pvp_attack_prep', json_str)
     except Exception as e:
         print(f"PVP STATE ERROR: {e}")
-        bot.answer_callback_query(call.id, "❌ Ошибка данных цели.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Ошибка данных цели.", show_alert=True)
         return
 
     _show_attack_screen(call, safe_target, state_data['slots'])
@@ -386,7 +387,7 @@ def pvp_atk_sel_handler(call):
     # Update State
     state_tuple = db.get_full_state(uid)
     if not state_tuple:
-        bot.answer_callback_query(call.id, "❌ Сессия истекла. Начните поиск заново.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Сессия истекла. Начните поиск заново.", show_alert=True)
         return pvp_menu_handler(call)
 
     state_name, data_json = state_tuple # Unpack
@@ -406,7 +407,7 @@ def pvp_atk_random(call):
     uid = int(call.from_user.id)
     inventory = pvp.get_software_inventory(uid)
     if not inventory:
-        bot.answer_callback_query(call.id, "❌ Нет программ!", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Нет программ!", show_alert=True)
         return
 
     state_tuple = db.get_full_state(uid)
@@ -438,7 +439,7 @@ def pvp_execute_handler(call):
     uid = int(call.from_user.id)
     state_tuple = db.get_full_state(uid)
     if not state_tuple:
-        bot.answer_callback_query(call.id, "❌ Ошибка состояния.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Ошибка состояния.", show_alert=True)
         return
 
     data = json.loads(state_tuple[1])
@@ -452,7 +453,7 @@ def pvp_execute_handler(call):
     res = pvp.execute_hack(uid, target_uid, selected_slots, is_revenge=is_revenge, revenge_log_id=revenge_log_id)
 
     if not res['success'] and res.get('msg'):
-        bot.answer_callback_query(call.id, strip_html(f"❌ {res['msg']}"), show_alert=True)
+        safe_answer_callback(bot, call.id, strip_html(f"❌ {res['msg']}"), show_alert=True)
         return
 
     # Visualizing the log
@@ -542,12 +543,12 @@ def pvp_log_details_handler(call):
     try:
         log_id = int(call.data.replace("pvp_log_details_", ""))
     except ValueError:
-        bot.answer_callback_query(call.id, "❌ Ошибка данных.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Ошибка данных.", show_alert=True)
         return
 
     log = db.get_revenge_target(log_id)
     if not log:
-        bot.answer_callback_query(call.id, "❌ Запись не найдена.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Запись не найдена.", show_alert=True)
         return
 
     # Fetch attacker info
@@ -629,7 +630,7 @@ def pvp_revenge_confirm_handler(call):
     try:
         log_id = int(call.data.split('_')[3])
     except (ValueError, IndexError):
-        bot.answer_callback_query(call.id, "❌ Ошибка данных.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Ошибка данных.", show_alert=True)
         return
 
     # Logic for revenge?
@@ -648,7 +649,7 @@ def pvp_revenge_confirm_handler(call):
 
     # Check if already revenged
     if log['is_revenged']:
-        bot.answer_callback_query(call.id, "❌ Месть уже свершилась.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Месть уже свершилась.", show_alert=True)
         return
 
     # Set up attack state against this specific target
@@ -656,7 +657,7 @@ def pvp_revenge_confirm_handler(call):
 
     # Safety check if target user was deleted
     if not target:
-        bot.answer_callback_query(call.id, "❌ Цель не найдена (Игрок удален).", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Цель не найдена (Игрок удален).", show_alert=True)
         return
 
     # We fake the `find_target` result format

@@ -1,3 +1,4 @@
+from modules.services.utils import safe_answer_callback
 import json
 from modules.bot_instance import bot
 import cache_db
@@ -24,7 +25,7 @@ def profile_handler(call):
         glitch = check_micro_glitch(uid, u.get('level', 1))
         if glitch:
             # We don't block the profile, we just show a glitch alert/bonus
-            bot.answer_callback_query(call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
+            safe_answer_callback(bot, call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
             bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
             if glitch.get('effect'):
                 db.update_user(uid, is_glitched=True, anomaly_buff_type=glitch['effect'],
@@ -130,16 +131,16 @@ def profile_handler(call):
 
     elif call.data == "activate_purification":
         if perform_hard_reset(uid):
-             bot.answer_callback_query(call.id, "♻️ ПРОФИЛЬ СБРОШЕН", show_alert=True)
+             safe_answer_callback(bot, call.id, "♻️ ПРОФИЛЬ СБРОШЕН", show_alert=True)
              u = db.get_user(uid)
              menu_update(call, get_menu_text(u), kb.main_menu(u), image_url=get_menu_image(u))
         else:
-             bot.answer_callback_query(call.id, "❌ ОШИБКА", show_alert=True)
+             safe_answer_callback(bot, call.id, "❌ ОШИБКА", show_alert=True)
 
     elif call.data.startswith("set_path_"):
         path = call.data.replace("set_path_", "")
         if path == "architect":
-            bot.answer_callback_query(call.id, "❌ Доступ закрыт. Требуется Ключ Архитектора. Вы — лишь наблюдатель, пока не найдете способ изменить сам код Системы.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Доступ закрыт. Требуется Ключ Архитектора.", show_alert=True)
             return
         info = SCHOOLS_INFO.get(path)
         txt = (f"🧬 <b>ВЫБОР: {info['name']}</b>\n\n"
@@ -164,7 +165,7 @@ def profile_handler(call):
     elif call.data.startswith("confirm_path_"):
         path = call.data.replace("confirm_path_", "")
         db.update_user(uid, path=path)
-        bot.answer_callback_query(call.id, f"✅ ВЫБРАН ПУТЬ: {path.upper()}")
+        safe_answer_callback(bot, call.id, f"✅ ВЫБРАН ПУТЬ: {path.upper()}")
         u = db.get_user(uid)
         bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
 
@@ -175,12 +176,12 @@ def profile_handler(call):
         if db.get_item_count(uid, 'accel') > 0:
             db.update_user(uid, accel_exp=int(time.time() + 86400))
             db.use_item(uid, 'accel')
-            bot.answer_callback_query(call.id, "⚡️ УСКОРИТЕЛЬ АКТИВИРОВАН НА 24 ЧАСА!", show_alert=True)
+            safe_answer_callback(bot, call.id, "⚡️ УСКОРИТЕЛЬ АКТИВИРОВАН НА 24 ЧАСА!", show_alert=True)
             # Recursively call profile to refresh
             call.data = 'profile'
             profile_handler(call)
         else:
-            bot.answer_callback_query(call.id, "❌ Нет предмета.")
+            safe_answer_callback(bot, call.id, "❌ Нет предмета.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("achievements_list"))
 def achievements_handler(call):
@@ -407,7 +408,7 @@ def archive_handler(call):
              call.data = "archive_list_0"
              archive_handler(call)
          else:
-             bot.answer_callback_query(call.id, f"❌ Нужно {config.ARCHIVE_COST} XP", show_alert=True)
+             safe_answer_callback(bot, call.id, f"❌ Нужно {config.ARCHIVE_COST} XP", show_alert=True)
 
     elif call.data.startswith("archive_list_"):
          page = int(call.data.replace("archive_list_", ""))
@@ -446,7 +447,7 @@ def quiz_handler(call):
 
     if call.data == "start_quiz":
         if not available:
-             bot.answer_callback_query(call.id, "🧠 Вы ответили на все вопросы.", show_alert=True)
+             safe_answer_callback(bot, call.id, "🧠 Вы ответили на все вопросы.", show_alert=True)
              return
 
         q = random.choice(available)
@@ -482,11 +483,11 @@ def quiz_handler(call):
             available_after = [q for q in questions if q['id'] not in history]
 
             if not available_after:
-                bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP\n\n🧠 Вы познали все тайны. Викторина завершена.", show_alert=True)
+                safe_answer_callback(bot, call.id, "✅ ВЕРНО! +100 XP\n\n🧠 Вы познали все тайны. Викторина завершена.", show_alert=True)
             else:
-                bot.answer_callback_query(call.id, "✅ ВЕРНО! +100 XP", show_alert=True)
+                safe_answer_callback(bot, call.id, "✅ ВЕРНО! +100 XP", show_alert=True)
         else:
-            bot.answer_callback_query(call.id, "❌ ОШИБКА", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ ОШИБКА", show_alert=True)
 
         # Return to guide
         call.data = "guide"
@@ -501,9 +502,9 @@ def like_handler(call):
         db.increment_user_stat(target, 'likes')
         # Reward sender slightly
         db.add_xp_to_user(uid, 10)
-        bot.answer_callback_query(call.id, "👍 Сигнал отправлен случайному агенту. (+10 XP)", show_alert=True)
+        safe_answer_callback(bot, call.id, "👍 Сигнал отправлен случайному агенту. (+10 XP)", show_alert=True)
     else:
-        bot.answer_callback_query(call.id, "📡 Никого нет в сети.", show_alert=True)
+        safe_answer_callback(bot, call.id, "📡 Никого нет в сети.", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "back")
 def back_handler(call):
@@ -511,7 +512,7 @@ def back_handler(call):
 
     from modules.handlers.glitch_handler import check_for_glitch_state
     if check_for_glitch_state(uid, bot, call.message.chat.id):
-        try: bot.answer_callback_query(call.id)
+        try: safe_answer_callback(bot, call.id)
         except: pass
         return
 
@@ -585,12 +586,12 @@ def view_user_handler(call):
     try:
         target_uid = int(uid_str)
     except ValueError:
-        bot.answer_callback_query(call.id, "Ошибка ID", show_alert=True)
+        safe_answer_callback(bot, call.id, "Ошибка ID", show_alert=True)
         return
 
     stats, tu = get_user_stats(target_uid)
     if not tu:
-        bot.answer_callback_query(call.id, "Пользователь не найден.", show_alert=True)
+        safe_answer_callback(bot, call.id, "Пользователь не найден.", show_alert=True)
         return
 
     from modules.services.user import get_profile_stats
@@ -612,7 +613,7 @@ def find_user_dossier_init_handler(call):
     if not u: return
 
     if int(u.get('biocoin', 0)) < 100:
-        bot.answer_callback_query(call.id, "❌ Недостаточно BioCoin (нужно 100 BC)", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Недостаточно BioCoin (нужно 100 BC)", show_alert=True)
         return
 
     txt = "⚠️ <b>Внимание!</b> Доступ к защищенному досье «Паспорт Осколка» стоит <b>100 BC</b>.\nПродолжить?"
@@ -630,11 +631,11 @@ def find_user_dossier_confirm_handler(call):
     if not u: return
 
     if int(u.get('biocoin', 0)) < 100:
-        bot.answer_callback_query(call.id, "❌ Недостаточно BioCoin", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Недостаточно BioCoin", show_alert=True)
         return
 
     db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 100)
-    bot.answer_callback_query(call.id, "💰 [ВЗЛОМ: -100 BC]", show_alert=False)
+    safe_answer_callback(bot, call.id, "💰 [ВЗЛОМ: -100 BC]", show_alert=False)
     db.set_state(uid, "await_dossier_search"); cache_db.clear_cache(uid)
 
     txt = "⚠️ <b>СИСТЕМА:</b> Введите никнейм пользователя (можно без @) для взлома его досье.\n<i>(Вы можете скопировать ник из списка Зала Славы)</i>"
@@ -687,10 +688,10 @@ def dossier_attack_handler(call):
     # Check hourly rate limit
     throttle_key = f"dossier_atk_{uid}_{target_uid}"
     if not cache_db.check_throttle(uid, throttle_key, 3600):
-        bot.answer_callback_query(call.id, "⚠️ На этого игрока можно нападать не чаще раза в час.", show_alert=True)
+        safe_answer_callback(bot, call.id, "⚠️ На этого игрока можно нападать не чаще раза в час.", show_alert=True)
         return
 
-    bot.answer_callback_query(call.id, "📡 Инициализация боевого протокола...")
+    safe_answer_callback(bot, call.id, "📡 Инициализация боевого протокола...")
 
     target_user = db.get_user(target_uid)
     if not target_user:
@@ -709,45 +710,51 @@ def dossier_attack_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pvp_atk_direct_"))
 def pvp_atk_direct_handler(call):
     target_uid = int(call.data.split("_")[3])
-    # Prepare target data and redirect to pvp search logic
     from modules.handlers.pvp import pvp_search_handler
-    # We fake the message for pvp_search_handler logic if needed,
-    # but pvp_search_handler usually does random.
-    # Let's use pvp_attack_prep logic directly.
 
-    with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
-        cur.execute("SELECT * FROM players WHERE uid = %s", (target_uid,))
-        target = cur.fetchone()
+    target = db.get_user(target_uid)
 
     if not target:
-        bot.answer_callback_query(call.id, "❌ Объект исчез.")
+        safe_answer_callback(bot, call.id, "❌ Объект исчез.")
         return
 
-    # Extract slots for preview (standard pvp logic)
     target_slots = {}
-    with db.db_cursor() as cur:
-        cur.execute("SELECT slot_id, item_id FROM user_pvp_deck WHERE uid = %s", (target_uid,))
-        for sid, iid in cur.fetchall():
-            target_slots[sid] = config.SOFTWARE_DB[iid]['icon']
+    import json
+    import config
+    # Use deck_config from target user
+    deck_config_str = target.get('deck_config')
+    if deck_config_str:
+        try:
+            deck = json.loads(deck_config_str)
+            for sid, iid in deck.items():
+                if iid and iid in config.SOFTWARE_DB:
+                    target_slots[str(sid)] = config.SOFTWARE_DB[iid]['icon']
+        except Exception:
+            pass
 
     safe_target = {
         'uid': target_uid,
         'name': target.get('username') or target.get('first_name') or "Unknown",
-        'level': target['level'],
+        'level': target.get('level', 1),
         'slots_preview': target_slots
     }
 
     state_data = {
         'target_uid': target_uid,
         'target_info': safe_target,
-        'slots': {} # Attacker starts with empty selection or current deck
+        'slots': {}
     }
 
     # Load current deck for attacker
-    with db.db_cursor() as cur:
-        cur.execute("SELECT slot_id, item_id FROM user_pvp_deck WHERE uid = %s", (call.from_user.id,))
-        for sid, iid in cur.fetchall():
-            state_data['slots'][str(sid)] = iid
+    attacker = db.get_user(call.from_user.id)
+    if attacker:
+        attacker_deck_str = attacker.get('deck_config')
+        if attacker_deck_str:
+            try:
+                attacker_deck = json.loads(attacker_deck_str)
+                state_data['slots'] = {str(k): v for k, v in attacker_deck.items() if v}
+            except Exception:
+                pass
 
     db.set_state(call.from_user.id, 'pvp_attack_prep', json.dumps(state_data))
 
@@ -761,14 +768,14 @@ def dossier_msg_init(call):
     if not u: return
 
     if int(u.get('biocoin', 0)) < 100:
-        bot.answer_callback_query(call.id, "❌ Недостаточно BioCoin (нужно 100 BC)", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Недостаточно BioCoin (нужно 100 BC)", show_alert=True)
         return
 
     target_uid = int(call.data.split("_")[2])
     db.set_state(uid, f"await_dossier_msg_{target_uid}"); cache_db.clear_cache(uid)
 
     bot.send_message(uid, "✉️ <b>ОТПРАВКА СООБЩЕНИЯ (100 BC)</b>\nВведите текст сообщения для этого пользователя. Он увидит, от кого оно пришло.", parse_mode="HTML")
-    bot.answer_callback_query(call.id)
+    safe_answer_callback(bot, call.id)
 
 @bot.message_handler(func=lambda m: str(cache_db.get_cached_user_state(m.from_user.id) or "").startswith("await_dossier_msg_"))
 def process_dossier_msg(m):
@@ -811,15 +818,15 @@ def remove_anomaly_handler(call):
     uid = int(call.from_user.id)
     u = db.get_user(uid)
     if not u or not u.get('is_glitched') or u.get('anomaly_buff_expiry', 0) <= time.time():
-        bot.answer_callback_query(call.id, "❌ Аномалия уже рассеялась или отсутствует.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Аномалия уже рассеялась или отсутствует.", show_alert=True)
         return
 
     if int(u.get('biocoin', 0)) < 1000:
-        bot.answer_callback_query(call.id, "❌ Недостаточно BC (нужно 1000).", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Недостаточно BC (нужно 1000).", show_alert=True)
         return
 
     db.update_user(uid, biocoin=int(u.get('biocoin', 0)) - 1000, is_glitched=False, anomaly_buff_type=None, anomaly_buff_expiry=0)
-    bot.answer_callback_query(call.id, "Аномалия успешно удалена с вашего профиля.", show_alert=True)
+    safe_answer_callback(bot, call.id, "Аномалия успешно удалена с вашего профиля.", show_alert=True)
 
     call.data = 'profile'
     profile_handler(call)

@@ -1,3 +1,4 @@
+from modules.services.utils import safe_answer_callback
 import random
 from modules.bot_instance import bot
 import cache_db
@@ -153,14 +154,14 @@ def shop_handler(call):
 
     elif call.data == "buy_gacha":
         success, msg = process_gacha_purchase(uid)
-        bot.answer_callback_query(call.id, strip_html(msg.split('\n')[0]), show_alert=True)
+        safe_answer_callback(bot, call.id, strip_html(msg.split('\n')[0]), show_alert=True)
         menu_update(call, f"🎁 <b>СИСТЕМА ЛУТБОКСОВ</b>\n\n{msg}", kb.gacha_menu())
 
     elif call.data.startswith("buy_qty_"):
         item = call.data.replace("buy_qty_", "")
         db.set_state(uid, f"buying_qty_{item}")
         bot.send_message(uid, "🔢 Введите количество для покупки (число):")
-        bot.answer_callback_query(call.id)
+        safe_answer_callback(bot, call.id)
 
     elif call.data.startswith("buy_"):
         item = call.data.replace("buy_", "")
@@ -180,12 +181,12 @@ def shop_handler(call):
                     for a in new_achs:
                         ach_txt += f"\n🏆 ДОСТИЖЕНИЕ: {a['name']}"
 
-                bot.answer_callback_query(call.id, strip_html(f"✅ Куплено: {item}\n📉 Потрачено: {cost} XP{ach_txt}"), show_alert=True)
+                safe_answer_callback(bot, call.id, strip_html(f"✅ Куплено: {item}\n📉 Потрачено: {cost} XP{ach_txt}"), show_alert=True)
                 # Refresh view
                 call.data = f"view_shop_{item}"
                 shop_handler(call)
             else:
-                bot.answer_callback_query(call.id, "❌ Мало XP", show_alert=True)
+                safe_answer_callback(bot, call.id, "❌ Мало XP", show_alert=True)
         else:
             if int(u.get('biocoin', 0) or 0) >= cost:
                 if db.add_item(uid, item):
@@ -199,14 +200,14 @@ def shop_handler(call):
                         for a in new_achs:
                             ach_txt += f"\n🏆 ДОСТИЖЕНИЕ: {a['name']}"
 
-                    bot.answer_callback_query(call.id, strip_html(f"✅ Куплено: {item}\n📉 Потрачено: {cost} BC 🪙{ach_txt}"), show_alert=True)
+                    safe_answer_callback(bot, call.id, strip_html(f"✅ Куплено: {item}\n📉 Потрачено: {cost} BC 🪙{ach_txt}"), show_alert=True)
                     # Refresh view
                     call.data = f"view_shop_{item}"
                     shop_handler(call)
                 else:
-                    bot.answer_callback_query(call.id, "🎒 Рюкзак полон!", show_alert=True)
+                    safe_answer_callback(bot, call.id, "🎒 Рюкзак полон!", show_alert=True)
             else:
-                bot.answer_callback_query(call.id, "❌ Мало монет", show_alert=True)
+                safe_answer_callback(bot, call.id, "❌ Мало монет", show_alert=True)
 
     elif call.data.startswith("view_shop_"):
         item_id = call.data.replace("view_shop_", "")
@@ -233,7 +234,7 @@ def shadow_shop_handler(call):
     if call.data == "shadow_broker_menu":
         items = get_shadow_shop_items(uid)
         if not items:
-            bot.answer_callback_query(call.id, "🕶 Канал закрыт...", show_alert=True)
+            safe_answer_callback(bot, call.id, "🕶 Канал закрыт...", show_alert=True)
             menu_update(call, get_menu_text(u), kb.main_menu(u), image_url=get_menu_image(u))
         else:
             expiry = u.get('shadow_broker_expiry', 0)
@@ -246,7 +247,7 @@ def shadow_shop_handler(call):
         target = next((i for i in items if i['item_id'] == item_id), None)
 
         if not target:
-            bot.answer_callback_query(call.id, "❌ Товар исчез.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Товар исчез.", show_alert=True)
             # Recursively go back
             call.data = "shadow_broker_menu"
             shadow_shop_handler(call)
@@ -268,7 +269,7 @@ def shadow_shop_handler(call):
         item_id = call.data.replace("buy_shadow_qty_", "")
         db.set_state(uid, f"buying_shadow_qty_{item_id}"); cache_db.clear_cache(uid)
         bot.send_message(uid, "🔢 Введите количество для покупки (число):")
-        bot.answer_callback_query(call.id)
+        safe_answer_callback(bot, call.id)
 
     elif call.data.startswith("buy_shadow_"):
         item_id = call.data.replace("buy_shadow_", "")
@@ -276,7 +277,7 @@ def shadow_shop_handler(call):
         target = next((i for i in items if i['item_id'] == item_id), None)
 
         if not target:
-            bot.answer_callback_query(call.id, "❌ Товар исчез.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Товар исчез.", show_alert=True)
             call.data = "shadow_broker_menu"
             shadow_shop_handler(call)
         else:
@@ -296,18 +297,18 @@ def shadow_shop_handler(call):
                     db.update_shadow_metric(uid, 'total_coins_spent', price)
                     db.log_action(uid, 'buy_shadow', f"Item: {item_id}, Price: {price} {currency}")
                     db.increment_user_stat(uid, 'purchases')
-                    bot.answer_callback_query(call.id, f"✅ Куплено: {target['name']}", show_alert=True)
+                    safe_answer_callback(bot, call.id, f"✅ Куплено: {target['name']}", show_alert=True)
                     call.data = "shadow_broker_menu"
                     shadow_shop_handler(call)
                 else:
                     # Refund
                     if currency == 'xp': db.update_user(uid, xp=int(u.get('xp', 0) or 0) + price)
                     else: db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) + price)
-                    bot.answer_callback_query(call.id, "🎒 Рюкзак полон!", show_alert=True)
+                    safe_answer_callback(bot, call.id, "🎒 Рюкзак полон!", show_alert=True)
             else:
                 curr_label = "XP" if currency == 'xp' else "BC"
                 user_bal = int(u.get('xp', 0) or 0) if currency == 'xp' else int(u.get('biocoin', 0) or 0)
-                bot.answer_callback_query(call.id, f"❌ Недостаточно средств\nНужно: {price} {curr_label}\nУ вас: {user_bal}", show_alert=True)
+                safe_answer_callback(bot, call.id, f"❌ Недостаточно средств\nНужно: {price} {curr_label}\nУ вас: {user_bal}", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "inventory" or call.data.startswith("inv_") or call.data == "convert_legacy")
 def inventory_handler(call):
@@ -321,7 +322,7 @@ def inventory_handler(call):
         from modules.services.glitch_system import check_micro_glitch
         glitch = check_micro_glitch(uid, db.get_user(uid).get('level', 1))
         if glitch:
-            bot.answer_callback_query(call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
+            safe_answer_callback(bot, call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
             bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
             if glitch.get('effect'):
                 db.update_user(uid, is_glitched=True, anomaly_buff_type=glitch['effect'],
@@ -382,7 +383,7 @@ def inventory_handler(call):
 
     elif call.data == "convert_legacy":
         msg = convert_legacy_items(uid)
-        bot.answer_callback_query(call.id, "✅ КОНВЕРТАЦИЯ ЗАВЕРШЕНА", show_alert=True)
+        safe_answer_callback(bot, call.id, "✅ КОНВЕРТАЦИЯ ЗАВЕРШЕНА", show_alert=True)
         bot.send_message(uid, f"♻️ <b>ОТЧЕТ О КОНВЕРТАЦИИ:</b>\n\n{msg}", parse_mode="HTML")
         call.data = "inventory"
         inventory_handler(call)
@@ -405,21 +406,21 @@ def item_action_handler(call):
                 item_id = target['item_id']
                 info = EQUIPMENT_DB.get(item_id)
                 if info and db.equip_item(uid, inv_id, info['slot']):
-                    bot.answer_callback_query(call.id, strip_html(f"🛡 Надето: {info['name']}"))
+                    safe_answer_callback(bot, call.id, strip_html(f"🛡 Надето: {info['name']}"))
                     call.data = "inventory"
                     inventory_handler(call)
                 else:
-                    bot.answer_callback_query(call.id, "❌ Не удалось надеть.", show_alert=True)
+                    safe_answer_callback(bot, call.id, "❌ Не удалось надеть.", show_alert=True)
             else:
-                bot.answer_callback_query(call.id, "❌ Предмет не найден.", show_alert=True)
+                safe_answer_callback(bot, call.id, "❌ Предмет не найден.", show_alert=True)
         except ValueError:
             # Legacy string item_id
-            bot.answer_callback_query(call.id, "⚠️ Устаревший предмет. Используйте конвертер.", show_alert=True)
+            safe_answer_callback(bot, call.id, "⚠️ Устаревший предмет. Используйте конвертер.", show_alert=True)
 
     elif call.data.startswith("unequip_"):
         slot = call.data.replace("unequip_", "")
         if db.unequip_item(uid, slot):
-            bot.answer_callback_query(call.id, "📦 Снято.")
+            safe_answer_callback(bot, call.id, "📦 Снято.")
             call.data = "inventory"
             inventory_handler(call)
 
@@ -443,7 +444,7 @@ def item_action_handler(call):
                     custom_data_str = res.get('custom_data')
                     is_equipped = True
                 else:
-                    bot.answer_callback_query(call.id, "Слот пуст или ошибка.", show_alert=True)
+                    safe_answer_callback(bot, call.id, "Слот пуст или ошибка.", show_alert=True)
                     return
 
             # Case 2: Inventory Item by ID (view_item_123)
@@ -461,7 +462,7 @@ def item_action_handler(call):
                 else:
                     # Item not found in DB (moved, sold, or equipped)
                     print(f"/// DEBUG: Item inv_id={inv_id} not found for user {uid}")
-                    bot.answer_callback_query(call.id, "❌ Предмет перемещен или удален.", show_alert=True)
+                    safe_answer_callback(bot, call.id, "❌ Предмет перемещен или удален.", show_alert=True)
                     return
 
             # Case 3: Legacy String ID (view_item_potion)
@@ -500,16 +501,16 @@ def item_action_handler(call):
                         markup.add(types.InlineKeyboardButton("🛠 КРАФТ (3->1)", callback_data=f"craft_{item_id}"))
 
                 menu_update(call, f"📦 <b>{info.get('name', item_id)}</b>\n\n{desc}", markup, image_url=image)
-                try: bot.answer_callback_query(call.id)
+                try: safe_answer_callback(bot, call.id)
                 except: pass
             else:
                 print(f"/// DEBUG: Item {item_id} not found in ITEMS_INFO")
-                bot.answer_callback_query(call.id, "❌ Ошибка конфигурации предмета.", show_alert=True)
+                safe_answer_callback(bot, call.id, "❌ Ошибка конфигурации предмета.", show_alert=True)
 
         except Exception as e:
             print(f"VIEW ITEM FATAL ERROR: {e}")
             traceback.print_exc()
-            try: bot.answer_callback_query(call.id, "❌ Критическая ошибка", show_alert=True)
+            try: safe_answer_callback(bot, call.id, "❌ Критическая ошибка", show_alert=True)
             except: pass
 
     elif call.data.startswith("repair_"):
@@ -527,23 +528,23 @@ def item_action_handler(call):
                 if int(u.get('biocoin', 0) or 0) >= repair_cost:
                     db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - repair_cost)
                     db.repair_item(uid, inv_id)
-                    bot.answer_callback_query(call.id, f"🛠 Починено за {repair_cost} BC", show_alert=True)
+                    safe_answer_callback(bot, call.id, f"🛠 Починено за {repair_cost} BC", show_alert=True)
                     # Refresh view
                     call.data = f"view_item_{inv_id}"
                     item_action_handler(call)
                 else:
-                    bot.answer_callback_query(call.id, f"❌ Не хватает монет. Нужно {repair_cost} BC.", show_alert=True)
+                    safe_answer_callback(bot, call.id, f"❌ Не хватает монет. Нужно {repair_cost} BC.", show_alert=True)
             else:
-                bot.answer_callback_query(call.id, "Ошибка предмета.", show_alert=True)
+                safe_answer_callback(bot, call.id, "Ошибка предмета.", show_alert=True)
         else:
-            bot.answer_callback_query(call.id, "Предмет не найден.", show_alert=True)
+            safe_answer_callback(bot, call.id, "Предмет не найден.", show_alert=True)
 
     elif call.data.startswith("craft_"):
         item_id = call.data.replace("craft_", "")
         success, res = crafting_service.craft_item(uid, item_id)
 
         if success:
-            bot.answer_callback_query(call.id, "✅ Процесс запущен", show_alert=False)
+            safe_answer_callback(bot, call.id, "✅ Процесс запущен", show_alert=False)
 
             # Animation
             menu_update(call, "🛰 <b>Инициализация чертежа...</b>", kb.back_button())
@@ -560,7 +561,7 @@ def item_action_handler(call):
             msg = f"✨ <b>СИНТЕЗ ЗАВЕРШЕН</b> ✨\n\n🎁 <b>ПОЛУЧЕНО:</b> {name}\n\n{desc}"
             menu_update(call, msg, kb.back_button(), image_url=image)
         else:
-            bot.answer_callback_query(call.id, strip_html(res), show_alert=True)
+            safe_answer_callback(bot, call.id, strip_html(res), show_alert=True)
 
     elif call.data.startswith("use_item_"):
         item_id = call.data.replace("use_item_", "")
@@ -575,7 +576,7 @@ def item_action_handler(call):
 
         elif item_id == 'corrupted_data_cluster':
             if int(u.get('biocoin', 0) or 0) < 2000:
-                bot.answer_callback_query(call.id, "❌ Недостаточно BC для расшифровки (нужно 2000).", show_alert=True)
+                safe_answer_callback(bot, call.id, "❌ Недостаточно BC для расшифровки (нужно 2000).", show_alert=True)
                 return
 
             db.update_user(uid, biocoin=int(u.get('biocoin', 0) or 0) - 2000)
@@ -591,7 +592,7 @@ def item_action_handler(call):
 
             from modules.services.utils import apply_zalgo_effect
             msg = apply_zalgo_effect(f"ДАННЫЕ ВОССТАНОВЛЕНЫ. \n⚡️ +{reward_xp} XP\n📦 Получено: {reward_item}", 1)
-            bot.answer_callback_query(call.id, "🌀 РАСШИФРОВКА ЗАВЕРШЕНА", show_alert=True)
+            safe_answer_callback(bot, call.id, "🌀 РАСШИФРОВКА ЗАВЕРШЕНА", show_alert=True)
 
             # Show result
             call.data = "inventory"
@@ -609,7 +610,7 @@ def item_action_handler(call):
             if db.get_item_count(uid, 'accel') > 0:
                 db.update_user(uid, accel_exp=int(time.time() + 86400))
                 db.use_item(uid, 'accel')
-                bot.answer_callback_query(call.id, "⚡️ УСКОРИТЕЛЬ АКТИВИРОВАН!", show_alert=True)
+                safe_answer_callback(bot, call.id, "⚡️ УСКОРИТЕЛЬ АКТИВИРОВАН!", show_alert=True)
                 call.data = "inventory"
                 inventory_handler(call)
             return
@@ -618,17 +619,17 @@ def item_action_handler(call):
             if db.get_item_count(uid, 'proxy_server') > 0:
                 db.update_user(uid, proxy_expiry=int(time.time() + 86400))
                 db.use_item(uid, 'proxy_server')
-                bot.answer_callback_query(call.id, "🕶 ПРОКСИ АКТИВИРОВАН (24ч)", show_alert=True)
+                safe_answer_callback(bot, call.id, "🕶 ПРОКСИ АКТИВИРОВАН (24ч)", show_alert=True)
                 call.data = "inventory"
                 inventory_handler(call)
             return
 
         elif item_id in ['battery', 'neural_stimulator', 'emp_grenade', 'stealth_spray', 'memory_wiper']:
-            bot.answer_callback_query(call.id, "❌ Используйте это внутри Рейда.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Используйте это внутри Рейда.", show_alert=True)
             return
 
         else:
-            bot.answer_callback_query(call.id, "❌ Этот предмет нельзя использовать здесь.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Этот предмет нельзя использовать здесь.", show_alert=True)
             return
 
 
@@ -643,7 +644,7 @@ def item_action_handler(call):
             glitch = check_micro_glitch(uid, u.get('level', 1) if u else 1)
             if glitch:
                 if glitch.get('type') in ['hoarder', 'adhd_clicks']:
-                    bot.answer_callback_query(call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
+                    safe_answer_callback(bot, call.id, "🌀 СИСТЕМНАЯ АНОМАЛИЯ", show_alert=True)
                 bot.send_message(uid, f"🌀 <b>СИСТЕМНАЯ АНОМАЛИЯ</b>\n\n{glitch['message']}", parse_mode="HTML")
                 if glitch.get('type') == 'hoarder':
                     return
@@ -663,7 +664,7 @@ def item_action_handler(call):
             item_id = val # Legacy/Stack
 
         if not item_id:
-            bot.answer_callback_query(call.id, "Предмет не найден.")
+            safe_answer_callback(bot, call.id, "Предмет не найден.")
             return
 
         # Equipped check
@@ -686,7 +687,7 @@ def item_action_handler(call):
             scrap_val = int(price * refund_pct)
 
             if scrap_val <= 0:
-                bot.answer_callback_query(call.id, "❌ Эту вещь нельзя разобрать (Цена 0).")
+                safe_answer_callback(bot, call.id, "❌ Эту вещь нельзя разобрать (Цена 0).")
             else:
                 # Use item (handle stack or id)
                 success = False
@@ -698,22 +699,22 @@ def item_action_handler(call):
                 if success:
                     from modules.services.utils import add_biocoin
                     add_biocoin(uid, scrap_val)
-                    bot.answer_callback_query(call.id, f"♻️ Разобрано: +{scrap_val} BC")
+                    safe_answer_callback(bot, call.id, f"♻️ Разобрано: +{scrap_val} BC")
                     # Refresh
                     cache_db.clear_cache(uid)
                     call.data = "inventory"
                     inventory_handler(call)
                 else:
-                    bot.answer_callback_query(call.id, "❌ Ошибка предмета.")
+                    safe_answer_callback(bot, call.id, "❌ Ошибка предмета.")
         else:
-                bot.answer_callback_query(call.id, "❌ Эту вещь нельзя разобрать.")
+                safe_answer_callback(bot, call.id, "❌ Эту вещь нельзя разобрать.")
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_hard_reset")
 def hard_reset_handler(call):
     uid = int(call.from_user.id)
     if db.get_item_count(uid, 'purification_sync') > 0:
         if perform_hard_reset(uid):
-            bot.answer_callback_query(call.id, "♻️ ЛИЧНОСТЬ СТЕРТА.", show_alert=True)
+            safe_answer_callback(bot, call.id, "♻️ ЛИЧНОСТЬ СТЕРТА.", show_alert=True)
             # Restart flow manually
             bot.send_message(uid, f"/// EIDOS v8.0 REBOOTING...\nID: {uid}\n\nСистема перезагружена.", parse_mode="HTML")
             msg = ("🧬 <b>ВЫБОР ПУТИ (БЕСПЛАТНО)</b>\n\n"
@@ -723,6 +724,6 @@ def hard_reset_handler(call):
                    "🤖 <b>ТЕХНО:</b> +10 Удачи.")
             bot.send_message(uid, msg, reply_markup=kb.path_selection_keyboard(), parse_mode="HTML")
         else:
-            bot.answer_callback_query(call.id, "❌ Ошибка сброса.", show_alert=True)
+            safe_answer_callback(bot, call.id, "❌ Ошибка сброса.", show_alert=True)
     else:
-        bot.answer_callback_query(call.id, "❌ Нет предмета.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Нет предмета.", show_alert=True)

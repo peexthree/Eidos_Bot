@@ -1,3 +1,4 @@
+from modules.services.utils import safe_answer_callback
 from modules.bot_instance import bot
 import database as db
 import config
@@ -44,21 +45,21 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
         except Exception as e:
             print(f"RAID ACTION ERROR: {e}")
             traceback.print_exc()
-            try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА. Попробуйте позже.", show_alert=True)
+            try: safe_answer_callback(bot, call.id, "⚠️ ОШИБКА. Попробуйте позже.", show_alert=True)
             except: pass
             return
 
         if not res:
             if txt == "no_key":
-                 try: bot.answer_callback_query(call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
+                 try: safe_answer_callback(bot, call.id, "⚠️ ОШИБКА ДОСТУПА: Ключ не найден.", show_alert=True)
                  except: pass
             elif etype == "death":
                  if extra and extra.get("death_reason"):
-                      try: bot.answer_callback_query(call.id, strip_html(extra["death_reason"]), show_alert=True)
+                      try: safe_answer_callback(bot, call.id, strip_html(extra["death_reason"]), show_alert=True)
                       except: pass
                  menu_update(call, txt, kb.back_button())
             else:
-                 try: bot.answer_callback_query(call.id, strip_html(txt), show_alert=True)
+                 try: safe_answer_callback(bot, call.id, strip_html(txt), show_alert=True)
                  except: pass
             return
 
@@ -70,11 +71,11 @@ def handle_raid_action(call, uid, action_args=None, custom_success_callback=None
         if not alert_handled:
             alert = extra.get("alert") if extra else None
             if alert:
-                 try: bot.answer_callback_query(call.id, strip_html(alert), show_alert=True)
+                 try: safe_answer_callback(bot, call.id, strip_html(alert), show_alert=True)
                  except: pass
             else:
                  # Must answer anyway to stop the spinner
-                 try: bot.answer_callback_query(call.id)
+                 try: safe_answer_callback(bot, call.id)
                  except: pass
         else:
             # Spinner was likely answered in callback
@@ -97,7 +98,7 @@ def check_sb(call):
     check_daily_streak(uid)
     sb_triggered, sb_expiry = check_shadow_broker_trigger(uid)
     if sb_triggered:
-        try: bot.answer_callback_query(call.id, "🕶 ГЛИТЧ: Теневой Брокер вышел на связь!", show_alert=True)
+        try: safe_answer_callback(bot, call.id, "🕶 ГЛИТЧ: Теневой Брокер вышел на связь!", show_alert=True)
         except: pass
 
 @bot.callback_query_handler(func=lambda call: call.data == "get_protocol" or call.data == "get_signal")
@@ -108,7 +109,7 @@ def protocol_handler(call):
 
     # --- PHASE 1 RESTRICTION ---
     if u.get('onboarding_stage', 0) == 1:
-        bot.answer_callback_query(call.id, "⛔️ ДОСТУП ЗАБЛОКИРОВАН. ЗАВЕРШИТЕ ИНИЦИАЛИЗАЦИЮ.", show_alert=True)
+        safe_answer_callback(bot, call.id, "⛔️ ДОСТУП ЗАБЛОКИРОВАН. ЗАВЕРШИТЕ ИНИЦИАЛИЗАЦИЮ.", show_alert=True)
         return
 
     if call.data == "get_protocol":
@@ -127,9 +128,9 @@ def protocol_handler(call):
 
         if time.time() - last_proto < cd:
             rem = int((cd - (time.time() - last_proto)) / 60)
-            bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
+            safe_answer_callback(bot, call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
         else:
-            bot.answer_callback_query(call.id)
+            safe_answer_callback(bot, call.id)
             from modules.services.glitch_system import check_micro_glitch
             from modules.services.utils import apply_zalgo_effect
 
@@ -192,9 +193,9 @@ def protocol_handler(call):
 
         if time.time() - last_sig < cd:
              rem = int((cd - (time.time() - last_sig)) / 60)
-             bot.answer_callback_query(call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
+             safe_answer_callback(bot, call.id, f"⏳ Кулдаун: {rem} мин.", show_alert=True)
         else:
-             bot.answer_callback_query(call.id)
+             safe_answer_callback(bot, call.id)
              from modules.services.glitch_system import check_micro_glitch
              from modules.services.utils import apply_zalgo_effect
 
@@ -250,7 +251,7 @@ def raid_handler(call):
     uid = int(call.from_user.id)
     import cache_db
     if cache_db.check_throttle(uid, 'raid_action'):
-        try: bot.answer_callback_query(call.id, "Обработка...", show_alert=False)
+        try: safe_answer_callback(bot, call.id, "Обработка...", show_alert=False)
         except: pass
         return
     u = db.get_user(uid)
@@ -258,7 +259,7 @@ def raid_handler(call):
 
     # --- PHASE 1 RESTRICTION ---
     if u.get('onboarding_stage', 0) == 1:
-        bot.answer_callback_query(call.id, "⛔️ ДОСТУП ЗАБЛОКИРОВАН. ЗАВЕРШИТЕ ИНИЦИАЛИЗАЦИЮ.", show_alert=True)
+        safe_answer_callback(bot, call.id, "⛔️ ДОСТУП ЗАБЛОКИРОВАН. ЗАВЕРШИТЕ ИНИЦИАЛИЗАЦИЮ.", show_alert=True)
         return
 
     if call.data == "zero_layer_menu":
@@ -270,7 +271,7 @@ def raid_handler(call):
                  session = cur.fetchone()
 
          if session:
-             try: bot.answer_callback_query(call.id)
+             try: safe_answer_callback(bot, call.id)
              except: pass
              m = types.InlineKeyboardMarkup()
              m.add(types.InlineKeyboardButton("♻️ ПРОДОЛЖИТЬ ПОХОД", callback_data="raid_step"))
@@ -278,7 +279,7 @@ def raid_handler(call):
              menu_update(call, f"⚠️ <b>ВНИМАНИЕ</b>\n\nВы уже находитесь в рейде (Глубина: {session[0] if isinstance(session, tuple) else session.get('depth')}).\nВаш сигнал зафиксирован в Пустоши.", m, image_url=config.MENU_IMAGES["zero_layer_menu"])
          else:
              cost = get_raid_entry_cost(uid)
-             try: bot.answer_callback_query(call.id)
+             try: safe_answer_callback(bot, call.id)
              except: pass
              menu_update(call, f"🚀 <b>---НУЛЕВОЙ СЛОЙ---</b>\nВаш текущий опыт: {int(u.get('xp', 0) or 0)}\nСтоимость входа: {cost}", kb.raid_welcome_keyboard(cost), image_url=config.MENU_IMAGES["zero_layer_menu"])
 
@@ -302,7 +303,7 @@ def raid_handler(call):
          def on_start_success(call, uid, extra):
              db.log_action(uid, 'raid_start', f"Depth: {start_depth}")
              entry_cost = get_raid_entry_cost(uid)
-             bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
+             safe_answer_callback(bot, call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
              return True
 
          handle_raid_action(call, uid, {'start_depth': start_depth}, custom_success_callback=on_start_success)
@@ -310,7 +311,7 @@ def raid_handler(call):
     elif call.data == "raid_enter":
          def on_enter_success(call, uid, extra):
              entry_cost = get_raid_entry_cost(uid)
-             bot.answer_callback_query(call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
+             safe_answer_callback(bot, call.id, f"📉 ПОТРАЧЕНО: {entry_cost} XP", show_alert=True)
              return True
 
          handle_raid_action(call, uid, custom_success_callback=on_enter_success)
@@ -386,7 +387,7 @@ def raid_handler(call):
     elif call.data.startswith("r_check_"):
         ans = call.data.replace("r_check_", "")
         success, msg = process_riddle_answer(uid, ans)
-        bot.answer_callback_query(call.id, "Принято.")
+        safe_answer_callback(bot, call.id, "Принято.")
 
         handle_raid_action(call, uid, text_prefix=f"{msg}\n\n")
 
@@ -395,7 +396,7 @@ def combat_handler(call):
      uid = int(call.from_user.id)
      import cache_db
      if cache_db.check_throttle(uid, 'raid_action'):
-         try: bot.answer_callback_query(call.id, "Обработка...", show_alert=False)
+         try: safe_answer_callback(bot, call.id, "Обработка...", show_alert=False)
          except: pass
          return
      check_sb(call)
@@ -406,14 +407,14 @@ def combat_handler(call):
      except Exception as e:
          print(f"/// COMBAT HANDLER FATAL ERROR (UID={uid}): {e}")
          traceback.print_exc()
-         try: bot.answer_callback_query(call.id, "⚠️ SYSTEM ERROR: Combat failed.", show_alert=True)
+         try: safe_answer_callback(bot, call.id, "⚠️ SYSTEM ERROR: Combat failed.", show_alert=True)
          except: pass
          return
 
      # Alert with combat log
      alert_msg = strip_html(msg)
      if len(alert_msg) > 190: alert_msg = alert_msg[:190] + "..."
-     try: bot.answer_callback_query(call.id, alert_msg, show_alert=True)
+     try: safe_answer_callback(bot, call.id, alert_msg, show_alert=True)
      except: pass
 
      if res_type == 'error':
@@ -424,7 +425,7 @@ def combat_handler(call):
 
      elif res_type == 'death':
          if extra and extra.get('broadcast'):
-             try: bot.answer_callback_query(call.id, "💀 СИСТЕМНЫЙ НЕКРОЛОГ", show_alert=True)
+             try: safe_answer_callback(bot, call.id, "💀 СИСТЕМНЫЙ НЕКРОЛОГ", show_alert=True)
              except: pass
 
              try:
@@ -456,7 +457,7 @@ def anomaly_handler(call):
     uid = int(call.from_user.id)
     import cache_db
     if cache_db.check_throttle(uid, 'raid_action'):
-        try: bot.answer_callback_query(call.id, "Обработка...", show_alert=False)
+        try: safe_answer_callback(bot, call.id, "Обработка...", show_alert=False)
         except: pass
         return
     check_sb(call)
@@ -467,10 +468,10 @@ def anomaly_handler(call):
         if extra and extra.get('death_reason'):
              menu_update(call, msg, kb.back_button())
         else:
-             bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+             safe_answer_callback(bot, call.id, strip_html(msg), show_alert=True)
     else:
         alert = extra.get('alert') if extra else ""
-        try: bot.answer_callback_query(call.id, strip_html(alert), show_alert=True)
+        try: safe_answer_callback(bot, call.id, strip_html(alert), show_alert=True)
         except: pass
 
         # Show result and continue raid
@@ -487,7 +488,7 @@ def decrypt_handler(call):
 
     elif call.data == "decrypt_start":
         res, msg = start_decryption(uid)
-        bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+        safe_answer_callback(bot, call.id, strip_html(msg), show_alert=True)
         call.data = "decrypt_menu"
         decrypt_handler(call)
 
@@ -496,4 +497,4 @@ def decrypt_handler(call):
         if res:
             menu_update(call, msg, kb.back_button())
         else:
-            bot.answer_callback_query(call.id, strip_html(msg), show_alert=True)
+            safe_answer_callback(bot, call.id, strip_html(msg), show_alert=True)

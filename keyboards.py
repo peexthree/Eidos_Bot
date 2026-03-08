@@ -138,7 +138,7 @@ def profile_menu(u, has_accel=False, has_purification=False):
 
     import time
     if u.get('is_glitched') and u.get('anomaly_buff_expiry', 0) > time.time():
-        m.add(types.InlineKeyboardButton("🧬 УНИЧТОЖИТЬ АНОМАЛИЮ (1000 BC)", callback_data="remove_anomaly"))
+        m.add(types.InlineKeyboardButton("🧬 Уничтожить аномалию", callback_data="remove_anomaly"))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m

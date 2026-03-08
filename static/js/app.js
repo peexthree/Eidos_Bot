@@ -15,6 +15,21 @@ if (!uid) {
     document.body.innerHTML = '<h2 style="color:red;text-align:center;margin-top:50px;">ОШИБКА АВТОРИЗАЦИИ (NO UID)</h2>';
 }
 
+
+let isActionLocked = false;
+async function fetchWithLock(url, options) {
+    if(isActionLocked) return {error: "Locked"};
+    isActionLocked = true;
+    if(window.tg && tg.MainButton) { tg.MainButton.showProgress(); tg.MainButton.disable(); }
+    try {
+        const res = await fetch(url, options);
+        return res;
+    } finally {
+        isActionLocked = false;
+        if(window.tg && tg.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.enable(); }
+    }
+}
+
 let inventoryData = { items: [], equipped: {}, profile: {} };
 let currentFilter = 'all';
 
@@ -191,7 +206,7 @@ function renderProfile() {
 
 function animateStatChange(el, newValue) {
     if (!el) return;
-    el.innerText = newValue;
+
 }
 
 function updateSignalUI() {

@@ -1,3 +1,4 @@
+from modules.services.utils import safe_answer_callback
 from modules.bot_instance import bot
 import cache_db
 import telebot
@@ -46,7 +47,7 @@ def eidos_room_text_handler(message):
 def eidos_tos_handler(call):
     uid = int(call.from_user.id)
     if call.data == "eidos_tos_reject":
-        bot.answer_callback_query(call.id, "👁‍🗨 Твой страх понятен. Возвращайся в иллюзию.", show_alert=True)
+        safe_answer_callback(bot, call.id, "👁‍🗨 Твой страх понятен. Возвращайся в иллюзию.", show_alert=True)
         import modules.handlers.menu as menu_handler
         call.data = "back"
         menu_handler.back_handler(call)
@@ -60,13 +61,13 @@ def eidos_purchase_handler(call):
     action = call.data.replace("eidos_buy_", "")
     u = cache_db.get_cached_user(uid)
     if not u:
-        bot.answer_callback_query(call.id, "❌ Ошибка синхронизации с базой данных. Попробуйте еще раз.", show_alert=True)
+        safe_answer_callback(bot, call.id, "❌ Ошибка синхронизации с базой данных. Попробуйте еще раз.", show_alert=True)
         return
     is_admin = cache_db.get_cached_admin_status(uid)
 
     if action == "dossier":
         if is_admin:
-            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+            safe_answer_callback(bot, call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             import threading
             from modules.services.ai_worker import generate_eidos_response_worker
 
@@ -84,13 +85,13 @@ def eidos_purchase_handler(call):
                 currency="XTR",
                 prices=prices
             )
-            bot.answer_callback_query(call.id)
+            safe_answer_callback(bot, call.id)
         except Exception as e:
-            bot.answer_callback_query(call.id, f"❌ Ошибка шлюза: {e}", show_alert=True)
+            safe_answer_callback(bot, call.id, f"❌ Ошибка шлюза: {e}", show_alert=True)
 
     elif action == "forecast":
         if is_admin:
-            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+            safe_answer_callback(bot, call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             import threading
             from modules.services.ai_worker import generate_eidos_response_worker
 
@@ -108,13 +109,13 @@ def eidos_purchase_handler(call):
                 currency="XTR",
                 prices=prices
             )
-            bot.answer_callback_query(call.id)
+            safe_answer_callback(bot, call.id)
         except Exception as e:
-            bot.answer_callback_query(call.id, f"❌ Ошибка шлюза: {e}", show_alert=True)
+            safe_answer_callback(bot, call.id, f"❌ Ошибка шлюза: {e}", show_alert=True)
 
     elif action == "voice":
         if is_admin:
-            bot.answer_callback_query(call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
+            safe_answer_callback(bot, call.id, "⚡️ GOD MODE: Бесплатный доступ.", show_alert=False)
             db.set_state(uid, "wait_eidos_premium_question"); cache_db.clear_cache(uid)
             bot.send_message(uid, "👁‍🗨 Глас Абсолюта готов. Опиши свою проблему, и я разберу твой код на части.")
             return
@@ -130,9 +131,9 @@ def eidos_purchase_handler(call):
                 currency="XTR",
                 prices=prices
             )
-            bot.answer_callback_query(call.id)
+            safe_answer_callback(bot, call.id)
         except Exception as e:
-            bot.answer_callback_query(call.id, f"❌ Ошибка шлюза: {e}", show_alert=True)
+            safe_answer_callback(bot, call.id, f"❌ Ошибка шлюза: {e}", show_alert=True)
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def checkout(pre_checkout_query):

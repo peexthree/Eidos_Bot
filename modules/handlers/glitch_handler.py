@@ -1,3 +1,4 @@
+from modules.services.utils import safe_answer_callback
 from modules.bot_instance import bot
 import database as db
 import keyboards as kb
@@ -44,7 +45,7 @@ def block_glitch_msg(m):
 
 @bot.callback_query_handler(func=lambda call: cache_db.get_cached_user_state(call.from_user.id) == 'glitch_question' and not call.data.startswith('glitch_ans_'))
 def block_glitch_call(call):
-    bot.answer_callback_query(call.id, zalgo_text("👁‍🗨 Иллюзия выбора отключена.", 1), show_alert=True)
+    safe_answer_callback(bot, call.id, zalgo_text("👁‍🗨 Иллюзия выбора отключена.", 1), show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('glitch_ans_'))
 def handle_glitch_answer(call):
@@ -52,7 +53,7 @@ def handle_glitch_answer(call):
     state_tuple = db.get_full_state(uid)
 
     if not state_tuple or state_tuple[0] != 'glitch_question':
-        bot.answer_callback_query(call.id, "Ответ уже не актуален.")
+        safe_answer_callback(bot, call.id, "Ответ уже не актуален.")
         return
 
     try:
@@ -86,9 +87,9 @@ def handle_glitch_answer(call):
         else:
             bot.edit_message_text("👁‍🗨 Ответ записан. Матрица продолжает работу.", call.message.chat.id, call.message.message_id)
 
-        bot.answer_callback_query(call.id)
+        safe_answer_callback(bot, call.id)
     except Exception as e:
         print(f"GLITCH HANDLER ERROR: {e}")
         db.delete_state(uid)
         cache_db.clear_cache(uid)
-        bot.answer_callback_query(call.id, "Сбой.", show_alert=True)
+        safe_answer_callback(bot, call.id, "Сбой.", show_alert=True)
