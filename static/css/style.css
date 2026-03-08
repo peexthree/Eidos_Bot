@@ -29,6 +29,9 @@ body {
     overflow: hidden; /* Глобальный скролл отключен, скроллится только контейнер */
     width: 100vw;
     height: 100vh;
+    /* ТВЕРДОЕ: Убиваем эффект "резинки" браузера */
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: auto;
 }
 
 /* Разрешаем выделение только для терминальных логов, если нужно */
@@ -200,4 +203,55 @@ body {
 ::-webkit-scrollbar {
     width: 0px;
     background: transparent;
+}
+
+
+.scroll-area {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* Плавный скролл только внутри списков! */
+    overscroll-behavior-y: contain; /* Не дает скроллу выйти за пределы блока */
+}
+
+
+/* ====== BOTTOM SHEET MODAL (СОВРЕМЕННАЯ ШТОРКА) ====== */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
+    align-items: flex-end; /* Прижимаем окно к низу экрана */
+    justify-content: center;
+    z-index: 90000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.active {
+    display: flex;
+    opacity: 1;
+}
+
+.modal-content {
+    background: var(--eidos-glass);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    /* Скошенные киберпанк-углы сверху, плоский низ */
+    clip-path: polygon(15px 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%, 0 15px);
+    border-top: 1px solid var(--eidos-cyan);
+    border-left: 1px solid rgba(102, 252, 241, 0.3);
+    border-right: 1px solid rgba(102, 252, 241, 0.3);
+    padding: 30px 20px calc(20px + var(--safe-bottom)); /* Учет полоски iPhone снизу */
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8), inset 0 5px 15px rgba(102, 252, 241, 0.05);
+    /* Анимация выезда снизу */
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1); /* Эффект легкой пружины */
+}
+
+.modal-overlay.active .modal-content {
+    transform: translateY(0);
 }
