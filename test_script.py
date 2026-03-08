@@ -12,6 +12,7 @@ async def run():
                     ready: () => {},
                     expand: () => {},
                     initDataUnsafe: { user: { id: 12345 } },
+                    initData: "query_id=mock_12345&user=%7B%22id%22%3A12345%7D",
                     MainButton: { show: () => {}, hide: () => {}, onClick: () => {}, setText: () => {} },
                     showAlert: (msg) => console.log('ALERT:', msg),
                     showConfirm: (msg, cb) => cb(true),
