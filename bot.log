@@ -697,3 +697,21 @@ psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 
 	Is the server running on that host and accepting TCP/IP connections?
 connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
 	Is the server running on that host and accepting TCP/IP connections?
+2026-03-08 23:42:13,228 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-08 23:42:13,228 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-08 23:42:13,230 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-03-08 23:42:13,230 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-03-08 23:42:18,226 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:42:18] "[33mGET /static/inventory.html?uid=12345 HTTP/1.1[0m" 404 -
+2026-03-08 23:43:28,543 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:43:28] "GET /inventory?uid=12345 HTTP/1.1" 200 -
+2026-03-08 23:43:28,602 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:43:28] "GET /IMG/eidos_demiurge-user.svg HTTP/1.1" 200 -
+2026-03-08 23:43:28,603 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:43:28] "GET /css/style.css HTTP/1.1" 200 -
+2026-03-08 23:43:28,604 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:43:28] "GET /js/app.js HTTP/1.1" 200 -
+2026-03-08 23:43:29,393 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:43:29] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-08 23:43:30,677 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:43:30] "[33mGET /api/inventory?uid=12345 HTTP/1.1[0m" 404 -
+2026-03-08 23:44:13,198 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:44:13] "GET /inventory?uid=12345 HTTP/1.1" 200 -
+2026-03-08 23:44:13,217 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:44:13] "GET /IMG/eidos_demiurge-user.svg HTTP/1.1" 200 -
+2026-03-08 23:44:13,218 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:44:13] "GET /css/style.css HTTP/1.1" 200 -
+2026-03-08 23:44:13,219 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:44:13] "GET /js/app.js HTTP/1.1" 200 -
+2026-03-08 23:44:13,743 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:44:13] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-08 23:44:14,796 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 23:44:14] "[33mGET /api/inventory?uid=12345 HTTP/1.1[0m" 404 -

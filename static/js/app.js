@@ -2,6 +2,17 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
+// --- ИНЪЕКЦИЯ В НАТИВНЫЙ ИНТЕРФЕЙС TELEGRAM ---
+// Окрашиваем хедер и фон самого Telegram в цвет нашей пустоты
+tg.setHeaderColor('#030405');
+tg.setBackgroundColor('#030405');
+
+// Блокируем свайп вниз, который случайно закрывает WebApp (работает на новых версиях API)
+if (tg.disableVerticalSwipes) {
+    tg.disableVerticalSwipes();
+}
+
+
 // 1. Принудительный viewport против зума
 const viewportMeta = document.createElement('meta');
 viewportMeta.name = 'viewport';
