@@ -28,7 +28,7 @@ async def run():
 
         try:
             print("Navigating to WebApp...")
-            await page.goto("http://localhost:5001/static/inventory.html?uid=12345")
+            await page.goto("http://localhost:5000/inventory?uid=12345")
 
             # Wait for loader to be removed (min 8s) or skip
             print("Waiting for data to load...")
@@ -44,14 +44,14 @@ async def run():
 
             # Navigate to Shop
             print("Navigating to Shop...")
-            await page.click("div[data-target='view-shop']")
+            await page.click(".nexus-tile:nth-child(3)")
             await asyncio.sleep(1)
             await page.screenshot(path="webapp_shop.png")
             print("Shop screenshot taken.")
 
             # Navigate to Terminal (Social/AI)
             print("Navigating to Terminal...")
-            await page.click("div[data-target='view-social']")
+            await page.click(".nexus-tile:nth-child(6)")
             await asyncio.sleep(1)
             await page.screenshot(path="webapp_social.png")
             print("Social screenshot taken.")
