@@ -9,8 +9,9 @@
 </head>
 <body>
 
-    <div id="eidos-loader" onclick="forceCloseLoader()">
-        <video src="video/LOGO.mp4" autoplay muted playsinline></video>
+    <div id="eidos-loader">
+        <video id="intro-video" src="video/LOGO.mp4" autoplay muted playsinline></video>
+        <button id="skip-btn" class="skip-btn" style="display: none;">ПРОПУСТИТЬ</button>
         <div class="loader-overlay-text">ПОДКЛЮЧЕНИЕ К НЕЙРОСЕТИ...</div>
     </div>
 
