@@ -9,17 +9,18 @@ import re
 import logging
 import config
 
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+# Прямой шлюз Google Gemini (через OpenAI совместимый эндпоинт)
+OPENROUTER_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
+# Актуальный, "бессмертный" каскад моделей Google
 MODELS = [
-    "google/gemma-3-27b-it:free",
-    "qwen/qwen3-next-80b-a3b-instruct:free",
-    "openai/gpt-oss-120b:free",
-    "google/gemma-3n-e4b-it:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free"
+    "gemini-2.5-flash",       # Основная рабочая лошадка (стабильная, быстрая, умная)
+    "gemini-3-flash",         # Новое поколение (превью, уровень флагманов)
+    "gemini-2.5-pro",         # Тяжелая артиллерия (максимальная глубина психоанализа)
+    "gemini-3.1-pro",         # Новейший интеллект (на крайний случай)
+    "gemini-2.5-flash-lite"   # Резервный сверхбыстрый вариант, чтобы юзер не ждал
 ]
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1"
 
 # Initialize OpenAI Client safely
 ai_client = None
