@@ -85,9 +85,9 @@ const els = {
 };
 
 // Таймеры для загрузки
+const MIN_LOADING_TIME = 8000; 
 const startTime = Date.now();
-let dataReady = false;
-let videoEnded = false;
+let dataLoaded = false;
 let introFinished = false;
 
 // === ЛОГИКА ЗАГРУЗКИ ДАННЫХ ===
@@ -100,7 +100,7 @@ async function loadData() {
 
     // 2. Таймер для запасного SVG-лоадера (включаем его, только если данные совсем застряли)
     const loaderTimeout = setTimeout(() => {
-        if (!dataReady && els.loading) {
+        if (!dataLoaded && els.loading) {
             // Скрываем видео, если оно не загрузилось за 3 секунды, и показываем SVG
             const videoLoader = document.getElementById('eidos-loader');
             if (videoLoader) videoLoader.style.display = 'none';
@@ -121,16 +121,12 @@ async function loadData() {
         renderDoll();
         renderInventory();
         
-        dataReady = true;
+        dataLoaded = true;
         clearTimeout(loaderTimeout);
+        
+        // Переходим к проверке времени (чтобы заставка не исчезла мгновенно)
         checkAndRemoveLoader();
         
-        // Если skipClicked было нажато до dataReady, обновим текст кнопки и скроем лоадер
-        const skipBtn = document.getElementById('skip-btn');
-        if (skipClicked && skipBtn) {
-            skipBtn.innerText = "ПРОПУСТИТЬ";
-        }
-
     } catch (e) {
         console.error('Fetch error:', e);
         // Если всё упало, убираем видео-заглушку, чтобы юзер видел ошибку
@@ -141,11 +137,20 @@ async function loadData() {
 }
 
 // Проверка: и видео доиграло, и данные есть
+let skipClicked = false;
+
 let loaderFadeTimeout = null;
 
 function checkAndRemoveLoader() {
-    if ((videoEnded || skipClicked) && dataReady) {
+    if (skipClicked) {
+        if (dataLoaded) executeLoaderFade();
+        return;
+    }
+    const elapsedTime = Date.now() - startTime;
+    if (dataLoaded && elapsedTime >= MIN_LOADING_TIME) {
         executeLoaderFade();
+    } else if (dataLoaded) {
+        loaderFadeTimeout = setTimeout(executeLoaderFade, MIN_LOADING_TIME - elapsedTime);
     }
 }
 
@@ -158,50 +163,30 @@ function executeLoaderFade() {
             loader.remove();
             if (els.loading) els.loading.style.display = 'none';
             pushLog('СИСТЕМА АКТИВИРОВАНА.', 'SYS');
-            if (window.tg && tg.HapticFeedback) {
-                tg.HapticFeedback.impactOccurred('heavy');
-            }
-        }, 1200);
+        }, 800);
     }
 }
 
-function setupVideoEvents() {
-    const vfxVideo = document.getElementById('intro-video');
-    const skipBtn = document.getElementById('skip-btn');
-
-    if (vfxVideo) {
-        vfxVideo.onended = () => {
-            videoEnded = true;
-            checkAndRemoveLoader();
-        };
-
-        vfxVideo.ontimeupdate = () => {
-            if (vfxVideo.currentTime >= 2 && skipBtn) {
-                skipBtn.style.display = 'block';
-            }
-        };
+window.forceCloseLoader = function() {
+    skipClicked = true;
+    if (loaderFadeTimeout) {
+        clearTimeout(loaderFadeTimeout);
+        loaderFadeTimeout = null;
     }
-
-    if (skipBtn) {
-        skipBtn.onclick = (e) => {
-            e.stopPropagation();
-            skipClicked = true;
-            if (dataReady) {
-                executeLoaderFade();
-            } else {
-                skipBtn.innerText = "LOADING DATA...";
-            }
-        };
+    if (dataLoaded) {
+        executeLoaderFade();
+    } else {
+        const loader = document.getElementById('eidos-loader');
+        if (loader) loader.style.display = 'none';
+        els.loading.style.display = 'flex';
     }
-}
+};
 
 // === ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ DOM ===
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Запуск NEXUS GRID
     setupNexusGrid();
     
-    setupVideoEvents();
-
     // 2. Принудительный старт видео (лечим "черный экран")
     const vfxVideo = document.querySelector('#eidos-loader video');
     if (vfxVideo) {
