@@ -1,0 +1,14 @@
+PROJECT: TOTAL BOT-TO-WEBAPP CONVERSION
+Summary of Changes:
+
+1. BACKEND & AI:
+- Implemented AI model cascade in modules/services/ai_worker.py (5 models, 7s timeout).
+- Fixed UnboundLocalError in modules/handlers/items.py (inventory_handler scoping).
+- Added missing API endpoints in bot.py: /api/shop, /api/shop/buy, /api/raids, /api/leaderboard, /api/ai/dossier, /api/inventory/use, /api/inventory/dismantle.
+
+2. FRONTEND (WebApp SPA):
+- parallel loading logic in static/js/app.js (loadData + Video).
+- Loading sync: Hide #eidos-loader only when data is ready AND (8s passed OR user Skip).
+- Fixed CSS padding (110px/140px), Z-index layering (VFX > Modals > Nav > Content), and interaction issues (pointer-events: none on background).
+- Implemented reactive State Manager for Profile, Doll (5 slots), Inventory, Shop, and Social modules.
+- Added typewriter effect for Eidos Dossier and interactive equipment doll with unequip action.
