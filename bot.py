@@ -9,6 +9,8 @@ import time
 import threading
 import traceback
 import psycopg2
+import requests
+import io
 
 # Sentry integration
 import sentry_sdk
@@ -88,6 +90,28 @@ def inventory_webapp():
     static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
     return flask.send_from_directory(static_dir, 'inventory.html')
 
+# === PROXY ДЛЯ КАРТИНОК TELEGRAM ===
+_image_cache = {}
+@app.route('/api/image/<file_id>', methods=['GET'])
+def get_telegram_image(file_id):
+    """Безопасный шлюз для передачи изображений из Telegram в WebApp без утечки токена"""
+    if file_id in _image_cache:
+        return flask.send_file(io.BytesIO(_image_cache[file_id]), mimetype='image/jpeg')
+    try:
+        file_info = bot.get_file(file_id)
+        download_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_info.file_path}"
+        response = requests.get(download_url)
+        if response.status_code == 200:
+            _image_cache[file_id] = response.content
+            return flask.send_file(io.BytesIO(response.content), mimetype='image/jpeg')
+        else:
+            return flask.jsonify({"error": "Failed to download"}), 404
+    except Exception as e:
+        print(f"/// IMAGE PROXY ERROR: {e}")
+        # Если файла нет, возвращаем SVG-заглушку из статики
+        static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/IMG')
+        return flask.send_from_directory(static_dir, 'eidos_sys-warning.svg')
+
 _inventory_cache = {}
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
@@ -124,8 +148,8 @@ def inventory_api():
     avatar_file_id = config.USER_AVATARS.get(level, config.USER_AVATARS.get(1))
     avatar_url = None
     if avatar_file_id:
-        try: avatar_url = bot.get_file_url(avatar_file_id)
-        except: avatar_url = None
+        # ТВЕРДОЕ: Используем наш защищенный прокси вместо прямой ссылки Telegram
+        avatar_url = f"/api/image/{avatar_file_id}"
 
     profile = {
         "name": get_user_display_name(user),
@@ -146,6 +170,7 @@ def inventory_api():
     raw_items = db.get_inventory(uid)
     for i in raw_items:
         info = config.ITEMS_INFO.get(i['item_id'], {})
+        img_file_id = info.get('file_id') # Извлекаем file_id из конфига
         items.append({
             "id": i['id'], # Уникальный ID записи в БД
             "item_id": i['item_id'],
@@ -155,7 +180,8 @@ def inventory_api():
             "description": info.get('desc', 'Описание отсутствует.'),
             "rarity": info.get('rarity', 'common'),
             "stats": info.get('stats', {}),
-            "image_url": f"IMG/{i['item_id']}.png" # Предполагаем наличие иконок
+            # Передаем ссылку на прокси, если file_id есть, иначе None
+            "image_url": f"/api/image/{img_file_id}" if img_file_id else None
         })
 
     # --- Equipped (Enriching Data for WebApp) ---
@@ -166,12 +192,14 @@ def inventory_api():
         iid = item_data['item_id'] if isinstance(item_data, dict) else item_data
         if iid:
             info = config.ITEMS_INFO.get(iid, {})
+            img_file_id = info.get('file_id') # Извлекаем file_id из конфига
             enriched_equipped[slot] = {
                 "item_id": iid,
                 "name": info.get('name', iid),
                 "rarity": info.get('rarity', 'common'),
                 "type": info.get('type', slot),
-                "stats": info.get('stats', {})
+                "stats": info.get('stats', {}),
+                "image_url": f"/api/image/{img_file_id}" if img_file_id else None
             }
         else:
             enriched_equipped[slot] = None
@@ -188,7 +216,6 @@ def inventory_api():
 
 @app.route('/api/inventory/equip', methods=['POST'])
 def inventory_equip():
-
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
     if not init_data:
         return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
@@ -201,7 +228,6 @@ def inventory_equip():
 
 @app.route('/api/inventory/unequip', methods=['POST'])
 def inventory_unequip():
-
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
     if not init_data:
         return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
@@ -214,14 +240,12 @@ def inventory_unequip():
 
 @app.route('/api/inventory/use', methods=['POST'])
 def inventory_use():
-
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
     if not init_data:
         return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
 
     data = flask.request.json
     uid, item_id = data.get('uid'), data.get('item_id')
-    # Добавляем базовую проверку на использование
     success = db.use_item(uid, item_id, 1)
     return flask.jsonify({"success": success})
 
@@ -234,16 +258,14 @@ def inventory_dismantle():
     try:
         data = flask.request.json
         uid = data.get('uid')
-        item_id_str = data.get('item_id') # Получаем СТРОКУ (напр. "soft_aegis_v1")
+        item_id_str = data.get('item_id') 
 
         if not uid or not item_id_str:
             return flask.jsonify({"error": "Missing parameters"}), 400
 
-        # /// ТВЕРДОЕ: Находим числовой ID (bigint) для конкретного предмета пользователя
         inv_id = None
         with db.db_cursor() as cur:
             if cur:
-                # Ищем первую попавшуюся запись этого предмета у пользователя
                 cur.execute(
                     "SELECT id FROM inventory WHERE uid=%s AND item_id=%s AND quantity > 0 LIMIT 1",
                     (uid, item_id_str)
@@ -255,7 +277,6 @@ def inventory_dismantle():
         if not inv_id:
             return flask.jsonify({"error": "Item not found in inventory"}), 404
 
-        # Передаем правильный числовой ID в старую функцию разбора
         success = db.dismantle_item(uid, inv_id)
 
         if success:
