@@ -454,6 +454,12 @@ def guide_menu(page_key='intro', u=None):
     m.add(types.InlineKeyboardButton("🤝 СИНДИКАТ", callback_data="guide_page_social"),
           types.InlineKeyboardButton("⚡️ СОВЕТЫ", callback_data="guide_page_tips"))
 
+    # NEW SECTIONS
+    m.add(types.InlineKeyboardButton("🕶 ТЕНЕВОЙ БРОКЕР", callback_data="guide_page_shadow_broker"),
+          types.InlineKeyboardButton("🔐 ДЕШИФРАТОР", callback_data="guide_page_decryption"))
+    m.add(types.InlineKeyboardButton("🌀 АНОМАЛИИ", callback_data="guide_page_anomalies"),
+          types.InlineKeyboardButton("👁‍🗨 ВРАТА ЭЙДОСА", callback_data="guide_page_ai_profiling"))
+
     if u:
         history = u.get('quiz_history', '') or ''
         if "q1" in history and "q2" in history and "q3" in history and "q4" in history:
