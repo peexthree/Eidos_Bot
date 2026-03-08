@@ -351,7 +351,7 @@ function openItemModal(item) {
     btnDismantle.innerText = 'РАЗОБРАТЬ';
     btnDismantle.onclick = () => {
         // Вызов нативного окна подтверждения Telegram
-        tg.showConfirm(`Уничтожить [${item.name}] ради ByteCoins? Действие необратимо.`, (confirmed) => {
+        tg.showConfirm(`Уничтожить [${item.name}] ради BCoins? Действие необратимо.`, (confirmed) => {
             if (confirmed) performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
         });
     };
@@ -367,12 +367,12 @@ function openUnequipModal(slot, item) {
     els.modalTitle.style.color = color;
     els.modalRarity.innerText = 'УСТАНОВЛЕНО В СЛОТ';
     els.modalRarity.style.color = '#00ff41';
-    els.modalDesc.innerHTML = 'Снять модификацию с куклы?';
+    els.modalDesc.innerHTML = 'Снять модификацию ?';
     
     els.modalActions.innerHTML = '';
     const btnUnequip = document.createElement('button');
     btnUnequip.className = 'action-btn';
-    btnUnequip.innerText = 'СНЯТЬ (UNEQUIP)';
+    btnUnequip.innerText = 'СНЯТЬ';
     btnUnequip.onclick = () => performAction('/api/inventory/unequip', {uid, slot: slot});
     els.modalActions.appendChild(btnUnequip);
 
