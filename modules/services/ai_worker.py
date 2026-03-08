@@ -100,12 +100,15 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
                     return None
 
                 if time.time() - last_edit_time > 1.5:
-                    try:
-                        bot.edit_message_text(f"👁‍🗨 SYNCHRONIZING...\n\n{full_text} █", chat_id=chat_id, message_id=msg_id)
-                        last_edit_time = time.time()
-                    except Exception as e:
-                        if "message is not modified" not in str(e).lower():
-                            print(f"/// AI STREAM UPDATE ERR: {e}", flush=True)
+                    if len(full_text) > 3900:
+                        pass
+                    else:
+                        try:
+                            bot.edit_message_text(f"👁‍🗨 SYNCHRONIZING...\n\n{full_text} █", chat_id=chat_id, message_id=msg_id)
+                            last_edit_time = time.time()
+                        except Exception as e:
+                            if "message is not modified" not in str(e).lower():
+                                print(f"/// AI STREAM UPDATE ERR: {e}", flush=True)
 
         return full_text
     except Exception as e:
