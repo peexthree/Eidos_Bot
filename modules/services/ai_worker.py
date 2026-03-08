@@ -58,7 +58,7 @@ def sanitize_for_telegram(text: str) -> str:
     text = re.sub(r'</?(ul|ol|li)>', '', text, flags=re.IGNORECASE)
 
     allowed_tags = ['b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del', 'a', 'code', 'pre']
-    tag_pattern = r'</?([a-zA-Z0-9]+)[^>]*>'
+    tag_pattern = r'</?([!a-zA-Z0-9]+)[^>]*>'
 
     def replacer(match):
         tag_name = match.group(1).lower()
@@ -95,11 +95,13 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 full_text += chunk.choices[0].delta.content
+                if full_text.strip().lower().startswith("<!doctype") or full_text.strip().lower().startswith("<html"):
+                    print("/// CRITICAL: Received HTML instead of AI text. Aborting stream.", flush=True)
+                    return None
 
                 if time.time() - last_edit_time > 1.5:
-                    sanitized_chunk = sanitize_for_telegram(full_text)
                     try:
-                        bot.edit_message_text(f"👁‍🗨 <b>РЕЗУЛЬТАТ АНАЛИЗА</b>\n\n{sanitized_chunk} █", chat_id=chat_id, message_id=msg_id, parse_mode="HTML")
+                        bot.edit_message_text(f"👁‍🗨 SYNCHRONIZING...\n\n{full_text} █", chat_id=chat_id, message_id=msg_id)
                         last_edit_time = time.time()
                     except Exception as e:
                         if "message is not modified" not in str(e).lower():
@@ -244,10 +246,13 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
                     full_text += chunk.choices[0].delta.content
+                    if full_text.strip().lower().startswith("<!doctype") or full_text.strip().lower().startswith("<html"):
+                        print("/// CRITICAL: Received HTML instead of AI text. Aborting stream.", flush=True)
+                        handle_failure("👁‍🗨 Соединение с Нейро-ядром нестабильно. Ошибка протокола.")
+                        return
                     if time.time() - last_edit_time > 1.5:
-                        sanitized_chunk = sanitize_for_telegram(full_text)
                         try:
-                            bot.edit_message_text(f"👁‍🗨 <b>СИНХРОНИЗАЦИЯ...</b>\n\n{sanitized_chunk} █", chat_id=chat_id, message_id=init_msg.message_id, parse_mode="HTML")
+                            bot.edit_message_text(f"👁‍🗨 СИНХРОНИЗАЦИЯ...\n\n{full_text} █", chat_id=chat_id, message_id=init_msg.message_id)
                             last_edit_time = time.time()
                         except Exception as e:
                             pass
@@ -336,7 +341,7 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
         import traceback; print(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", flush=True); traceback.print_exc()
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
 
-def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None, refund_bc=None):
+def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_msg_id=None, refund_bc=None, *args, **kwargs):
     print(f"[AI WORKER] Started processing request for UID {uid}", flush=True)
     if cache_db.check_throttle(uid, 'generate_user_dossier_worker', timeout=60):
         bot.send_message(chat_id, "⚠️ <b>СИСТЕМА ПЕРЕГРЕТА</b>\n\nПодождите 60 секунд перед следующим запросом к ИИ.", parse_mode="HTML")
@@ -473,10 +478,22 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
                     ai_text += chunk.choices[0].delta.content
+                    if ai_text.strip().lower().startswith("<!doctype") or ai_text.strip().lower().startswith("<html"):
+                        print("/// CRITICAL: Received HTML instead of AI text. Aborting stream.", flush=True)
+                        if loading_msg_id:
+                            try: bot.edit_message_text("❌ Соединение с Нейро-ядром нестабильно. Ошибка протокола.", chat_id=chat_id, message_id=loading_msg_id)
+                            except: pass
+                        if refund_bc:
+                            try:
+                                u = db.get_user(uid)
+                                if u:
+                                    db.update_user(uid, biocoin=u.get("biocoin", 0) + refund_bc)
+                                    bot.send_message(chat_id, f"💳 Ошибка нейро-сети. {refund_bc} BC возвращены на счет.")
+                            except: pass
+                        return
                     if loading_msg_id and time.time() - last_edit_time > 1.5:
-                        sanitized_chunk = sanitize_for_telegram(ai_text)
                         try:
-                            bot.edit_message_text(f"📡 <b>УСТАНОВКА СОЕДИНЕНИЯ...</b>\nДешифровка данных...\n\n{sanitized_chunk} █", chat_id=chat_id, message_id=loading_msg_id, parse_mode="HTML")
+                            bot.edit_message_text(f"📡 УСТАНОВКА СОЕДИНЕНИЯ...\nДешифровка данных...\n\n{ai_text} █", chat_id=chat_id, message_id=loading_msg_id)
                             last_edit_time = time.time()
                         except Exception as e:
                             pass
