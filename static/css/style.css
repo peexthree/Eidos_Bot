@@ -1063,3 +1063,112 @@ body::after {
     background: var(--neon-green, #00ff41);
     color: #000;
 }
+
+/* ====== NEXUS GRID (GOTHIC TECH-HUB) ====== */
+.nexus-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 15px;
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.nexus-tile {
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(102, 252, 241, 0.3);
+    clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
+    min-height: 120px;
+}
+
+.nexus-tile:hover, .nexus-tile:active {
+    transform: scale(1.02);
+    border-color: rgba(102, 252, 241, 0.8);
+    box-shadow: 0 0 15px rgba(102, 252, 241, 0.2);
+}
+
+.nexus-tile.sector-locked {
+    filter: grayscale(1);
+    border-color: rgba(255, 50, 50, 0.3);
+    cursor: not-allowed;
+}
+
+.nexus-tile-icon {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 5px rgba(102, 252, 241, 0.5));
+}
+
+.nexus-tile.sector-locked .nexus-tile-icon {
+    filter: drop-shadow(0 0 5px rgba(255, 50, 50, 0.5));
+}
+
+.nexus-tile-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    color: #66FCF1;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.nexus-tile.sector-locked .nexus-tile-label {
+    color: #888;
+}
+
+.nexus-tile-status {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: #C5C6C7;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 5px;
+    border: 1px solid rgba(102, 252, 241, 0.2);
+    border-radius: 2px;
+}
+
+.nexus-tile-cooldown {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: #ff3333;
+}
+
+.nexus-tile-cooldown img {
+    width: 10px;
+    height: 10px;
+}
+
+/* Staggered Boot Animation */
+.stagger-boot {
+    opacity: 0;
+    animation: nexusBoot 0.4s ease forwards;
+}
+
+@keyframes nexusBoot {
+    0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.nexus-tile:nth-child(1) { animation-delay: 0.1s; }
+.nexus-tile:nth-child(2) { animation-delay: 0.2s; }
+.nexus-tile:nth-child(3) { animation-delay: 0.3s; }
+.nexus-tile:nth-child(4) { animation-delay: 0.4s; }
+.nexus-tile:nth-child(5) { animation-delay: 0.5s; }
+.nexus-tile:nth-child(6) { animation-delay: 0.6s; }
+
+.view { display: none !important; }
+.view.active { display: block !important; }

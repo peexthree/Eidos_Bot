@@ -63,7 +63,12 @@
 
     <main id="views-container">
 
-        <section id="view-inventory" class="view-panel active">
+
+        <section id="view-nexus" class="view active">
+            <div id="nexus-grid-content" class="nexus-grid"></div>
+        </section>
+
+        <section id="view-inventory" class="view">
             
             <div class="profile-card">
                 <div class="avatar-wrapper">
@@ -97,12 +102,12 @@
                 </div>
         </section>
 
-        <section id="view-shop" class="view-panel">
+        <section id="view-shop" class="view">
             <div class="section-header">ТОРГОВЫЙ ШЛЮЗ</div>
             <div class="scroll-area" id="shop-list"></div>
         </section>
 
-        <section id="view-social" class="view-panel">
+        <section id="view-social" class="view">
             <div class="sub-tabs">
                 <div class="tab-btn active" data-social-tab="leaderboard">СЕТЬ</div>
                 <div class="tab-btn" data-social-tab="ai">ЭЙДОС</div>
@@ -127,20 +132,6 @@
         </div>
     </footer>
 
-    <nav class="bottom-nav">
-        <div class="nav-item active" data-target="view-inventory">
-            <img src="IMG/nav_head-psycho.svg">
-            <span>ПРОФИЛЬ</span>
-        </div>
-        <div class="nav-item" data-target="view-shop">
-            <img src="IMG/eidos_inventory-cache.svg">
-            <span>МАРКЕТ</span>
-        </div>
-        <div class="nav-item" data-target="view-social">
-            <img src="IMG/eidos_terminal-log.svg">
-            <span>СЕТЬ</span>
-        </div>
-    </nav>
 
     <div class="modal-overlay" id="item-modal">
         <div class="modal-frame">
