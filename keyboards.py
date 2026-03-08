@@ -190,7 +190,7 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
                 total_qty = sum(item['quantity'] for item in group)
                 inv_id = first['id']
                 durability = first.get('durability', 100)
-                name = EQUIPMENT_DB[iid]['name']
+                name = EQUIPMENT_DB.get(iid, {}).get('name', 'Unknown Item')
 
                 craft_icon = ' 🛠' if uid and crafting_service.can_craft(uid, iid) else ''
                 display_name = f"{name} [{durability}]"
@@ -212,6 +212,9 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
                 else:
                     info = config.ITEMS_INFO.get(item_id, {})
                     name = info.get('name', item_id)
+                if not name:
+                    name = "Unknown Item"
+
 
                 display_name = f"{name}"
                 if item_id in EQUIPMENT_DB:
@@ -219,15 +222,18 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
                 elif qty > 1:
                     display_name += f" (x{qty})"
 
+                if not inv_id:
+                    inv_id = item_id # Fallback if inv_id is missing
+
                 if dismantle_mode:
-                    m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ: {display_name}", callback_data=f"dismantle_{inv_id}"))
+                    m.add(types.InlineKeyboardButton(f"♻️ РАЗОБРАТЬ: {display_name}", callback_data=f"dismantle_{inv_id}"[:64]))
                 else:
                     if item_id in EQUIPMENT_DB:
-                        m.add(types.InlineKeyboardButton(f"⬆️ {display_name}", callback_data=f"view_item_{inv_id}"))
+                        m.add(types.InlineKeyboardButton(f"⬆️ {display_name}", callback_data=f"view_item_{inv_id}"[:64]))
                     elif item_id == 'admin_key':
                         m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: {display_name}", callback_data="use_admin_key"))
                     else:
-                        m.add(types.InlineKeyboardButton(f"{display_name}", callback_data=f"view_item_{inv_id}"))
+                        m.add(types.InlineKeyboardButton(f"{display_name}", callback_data=f"view_item_{inv_id}"[:64]))
 
     m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="back"))
     return m
@@ -557,6 +563,11 @@ def admin_item_select():
 
 def item_details_keyboard(item_id, is_owned=True, is_equipped=False, durability=None, inv_id=None):
     m = types.InlineKeyboardMarkup(row_width=2)
+
+    # Premium Special Item Handling
+    if item_id == 'eidos_shard':
+        m.add(types.InlineKeyboardButton("🔙 НАЗАД", callback_data="inventory"))
+        return m
     if durability is not None and durability <= 0:
         if inv_id:
             m.add(types.InlineKeyboardButton("🛠 ПОЧИНИТЬ (15% цены)", callback_data=f"repair_{inv_id}"))
