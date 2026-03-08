@@ -9,18 +9,20 @@ import re
 import logging
 import config
 
-# Прямой шлюз Google Gemini (через OpenAI совместимый эндпоинт)
-OPENROUTER_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+# Берем твой Гугл-ключ из Render
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-# Актуальный, "бессмертный" каскад моделей Google
+# Берем URL из Render (если его там нет, используем Гугловский по умолчанию)
+OPENROUTER_URL = os.environ.get("OPENROUTER_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+
+# Список моделей (Каскад для Гугла). Бот будет брать их отсюда.
 MODELS = [
-    "gemini-2.5-flash",       # Основная рабочая лошадка (стабильная, быстрая, умная)
-    "gemini-3-flash",         # Новое поколение (превью, уровень флагманов)
-    "gemini-2.5-pro",         # Тяжелая артиллерия (максимальная глубина психоанализа)
-    "gemini-3.1-pro",         # Новейший интеллект (на крайний случай)
-    "gemini-2.5-flash-lite"   # Резервный сверхбыстрый вариант, чтобы юзер не ждал
+    "gemini-2.5-flash",
+    "gemini-3-flash",
+    "gemini-2.5-pro",
+    "gemini-3.1-pro",
+    "gemini-2.5-flash-lite"
 ]
-
 
 # Initialize OpenAI Client safely
 ai_client = None
@@ -30,6 +32,7 @@ if OPENROUTER_API_KEY:
             base_url=OPENROUTER_URL,
             api_key=OPENROUTER_API_KEY,
         )
+
     except Exception as e:
         print(f"/// AI CLIENT INIT ERROR: {e}", flush=True)
 else:
