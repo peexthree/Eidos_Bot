@@ -92,9 +92,8 @@ let introFinished = false;
 
 // === ЛОГИКА ЗАГРУЗКИ ДАННЫХ ===
 async function loadData() {
-    // Включаем программный лоадер (старый) только если данные грузятся долго (>500ms)
     const loaderTimeout = setTimeout(() => {
-        if (!dataLoaded) els.loading.style.display = 'flex';
+        if (!dataLoaded) if (els.loading) els.loading.style.display = 'flex';
     }, 500);
 
     try {
@@ -108,7 +107,7 @@ async function loadData() {
         
         dataLoaded = true;
         clearTimeout(loaderTimeout);
-        checkAndRemoveLoader(); // Проверяем, можно ли убирать заставку
+        checkAndRemoveLoader();
     } catch (e) {
         console.error('Fetch error:', e);
         tg.showAlert('Сбой соединения с сервером Eidos.');
@@ -116,15 +115,23 @@ async function loadData() {
 }
 
 // Проверка: и видео доиграло, и данные есть
+let skipClicked = false;
+
+let loaderFadeTimeout = null;
+
 function checkAndRemoveLoader() {
+    if (skipClicked) {
+        if (dataLoaded) executeLoaderFade();
+        return;
+    }
     const elapsedTime = Date.now() - startTime;
     if (dataLoaded && elapsedTime >= MIN_LOADING_TIME) {
         executeLoaderFade();
     } else if (dataLoaded) {
-        // Ждем остаток времени видео
-        setTimeout(executeLoaderFade, MIN_LOADING_TIME - elapsedTime);
+        loaderFadeTimeout = setTimeout(executeLoaderFade, MIN_LOADING_TIME - elapsedTime);
     }
 }
+
 
 function executeLoaderFade() {
     const loader = document.getElementById('eidos-loader');
@@ -132,19 +139,23 @@ function executeLoaderFade() {
         loader.style.opacity = '0';
         setTimeout(() => {
             loader.remove();
-            els.loading.style.display = 'none'; // Убираем и старый лоадер тоже
+            if (els.loading) els.loading.style.display = 'none';
             pushLog('СИСТЕМА АКТИВИРОВАНА.', 'SYS');
         }, 800);
     }
 }
 
-// Принудительный пропуск (Skip)
 window.forceCloseLoader = function() {
+    skipClicked = true;
+    if (loaderFadeTimeout) {
+        clearTimeout(loaderFadeTimeout);
+        loaderFadeTimeout = null;
+    }
     if (dataLoaded) {
         executeLoaderFade();
     } else {
-        // Если данные еще не пришли, просто прячем видео и показываем старый лоадер
-        document.getElementById('eidos-loader').style.display = 'none';
+        const loader = document.getElementById('eidos-loader');
+        if (loader) loader.style.display = 'none';
         els.loading.style.display = 'flex';
     }
 };
