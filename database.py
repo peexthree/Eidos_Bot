@@ -583,38 +583,45 @@ def _sanitize_player_data(data_dict):
     return data_dict
 
 def get_user(uid, cursor=None):
-    from modules.schemas import User
-
-    def _execute_logic(cur, uid):
+    """Возвращает данные игрока. Убрана хрупкая валидация Pydantic для стабильности WebApp."""
+    
+    def _execute_logic(cur):
         try:
             cur.execute("SELECT * FROM players WHERE uid = %s", (uid,))
             res = cur.fetchone()
-            if res:
-                if hasattr(res, 'keys'):
-                    raw_dict = dict(res)
-                else:
-                    cols = [desc[0] for desc in cur.description]
-                    raw_dict = dict(zip(cols, res))
+            if not res: return None
 
-                sanitized = _sanitize_player_data(raw_dict)
-                # Pydantic Validation & Fallback
-                try:
-                    user_model = User(**sanitized)
-                    return user_model.model_dump() # Return dict to maintain legacy compatibility
-                except Exception as model_err:
-                    print(f"/// PYDANTIC VALIDATION ERROR for UID {uid}: {model_err}")
-                    return sanitized # Fallback to dict
-            return None
+            # Конвертируем в словарь (поддержка любого типа курсора)
+            user_dict = dict(res) if not hasattr(res, 'keys') else res
+
+            # ТВЕРДОЕ: Защита от NULL. Если в базе пусто, WebApp получит ноль, а не ошибку.
+            defaults = {
+                'xp': 0, 
+                'biocoin': 0, 
+                'level': 1, 
+                'path': 'general', 
+                'signal': 100, 
+                'total_spent': 0, 
+                'streak': 1,
+                'username': 'Unknown',
+                'first_name': 'Subject'
+            }
+
+            for key, val in defaults.items():
+                if user_dict.get(key) is None:
+                    user_dict[key] = val
+
+            return user_dict
         except Exception as e:
-            print(f"/// DB GET_USER ERROR: {e}")
-            raise e
+            print(f"/// DB GET_USER CRITICAL ERROR: {e}")
+            return None
 
     if cursor:
-        return _execute_logic(cursor, uid)
+        return _execute_logic(cur=cursor)
     else:
         with db_cursor(cursor_factory=RealDictCursor) as cur:
             if not cur: return None
-            return _execute_logic(cur, uid)
+            return _execute_logic(cur=cur)
 
 def add_user(uid, username, first_name, referrer=None):
     with db_session() as conn:
@@ -783,9 +790,10 @@ def reset_daily_stats(uid):
             cur.execute("UPDATE players SET raid_count_today = 0, last_raid_date = CURRENT_TIMESTAMP WHERE uid = %s", (uid,))
 
 def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
-    # Import locally to avoid circular deps if any
-    from config import EQUIPMENT_DB, CURSED_CHEST_DROPS, ITEMS_INFO
+    """Добавляет предметы, учитывая стеки, прочность и лимиты. Очищает кэш для WebApp."""
+    from config import EQUIPMENT_DB, CURSED_CHEST_DROPS, ITEMS_INFO, INVENTORY_LIMIT
     from psycopg2.extras import execute_values
+    import cache_db # Твердое: для мгновенного обновления инвентаря
 
     def _add_logic(cur):
         is_equipment = item_id in EQUIPMENT_DB
@@ -793,13 +801,14 @@ def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
         max_stack = item_info.get("max_stack", 1) if not is_equipment else 1
 
         if is_equipment:
-            # Check limits
+            # 1. Проверка лимита для снаряжения
             cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
             res = cur.fetchone()
-            count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
+            count = (res[0] if isinstance(res, tuple) else res.get('count')) or 0
             if count + qty > int(INVENTORY_LIMIT or 20):
                 return False
 
+            # Определение прочности
             if specific_durability:
                 durability = specific_durability
             elif item_id in CURSED_CHEST_DROPS:
@@ -807,43 +816,63 @@ def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
             else:
                 durability = random.randint(5, 10)
 
+            # Массовая вставка (быстрее для БД)
             values = [(uid, item_id, 1, durability, None) for _ in range(qty)]
             execute_values(cur, """
                 INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
                 VALUES %s
             """, values)
         else:
-            # Consumables: Find existing stacks
+            # 2. Логика для расходников (стекирование)
             cur.execute("SELECT id, quantity FROM inventory WHERE uid=%s AND item_id=%s ORDER BY id", (uid, item_id))
             stacks = cur.fetchall()
-
             remaining_qty = qty
 
-            # Fill existing stacks
             for stack in stacks:
-                inv_id, current_qty = stack
-                if isinstance(stack, dict):
-                    inv_id = stack['id']
-                    current_qty = stack['quantity']
-
+                inv_id = stack['id'] if isinstance(stack, dict) else stack[0]
+                current_qty = stack['quantity'] if isinstance(stack, dict) else stack[1]
+                
                 space_in_stack = max_stack - current_qty
                 if space_in_stack > 0:
                     add_to_stack = min(remaining_qty, space_in_stack)
                     cur.execute("UPDATE inventory SET quantity = quantity + %s WHERE id = %s", (add_to_stack, inv_id))
                     remaining_qty -= add_to_stack
-                if remaining_qty <= 0:
-                    break
+                if remaining_qty <= 0: break
 
-            # Need new stacks
             if remaining_qty > 0:
+                # Если места в стеках не хватило — создаем новые
                 new_stacks_needed = (remaining_qty + max_stack - 1) // max_stack
-
                 cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
                 res = cur.fetchone()
-                count = (res[0] if isinstance(res, tuple) else res.get("count") or res.get("count(*)")) if res else 0
-
+                count = (res[0] if isinstance(res, tuple) else res.get('count')) or 0
+                
                 if count + new_stacks_needed > int(INVENTORY_LIMIT or 20):
-                    return False # Transaction fails if limits exceeded
+                    return False
+
+                values = []
+                while remaining_qty > 0:
+                    stack_qty = min(remaining_qty, max_stack)
+                    values.append((uid, item_id, stack_qty, 100, None))
+                    remaining_qty -= stack_qty
+                
+                execute_values(cur, """
+                    INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
+                    VALUES %s
+                """, values)
+        return True
+
+    # Основной цикл выполнения
+    success = False
+    if cursor:
+        success = _add_logic(cursor)
+    else:
+        with db_cursor() as cur:
+            if cur: success = _add_logic(cur)
+    
+    # КРИТИЧЕСКИЙ МОМЕНТ: Если предмет добавлен, чистим кэш
+    if success:
+        cache_db.clear_cache(uid)
+    return success
 
                 values = []
                 while remaining_qty > 0:
@@ -870,23 +899,24 @@ def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
         if res: cache_db.clear_cache(uid)
         return res
 def get_inventory(uid, cursor=None):
-    # Returns list including 'id' for handling individual items
-    query = "SELECT id, uid, item_id, quantity, durability, custom_data FROM inventory WHERE quantity > 0 AND uid = %s ORDER BY item_id ASC"
+    """Возвращает список предметов в инвентаре игрока. Гарантирует формат словаря."""
+    query = "SELECT id, uid, item_id, quantity, durability, custom_data FROM inventory WHERE quantity > 0 AND uid = %s ORDER BY id DESC"
 
-    def _execute_logic(cur, uid):
+    def _execute_logic(cur):
         cur.execute(query, (uid,))
         res = cur.fetchall()
-        if res and not hasattr(res[0], 'keys'):
-            cols = [desc[0] for desc in cur.description]
-            return [dict(zip(cols, row)) for row in res]
-        return [dict(row) for row in res] if res else []
+        # Принудительная конвертация в список словарей для JS
+        items = []
+        for row in res:
+            r = dict(row) if not hasattr(row, 'keys') else row
+            items.append(r)
+        return items
 
     if cursor:
-        return _execute_logic(cursor, uid)
-    else:
-        with db_cursor(cursor_factory=RealDictCursor) as cur:
-            if not cur: return []
-            return _execute_logic(cur, uid)
+        return _execute_logic(cursor)
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return []
+        return _execute_logic(cur)
 
 def use_item(uid, item_id, qty=1, cursor=None):
     # This function is mostly used for consumables/currencies/logic
@@ -1010,24 +1040,37 @@ def unequip_item(uid, slot):
         return False
 
 def get_equipped_items_full(uid, cursor=None):
-    if cursor:
-        cursor.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
-        return {row["slot"]: {"item_id": row["item_id"], "durability": row["durability"]} for row in cursor.fetchall()}
+    """Возвращает полную инфу об экипировке. Всегда содержит 5 ключей-слотов."""
+    slots = ['head', 'weapon', 'body', 'software', 'artifact']
+    # Сразу создаем "пустой" скелет
+    equipped = {slot: None for slot in slots}
 
-    with db_cursor(cursor_factory=RealDictCursor) as cur:
-        if not cur: return {}
+    def _execute_logic(cur):
         cur.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
-        return {row["slot"]: {"item_id": row["item_id"], "durability": row["durability"]} for row in cur.fetchall()}
+        rows = cur.fetchall()
+        for row in rows:
+            # Превращаем в словарь, если пришел кортеж (защита от разных курсоров)
+            r = dict(row) if not hasattr(row, 'keys') else row
+            s = r['slot']
+            if s in equipped:
+                equipped[s] = {
+                    "item_id": r["item_id"],
+                    "durability": r["durability"],
+                    "custom_data": r["custom_data"]
+                }
+        return equipped
+
+    if cursor:
+        return _execute_logic(cursor)
+    with db_cursor(cursor_factory=RealDictCursor) as cur:
+        if not cur: return equipped
+        return _execute_logic(cur)
 
 def get_equipped_items(uid, cursor=None):
-    if cursor:
-        cursor.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
-        return {row['slot']: row['item_id'] for row in cursor.fetchall()}
-
-    with db_cursor(cursor_factory=RealDictCursor) as cur:
-        if not cur: return {}
-        cur.execute("SELECT slot, item_id, durability, custom_data FROM user_equipment WHERE uid=%s", (uid,))
-        return {row['slot']: row['item_id'] for row in cur.fetchall()}
+    """Упрощенная версия: только {слот: item_id}"""
+    full = get_equipped_items_full(uid, cursor)
+    # Очищаем от лишней инфы для старого бота
+    return {s: (v['item_id'] if v else None) for s, v in full.items()}
 
 def get_equipped_item_in_slot(uid, slot, cursor=None):
     if cursor:
