@@ -32,7 +32,6 @@ if OPENROUTER_API_KEY:
             base_url=OPENROUTER_URL,
             api_key=OPENROUTER_API_KEY,
         )
-
     except Exception as e:
         print(f"/// AI CLIENT INIT ERROR: {e}", flush=True)
 else:
@@ -94,6 +93,7 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
     
     for model_name in MODELS:
         try:
+            print(f"/// ATTEMPTING AI STREAM WITH: {model_name}", flush=True)
             stream = ai_client.chat.completions.create(
                 model=model_name,
                 messages=[
@@ -120,7 +120,7 @@ def stream_ai_response(bot, chat_id, msg_id, system_prompt, user_content):
                             pass
                         else:
                             try:
-                                bot.edit_message_text(f"👁‍🗨 SYNCHRONIZING...\n\n{full_text} █", chat_id=chat_id, message_id=msg_id)
+                                bot.edit_message_text(f"👁‍🗨 СИНХРОНИЗАЦИЯ ({model_name.split('-')[1]})...\n\n{full_text} █", chat_id=chat_id, message_id=msg_id)
                                 last_edit_time = time.time()
                             except Exception as e:
                                 if "message is not modified" not in str(e).lower():
