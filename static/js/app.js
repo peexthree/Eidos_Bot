@@ -16,6 +16,14 @@ if (!uid) {
 }
 
 
+
+function getHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': window.tg && tg.initData ? tg.initData : ''
+    };
+}
+
 let isActionLocked = false;
 async function fetchWithLock(url, options) {
     if(isActionLocked) return {error: "Locked"};
@@ -32,6 +40,7 @@ async function fetchWithLock(url, options) {
 
 let inventoryData = { items: [], equipped: {}, profile: {} };
 let currentFilter = 'all';
+let lastStats = {atk: 0, def: 0, luck: 0, signal: 100};
 
 // Константы раритетности
 const RARITY_COLORS = {
@@ -85,7 +94,7 @@ const els = {
 };
 
 // Таймеры для загрузки
-const MIN_LOADING_TIME = 8000; 
+const MIN_LOADING_TIME = 3000;
 const startTime = Date.now();
 let dataLoaded = false;
 let introFinished = false;
@@ -110,7 +119,7 @@ async function loadData() {
 
     try {
         console.log("/// EIDOS: Fetching inventory...");
-        const res = await fetch(`/api/inventory?uid=${uid}`);
+        const res = await fetch(`/api/inventory?uid=${uid}`, { headers: getHeaders() });
         if (!res.ok) throw new Error('API Error');
         
         inventoryData = await res.json();
@@ -163,6 +172,7 @@ function executeLoaderFade() {
             loader.remove();
             if (els.loading) els.loading.style.display = 'none';
             pushLog('СИСТЕМА АКТИВИРОВАНА.', 'SYS');
+            showView('view-nexus');
         }, 800);
     }
 }
@@ -239,7 +249,20 @@ function renderProfile() {
 
 function animateStatChange(el, newValue) {
     if (!el) return;
-
+    const oldVal = parseInt(el.innerText) || 0;
+    el.innerText = newValue;
+    if (newValue !== oldVal && oldVal !== 0) {
+        el.classList.remove('stat-up', 'stat-down');
+        void el.offsetWidth; // force reflow
+        if (newValue > oldVal) {
+            el.classList.add('stat-up');
+        } else {
+            el.classList.add('stat-down');
+        }
+        setTimeout(() => {
+            el.classList.remove('stat-up', 'stat-down');
+        }, 800);
+    }
 }
 
 function updateSignalUI() {
@@ -275,16 +298,41 @@ function renderDoll() {
         const slotEl = document.getElementById(`slot-${slot}`);
         if (!slotEl) return;
 
+        slotEl.setAttribute('data-slot-type', slot);
+
+        const currentItemId = slotEl.getAttribute('data-item-id');
+        const newItemId = item ? String(item.item_id) : 'empty';
+
+        // Solid Check: если предмет тот же — не перерисовывать
+        if (currentItemId === newItemId) return;
+        slotEl.setAttribute('data-item-id', newItemId);
+
         if (item) {
             const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
+
+            // Visual excellence logic
+            let extraStyle = '';
+            let extraClass = '';
+            if (item.rarity === 'legendary') {
+                extraClass = 'overheatPulse';
+                extraStyle = `border: 1px solid ${color};`;
+            } else if (item.rarity === 'epic') {
+                extraStyle = `border: 1px solid ${color}; box-shadow: inset 0 0 15px ${color}80;`;
+            } else {
+                extraStyle = `border: 1px solid ${color}; box-shadow: inset 0 0 15px ${color}40;`;
+            }
+
             slotEl.innerHTML = `
-                <div class="equipped-item" style="border: 1px solid ${color}; box-shadow: inset 0 0 15px ${color}40; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background: rgba(0,0,0,0.6);">
+                <div class="equipped-item ${extraClass}" style="${extraStyle} width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background: rgba(0,0,0,0.6);">
                     <div style="font-size: 28px; filter: drop-shadow(0 0 5px ${color});">${ICONS[slot] || ICONS['default']}</div>
                     <div style="font-size: 8px; color: ${color}; text-align: center; margin-top:5px; word-wrap: break-word; padding: 0 2px;">${item.name}</div>
                 </div>`;
             slotEl.onclick = () => openUnequipModal(slot, item);
         } else {
-            slotEl.innerHTML = `<div style="opacity: 0.15; font-size: 28px; display:flex; align-items:center; justify-content:center; height:100%;">${ICONS[slot] || ICONS['default']}</div>`;
+            // Empty state canonical icon
+            let rawIcon = ICONS[slot] || ICONS['default'];
+            let modifiedIcon = rawIcon.replace('<img ', '<img style="opacity: 0.1; filter: grayscale(1);" ');
+            slotEl.innerHTML = `<div style="font-size: 28px; display:flex; align-items:center; justify-content:center; height:100%;">${modifiedIcon}</div>`;
             slotEl.onclick = null;
         }
     });
@@ -307,6 +355,8 @@ function renderInventory() {
         return;
     }
 
+    const fragment = document.createDocumentFragment();
+
     items.forEach(item => {
         const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
         const card = document.createElement('div');
@@ -321,8 +371,10 @@ function renderInventory() {
             ${item.quantity > 1 ? `<div class="item-qty" style="color:#fff; background:#333; padding:2px 6px; border-radius:4px; font-size:12px;">x${item.quantity}</div>` : ''}
         `;
         card.onclick = () => openItemModal(item);
-        els.inventoryList.appendChild(card);
+        fragment.appendChild(card);
     });
+
+    els.inventoryList.appendChild(fragment);
 }
 
 // === ЛОГИКА ВКЛАДОК (ФИЛЬТРЫ) ===
@@ -337,6 +389,7 @@ document.querySelectorAll('.tab[data-filter]').forEach(tab => {
 
 // === МОДАЛЬНЫЕ ОКНА И ДЕЙСТВИЯ ===
 function openItemModal(item) {
+    if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
     const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
     els.modalIcon.innerHTML = ICONS[item.type] || ICONS['default'];
     els.modalTitle.innerText = item.name;
@@ -352,7 +405,10 @@ function openItemModal(item) {
         const btnEquip = document.createElement('button');
         btnEquip.className = 'action-btn';
         btnEquip.innerText = 'ЭКИПИРОВАТЬ';
-        btnEquip.onclick = () => performAction('/api/inventory/equip', {uid, item_id: item.item_id});
+        btnEquip.onclick = () => {
+        if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+        performAction('/api/inventory/equip', {uid, item_id: item.item_id});
+    };
         els.modalActions.appendChild(btnEquip);
     }
     
@@ -383,6 +439,7 @@ function openItemModal(item) {
 }
 
 function openUnequipModal(slot, item) {
+    if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
     const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
     els.modalIcon.innerHTML = ICONS[slot];
     els.modalTitle.innerText = item.name;
@@ -395,7 +452,10 @@ function openUnequipModal(slot, item) {
     const btnUnequip = document.createElement('button');
     btnUnequip.className = 'action-btn';
     btnUnequip.innerText = 'СНЯТЬ';
-    btnUnequip.onclick = () => performAction('/api/inventory/unequip', {uid, slot: slot});
+    btnUnequip.onclick = () => {
+        if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+        performAction('/api/inventory/unequip', {uid, slot: slot});
+    };
     els.modalActions.appendChild(btnUnequip);
 
     els.modal.classList.add('active');
@@ -410,7 +470,7 @@ async function performAction(endpoint, payload) {
     els.modal.classList.remove('active');
     const res = await fetchWithLock(endpoint, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: getHeaders(),
         body: JSON.stringify(payload)
     });
     
@@ -446,7 +506,7 @@ window.forceCloseLoader = function() {
 
 
 function showView(viewId) {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.view, .view-panel').forEach(v => v.classList.remove('active'));
     const target = document.getElementById(viewId);
     if (target) {
         target.classList.add('active');
@@ -457,7 +517,7 @@ function showView(viewId) {
 }
 
 function renderNexusGrid() {
-    const gridContent = document.getElementById('nexus-grid-content');
+    const gridContent = document.getElementById('nexus-grid-tiles');
     if (!gridContent) return;
 
     const profile = inventoryData.profile || {};

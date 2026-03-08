@@ -88,8 +88,14 @@ def inventory_webapp():
     static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
     return flask.send_from_directory(static_dir, 'inventory.html')
 
+_inventory_cache = {}
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
+
+    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    if not init_data:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+
     uid_str = flask.request.args.get('uid')
     if not uid_str:
         return flask.jsonify({"error": "Missing uid"}), 400
@@ -97,6 +103,11 @@ def inventory_api():
         uid = int(uid_str)
     except:
         return flask.jsonify({"error": "Invalid uid"}), 400
+
+    now = time.time()
+    cached = _inventory_cache.get(uid)
+    if cached and now - cached['time'] < 3:
+        return flask.jsonify(cached['data'])
 
     user = db.get_user(uid)
     if not user:
@@ -165,14 +176,23 @@ def inventory_api():
         else:
             enriched_equipped[slot] = None
 
-    return flask.jsonify({
+    response_data = {
         "profile": profile,
         "items": items,
         "equipped": enriched_equipped
-    })
+    }
+
+    _inventory_cache[uid] = {'time': time.time(), 'data': response_data}
+
+    return flask.jsonify(response_data)
 
 @app.route('/api/inventory/equip', methods=['POST'])
 def inventory_equip():
+
+    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    if not init_data:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+
     data = flask.request.json
     uid, item_id = data.get('uid'), data.get('item_id')
     from modules.services.inventory import equip_item
@@ -181,6 +201,11 @@ def inventory_equip():
 
 @app.route('/api/inventory/unequip', methods=['POST'])
 def inventory_unequip():
+
+    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    if not init_data:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+
     data = flask.request.json
     uid, slot = data.get('uid'), data.get('slot')
     from modules.services.inventory import unequip_item
@@ -189,6 +214,11 @@ def inventory_unequip():
 
 @app.route('/api/inventory/use', methods=['POST'])
 def inventory_use():
+
+    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    if not init_data:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+
     data = flask.request.json
     uid, item_id = data.get('uid'), data.get('item_id')
     # Добавляем базовую проверку на использование
@@ -197,6 +227,11 @@ def inventory_use():
 
 @app.route('/api/inventory/dismantle', methods=['POST'])
 def inventory_dismantle():
+
+    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    if not init_data:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+
     data = flask.request.json
     uid, item_id = data.get('uid'), data.get('item_id')
     # Возвращаем биокоины при разборе
