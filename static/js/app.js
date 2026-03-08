@@ -92,24 +92,45 @@ let introFinished = false;
 
 // === ЛОГИКА ЗАГРУЗКИ ДАННЫХ ===
 async function loadData() {
+    // 1. Пытаемся принудительно запустить видео сразу при входе в функцию
+    const vfxVideo = document.querySelector('#eidos-loader video');
+    if (vfxVideo) {
+        vfxVideo.play().catch(err => console.log("Video wait for interaction"));
+    }
+
+    // 2. Таймер для запасного SVG-лоадера (включаем его, только если данные совсем застряли)
     const loaderTimeout = setTimeout(() => {
-        if (!dataLoaded) if (els.loading) els.loading.style.display = 'flex';
-    }, 500);
+        if (!dataLoaded && els.loading) {
+            // Скрываем видео, если оно не загрузилось за 3 секунды, и показываем SVG
+            const videoLoader = document.getElementById('eidos-loader');
+            if (videoLoader) videoLoader.style.display = 'none';
+            els.loading.style.display = 'flex';
+        }
+    }, 3000); // Даем видео 3 секунды на старт до того как выкинуть запасной лоадер
 
     try {
+        console.log("/// EIDOS: Fetching inventory...");
         const res = await fetch(`/api/inventory?uid=${uid}`);
         if (!res.ok) throw new Error('API Error');
+        
         inventoryData = await res.json();
 
+        // Рендерим всё за кулисами (пока висит заставка)
         renderProfile();
         renderDoll();
         renderInventory();
         
         dataLoaded = true;
         clearTimeout(loaderTimeout);
+        
+        // Переходим к проверке времени (чтобы заставка не исчезла мгновенно)
         checkAndRemoveLoader();
+        
     } catch (e) {
         console.error('Fetch error:', e);
+        // Если всё упало, убираем видео-заглушку, чтобы юзер видел ошибку
+        const videoLoader = document.getElementById('eidos-loader');
+        if (videoLoader) videoLoader.style.display = 'none';
         tg.showAlert('Сбой соединения с сервером Eidos.');
     }
 }
