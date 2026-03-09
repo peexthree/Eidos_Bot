@@ -1175,3 +1175,9 @@ ADMIN_GUIDE_TEXT = (
     "• <b>SQL Execute:</b> Выполнение сырых SQL запросов к базе. ОПАСНО.\n"
     "• <b>User List:</b> Просмотр последних активных игроков (Досье)."
 )
+
+
+# Auto-inject image IDs into ITEMS_INFO
+for item_id, image_id in ITEM_IMAGES.items():
+    if item_id in ITEMS_INFO:
+        ITEMS_INFO[item_id]['file_id'] = image_id
