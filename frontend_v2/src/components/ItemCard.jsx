@@ -3,13 +3,13 @@ import useStore from '../store/useStore';
 
 const ItemCard = ({ item }) => {
   const equipItem = useStore((state) => state.equipItem);
-  const equipped = useStore((state) => state.equipped);
+  const equipped = useStore((state) => state.equipped) || {};
 
-  const isEquipped = Object.values(equipped).includes(item.id);
+  const isEquipped = Object.values(equipped).includes(item?.id);
 
   const handleEquip = () => {
-    if (item.type !== 'Consumable') {
-      equipItem(item.type.toLowerCase(), item.id);
+    if (item?.type !== 'Consumable') {
+      equipItem(item?.type?.toLowerCase(), item?.id);
     }
   };
 
@@ -20,7 +20,8 @@ const ItemCard = ({ item }) => {
     legendary: 'border-l-eidos-red bg-eidos-red/10 text-glow-red',
   };
 
-  const borderColor = rarityStyles[item.rarity] || rarityStyles.common;
+  const itemRarity = item?.rarity || 'common';
+  const borderColor = rarityStyles[itemRarity] || rarityStyles.common;
 
   return (
     <div
@@ -28,18 +29,18 @@ const ItemCard = ({ item }) => {
     >
       <div className="flex flex-col flex-1">
         <h3 className="font-orbitron text-sm font-bold tracking-widest text-white/90 group-hover:text-white transition-colors">
-          {item.name}
+          {item?.name || 'Unknown Item'}
         </h3>
         <div className="flex items-center space-x-2 mt-1">
           <span className="font-share text-[10px] uppercase text-white/50 border border-white/20 px-1 py-0.5 rounded-sm">
-            {item.type}
+            {item?.type || 'Unknown'}
           </span>
-          {item.amount && (
+          {item?.amount && (
             <span className="font-share text-[10px] text-yellow-400">
               QTY: {item.amount}
             </span>
           )}
-          {item.stats && (
+          {item?.stats && (
             <div className="font-share text-[10px] text-eidos-cyan flex space-x-2">
               {Object.entries(item.stats).map(([k, v]) => (
                 <span key={k}>+{v}{k.toUpperCase()}</span>
@@ -49,7 +50,7 @@ const ItemCard = ({ item }) => {
         </div>
       </div>
 
-      {item.type !== 'Consumable' && (
+      {item?.type !== 'Consumable' && (
         <button
           onClick={handleEquip}
           disabled={isEquipped}

@@ -2,18 +2,8 @@ import { create } from 'zustand';
 import axios from 'axios';
 
 const useStore = create((set) => ({
-  profile: {
-    name: "CYBER_NOMAD",
-    level: 0,
-    faction: "UNKNOWN",
-    biocoins: 0,
-    stats: {
-      atk: 0,
-      def: 0,
-      luck: 0,
-      signal: 0
-    }
-  },
+  isLoading: true,
+  profile: null, // Initially null to enforce the loading screen
   inventory: [],
   equipped: {
     head: null,
@@ -25,10 +15,12 @@ const useStore = create((set) => ({
   // Actions
   fetchProfile: async (uid) => {
     try {
+      set({ isLoading: true });
       const response = await axios.get('/api/inventory', { params: { uid } });
       const data = response.data;
 
       set({
+        isLoading: false,
         profile: data.profile || {
           name: data.name || data.player?.name || "UNKNOWN",
           level: data.level || data.player?.level || 0,
@@ -41,6 +33,7 @@ const useStore = create((set) => ({
       });
     } catch (error) {
       console.error("Error fetching profile:", error);
+      set({ isLoading: false }); // To ensure we don't get stuck, though profile will remain null and show loader
     }
   },
 

@@ -18,7 +18,8 @@ const EquipSlot = ({ label, slot, item }) => {
   };
 
   const isEmpty = !item;
-  const slotColorClass = isEmpty ? 'border-white/20 text-white/40 border-dashed' : rarityColorMap[item.rarity];
+  const itemRarity = item?.rarity || 'common';
+  const slotColorClass = isEmpty ? 'border-white/20 text-white/40 border-dashed' : (rarityColorMap[itemRarity] || rarityColorMap.common);
   const bgClass = isEmpty ? 'bg-black/20' : 'bg-eidos-glass';
 
   return (
@@ -33,12 +34,12 @@ const EquipSlot = ({ label, slot, item }) => {
         <div className="font-share text-xs opacity-30 mt-2">EMPTY</div>
       ) : (
         <div className="flex flex-col items-center text-center mt-2">
-           <div className={`font-orbitron text-[10px] leading-tight font-bold mb-1 ${item.rarity === 'legendary' ? 'text-glow-red' : ''}`}>
-             {item.name}
+           <div className={`font-orbitron text-[10px] leading-tight font-bold mb-1 ${itemRarity === 'legendary' ? 'text-glow-red' : ''}`}>
+             {item?.name || 'Unknown'}
            </div>
            {/* Краткие статы */}
            <div className="font-share text-[8px] text-white/70">
-             {item.stats && Object.entries(item.stats).map(([k, v]) => (
+             {item?.stats && Object.entries(item.stats).map(([k, v]) => (
                 <span key={k} className="mx-0.5">+{v}{k.toUpperCase()}</span>
              ))}
            </div>
@@ -49,10 +50,10 @@ const EquipSlot = ({ label, slot, item }) => {
 };
 
 const EquipDoll = () => {
-  const equipped = useStore((state) => state.equipped);
-  const inventory = useStore((state) => state.inventory);
+  const equipped = useStore((state) => state.equipped) || {};
+  const inventory = useStore((state) => state.inventory) || [];
 
-  const getItem = (id) => inventory.find(i => i.id === id);
+  const getItem = (id) => inventory.find(i => i?.id === id);
 
   return (
     <div className="w-full bg-eidos-glass p-6 clip-hex border border-white/10 relative overflow-hidden mb-6">
@@ -62,19 +63,19 @@ const EquipDoll = () => {
       <div className="relative z-10 flex flex-col items-center">
         {/* Head */}
         <div className="mb-2">
-          <EquipSlot label="HEAD" slot="head" item={getItem(equipped.head)} />
+          <EquipSlot label="HEAD" slot="head" item={getItem(equipped?.head)} />
         </div>
 
         {/* Middle row: Weapon, Body, Software */}
         <div className="flex items-center justify-center gap-4 mb-2">
-          <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped.weapon)} />
-          <EquipSlot label="BODY" slot="body" item={getItem(equipped.body)} />
-          <EquipSlot label="SOFTWARE" slot="software" item={getItem(equipped.software)} />
+          <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped?.weapon)} />
+          <EquipSlot label="BODY" slot="body" item={getItem(equipped?.body)} />
+          <EquipSlot label="SOFTWARE" slot="software" item={getItem(equipped?.software)} />
         </div>
 
         {/* Artifact */}
         <div>
-           <EquipSlot label="ARTIFACT" slot="artifact" item={getItem(equipped.artifact)} />
+           <EquipSlot label="ARTIFACT" slot="artifact" item={getItem(equipped?.artifact)} />
         </div>
       </div>
     </div>
