@@ -4,7 +4,6 @@ import WebApp from '@twa-dev/sdk';
 
 const HoldToEquip = ({ onEquip }) => {
   const [isHolding, setIsHolding] = useState(false);
-  const [progress, setProgress] = useState(0);
   const controls = useAnimation();
   const holdTimer = useRef(null);
   const hapticTimer = useRef(null);
@@ -43,7 +42,6 @@ const HoldToEquip = ({ onEquip }) => {
       controls.set({ pathLength: 0 });
       clearTimeout(holdTimer.current);
       clearInterval(hapticTimer.current);
-      setProgress(0);
     }
   };
 

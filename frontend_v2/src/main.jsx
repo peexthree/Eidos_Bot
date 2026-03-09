@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 import WebApp from '@twa-dev/sdk'
+import useStore from './store/useStore'
 
 // ==========================================
 // EIDOS OS V2: INIT SEQUENCE
@@ -48,6 +49,12 @@ if (!window.Telegram?.WebApp?.initData) {
       }
     }
   };
+}
+
+// Fetch user data right after SDK is ready
+const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+if (uid) {
+  useStore.getState().fetchProfile(uid);
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
