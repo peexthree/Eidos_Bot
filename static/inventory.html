@@ -44,35 +44,11 @@
         </div>
     </div>
 
-    <header class="stats-header">
-        <canvas id="acoustic-visualizer" style="position:absolute; top:0; left:0; width:100%; height:20px; z-index:-1; opacity:0.6; pointer-events:none;"></canvas>
-        <div class="stats-grid">
-            <div class="stat-box" data-label="АТК">
-                <span class="stat-icon"><img src="IMG/eidos_weapon-attack.svg" alt="ATK" style="width:16px; height:16px; filter: invert(0.5) sepia(1) saturate(5) hue-rotate(330deg);"></span>
-                <div id="stat-atk" class="stat-value" style="color: #ff4d4d; text-shadow: 0 0 5px #ff4d4d; font-weight: bold;">0</div>
-            </div>
-            <div class="stat-box" data-label="ЗАЩ">
-                <span class="stat-icon"><img src="IMG/eidos_shield-armor.svg" alt="DEF" style="width:16px; height:16px; filter: invert(0.6) sepia(1) saturate(5) hue-rotate(180deg);"></span>
-                <div id="stat-def" class="stat-value" style="color: #4da6ff; text-shadow: 0 0 5px #4da6ff; font-weight: bold;">0</div>
-            </div>
-            <div class="stat-box" data-label="УДАЧА">
-                <span class="stat-icon"><img src="IMG/eidos_glitch-anomaly.svg" alt="LUCK" style="width:16px; height:16px; filter: invert(0.8) sepia(1) saturate(3) hue-rotate(30deg);"></span>
-                <div id="stat-luck" class="stat-value" style="color: #ffd700; text-shadow: 0 0 5px #ffd700; font-weight: bold;">0</div>
-            </div>
-            <div class="stat-box" data-label="СИГНАЛ">
-                <span class="stat-icon"><img src="IMG/eidos_comm-link.svg" alt="SIGNAL" style="width:16px; height:16px; filter: invert(0.6) sepia(1) saturate(5) hue-rotate(80deg);"></span>
-                <div id="stat-signal" class="stat-value" style="color: #00ff41; text-shadow: 0 0 5px #00ff41; font-weight: bold;">100%</div>
-            </div>
-        </div>
-        <div class="xp-container">
-            <div id="xp-bar" class="xp-fill"></div>
-            <div id="xp-text" class="xp-label" style="color: #ffffff; text-shadow: 1px 1px 2px #000;">0 / 0 ОПЫТ</div>
-        </div>
-    </header>
+
 
     <main id="views-container">
 
-        <section id="view-nexus" class="view-panel active">
+        <section id="view-nexus" class="view-panel active" style="display: flex; align-items: center; justify-content: center; height: 100vh;">
             <div class="nexus-grid" id="nexus-grid-tiles"></div>
         </section>
 
@@ -88,7 +64,13 @@
                 <div class="user-details">
                     <h2 id="profile-name" style="color: #ffffff; text-shadow: 0 0 5px #66FCF1;">ИДЕНТИФИКАЦИЯ...</h2>
                     <p id="profile-faction" style="color: #a0a0a0;">ФРАКЦИЯ: НЕЙТРАЛ</p>
-                    <div class="currency-display" style="color: #66FCF1; font-weight: bold;">
+
+                <div class="user-stats-line" style="display: flex; gap: 15px; justify-content: center; margin-top: 10px; font-size: 14px; color: #fff;">
+                    <span title="АТК"><img src="IMG/eidos_weapon-attack.svg" style="width:14px; filter: invert(0.5) sepia(1) saturate(5) hue-rotate(330deg); vertical-align: middle;"> <span id="stat-atk" style="color: #ff4d4d;">0</span></span>
+                    <span title="ЗАЩ"><img src="IMG/eidos_armor-defense.svg" style="width:14px; filter: invert(0.5) sepia(1) saturate(5) hue-rotate(200deg); vertical-align: middle;"> <span id="stat-def" style="color: #4da6ff;">0</span></span>
+                    <span title="УДАЧА"><img src="IMG/eidos_luck-dice.svg" style="width:14px; filter: invert(0.5) sepia(1) saturate(5) hue-rotate(90deg); vertical-align: middle;"> <span id="stat-luck" style="color: #00ff41;">0</span></span>
+                </div>
+<div class="currency-display" style="color: #66FCF1; font-weight: bold;">
                         <span id="profile-biocoins" style="text-shadow: 0 0 5px #66FCF1;">0</span> <small style="color: #c5c6c7;">БИОКОИНОВ</small>
                     </div>
                 </div>
