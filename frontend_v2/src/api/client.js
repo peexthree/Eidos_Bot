@@ -1,0 +1,50 @@
+import axios from 'axios';
+import WebApp from '@twa-dev/sdk';
+
+// ==========================================
+// EIDOS CORE V2 - Изолированный сетевой клиент
+// ==========================================
+
+export const eidosApi = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+});
+
+// Глобальный перехватчик запросов
+eidosApi.interceptors.request.use(
+  (config) => {
+    // Получаем строку initData из Telegram SDK.
+    // Если WebApp не инициализирован (в браузере вне Telegram),
+    // используется mock, заданный на этапе старта в main.jsx.
+    const initData = WebApp.initData;
+
+    if (initData) {
+      config.headers['X-Telegram-Init-Data'] = initData;
+    }
+
+    // Для предотвращения кэширования AJAX-запросов (браузером на мобильных)
+    config.params = { ...config.params, _t: new Date().getTime() };
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Глобальный перехватчик ответов
+eidosApi.interceptors.response.use(
+  (response) => {
+    // Успешный ответ
+    return response.data;
+  },
+  (error) => {
+    // В случае ошибок логгируем их в нашем стиле терминала EIDOS
+    console.error('/// NETWORK ERROR ///', error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
