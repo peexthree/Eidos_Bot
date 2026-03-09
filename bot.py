@@ -320,6 +320,7 @@ def shop_api():
 
 @app.route('/api/shop/buy', methods=['POST'])
 def shop_buy():
+    import config
     data = flask.request.json
     uid, item_id = data.get('uid'), data.get('item_id')
     u = db.get_user(uid)
