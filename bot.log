@@ -735,3 +735,19 @@ Traceback (most recent call last):
   File "/app/bot.py", line 338, in stats_flusher
     from modules.services.user import flush_stats
 ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-09 04:12:11,248 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-09 04:12:11,249 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-09 04:12:11,259 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.2:5000
+2026-03-09 04:12:11,259 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-03-09 04:12:13,917 - apscheduler.scheduler - INFO - Added job "stats_flusher" to job store "default"
+2026-03-09 04:12:13,917 - apscheduler.scheduler - INFO - Added job "xp_flusher" to job store "default"
+2026-03-09 04:12:13,917 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-09 04:12:14,159 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 04:12:14] "GET /inventory HTTP/1.1" 200 -
+2026-03-09 04:12:14,199 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 04:12:14] "GET /assets/query-BIJ19OAc.js HTTP/1.1" 200 -
+2026-03-09 04:12:14,199 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 04:12:14] "GET /assets/index-C1SOpFe4.js HTTP/1.1" 200 -
+2026-03-09 04:12:14,208 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 04:12:14] "GET /assets/index-4VQiAXC5.css HTTP/1.1" 200 -
+2026-03-09 04:12:14,212 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 04:12:14] "GET /assets/motion-xpJi8bBL.js HTTP/1.1" 200 -
+2026-03-09 04:12:14,213 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 04:12:14] "GET /assets/vendor-BnszM7OU.js HTTP/1.1" 200 -
