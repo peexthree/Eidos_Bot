@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Route, Switch } from 'wouter';
+import useStore from './store/useStore';
 
 // Импорт компонентов
 import Layout from './components/Layout';
@@ -54,6 +55,45 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 }
 
 function App() {
+
+  useEffect(() => {
+    let finalUid = null;
+
+    // 1. Primary ID Source: TWA initDataUnsafe
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
+      finalUid = window.Telegram.WebApp.initDataUnsafe.user.id;
+    } else {
+      // 2. Fallback Parser: Extract from window.location.hash
+      try {
+        const hash = window.location.hash;
+        if (hash && hash.length > 1) {
+          const params = new URLSearchParams(hash.substring(1));
+          const tgWebAppData = params.get('tgWebAppData');
+          if (tgWebAppData) {
+            const tgParams = new URLSearchParams(tgWebAppData);
+            const userStr = tgParams.get('user');
+            if (userStr) {
+              const userObj = JSON.parse(userStr);
+              if (userObj && userObj.id) {
+                finalUid = userObj.id;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Fallback parser failed to extract UID from hash:", err);
+      }
+    }
+
+    // Log the detected UID for debugging
+    console.log("REACT DETECTED UID:", finalUid);
+
+    // 3. Trigger data fetching if valid ID
+    if (finalUid) {
+      useStore.getState().fetchProfile(finalUid);
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary FallbackComponent={ErrorFallback}>

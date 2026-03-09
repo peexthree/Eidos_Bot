@@ -51,11 +51,7 @@ if (!window.Telegram?.WebApp?.initData) {
   };
 }
 
-// Fetch user data right after SDK is ready
-const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-if (uid) {
-  useStore.getState().fetchProfile(uid);
-}
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
