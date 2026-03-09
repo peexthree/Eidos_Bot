@@ -115,7 +115,7 @@ def get_telegram_image(file_id):
 _inventory_cache = {}
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
-
+import config
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
     if not init_data:
         return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
