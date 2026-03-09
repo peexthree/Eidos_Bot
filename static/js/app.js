@@ -77,29 +77,29 @@ const ICONS = {
     'default': '<img src="IMG/eidos_sys-warning.svg" class="item-type-icon">'
 };
 
-// DOM Элементы
+// DOM Элементы (ТВЕРДОЕ ИСПРАВЛЕНИЕ: Геттеры защищают от падения, если элемент не найден)
 const els = {
-    loading: document.getElementById('loading-overlay'),
-    profileName: document.getElementById('profile-name'),
-    profileLvl: document.getElementById('profile-lvl'),
-    profileFaction: document.getElementById('profile-faction'),
-    profileAvatar: document.getElementById('profile-avatar'),
-    statAtk: document.getElementById('stat-atk'),
-    statDef: document.getElementById('stat-def'),
-    statLuck: document.getElementById('stat-luck'),
-    statSignal: document.getElementById('stat-signal'),
-    xpBar: document.getElementById('xp-bar'),
-    xpText: document.getElementById('xp-text'),
-    inventoryList: document.getElementById('inventory-list'),
-    dollContainer: document.getElementById('doll-container'),
-    tabs: document.querySelectorAll('.tab'),
-    modal: document.getElementById('item-modal'),
-    modalIcon: document.getElementById('modal-icon'),
-    modalTitle: document.getElementById('modal-title'),
-    modalRarity: document.getElementById('modal-rarity'),
-    modalDesc: document.getElementById('modal-desc'),
-    modalActions: document.getElementById('modal-actions'),
-    modalClose: document.getElementById('modal-close')
+    get loading() { return document.getElementById('loading-overlay'); },
+    get profileName() { return document.getElementById('profile-name'); },
+    get profileLvl() { return document.getElementById('profile-lvl'); },
+    get profileFaction() { return document.getElementById('profile-faction'); },
+    get profileAvatar() { return document.getElementById('profile-avatar'); },
+    get statAtk() { return document.getElementById('stat-atk'); },
+    get statDef() { return document.getElementById('stat-def'); },
+    get statLuck() { return document.getElementById('stat-luck'); },
+    get statSignal() { return document.getElementById('stat-signal'); },
+    get xpBar() { return document.getElementById('xp-bar'); },
+    get xpText() { return document.getElementById('xp-text'); },
+    get inventoryList() { return document.getElementById('inventory-list'); },
+    get dollContainer() { return document.getElementById('doll-container'); },
+    get tabs() { return document.querySelectorAll('.tab'); },
+    get modal() { return document.getElementById('item-modal'); },
+    get modalIcon() { return document.getElementById('modal-icon'); },
+    get modalTitle() { return document.getElementById('modal-title'); },
+    get modalRarity() { return document.getElementById('modal-rarity'); },
+    get modalDesc() { return document.getElementById('modal-desc'); },
+    get modalActions() { return document.getElementById('modal-actions'); },
+    get modalClose() { return document.getElementById('modal-close'); }
 };
 
 // Таймеры для загрузки
@@ -192,7 +192,7 @@ window.forceCloseLoader = function() {
     } else {
         const loader = document.getElementById('eidos-loader');
         if (loader) loader.style.display = 'none';
-        els.loading.style.display = 'flex';
+        if (els.loading) els.loading.style.display = 'flex';
     }
 };
 
@@ -230,10 +230,10 @@ function setupNexusGrid() {
 function renderProfile() {
     const p = inventoryData.profile;
     if (!p) return;
-    els.profileName.innerText = p.name || 'ОБЪЕКТ НЕИЗВЕСТЕН';
-    els.profileLvl.innerText = `Lvl ${p.level || 1}`;
-    els.profileFaction.innerText = p.faction || 'ФРАКЦИЯ: НЕЙТРАЛ';
-    if (p.avatar_url) els.profileAvatar.src = p.avatar_url;
+    if (els.profileName) els.profileName.innerText = p.name || 'ОБЪЕКТ НЕИЗВЕСТЕН';
+    if (els.profileLvl) els.profileLvl.innerText = `Lvl ${p.level || 1}`;
+    if (els.profileFaction) els.profileFaction.innerText = p.faction || 'ФРАКЦИЯ: НЕЙТРАЛ';
+    if (els.profileAvatar && p.avatar_url) els.profileAvatar.src = p.avatar_url;
 
     animateStatChange(els.statAtk, p.atk || 0);
     animateStatChange(els.statDef, p.def || 0);
@@ -242,9 +242,9 @@ function renderProfile() {
 
     const xp = p.xp || 0;
     const nXp = p.next_xp || 100;
-    els.xpText.innerText = `${xp} / ${nXp} ОПЫТ`;
+    if (els.xpText) els.xpText.innerText = `${xp} / ${nXp} ОПЫТ`;
     let pct = Math.min((xp / nXp) * 100, 100);
-    els.xpBar.style.width = pct + '%';
+    if (els.xpBar) els.xpBar.style.width = pct + '%';
 }
 
 function animateStatChange(el, newValue) {
@@ -268,8 +268,10 @@ function animateStatChange(el, newValue) {
 function updateSignalUI() {
     const p = inventoryData.profile;
     if (!p) return;
-    els.statSignal.innerText = `${p.signal}%`;
-    els.statSignal.style.color = p.signal > 50 ? '#00ff00' : (p.signal > 20 ? '#ffcc00' : '#ff3333');
+    if (els.statSignal) {
+        els.statSignal.innerText = `${p.signal}%`;
+        els.statSignal.style.color = p.signal > 50 ? '#00ff00' : (p.signal > 20 ? '#ffcc00' : '#ff3333');
+    }
     checkLowSignal(p.signal);
 }
 
@@ -328,7 +330,6 @@ function renderDoll() {
                 extraStyle = `border: 1px solid ${color}; box-shadow: inset 0 0 15px ${color}40;`;
             }
 
-
             // Modified renderDoll
             let imgHtml = '';
             if (item.type && item.type.startsWith('eidos_')) {
@@ -339,7 +340,6 @@ function renderDoll() {
             slotEl.innerHTML = imgHtml;
             slotEl.onclick = () => openUnequipModal(slot, item);
 
-            slotEl.onclick = () => openUnequipModal(slot, item);
         } else {
             let rawIcon = ICONS[slot] || ICONS['default'];
             let modifiedIcon = rawIcon.replace('<img ', '<img style="opacity: 0.1; filter: grayscale(1);" ');
@@ -351,6 +351,7 @@ function renderDoll() {
 
 // === РЕНДЕР ИНВЕНТАРЯ (СПИСОК ЛУТА) ===
 function renderInventory() {
+    if (!els.inventoryList) return;
     els.inventoryList.innerHTML = '';
     
     const items = inventoryData.items.filter(i => {
@@ -407,13 +408,17 @@ function openItemModal(item) {
     const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
     
     // Большое изображение
-    els.modalIcon.innerHTML = `<div class="modal-large-image">${getItemIcon(item, item.type)}</div>`;
+    if (els.modalIcon) els.modalIcon.innerHTML = `<div class="modal-large-image">${getItemIcon(item, item.type)}</div>`;
     
-    els.modalTitle.innerText = item.name;
-    els.modalTitle.style.color = color;
-    els.modalTitle.style.textShadow = `0 0 8px ${color}`;
-    els.modalRarity.innerText = RARITY_NAMES[item.rarity] || item.rarity;
-    els.modalRarity.style.color = color;
+    if (els.modalTitle) {
+        els.modalTitle.innerText = item.name;
+        els.modalTitle.style.color = color;
+        els.modalTitle.style.textShadow = `0 0 8px ${color}`;
+    }
+    if (els.modalRarity) {
+        els.modalRarity.innerText = RARITY_NAMES[item.rarity] || item.rarity;
+        els.modalRarity.style.color = color;
+    }
 
     // Формируем блок статов
     let statsHtml = '';
@@ -424,182 +429,181 @@ function openItemModal(item) {
     }
     const finalDesc = (item.description || '<i style="color:#555;">ДАННЫЕ ОТСУТСТВУЮТ.</i>').replace(/\n/g, '<br>');
 
-    els.modalDesc.innerHTML = `<div class="modal-stats">${statsHtml}</div><div class="modal-lore">${finalDesc}</div>`;
+    if (els.modalDesc) els.modalDesc.innerHTML = `<div class="modal-stats">${statsHtml}</div><div class="modal-lore">${finalDesc}</div>`;
 
-    
-    els.modalActions.innerHTML = '';
-    
-    if (['weapon', 'head', 'body', 'software', 'artifact'].includes(item.type)) {
-        // --- 4. Neural-Link Overcharge ---
-        const btnEquipWrap = document.createElement('div');
-        btnEquipWrap.className = 'equip-overcharge-wrap';
+    if (els.modalActions) {
+        els.modalActions.innerHTML = '';
+        
+        if (['weapon', 'head', 'body', 'software', 'artifact'].includes(item.type)) {
+            // --- 4. Neural-Link Overcharge ---
+            const btnEquipWrap = document.createElement('div');
+            btnEquipWrap.className = 'equip-overcharge-wrap';
 
-        const btnEquip = document.createElement('button');
-        btnEquip.className = 'action-btn overcharge-btn';
-        btnEquip.innerText = 'ЭКИПИРОВАТЬ (УДЕРЖИВАТЬ)';
+            const btnEquip = document.createElement('button');
+            btnEquip.className = 'action-btn overcharge-btn';
+            btnEquip.innerText = 'ЭКИПИРОВАТЬ (УДЕРЖИВАТЬ)';
 
-        const overchargeRing = document.createElement('svg');
-        overchargeRing.className = 'overcharge-ring';
-        overchargeRing.innerHTML = '<circle cx="50%" cy="50%" r="48%" stroke-width="4%" fill="none"></circle>';
+            const overchargeRing = document.createElement('svg');
+            overchargeRing.className = 'overcharge-ring';
+            overchargeRing.innerHTML = '<circle cx="50%" cy="50%" r="48%" stroke-width="4%" fill="none"></circle>';
 
-        btnEquipWrap.appendChild(btnEquip);
-        btnEquipWrap.appendChild(overchargeRing);
-        els.modalActions.appendChild(btnEquipWrap);
+            btnEquipWrap.appendChild(btnEquip);
+            btnEquipWrap.appendChild(overchargeRing);
+            els.modalActions.appendChild(btnEquipWrap);
 
-        let overchargeTimer = null;
-        let overchargeProgress = 0;
-        let isOvercharging = false;
-        let lastHaptic = 0;
+            let overchargeTimer = null;
+            let overchargeProgress = 0;
+            let isOvercharging = false;
+            let lastHaptic = 0;
 
-        const updateOvercharge = () => {
-            if (!isOvercharging) return;
-            overchargeProgress += 2; // ~50 frames for 100% -> ~800ms
+            const updateOvercharge = () => {
+                if (!isOvercharging) return;
+                overchargeProgress += 2; // ~50 frames for 100% -> ~800ms
 
-            const circle = overchargeRing.querySelector('circle');
-            if (circle) {
-                const circumference = 2 * Math.PI * 48; // assuming r=48% of 100
-                const dashoffset = circumference - (overchargeProgress / 100) * circumference;
-                circle.style.strokeDasharray = `${circumference}% ${circumference}%`;
-                circle.style.strokeDashoffset = `${dashoffset}%`;
-            }
+                const circle = overchargeRing.querySelector('circle');
+                if (circle) {
+                    const circumference = 2 * Math.PI * 48; // assuming r=48% of 100
+                    const dashoffset = circumference - (overchargeProgress / 100) * circumference;
+                    circle.style.strokeDasharray = `${circumference}% ${circumference}%`;
+                    circle.style.strokeDashoffset = `${dashoffset}%`;
+                }
 
-            // Haptic ticks
-            if (overchargeProgress - lastHaptic >= 20) {
-                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-                lastHaptic = overchargeProgress;
-                btnEquipWrap.style.transform = `scale(${1 - overchargeProgress * 0.0005}) rotate(${(Math.random()-0.5)*2}deg)`;
-            }
+                // Haptic ticks
+                if (overchargeProgress - lastHaptic >= 20) {
+                    if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+                    lastHaptic = overchargeProgress;
+                    btnEquipWrap.style.transform = `scale(${1 - overchargeProgress * 0.0005}) rotate(${(Math.random()-0.5)*2}deg)`;
+                }
 
-            if (overchargeProgress >= 100) {
-                isOvercharging = false;
-                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
-                btnEquipWrap.classList.add('overcharged');
-                setTimeout(() => {
-                    performAction('/api/inventory/equip', {uid, item_id: item.item_id});
-                }, 200);
-            } else {
+                if (overchargeProgress >= 100) {
+                    isOvercharging = false;
+                    if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+                    btnEquipWrap.classList.add('overcharged');
+                    setTimeout(() => {
+                        performAction('/api/inventory/equip', {uid, item_id: item.item_id});
+                    }, 200);
+                } else {
+                    overchargeTimer = requestAnimationFrame(updateOvercharge);
+                }
+            };
+
+            const startOvercharge = (e) => {
+                e.preventDefault();
+                isOvercharging = true;
+                overchargeProgress = 0;
+                lastHaptic = 0;
+                btnEquipWrap.classList.add('active');
                 overchargeTimer = requestAnimationFrame(updateOvercharge);
+            };
+
+            const stopOvercharge = () => {
+                isOvercharging = false;
+                overchargeProgress = 0;
+                btnEquipWrap.classList.remove('active');
+                btnEquipWrap.style.transform = 'scale(1) rotate(0deg)';
+                const circle = overchargeRing.querySelector('circle');
+                if (circle) circle.style.strokeDashoffset = `301%`; // reset roughly
+                if (overchargeTimer) cancelAnimationFrame(overchargeTimer);
+            };
+
+            btnEquip.addEventListener('touchstart', startOvercharge, {passive: false});
+            btnEquip.addEventListener('mousedown', startOvercharge);
+            btnEquip.addEventListener('touchend', stopOvercharge);
+            btnEquip.addEventListener('mouseup', stopOvercharge);
+            btnEquip.addEventListener('mouseleave', stopOvercharge);
+        }
+        
+        if (item.type === 'consumable') {
+            const btnUse = document.createElement('button');
+            btnUse.className = 'action-btn';
+            btnUse.innerText = 'ИСПОЛЬЗОВАТЬ';
+            btnUse.onclick = () => performAction('/api/inventory/use', {uid, item_id: item.item_id});
+            els.modalActions.appendChild(btnUse);
+        }
+
+        // --- 2. Haptic-Synced Matter Grinder ---
+        const grinderContainer = document.createElement('div');
+        grinderContainer.className = 'grinder-container';
+
+        const grinderZone = document.createElement('div');
+        grinderZone.className = 'grinder-zone';
+        grinderZone.innerHTML = '<span>ПЕРЕТАЩИТЕ СЮДА</span>';
+
+        const grinderDrag = document.createElement('div');
+        grinderDrag.className = 'grinder-drag';
+        grinderDrag.innerText = 'РАЗОБРАТЬ';
+
+        grinderContainer.appendChild(grinderZone);
+        grinderContainer.appendChild(grinderDrag);
+        els.modalActions.appendChild(grinderContainer);
+
+        let grinderStartY = 0;
+        let grinderDragY = 0;
+        const grinderMaxDrag = 60; // How far to drag down
+        let isGrinderDragging = false;
+
+        // Remove previous handlers if any
+        if (window._grinderMoveHandler) document.removeEventListener('pointermove', window._grinderMoveHandler);
+        if (window._grinderUpHandler) document.removeEventListener('pointerup', window._grinderUpHandler);
+
+        grinderDrag.addEventListener('pointerdown', (e) => {
+            isGrinderDragging = true;
+            grinderStartY = e.clientY;
+            grinderDrag.classList.add('dragging');
+            grinderZone.classList.add('active-zone');
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+            e.preventDefault();
+        });
+
+        window._grinderMoveHandler = (e) => {
+            if (!isGrinderDragging) return;
+            grinderDragY = Math.max(0, Math.min(e.clientY - grinderStartY, grinderMaxDrag));
+            grinderDrag.style.transform = `translateY(${grinderDragY}px)`;
+
+            // Haptic feedback tension
+            if (grinderDragY > 0 && Math.floor(grinderDragY) % 15 === 0) {
+                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+            }
+
+            if (grinderDragY >= grinderMaxDrag) {
+                grinderZone.classList.add('danger-zone');
+                grinderZone.innerHTML = '<span style="color:#ff3333;text-shadow:0 0 5px #ff3333;">РАСЩЕПИТЬ!</span>';
+            } else {
+                grinderZone.classList.remove('danger-zone');
+                grinderZone.innerHTML = '<span>ПЕРЕТАЩИТЕ СЮДА</span>';
             }
         };
 
-        const startOvercharge = (e) => {
-            e.preventDefault();
-            isOvercharging = true;
-            overchargeProgress = 0;
-            lastHaptic = 0;
-            btnEquipWrap.classList.add('active');
-            overchargeTimer = requestAnimationFrame(updateOvercharge);
+        window._grinderUpHandler = (e) => {
+            if (!isGrinderDragging) return;
+            isGrinderDragging = false;
+            grinderDrag.classList.remove('dragging');
+            grinderZone.classList.remove('active-zone');
+
+            if (grinderDragY >= grinderMaxDrag) {
+                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+                grinderDrag.style.opacity = '0';
+                grinderDrag.style.transform = `translateY(${grinderMaxDrag}px) scale(0)`;
+                grinderZone.classList.add('explode-zone');
+
+                setTimeout(() => {
+                    performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
+                }, 300);
+            } else {
+                grinderDrag.style.transform = 'translateY(0)';
+                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+            }
         };
 
-        const stopOvercharge = () => {
-            isOvercharging = false;
-            overchargeProgress = 0;
-            btnEquipWrap.classList.remove('active');
-            btnEquipWrap.style.transform = 'scale(1) rotate(0deg)';
-            const circle = overchargeRing.querySelector('circle');
-            if (circle) circle.style.strokeDashoffset = `301%`; // reset roughly
-            if (overchargeTimer) cancelAnimationFrame(overchargeTimer);
-        };
-
-        btnEquip.addEventListener('touchstart', startOvercharge, {passive: false});
-        btnEquip.addEventListener('mousedown', startOvercharge);
-        btnEquip.addEventListener('touchend', stopOvercharge);
-        btnEquip.addEventListener('mouseup', stopOvercharge);
-        btnEquip.addEventListener('mouseleave', stopOvercharge);
-
-    }
-    
-    if (item.type === 'consumable') {
-        const btnUse = document.createElement('button');
-        btnUse.className = 'action-btn';
-        btnUse.innerText = 'ИСПОЛЬЗОВАТЬ';
-        btnUse.onclick = () => performAction('/api/inventory/use', {uid, item_id: item.item_id});
-        els.modalActions.appendChild(btnUse);
+        document.addEventListener('pointermove', window._grinderMoveHandler);
+        document.addEventListener('pointerup', window._grinderUpHandler);
     }
 
-    // --- 2. Haptic-Synced Matter Grinder ---
-    const grinderContainer = document.createElement('div');
-    grinderContainer.className = 'grinder-container';
-
-    const grinderZone = document.createElement('div');
-    grinderZone.className = 'grinder-zone';
-    grinderZone.innerHTML = '<span>ПЕРЕТАЩИТЕ СЮДА</span>';
-
-    const grinderDrag = document.createElement('div');
-    grinderDrag.className = 'grinder-drag';
-    grinderDrag.innerText = 'РАЗОБРАТЬ';
-
-    grinderContainer.appendChild(grinderZone);
-    grinderContainer.appendChild(grinderDrag);
-    els.modalActions.appendChild(grinderContainer);
-
-    let grinderStartY = 0;
-    let grinderDragY = 0;
-    const grinderMaxDrag = 60; // How far to drag down
-    let isGrinderDragging = false;
-
-    // Remove previous handlers if any
-    if (window._grinderMoveHandler) document.removeEventListener('pointermove', window._grinderMoveHandler);
-    if (window._grinderUpHandler) document.removeEventListener('pointerup', window._grinderUpHandler);
-
-    grinderDrag.addEventListener('pointerdown', (e) => {
-        isGrinderDragging = true;
-        grinderStartY = e.clientY;
-        grinderDrag.classList.add('dragging');
-        grinderZone.classList.add('active-zone');
-        if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-        e.preventDefault();
-    });
-
-    window._grinderMoveHandler = (e) => {
-        if (!isGrinderDragging) return;
-        grinderDragY = Math.max(0, Math.min(e.clientY - grinderStartY, grinderMaxDrag));
-        grinderDrag.style.transform = `translateY(${grinderDragY}px)`;
-
-        // Haptic feedback tension
-        if (grinderDragY > 0 && Math.floor(grinderDragY) % 15 === 0) {
-            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-        }
-
-        if (grinderDragY >= grinderMaxDrag) {
-            grinderZone.classList.add('danger-zone');
-            grinderZone.innerHTML = '<span style="color:#ff3333;text-shadow:0 0 5px #ff3333;">РАСЩЕПИТЬ!</span>';
-        } else {
-            grinderZone.classList.remove('danger-zone');
-            grinderZone.innerHTML = '<span>ПЕРЕТАЩИТЕ СЮДА</span>';
-        }
-    };
-
-    window._grinderUpHandler = (e) => {
-        if (!isGrinderDragging) return;
-        isGrinderDragging = false;
-        grinderDrag.classList.remove('dragging');
-        grinderZone.classList.remove('active-zone');
-
-        if (grinderDragY >= grinderMaxDrag) {
-            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
-            grinderDrag.style.opacity = '0';
-            grinderDrag.style.transform = `translateY(${grinderMaxDrag}px) scale(0)`;
-            grinderZone.classList.add('explode-zone');
-
-            setTimeout(() => {
-                performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
-            }, 300);
-        } else {
-            grinderDrag.style.transform = 'translateY(0)';
-            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-        }
-    };
-
-    document.addEventListener('pointermove', window._grinderMoveHandler);
-    document.addEventListener('pointerup', window._grinderUpHandler);
-
-
-    els.modal.classList.add('active');
+    if (els.modal) els.modal.classList.add('active');
 
     // --- 1. Gyro-Kinetic Hologram Inspection ---
     if (item.rarity === 'epic' || item.rarity === 'legendary') {
-        els.modalIcon.classList.add('holo-inspect');
+        if (els.modalIcon) els.modalIcon.classList.add('holo-inspect');
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission().then(p => {
                 if (p === 'granted') window.addEventListener('deviceorientation', handleGyro);
@@ -608,23 +612,27 @@ function openItemModal(item) {
             window.addEventListener('deviceorientation', handleGyro);
         }
     } else {
-        els.modalIcon.classList.remove('holo-inspect');
+        if (els.modalIcon) els.modalIcon.classList.remove('holo-inspect');
         window.removeEventListener('deviceorientation', handleGyro);
     }
-
 }
 
 function openUnequipModal(slot, item) {
     if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
     const color = RARITY_COLORS[item.rarity] || RARITY_COLORS['common'];
     
-    els.modalIcon.innerHTML = `<div class="modal-large-image">${getItemIcon(item, slot)}</div>`;
+    if (els.modalIcon) els.modalIcon.innerHTML = `<div class="modal-large-image">${getItemIcon(item, slot)}</div>`;
     
-    els.modalTitle.innerText = item.name;
-    els.modalTitle.style.color = color;
-    els.modalTitle.style.textShadow = `0 0 8px ${color}`;
-    els.modalRarity.innerText = 'ПОДКЛЮЧЕНО К ЯДРУ';
-    els.modalRarity.style.color = '#00ff41';
+    if (els.modalTitle) {
+        els.modalTitle.innerText = item.name;
+        els.modalTitle.style.color = color;
+        els.modalTitle.style.textShadow = `0 0 8px ${color}`;
+    }
+    
+    if (els.modalRarity) {
+        els.modalRarity.innerText = 'ПОДКЛЮЧЕНО К ЯДРУ';
+        els.modalRarity.style.color = '#00ff41';
+    }
 
     let statsHtml = '';
     if (item.stats) {
@@ -634,31 +642,35 @@ function openUnequipModal(slot, item) {
     }
     const finalDesc = (item.description || '<i style="color:#555;">ДАННЫЕ ОТСУТСТВУЮТ.</i>').replace(/\n/g, '<br>');
 
-    els.modalDesc.innerHTML = `<div class="modal-stats">${statsHtml}</div><div class="modal-lore">${finalDesc}</div><div style="margin-top:10px; color:#ffcc00;">Инициировать извлечение модуля?</div>`;
+    if (els.modalDesc) els.modalDesc.innerHTML = `<div class="modal-stats">${statsHtml}</div><div class="modal-lore">${finalDesc}</div><div style="margin-top:10px; color:#ffcc00;">Инициировать извлечение модуля?</div>`;
     
-    els.modalActions.innerHTML = '';
-    const btnUnequip = document.createElement('button');
-    btnUnequip.className = 'action-btn';
-    btnUnequip.innerText = 'ИЗВЛЕЧЬ';
-    btnUnequip.onclick = () => {
-        if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-        performAction('/api/inventory/unequip', {uid, slot: slot});
-    };
-    els.modalActions.appendChild(btnUnequip);
+    if (els.modalActions) {
+        els.modalActions.innerHTML = '';
+        const btnUnequip = document.createElement('button');
+        btnUnequip.className = 'action-btn';
+        btnUnequip.innerText = 'ИЗВЛЕЧЬ';
+        btnUnequip.onclick = () => {
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            performAction('/api/inventory/unequip', {uid, slot: slot});
+        };
+        els.modalActions.appendChild(btnUnequip);
+    }
 
-    els.modal.classList.add('active');
+    if (els.modal) els.modal.classList.add('active');
 }
 
 if (els.modalClose) {
     els.modalClose.onclick = () => {
         if(window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-        els.modal.classList.remove('active');
+        if (els.modal) els.modal.classList.remove('active');
+        window.removeEventListener('deviceorientation', handleGyro); // Убираем гироскоп при закрытии
     };
 }
 
 // === ОТПРАВКА ДЕЙСТВИЯ НА БЭКЕНД ===
 async function performAction(endpoint, payload) {
-    els.modal.classList.remove('active');
+    if (els.modal) els.modal.classList.remove('active');
+    window.removeEventListener('deviceorientation', handleGyro); // Убираем гироскоп
     const res = await fetchWithLock(endpoint, {
         method: 'POST',
         headers: getHeaders(),
@@ -677,9 +689,11 @@ async function performAction(endpoint, payload) {
 }
 
 // === НАВИГАЦИЯ И ВИДИМОСТЬ (С КНОПКОЙ НАЗАД) ===
-tg.MainButton.text = "ЗАКРЫТЬ ТЕРМИНАЛ";
-tg.MainButton.show();
-tg.MainButton.onClick(() => tg.close());
+if (tg.MainButton) {
+    tg.MainButton.text = "ЗАКРЫТЬ ТЕРМИНАЛ";
+    tg.MainButton.show();
+    tg.MainButton.onClick(() => tg.close());
+}
 
 // Слушатель нативной кнопки "Назад" в Telegram
 if (tg.BackButton) {
@@ -763,3 +777,12 @@ function renderNexusGrid() {
     gridContent.innerHTML = '';
     gridContent.appendChild(fragment);
 }
+
+// ТВЕРДОЕ ИСПРАВЛЕНИЕ: Добавлена недостающая функция гироскопа, из-за которой падал скрипт
+window.handleGyro = function(event) {
+    const icon = document.querySelector('.holo-inspect .modal-large-image');
+    if (!icon) return;
+    const tiltX = Math.max(-20, Math.min(20, (event.beta || 0) - 45));
+    const tiltY = Math.max(-20, Math.min(20, (event.gamma || 0)));
+    icon.style.transform = `perspective(600px) rotateX(${-tiltX}deg) rotateY(${tiltY}deg)`;
+};
