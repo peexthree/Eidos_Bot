@@ -93,20 +93,20 @@ const Hub = ({ setView }) => {
       {/* Layer 1: Button Grid (Z-Index: 10) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         {/* Header Title */}
-        <img src="/video/nadpis.png" style={{ position: 'absolute', top: '3%', left: '15%', width: '70%', objectFit: 'contain', zIndex: 10, pointerEvents: 'none' }} />
+        <img src="/video/nadpis.png" style={{ position: 'absolute', top: '1%', left: '15%', width: '70%', objectFit: 'contain', zIndex: 10, pointerEvents: 'none' }} />
 
 
         {/* Row 1 */}
         <img
           src="/video/signa.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '20%', left: '4%', width: '25%', cursor: 'pointer', zIndex: 10 }}
+          style={{ position: 'absolute', top: '18%', left: '4%', width: '25%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(null, '/api/action/signal')}
         />
         <img
           src="/video/sinxr.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '13%', left: '33%', width: '34%', cursor: 'pointer', zIndex: 10 }}
+          style={{ position: 'absolute', top: '10%', left: '33%', width: '34%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(null, '/api/action/synchron')}
         />
 
