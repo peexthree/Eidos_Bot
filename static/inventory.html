@@ -48,19 +48,19 @@
         <canvas id="acoustic-visualizer" style="position:absolute; top:0; left:0; width:100%; height:20px; z-index:-1; opacity:0.6; pointer-events:none;"></canvas>
         <div class="stats-grid">
             <div class="stat-box" data-label="АТК">
-                <span class="stat-icon">⚔️</span>
+                <span class="stat-icon"><img src="IMG/eidos_weapon-attack.svg" alt="ATK" style="width:16px; height:16px; filter: invert(0.5) sepia(1) saturate(5) hue-rotate(330deg);"></span>
                 <div id="stat-atk" class="stat-value" style="color: #ff4d4d; text-shadow: 0 0 5px #ff4d4d; font-weight: bold;">0</div>
             </div>
             <div class="stat-box" data-label="ЗАЩ">
-                <span class="stat-icon">🛡️</span>
+                <span class="stat-icon"><img src="IMG/eidos_shield-armor.svg" alt="DEF" style="width:16px; height:16px; filter: invert(0.6) sepia(1) saturate(5) hue-rotate(180deg);"></span>
                 <div id="stat-def" class="stat-value" style="color: #4da6ff; text-shadow: 0 0 5px #4da6ff; font-weight: bold;">0</div>
             </div>
             <div class="stat-box" data-label="УДАЧА">
-                <span class="stat-icon">🎲</span>
+                <span class="stat-icon"><img src="IMG/eidos_glitch-anomaly.svg" alt="LUCK" style="width:16px; height:16px; filter: invert(0.8) sepia(1) saturate(3) hue-rotate(30deg);"></span>
                 <div id="stat-luck" class="stat-value" style="color: #ffd700; text-shadow: 0 0 5px #ffd700; font-weight: bold;">0</div>
             </div>
             <div class="stat-box" data-label="СИГНАЛ">
-                <span class="stat-icon">📡</span>
+                <span class="stat-icon"><img src="IMG/eidos_comm-link.svg" alt="SIGNAL" style="width:16px; height:16px; filter: invert(0.6) sepia(1) saturate(5) hue-rotate(80deg);"></span>
                 <div id="stat-signal" class="stat-value" style="color: #00ff41; text-shadow: 0 0 5px #00ff41; font-weight: bold;">100%</div>
             </div>
         </div>
@@ -79,6 +79,7 @@
         <section id="view-inventory" class="view-panel">
 <div class="optical-scanner"></div>
             
+            <button class="web-app-back-btn" onclick="showView('view-nexus')" style="background: none; border: none; color: var(--eidos-cyan); font-family: Orbitron; font-size: 16px; margin-bottom: 10px; cursor: pointer; text-shadow: 0 0 5px var(--eidos-cyan);">&lt; НАЗАД В НЕКСУС</button>
             <div class="profile-header">
                 <div class="avatar-wrapper">
                     <img id="profile-avatar" src="IMG/eidos_demiurge-user.svg" class="avatar" alt="Объект">
@@ -101,6 +102,7 @@
                 <div class="equip-slot artifact" id="slot-artifact" title="Артефакт"></div>
             </div>
 
+            <button class="web-app-back-btn" onclick="showView('view-nexus')" style="background: none; border: none; color: var(--eidos-cyan); font-family: Orbitron; font-size: 16px; margin-bottom: 10px; cursor: pointer; text-shadow: 0 0 5px var(--eidos-cyan);">&lt; НАЗАД В НЕКСУС</button>
             <div class="optical-scanner"></div><div class="tabs">
                 <div class="tab active" data-filter="all" style="color: #fff;">ВСЕ</div>
                 <div class="tab" data-filter="equip" style="color: #fff;">СНАРЯЖЕНИЕ</div>
@@ -111,11 +113,13 @@
         </section>
 
         <section id="view-shop" class="view-panel">
+            <button class="web-app-back-btn" onclick="showView('view-nexus')" style="background: none; border: none; color: var(--eidos-cyan); font-family: Orbitron; font-size: 16px; margin-bottom: 10px; cursor: pointer; text-shadow: 0 0 5px var(--eidos-cyan);">&lt; НАЗАД В НЕКСУС</button>
             <div class="view-title" style="color: #66FCF1; text-shadow: 0 0 8px #66FCF1;">ТОРГОВЫЙ ШЛЮЗ</div>
             <div class="scroll-area" id="shop-list"></div>
         </section>
 
         <section id="view-social" class="view-panel">
+            <button class="web-app-back-btn" onclick="showView('view-nexus')" style="background: none; border: none; color: var(--eidos-cyan); font-family: Orbitron; font-size: 16px; margin-bottom: 10px; cursor: pointer; text-shadow: 0 0 5px var(--eidos-cyan);">&lt; НАЗАД В НЕКСУС</button>
             <div class="optical-scanner"></div><div class="tabs">
                 <div class="tab active" data-social-tab="leaderboard" style="color: #fff;">СЕТЬ</div>
                 <div class="tab" data-social-tab="ai" style="color: #fff;">ЭЙДОС</div>

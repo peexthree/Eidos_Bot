@@ -678,7 +678,7 @@ function showView(viewId) {
         if (viewId === 'view-nexus') {
             if (tg.BackButton) tg.BackButton.hide();
         } else {
-            if (tg.BackButton) tg.BackButton.show();
+            if (tg.BackButton && window.Telegram.WebApp.isExpanded) tg.BackButton.show();
         }
     }
 }
