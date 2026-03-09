@@ -96,7 +96,7 @@ const Hub = ({ setView }) => {
       </div>
 
       {/* Layer 1: Main Frame Overlay */}
-      <div className="fixed inset-0 w-[100vw] h-[100vh] -z-10 pointer-events-none">
+      <div className="fixed inset-0 w-[100vw] h-[100vh] z-20 pointer-events-none">
         <img
           src="/video/main_frame.png"
           alt="Main Frame"

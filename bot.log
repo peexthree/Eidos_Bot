@@ -1,16 +1,5 @@
-[2026-03-09 14:31:28 +0000] [6949] [INFO] Starting gunicorn 25.1.0
-[2026-03-09 14:31:28 +0000] [6949] [INFO] Listening at: http://0.0.0.0:5001 (6949)
-[2026-03-09 14:31:28 +0000] [6949] [INFO] Using worker: sync
-[2026-03-09 14:31:28 +0000] [6949] [INFO] Control socket listening at /app/gunicorn.ctl
-[2026-03-09 14:31:28 +0000] [7075] [INFO] Booting worker with pid: 7075
 2026-03-09 14:31:28,687 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-03-09 14:31:28,688 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-/// DB URL FORMATTED FOR DIRECT PGBOUNCER CONNECTION
-/// DB SESSION CRASH: connection to server at "localhost" (::1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-
 2026-03-09 14:32:17,291 - modules.bot_instance - ERROR - Exception on /api/inventory [GET]
 Traceback (most recent call last):
   File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 1511, in wsgi_app
@@ -49,11 +38,6 @@ Traceback (most recent call last):
     conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-
-/// DB SESSION CRASH: connection to server at "localhost" (::1), port 5432 failed: Connection refused
 	Is the server running on that host and accepting TCP/IP connections?
 connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
 	Is the server running on that host and accepting TCP/IP connections?
@@ -100,11 +84,6 @@ psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 
 connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
 	Is the server running on that host and accepting TCP/IP connections?
 
-/// DB SESSION CRASH: connection to server at "localhost" (::1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-
 2026-03-09 14:33:08,459 - modules.bot_instance - ERROR - Exception on /api/inventory [GET]
 Traceback (most recent call last):
   File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 1511, in wsgi_app
@@ -147,11 +126,6 @@ psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 
 connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
 	Is the server running on that host and accepting TCP/IP connections?
 
-/// DB SESSION CRASH: connection to server at "localhost" (::1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-
 2026-03-09 14:33:31,749 - modules.bot_instance - ERROR - Exception on /api/inventory [GET]
 Traceback (most recent call last):
   File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 1511, in wsgi_app
@@ -190,11 +164,6 @@ Traceback (most recent call last):
     conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-
-/// DB SESSION CRASH: connection to server at "localhost" (::1), port 5432 failed: Connection refused
 	Is the server running on that host and accepting TCP/IP connections?
 connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
 	Is the server running on that host and accepting TCP/IP connections?
