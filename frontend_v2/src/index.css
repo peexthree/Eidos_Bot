@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --color-eidos-bg: #020304;
+  --color-eidos-neon: #00ff41;
+  --color-eidos-cyan: #66FCF1;
+  --color-eidos-red: #ff3333;
+  --color-eidos-glass: rgba(5, 7, 10, 0.65);
+
+  /* Добавляем поддержку безопасных зон iOS для TWA */
+  --spacing-safe-top: env(safe-area-inset-top);
+  --spacing-safe-bottom: env(safe-area-inset-bottom);
+  --spacing-safe-left: env(safe-area-inset-left);
+  --spacing-safe-right: env(safe-area-inset-right);
+
+  /* Шрифты (по архитектурным требованиям) */
+  --font-orbitron: 'Orbitron', sans-serif;
+  --font-rajdhani: 'Rajdhani', sans-serif;
+  --font-share: 'Share Tech Mono', monospace;
+}
+
+@utility clip-hex {
+  clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%);
+}
+
+@utility bg-glass {
+  background-color: var(--color-eidos-glass);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+}
+
+@utility text-glow-neon {
+  text-shadow: 0 0 5px var(--color-eidos-neon), 0 0 10px var(--color-eidos-neon);
+}
+
+@utility text-glow-cyan {
+  text-shadow: 0 0 5px var(--color-eidos-cyan), 0 0 10px var(--color-eidos-cyan);
+}
+
+@utility text-glow-red {
+  text-shadow: 0 0 5px var(--color-eidos-red), 0 0 10px var(--color-eidos-red);
+}
+
+/* Глобальные настройки iOS и Telegram Web App для предотвращения zoom-а и bounce-скролла */
+body {
+  background-color: var(--color-eidos-bg);
+  color: #ffffff;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: auto;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-rajdhani);
+}
+
+/* Ограничение области скролла внутри компонентов */
+.scroll-area {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
