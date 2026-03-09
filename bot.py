@@ -122,11 +122,16 @@ _inventory_cache = {}
 _inventory_cache = {}
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
-    import config  # <-- ТВЕРДОЕ: Отступ ровно 4 пробела!
+    import config
 
+    uid_str = flask.request.args.get('uid')
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
-    if not init_data:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+
+    # ТВИК: Если есть UID, мы доверяем (на время тестов)
+    if not init_data and not uid_str:
+        return flask.jsonify({"error": "Unauthorized"}), 401
+    
+    # Дальше твой код без изменений...
 
     uid_str = flask.request.args.get('uid')
     if not uid_str:
