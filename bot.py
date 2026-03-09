@@ -113,9 +113,11 @@ def get_telegram_image(file_id):
         return flask.send_from_directory(static_dir, 'eidos_sys-warning.svg')
 
 _inventory_cache = {}
+_inventory_cache = {}
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
-import config
+    import config  # <-- ТВЕРДОЕ: Отступ ровно 4 пробела!
+
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
     if not init_data:
         return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
@@ -185,31 +187,13 @@ import config
         })
 
     # --- Equipped (Enriching Data for WebApp) ---
-    raw_
-    equipped_raw = db.get_user_equipment(uid)
-    import config
-    equipped = {}
-    for slot, item_data in equipped_raw.items():
-        if item_data and "item_id" in item_data:
-            i_id = item_data["item_id"]
-            info = config.ITEMS_INFO.get(i_id, {})
-            # merge
-            equipped[slot] = {
-                "item_id": i_id,
-                "durability": item_data.get("durability", 100),
-                "name": info.get("name", i_id),
-                "description": info.get("description", "Данные отсутствуют."),
-                "rarity": info.get("rarity", "common"),
-                "type": info.get("type", "misc"),
-                "stats": info.get("stats", {})
-            }
-        else:
-            equipped[slot] = None
-
+    raw_equipped = db.get_user_equipment(uid)
     enriched_equipped = {}
+    
     for slot, item_data in raw_equipped.items():
         # База может вернуть либо строку с ID, либо словарь. Обрабатываем оба варианта.
         iid = item_data['item_id'] if isinstance(item_data, dict) else item_data
+        
         if iid:
             info = config.ITEMS_INFO.get(iid, {})
             img_file_id = info.get('file_id') # Извлекаем file_id из конфига
@@ -233,7 +217,6 @@ import config
     _inventory_cache[uid] = {'time': time.time(), 'data': response_data}
 
     return flask.jsonify(response_data)
-
 @app.route('/api/inventory/equip', methods=['POST'])
 def inventory_equip():
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
