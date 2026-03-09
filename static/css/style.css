@@ -255,3 +255,422 @@ body {
 .modal-overlay.active .modal-content {
     transform: translateY(0);
 }
+
+/* ====== 1. GYRO-KINETIC HOLOGRAM ====== */
+.modal-icon.holo-inspect {
+    perspective: 800px;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+    position: relative;
+    z-index: 10;
+}
+
+.modal-icon.holo-inspect::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    background: radial-gradient(
+        circle at var(--holo-x, 50%) var(--holo-y, 50%),
+        rgba(255, 255, 255, 0.4) 0%,
+        rgba(255, 255, 255, 0.0) 80%
+    ), linear-gradient(
+        135deg,
+        rgba(0, 255, 255, 0.3) 0%,
+        rgba(255, 0, 255, 0.3) 50%,
+        rgba(255, 255, 0, 0.3) 100%
+    );
+    mix-blend-mode: overlay;
+    border-radius: 5px;
+    z-index: 20;
+    opacity: 0.8;
+}
+
+.modal-icon.holo-inspect {
+    perspective: 800px;
+    transform-style: preserve-3d;
+    transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    z-index: 10;
+}
+
+.modal-icon.holo-inspect::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    background: radial-gradient(
+        circle at var(--holo-x, 50%) var(--holo-y, 50%),
+        rgba(255, 255, 255, 0.4) 0%,
+        rgba(255, 255, 255, 0.0) 80%
+    ), linear-gradient(
+        135deg,
+        rgba(102, 252, 241, 0.3) 0%,
+        rgba(184, 0, 255, 0.3) 50%,
+        rgba(255, 255, 0, 0.3) 100%
+    );
+    mix-blend-mode: overlay;
+    border-radius: 5px;
+    z-index: 20;
+    opacity: 0.8;
+}
+
+/* ====== 2. HAPTIC-SYNCED MATTER GRINDER ====== */
+.grinder-container {
+    position: relative;
+    width: 100%;
+    height: 100px; /* Space for dragging */
+    margin-top: 15px;
+    border: 1px dashed rgba(255, 51, 51, 0.4);
+    display: flex;
+    justify-content: center;
+    border-radius: 4px;
+    background: repeating-linear-gradient(45deg, rgba(255, 51, 51, 0.05), rgba(255, 51, 51, 0.05) 10px, transparent 10px, transparent 20px);
+}
+
+.grinder-zone {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 51, 51, 0.5);
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(255, 51, 51, 0.3);
+    border-top: 1px solid rgba(255, 51, 51, 0.3);
+    transition: all 0.2s;
+}
+.grinder-zone.active-zone {
+    background: rgba(255, 51, 51, 0.1);
+}
+.grinder-zone.danger-zone {
+    background: rgba(255, 51, 51, 0.4);
+    box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.8);
+    border-top: 1px solid #ff3333;
+}
+
+.grinder-drag {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: 40px;
+    background: rgba(5, 7, 10, 0.9);
+    border: 1px solid #ff3333;
+    color: #ff3333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    text-shadow: 0 0 5px #ff3333;
+    cursor: grab;
+    transition: transform 0.1s;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none; /* Important for pointer events drag */
+    z-index: 10;
+}
+.grinder-drag.dragging {
+    cursor: grabbing;
+    background: rgba(255, 51, 51, 0.2);
+}
+
+.grinder-zone.explode-zone {
+    animation: grinderExplode 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes grinderExplode {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1) rotate(2deg); opacity: 0.8; box-shadow: 0 0 30px #ff3333; }
+    100% { transform: scale(0); opacity: 0; }
+}
+
+
+/* ====== 3. CRITICAL DESYNC DEGRADATION ====== */
+body.low-signal {
+    animation: signalDegradationPulse 3s infinite alternate;
+}
+
+body.low-signal::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 99999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    animation: staticNoise 0.2s infinite;
+}
+
+body.low-signal .stats-header,
+body.low-signal .view-panel {
+    text-shadow: 2px 0 0 rgba(255,0,0,0.5), -2px 0 0 rgba(0,255,255,0.5); /* Chromatic aberration */
+    animation: screenTear 5s infinite;
+}
+
+@keyframes signalDegradationPulse {
+    0% { filter: contrast(1) saturate(1); }
+    100% { filter: contrast(1.2) saturate(0.8) hue-rotate(-10deg); }
+}
+
+@keyframes staticNoise {
+    0% { background-position: 0 0; }
+    100% { background-position: 100% 100%; }
+}
+
+@keyframes screenTear {
+    0%, 98% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateX(0); }
+    98.5% { clip-path: polygon(0 20%, 100% 20%, 100% 30%, 0 30%); transform: translateX(5px); }
+    99% { clip-path: polygon(0 60%, 100% 60%, 100% 65%, 0 65%); transform: translateX(-5px); }
+    99.5% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateX(0); }
+    100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateX(0); }
+}
+
+/* ====== 4. NEURAL-LINK OVERCHARGE ====== */
+.equip-overcharge-wrap {
+    position: relative;
+    width: 100%;
+    height: 50px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.1s;
+}
+
+.overcharge-btn {
+    width: 100%;
+    height: 100%;
+    margin: 0 !important;
+    position: relative;
+    z-index: 2;
+    background: transparent;
+    transition: all 0.2s;
+}
+
+.equip-overcharge-wrap.active .overcharge-btn {
+    color: var(--eidos-neon);
+    text-shadow: 0 0 10px var(--eidos-neon);
+    background: rgba(0, 255, 65, 0.1);
+}
+
+.overcharge-ring {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    width: 120%; height: 180%;
+    pointer-events: none;
+    z-index: 1;
+    overflow: visible;
+}
+
+.overcharge-ring circle {
+    stroke: var(--eidos-neon);
+    fill: none;
+    stroke-width: 4%;
+    stroke-dasharray: 301.59%; /* Circumference */
+    stroke-dashoffset: 301.59%;
+    transition: stroke-dashoffset 0.05s linear;
+    filter: drop-shadow(0 0 5px var(--eidos-neon));
+    r: 48%;
+}
+
+.equip-overcharge-wrap.overcharged .overcharge-btn {
+    animation: overchargePulse 0.3s forwards;
+}
+
+@keyframes overchargePulse {
+    0% { transform: scale(1); background: rgba(0,255,65,0.8); color: #000; }
+    100% { transform: scale(1.1); opacity: 0; }
+}
+
+
+/* ====== 5. SUB-DERMAL OPTICAL SCANNING ====== */
+.optical-scanner {
+    position: absolute;
+    top: -10px; left: 0;
+    width: 100%;
+    height: 40px;
+    background: linear-gradient(to bottom, rgba(102, 252, 241, 0), rgba(102, 252, 241, 0.4) 50%, rgba(102, 252, 241, 0.8) 80%, rgba(255, 255, 255, 1) 100%);
+    box-shadow: 0 10px 20px rgba(102, 252, 241, 0.5);
+    z-index: 1000;
+    pointer-events: none;
+    mix-blend-mode: difference;
+    opacity: 0;
+    transform: translateY(-100%);
+}
+
+.view-panel.active #view-inventory .optical-scanner,
+.view-panel.active .optical-scanner {
+    animation: opticalScan 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes opticalScan {
+    0% { transform: translateY(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(80vh); opacity: 0; }
+}
+
+/* ====== 6. LIQUID DATA MORPHING ====== */
+/* SVG Filter defined in HTML */
+#views-container {
+    filter: url('#liquid-morph');
+}
+
+.view-panel {
+    transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+.view-panel:not(.active) {
+    opacity: 0 !important;
+    pointer-events: none;
+    position: absolute; /* so it doesn't take space while fading out */
+    top: 0; left: 0; width: 100%;
+}
+
+.view-panel.active {
+    opacity: 1 !important;
+    position: relative;
+    /* We override the default scale animation to use the gooey effect */
+    animation: liquidMorphIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes liquidMorphIn {
+    0% { transform: translateY(20px); filter: blur(10px); opacity: 0; }
+    50% { filter: blur(5px); opacity: 1; }
+    100% { transform: translateY(0); filter: blur(0); opacity: 1; }
+}
+
+/* ====== 7. CHRONO-RESONANCE AMBIENT SYSTEM ====== */
+:root {
+    --ambient-hue: 200; /* Default blueish */
+    --ambient-sat: 20%;
+    --ambient-light: 5%;
+}
+
+.sys-background {
+    background: radial-gradient(circle at 50% 30%, hsl(var(--ambient-hue), var(--ambient-sat), var(--ambient-light)) 0%, #000000 100%);
+    transition: background 2s ease;
+}
+
+.nexus-particle {
+    position: absolute;
+    bottom: -10px;
+    background: hsl(var(--ambient-hue), 80%, 60%);
+    border-radius: 50%;
+    box-shadow: 0 0 10px hsl(var(--ambient-hue), 80%, 60%);
+    animation: particleFloat var(--duration) linear infinite;
+    opacity: 0.6;
+}
+
+@keyframes particleFloat {
+    0% { transform: translateY(0) scale(1); opacity: 0; }
+    20% { opacity: 0.8; }
+    80% { opacity: 0.8; }
+    100% { transform: translateY(-80vh) scale(0); opacity: 0; }
+}
+
+/* ====== 8. BIOMETRIC AUTH SIMULATION ====== */
+.bio-auth-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: 95000;
+    display: none;
+    flex-direction: row;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+}
+
+.bio-auth-overlay.active {
+    display: flex;
+}
+
+.bio-door {
+    width: 50%; height: 100%;
+    background: rgba(10, 15, 20, 0.95);
+    border-right: 2px solid var(--eidos-cyan);
+    transition: transform 1s cubic-bezier(0.86, 0, 0.07, 1);
+    display: flex;
+    align-items: center;
+    position: relative;
+    box-shadow: inset -10px 0 20px rgba(0,0,0,0.8);
+}
+.bio-door.right {
+    border-right: none;
+    border-left: 2px solid var(--eidos-cyan);
+    box-shadow: inset 10px 0 20px rgba(0,0,0,0.8);
+}
+
+.bio-auth-overlay.unlocked .bio-door.left { transform: translateX(-100%); }
+.bio-auth-overlay.unlocked .bio-door.right { transform: translateX(100%); }
+
+.bio-scanner-container {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 150px; height: 150px;
+    z-index: 96000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--eidos-cyan);
+    text-shadow: 0 0 10px var(--eidos-cyan);
+}
+
+.bio-fingerprint {
+    width: 80px; height: 100px;
+    border: 2px dashed rgba(102, 252, 241, 0.5);
+    border-radius: 40px;
+    position: relative;
+    overflow: hidden;
+}
+
+.bio-laser {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 5px;
+    background: var(--eidos-cyan);
+    box-shadow: 0 0 15px var(--eidos-cyan);
+    animation: laserScan 2s linear infinite alternate;
+    opacity: 0;
+}
+
+.bio-scanner-container.scanning .bio-laser {
+    opacity: 1;
+}
+
+@keyframes laserScan {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(95px); }
+}
+
+.bio-auth-overlay.unlocked .bio-scanner-container {
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+
+/* ====== 10. GHOST IN THE MACHINE ANOMALY ====== */
+.glitch-anomaly {
+    animation: ghostGlitch 0.2s linear infinite;
+    position: relative;
+    color: var(--eidos-red) !important;
+    text-shadow: 2px 0 0 rgba(255,0,0,0.8), -2px 0 0 rgba(0,255,255,0.8);
+}
+
+@keyframes ghostGlitch {
+    0% { transform: translate(0); clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+    20% { transform: translate(-2px, 1px); clip-path: polygon(0 10%, 100% 10%, 100% 20%, 0 20%); }
+    40% { transform: translate(-1px, -1px); clip-path: polygon(0 40%, 100% 40%, 100% 50%, 0 50%); }
+    60% { transform: translate(2px, 1px); clip-path: polygon(0 80%, 100% 80%, 100% 90%, 0 90%); }
+    80% { transform: translate(1px, -2px); clip-path: polygon(0 30%, 100% 30%, 100% 40%, 0 40%); }
+    100% { transform: translate(0); clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+}
+
+.zalgo-text {
+    font-family: monospace;
+    letter-spacing: -2px;
+}
