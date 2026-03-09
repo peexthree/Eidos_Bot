@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import ProfileHeader from '../components/ProfileHeader';
 import axios from 'axios';
 
 const Hub = ({ setView }) => {
@@ -81,35 +80,31 @@ const Hub = ({ setView }) => {
         playsInline
         style={{
           position: 'absolute',
-          inset: 0,
+          top: 0,
+          left: 0,
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
+          objectFit: 'fill',
           zIndex: 0
         }}
       />
 
-      {/* Layer 1: Profile Header (Z-Index: 50) */}
-      <div style={{ position: 'absolute', top: '1%', left: '0', right: '0', zIndex: 50, transform: 'scale(0.60)', transformOrigin: 'top center' }}>
-        <ProfileHeader />
-      </div>
-
-      {/* Layer 2: Button Grid (Z-Index: 10) */}
+      {/* Layer 1: Button Grid (Z-Index: 10) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         {/* Header Title */}
-        <img src="/video/nadpis.png" style={{ position: 'absolute', top: '5%', left: '10%', width: '80%', pointerEvents: 'none' }} />
+        <img src="/video/nadpis.png" style={{ position: 'absolute', top: '3%', left: '15%', width: '70%', pointerEvents: 'none', zIndex: 10 }} />
 
         {/* Row 1 */}
         <img
           src="/video/signa.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '15%', left: '4%', width: '28%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '15%', left: '4%', width: '28%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(null, '/api/action/signal')}
         />
         <img
           src="/video/sinxr.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '15%', left: '34%', width: '60%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '15%', left: '33%', width: '34%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(null, '/api/action/synchron')}
         />
 
@@ -117,25 +112,25 @@ const Hub = ({ setView }) => {
         <img
           src="/video/_nul.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '45%', left: '4%', width: '21%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '45%', left: '4%', width: '21%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(getImg("zero_layer_menu"))}
         />
         <img
           src="/video/shop.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '45%', left: '28%', width: '21%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '45%', left: '28%', width: '21%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(getImg("shop_menu"))}
         />
         <img
           src="/video/invent.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '45%', left: '52%', width: '21%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '45%', left: '52%', width: '21%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(null, null, () => setView('INVENTORY'))}
         />
         <img
           src="/video/dnecvnik.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '45%', left: '76%', width: '21%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '45%', left: '76%', width: '21%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(getImg("diary_menu"))}
         />
 
@@ -143,19 +138,19 @@ const Hub = ({ setView }) => {
         <img
           src="/video/sindi.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '60%', left: '14%', width: '22%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '60%', left: '14%', width: '22%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(getImg("referral"))}
         />
         <img
           src="/video/reiting.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '60%', left: '39%', width: '22%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '60%', left: '39%', width: '22%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(getImg("leaderboard"))}
         />
         <img
           src="/video/guid.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '60%', left: '64%', width: '22%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '60%', left: '64%', width: '22%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(getImg("guide"))}
         />
 
@@ -163,19 +158,19 @@ const Hub = ({ setView }) => {
         <img
           src="/video/shadow_b.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '78%', left: '8%', width: '40%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '78%', left: '8%', width: '40%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(getImg("shadow_shop_menu"))}
         />
         <img
           src="/video/admin.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '78%', left: '52%', width: '40%', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '78%', left: '52%', width: '40%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(getImg("admin_panel"))}
         />
       </div>
 
-      {/* Layer 3: Top Frame Overlay (Z-Index: 20) */}
-      <img src="/video/frame.png" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 20, pointerEvents: 'none' }} />
+      {/* Layer 2: Top Frame Overlay (Z-Index: 20) */}
+      <img src="/video/frame.png" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', zIndex: 20, pointerEvents: 'none' }} />
 
       {/* Image Modal (Z-index strictly highest) */}
       {modalImage && (
