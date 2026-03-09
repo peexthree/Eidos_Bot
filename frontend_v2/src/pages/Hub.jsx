@@ -90,13 +90,15 @@ const Hub = ({ setView }) => {
         }}
       />
 
-      {/* Layer 1: Button Grid (Z-Index: 10) */}
+{/* Layer 1: Button Grid (Z-Index: 10) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
-        {/* Header Title */}
+
+        
+        {/* Header Title (ПОДНЯЛ ПОЧТИ В САМЫЙ ВЕРХ) */}
+
         <img src="/video/nadpis.png" style={{ position: 'absolute', top: '1%', left: '15%', width: '70%', objectFit: 'contain', zIndex: 10, pointerEvents: 'none' }} />
 
-
-        {/* Row 1 */}
+        {/* Row 1 (ПОДНЯЛ МОЗГ И СИГНАЛ) */}
         <img
           src="/video/signa.png"
           className={btnHoverActiveStyle}
