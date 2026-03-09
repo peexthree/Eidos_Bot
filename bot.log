@@ -770,3 +770,63 @@ ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app
 2026-03-09 05:27:27,712 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 05:27:27] "[31m[1mGET /api/inventory?uid=123456789 HTTP/1.1[0m" 401 -
 2026-03-09 05:52:40,068 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-03-09 05:52:40,068 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-09 10:39:05,230 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-09 10:39:05,231 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-09 10:39:05,234 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.2:5000
+2026-03-09 10:39:05,234 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-03-09 10:39:07,926 - apscheduler.scheduler - INFO - Added job "stats_flusher" to job store "default"
+2026-03-09 10:39:07,926 - apscheduler.scheduler - INFO - Added job "xp_flusher" to job store "default"
+2026-03-09 10:39:07,926 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-09 10:39:35,231 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:39:35 UTC)" (scheduled at 2026-03-09 10:39:35.230173+00:00)
+2026-03-09 10:39:35,233 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:40:05 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 407, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-09 10:39:42,631 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 10:39:42] "GET / HTTP/1.1" 200 -
+2026-03-09 10:40:05,231 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:40:35 UTC)" (scheduled at 2026-03-09 10:40:05.230173+00:00)
+2026-03-09 10:40:05,232 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:40:35 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 407, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-09 10:40:05,234 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-09 10:41:05 UTC)" (scheduled at 2026-03-09 10:40:05.230848+00:00)
+2026-03-09 10:40:05,235 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-09 10:41:05 UTC)" executed successfully
+2026-03-09 10:40:35,230 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:41:05 UTC)" (scheduled at 2026-03-09 10:40:35.230173+00:00)
+2026-03-09 10:40:35,231 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:41:05 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 407, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-09 10:41:05,230 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:41:35 UTC)" (scheduled at 2026-03-09 10:41:05.230173+00:00)
+2026-03-09 10:41:05,232 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-09 10:42:05 UTC)" (scheduled at 2026-03-09 10:41:05.230848+00:00)
+2026-03-09 10:41:05,232 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-09 10:42:05 UTC)" executed successfully
+2026-03-09 10:41:05,233 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:41:35 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 407, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-09 10:41:35,231 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:42:05 UTC)" (scheduled at 2026-03-09 10:41:35.230173+00:00)
+2026-03-09 10:41:35,231 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 10:42:05 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 407, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)

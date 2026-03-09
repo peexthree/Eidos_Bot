@@ -64,6 +64,11 @@ const EquipDoll = () => {
   const getItem = (slotData) => {
     if (!slotData) return undefined;
 
+    // If it's already an enriched item from the backend, use it directly!
+    if (typeof slotData === 'object' && (slotData.image_url || slotData.name)) {
+        return slotData;
+    }
+
     let targetId = slotData;
     if (typeof slotData === 'object' && slotData.item_id) {
        targetId = slotData.item_id;
@@ -71,7 +76,7 @@ const EquipDoll = () => {
        targetId = slotData.id;
     }
 
-    // Convert to string for solid comparison since IDs in DB might be numeric but JS sees strings
+    // Fallback: search in inventory
     return inventory.find(i => String(i?.id) === String(targetId));
   };
 

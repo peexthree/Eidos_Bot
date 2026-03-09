@@ -15,7 +15,7 @@ const IntroVideo = ({ onComplete }) => {
       <div className="absolute bottom-10 w-full px-8 flex justify-center z-50">
         <button
           onClick={onComplete}
-          className="w-full max-w-xs py-3 clip-hex bg-black/50 border border-eidos-cyan/30 text-eidos-cyan font-orbitron tracking-widest text-sm hover:bg-eidos-cyan/20 hover:border-eidos-cyan transition-all backdrop-blur-md uppercase text-glow-cyan"
+          className="w-full max-w-xs py-2 clip-hex bg-transparent border border-white/10 text-white/30 font-orbitron tracking-widest text-xs hover:bg-white/10 hover:text-white/80 transition-all uppercase"
         >
           [ ПРОПУСТИТЬ ]
         </button>

@@ -118,7 +118,57 @@ def get_telegram_image(file_id):
         static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/IMG')
         return flask.send_from_directory(static_dir, 'eidos_sys-warning.svg')
 
+
+@app.route('/api/hub_data', methods=['GET'])
+def hub_data_api():
+    import config
+    hub_images = {}
+    for key, file_id in getattr(config, 'MENU_IMAGES', {}).items():
+        hub_images[key] = f"/api/image/{file_id}"
+    return flask.jsonify(hub_images)
+
+@app.route('/api/action/synchron', methods=['POST'])
+def action_synchron():
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    if not uid:
+        return flask.jsonify({"error": "Unauthorized"}), 401
+
+    # Just a placeholder for actual synchronization logic
+    import time
+    from database import db
+    u = db.get_user(uid)
+    if not u:
+        return flask.jsonify({"error": "User not found"}), 404
+
+    # Update cooldown
+    db.update_user(uid, last_protocol_time=time.time())
+    db.add_exp(uid, 50)
+
+    return flask.jsonify({"success": True, "message": "Синхронизация успешна. XP +50", "cooldown": 300})
+
+@app.route('/api/action/signal', methods=['POST'])
+def action_signal():
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    if not uid:
+        return flask.jsonify({"error": "Unauthorized"}), 401
+
+    # Just a placeholder for actual signal logic
+    import time
+    from database import db
+    u = db.get_user(uid)
+    if not u:
+        return flask.jsonify({"error": "User not found"}), 404
+
+    # Update cooldown
+    db.update_user(uid, last_signal_time=time.time())
+    db.add_biocoins(uid, 100)
+
+    return flask.jsonify({"success": True, "message": "Сигнал перехвачен. BIO +100", "cooldown": 600})
+
 _inventory_cache = {}
+
 _inventory_cache = {}
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
