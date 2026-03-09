@@ -416,14 +416,83 @@ function openItemModal(item) {
     els.modalActions.innerHTML = '';
     
     if (['weapon', 'head', 'body', 'software', 'artifact'].includes(item.type)) {
+        // --- 4. Neural-Link Overcharge ---
+        const btnEquipWrap = document.createElement('div');
+        btnEquipWrap.className = 'equip-overcharge-wrap';
+
         const btnEquip = document.createElement('button');
-        btnEquip.className = 'action-btn';
-        btnEquip.innerText = 'ЭКИПИРОВАТЬ';
-        btnEquip.onclick = () => {
-            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-            performAction('/api/inventory/equip', {uid, item_id: item.item_id});
+        btnEquip.className = 'action-btn overcharge-btn';
+        btnEquip.innerText = 'ЭКИПИРОВАТЬ (УДЕРЖИВАТЬ)';
+
+        const overchargeRing = document.createElement('svg');
+        overchargeRing.className = 'overcharge-ring';
+        overchargeRing.innerHTML = '<circle cx="50%" cy="50%" r="48%" stroke-width="4%" fill="none"></circle>';
+
+        btnEquipWrap.appendChild(btnEquip);
+        btnEquipWrap.appendChild(overchargeRing);
+        els.modalActions.appendChild(btnEquipWrap);
+
+        let overchargeTimer = null;
+        let overchargeProgress = 0;
+        let isOvercharging = false;
+        let lastHaptic = 0;
+
+        const updateOvercharge = () => {
+            if (!isOvercharging) return;
+            overchargeProgress += 2; // ~50 frames for 100% -> ~800ms
+
+            const circle = overchargeRing.querySelector('circle');
+            if (circle) {
+                const circumference = 2 * Math.PI * 48; // assuming r=48% of 100
+                const dashoffset = circumference - (overchargeProgress / 100) * circumference;
+                circle.style.strokeDasharray = `${circumference}% ${circumference}%`;
+                circle.style.strokeDashoffset = `${dashoffset}%`;
+            }
+
+            // Haptic ticks
+            if (overchargeProgress - lastHaptic >= 20) {
+                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+                lastHaptic = overchargeProgress;
+                btnEquipWrap.style.transform = `scale(${1 - overchargeProgress * 0.0005}) rotate(${(Math.random()-0.5)*2}deg)`;
+            }
+
+            if (overchargeProgress >= 100) {
+                isOvercharging = false;
+                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+                btnEquipWrap.classList.add('overcharged');
+                setTimeout(() => {
+                    performAction('/api/inventory/equip', {uid, item_id: item.item_id});
+                }, 200);
+            } else {
+                overchargeTimer = requestAnimationFrame(updateOvercharge);
+            }
         };
-        els.modalActions.appendChild(btnEquip);
+
+        const startOvercharge = (e) => {
+            e.preventDefault();
+            isOvercharging = true;
+            overchargeProgress = 0;
+            lastHaptic = 0;
+            btnEquipWrap.classList.add('active');
+            overchargeTimer = requestAnimationFrame(updateOvercharge);
+        };
+
+        const stopOvercharge = () => {
+            isOvercharging = false;
+            overchargeProgress = 0;
+            btnEquipWrap.classList.remove('active');
+            btnEquipWrap.style.transform = 'scale(1) rotate(0deg)';
+            const circle = overchargeRing.querySelector('circle');
+            if (circle) circle.style.strokeDashoffset = `301%`; // reset roughly
+            if (overchargeTimer) cancelAnimationFrame(overchargeTimer);
+        };
+
+        btnEquip.addEventListener('touchstart', startOvercharge, {passive: false});
+        btnEquip.addEventListener('mousedown', startOvercharge);
+        btnEquip.addEventListener('touchend', stopOvercharge);
+        btnEquip.addEventListener('mouseup', stopOvercharge);
+        btnEquip.addEventListener('mouseleave', stopOvercharge);
+
     }
     
     if (item.type === 'consumable') {
@@ -434,23 +503,101 @@ function openItemModal(item) {
         els.modalActions.appendChild(btnUse);
     }
 
-    const btnDismantle = document.createElement('button');
-    btnDismantle.className = 'action-btn';
-    btnDismantle.style.borderColor = '#ff3333';
-    btnDismantle.style.color = '#ff3333';
-    btnDismantle.innerText = 'РАЗОБРАТЬ';
-    btnDismantle.onclick = () => {
-        if (window.tg && tg.showConfirm) {
-            tg.showConfirm(`Разобрать объект [${item.name}] на компоненты?`, (confirmed) => {
-                if (confirmed) performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
-            });
+    // --- 2. Haptic-Synced Matter Grinder ---
+    const grinderContainer = document.createElement('div');
+    grinderContainer.className = 'grinder-container';
+
+    const grinderZone = document.createElement('div');
+    grinderZone.className = 'grinder-zone';
+    grinderZone.innerHTML = '<span>ПЕРЕТАЩИТЕ СЮДА</span>';
+
+    const grinderDrag = document.createElement('div');
+    grinderDrag.className = 'grinder-drag';
+    grinderDrag.innerText = 'РАЗОБРАТЬ';
+
+    grinderContainer.appendChild(grinderZone);
+    grinderContainer.appendChild(grinderDrag);
+    els.modalActions.appendChild(grinderContainer);
+
+    let grinderStartY = 0;
+    let grinderDragY = 0;
+    const grinderMaxDrag = 60; // How far to drag down
+    let isGrinderDragging = false;
+
+    // Remove previous handlers if any
+    if (window._grinderMoveHandler) document.removeEventListener('pointermove', window._grinderMoveHandler);
+    if (window._grinderUpHandler) document.removeEventListener('pointerup', window._grinderUpHandler);
+
+    grinderDrag.addEventListener('pointerdown', (e) => {
+        isGrinderDragging = true;
+        grinderStartY = e.clientY;
+        grinderDrag.classList.add('dragging');
+        grinderZone.classList.add('active-zone');
+        if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+        e.preventDefault();
+    });
+
+    window._grinderMoveHandler = (e) => {
+        if (!isGrinderDragging) return;
+        grinderDragY = Math.max(0, Math.min(e.clientY - grinderStartY, grinderMaxDrag));
+        grinderDrag.style.transform = `translateY(${grinderDragY}px)`;
+
+        // Haptic feedback tension
+        if (grinderDragY > 0 && Math.floor(grinderDragY) % 15 === 0) {
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+        }
+
+        if (grinderDragY >= grinderMaxDrag) {
+            grinderZone.classList.add('danger-zone');
+            grinderZone.innerHTML = '<span style="color:#ff3333;text-shadow:0 0 5px #ff3333;">РАСЩЕПИТЬ!</span>';
         } else {
-            performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
+            grinderZone.classList.remove('danger-zone');
+            grinderZone.innerHTML = '<span>ПЕРЕТАЩИТЕ СЮДА</span>';
         }
     };
-    els.modalActions.appendChild(btnDismantle);
+
+    window._grinderUpHandler = (e) => {
+        if (!isGrinderDragging) return;
+        isGrinderDragging = false;
+        grinderDrag.classList.remove('dragging');
+        grinderZone.classList.remove('active-zone');
+
+        if (grinderDragY >= grinderMaxDrag) {
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+            grinderDrag.style.opacity = '0';
+            grinderDrag.style.transform = `translateY(${grinderMaxDrag}px) scale(0)`;
+            grinderZone.classList.add('explode-zone');
+
+            setTimeout(() => {
+                performAction('/api/inventory/dismantle', {uid, item_id: item.item_id});
+            }, 300);
+        } else {
+            grinderDrag.style.transform = 'translateY(0)';
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+        }
+    };
+
+    document.addEventListener('pointermove', window._grinderMoveHandler);
+    document.addEventListener('pointerup', window._grinderUpHandler);
+
 
     els.modal.classList.add('active');
+
+    // --- 1. Gyro-Kinetic Hologram Inspection ---
+    if (item.rarity === 'epic' || item.rarity === 'legendary') {
+        els.modalIcon.classList.add('holo-inspect');
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission().then(p => {
+                if (p === 'granted') window.addEventListener('deviceorientation', handleGyro);
+            }).catch(console.error);
+        } else {
+            window.addEventListener('deviceorientation', handleGyro);
+        }
+    } else {
+        els.modalIcon.classList.remove('holo-inspect');
+        window.removeEventListener('deviceorientation', handleGyro);
+    }
+
 }
 
 function openUnequipModal(slot, item) {
