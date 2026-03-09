@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
-import ProfileHeader from '../components/ProfileHeader';
+
 
 const Hub = ({ setView }) => {
   const twa = window.Telegram?.WebApp;
@@ -93,17 +93,14 @@ const Hub = ({ setView }) => {
       {/* Layer 1: Button Grid (Z-Index: 10) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         {/* Header Title */}
-        <img src="/video/nadpis.png" style={{ position: 'absolute', top: '3%', left: '10%', width: '80%', objectFit: 'contain', zIndex: 10, pointerEvents: 'none' }} />
-        {/* Profile Wrapper */}
-        <div style={{ position: 'absolute', top: '1%', left: '0', right: '0', zIndex: 50, transform: 'scale(0.60)', transformOrigin: 'top center', pointerEvents: 'none', backgroundColor: 'transparent' }}>
-          <ProfileHeader />
-        </div>
+        <img src="/video/nadpis.png" style={{ position: 'absolute', top: '3%', left: '15%', width: '70%', objectFit: 'contain', zIndex: 10, pointerEvents: 'none' }} />
+
 
         {/* Row 1 */}
         <img
           src="/video/signa.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '15%', left: '4%', width: '28%', cursor: 'pointer', zIndex: 10 }}
+          style={{ position: 'absolute', top: '23%', left: '4%', width: '25%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(null, '/api/action/signal')}
         />
         <img
