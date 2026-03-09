@@ -100,13 +100,13 @@ const Hub = ({ setView }) => {
         <img
           src="/video/signa.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '23%', left: '4%', width: '25%', cursor: 'pointer', zIndex: 10 }}
+          style={{ position: 'absolute', top: '20%', left: '4%', width: '25%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(null, '/api/action/signal')}
         />
         <img
           src="/video/sinxr.png"
           className={btnHoverActiveStyle}
-          style={{ position: 'absolute', top: '15%', left: '33%', width: '34%', cursor: 'pointer', zIndex: 10 }}
+          style={{ position: 'absolute', top: '13%', left: '33%', width: '34%', cursor: 'pointer', zIndex: 10 }}
           onClick={() => handleAction(null, '/api/action/synchron')}
         />
 
