@@ -56,24 +56,21 @@ const Hub = ({ setView }) => {
 
   const getImg = (key) => hubData[key] || '';
 
-  const btnStyle = {
-    cursor: 'pointer',
-    transition: 'transform 0.1s ease, filter 0.2s',
-  };
-
   const btnHoverActiveStyle = `
     hover:scale-95 hover:brightness-125
     active:scale-95 active:brightness-125
+    transition-transform duration-100 ease-in-out
   `;
 
   return (
     <div style={{
-      aspectRatio: '9 / 16',
-      width: '100%',
-      maxHeight: '100vh',
       position: 'relative',
+      width: '100vw',
+      maxWidth: '500px',
+      aspectRatio: '9/16',
       margin: '0 auto',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      backgroundColor: '#000'
     }}>
       {/* Layer 0: Background Video */}
       <video
@@ -84,6 +81,7 @@ const Hub = ({ setView }) => {
         playsInline
         style={{
           position: 'absolute',
+          inset: 0,
           width: '100%',
           height: '100%',
           objectFit: 'cover',
@@ -91,138 +89,93 @@ const Hub = ({ setView }) => {
         }}
       />
 
-      {/* Layer 1: Button Grid (The Precision Grid) */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 5,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'flex-start',
-        padding: '15% 5% 5% 5%'
-      }}>
-        {/* Profile Header injected at the top inside the grid layout so it doesn't break absolute positioning */}
-        <div style={{ marginBottom: '5%' }}>
-          <ProfileHeader />
-        </div>
-
-        {/* Header Row */}
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '5%' }}>
-          <img
-            src="/video/nadpis.png"
-            alt="Title"
-            style={{ width: '80%', objectFit: 'contain' }}
-          />
-        </div>
-
-        {/* Row 1 (Split 40/60) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '5%' }}>
-          <img
-            src="/video/signa.png"
-            alt="Signal"
-            className={btnHoverActiveStyle}
-            style={{ width: '40%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(null, '/api/action/signal')}
-          />
-          <img
-            src="/video/sinxr.png"
-            alt="Synchron"
-            className={btnHoverActiveStyle}
-            style={{ width: '55%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(null, '/api/action/synchron')}
-          />
-        </div>
-
-        {/* Row 2 (4 Items) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: '2%', marginTop: '5%' }}>
-          <img
-            src="/video/_nul.png"
-            alt="Zero Layer"
-            className={btnHoverActiveStyle}
-            style={{ width: '23%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(getImg("zero_layer_menu"))}
-          />
-          <img
-            src="/video/shop.png"
-            alt="Shop"
-            className={btnHoverActiveStyle}
-            style={{ width: '23%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(getImg("shop_menu"))}
-          />
-          <img
-            src="/video/invent.png"
-            alt="Inventory"
-            className={btnHoverActiveStyle}
-            style={{ width: '23%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(null, null, () => setView('INVENTORY'))}
-          />
-          <img
-            src="/video/dnecvnik.png"
-            alt="Diary"
-            className={btnHoverActiveStyle}
-            style={{ width: '23%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(getImg("diary_menu"))}
-          />
-        </div>
-
-        {/* Row 3 (3 Items Centered) */}
-        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', gap: '4%', marginTop: '5%' }}>
-          <img
-            src="/video/sindi.png"
-            alt="Syndicate"
-            className={btnHoverActiveStyle}
-            style={{ width: '28%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(getImg("referral"))}
-          />
-          <img
-            src="/video/reiting.png"
-            alt="Rating"
-            className={btnHoverActiveStyle}
-            style={{ width: '28%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(getImg("leaderboard"))}
-          />
-          <img
-            src="/video/guid.png"
-            alt="Guide"
-            className={btnHoverActiveStyle}
-            style={{ width: '28%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(getImg("guide"))}
-          />
-        </div>
-
-        {/* Row 4 (Bottom Split) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: '10%', marginTop: '5%' }}>
-          <img
-            src="/video/shadow_b.png"
-            alt="Shadow Broker"
-            className={btnHoverActiveStyle}
-            style={{ width: '45%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(getImg("shadow_shop_menu"))}
-          />
-          <img
-            src="/video/admin.png"
-            alt="Admin"
-            className={btnHoverActiveStyle}
-            style={{ width: '45%', objectFit: 'contain', ...btnStyle }}
-            onClick={() => handleAction(getImg("admin_panel"))}
-          />
-        </div>
+      {/* Layer 1: Profile Header (Z-Index: 50) */}
+      <div style={{ position: 'absolute', top: '1%', left: '0', right: '0', zIndex: 50, transform: 'scale(0.60)', transformOrigin: 'top center' }}>
+        <ProfileHeader />
       </div>
 
-      {/* Layer 2: Top Frame Overlay */}
-      <img
-        src="/video/frame.png"
-        alt="Frame Overlay"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          pointerEvents: 'none',
-          zIndex: 10
-        }}
-      />
+      {/* Layer 2: Button Grid (Z-Index: 10) */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
+        {/* Header Title */}
+        <img src="/video/nadpis.png" style={{ position: 'absolute', top: '5%', left: '10%', width: '80%', pointerEvents: 'none' }} />
+
+        {/* Row 1 */}
+        <img
+          src="/video/signa.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '15%', left: '4%', width: '28%', cursor: 'pointer' }}
+          onClick={() => handleAction(null, '/api/action/signal')}
+        />
+        <img
+          src="/video/sinxr.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '15%', left: '34%', width: '60%', cursor: 'pointer' }}
+          onClick={() => handleAction(null, '/api/action/synchron')}
+        />
+
+        {/* Row 2 */}
+        <img
+          src="/video/_nul.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '45%', left: '4%', width: '21%', cursor: 'pointer' }}
+          onClick={() => handleAction(getImg("zero_layer_menu"))}
+        />
+        <img
+          src="/video/shop.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '45%', left: '28%', width: '21%', cursor: 'pointer' }}
+          onClick={() => handleAction(getImg("shop_menu"))}
+        />
+        <img
+          src="/video/invent.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '45%', left: '52%', width: '21%', cursor: 'pointer' }}
+          onClick={() => handleAction(null, null, () => setView('INVENTORY'))}
+        />
+        <img
+          src="/video/dnecvnik.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '45%', left: '76%', width: '21%', cursor: 'pointer' }}
+          onClick={() => handleAction(getImg("diary_menu"))}
+        />
+
+        {/* Row 3 */}
+        <img
+          src="/video/sindi.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '60%', left: '14%', width: '22%', cursor: 'pointer' }}
+          onClick={() => handleAction(getImg("referral"))}
+        />
+        <img
+          src="/video/reiting.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '60%', left: '39%', width: '22%', cursor: 'pointer' }}
+          onClick={() => handleAction(getImg("leaderboard"))}
+        />
+        <img
+          src="/video/guid.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '60%', left: '64%', width: '22%', cursor: 'pointer' }}
+          onClick={() => handleAction(getImg("guide"))}
+        />
+
+        {/* Row 4 */}
+        <img
+          src="/video/shadow_b.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '78%', left: '8%', width: '40%', cursor: 'pointer' }}
+          onClick={() => handleAction(getImg("shadow_shop_menu"))}
+        />
+        <img
+          src="/video/admin.png"
+          className={btnHoverActiveStyle}
+          style={{ position: 'absolute', top: '78%', left: '52%', width: '40%', cursor: 'pointer' }}
+          onClick={() => handleAction(getImg("admin_panel"))}
+        />
+      </div>
+
+      {/* Layer 3: Top Frame Overlay (Z-Index: 20) */}
+      <img src="/video/frame.png" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 20, pointerEvents: 'none' }} />
 
       {/* Image Modal (Z-index strictly highest) */}
       {modalImage && (

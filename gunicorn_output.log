@@ -1,60 +1,9 @@
-[2026-03-08 22:40:47 +0000] [4729] [INFO] Starting gunicorn 25.1.0
-[2026-03-08 22:40:47 +0000] [4729] [INFO] Listening at: http://127.0.0.1:5000 (4729)
-[2026-03-08 22:40:47 +0000] [4729] [INFO] Using worker: sync
-[2026-03-08 22:40:47 +0000] [4729] [INFO] Control socket listening at /app/gunicorn.ctl
-[2026-03-08 22:40:47 +0000] [4846] [INFO] Booting worker with pid: 4846
+[2026-03-09 19:19:35 +0000] [6727] [INFO] Starting gunicorn 25.1.0
+[2026-03-09 19:19:35 +0000] [6727] [INFO] Listening at: http://0.0.0.0:5000 (6727)
+[2026-03-09 19:19:35 +0000] [6727] [INFO] Using worker: sync
+[2026-03-09 19:19:35 +0000] [6727] [INFO] Control socket listening at /app/gunicorn.ctl
+[2026-03-09 19:19:35 +0000] [6865] [INFO] Booting worker with pid: 6865
 /// REDIS CONNECTION ERROR: Error -2 connecting to red-d6llkmftskes73dhkd10:6379. Name or service not known.
-2026-03-08 22:40:49,143 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-08 22:40:49,144 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-09 19:19:35,878 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-09 19:19:35,878 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 /// DB URL FORMATTED FOR DIRECT PGBOUNCER CONNECTION
-/// DB SESSION CRASH: connection to server at "localhost" (::1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-
-2026-03-08 22:40:52,803 - modules.bot_instance - ERROR - Exception on /api/inventory [GET]
-Traceback (most recent call last):
-  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 1511, in wsgi_app
-    response = self.full_dispatch_request()
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 919, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 917, in full_dispatch_request
-    rv = self.dispatch_request()
-         ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 902, in dispatch_request
-    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/app/bot.py", line 112, in inventory_api
-    user = db.get_user(uid)
-           ^^^^^^^^^^^^^^^^
-  File "/app/database.py", line 671, in get_user
-    with db_cursor(cursor_factory=RealDictCursor) as cur:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/contextlib.py", line 137, in __enter__
-    return next(self.gen)
-           ^^^^^^^^^^^^^^
-  File "/app/database.py", line 362, in db_cursor
-    with db_session() as conn:
-         ^^^^^^^^^^^^
-  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/contextlib.py", line 137, in __enter__
-    return next(self.gen)
-           ^^^^^^^^^^^^^^
-  File "/app/database.py", line 350, in db_session
-    raise e
-  File "/app/database.py", line 332, in db_session
-    conn = psycopg2.connect(
-           ^^^^^^^^^^^^^^^^^
-  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
-    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
-	Is the server running on that host and accepting TCP/IP connections?
-
-[2026-03-08 22:41:22 +0000] [4846] [INFO] Worker exiting (pid: 4846)
-[2026-03-08 22:41:22 +0000] [4729] [INFO] Handling signal: term
-[2026-03-08 22:41:22 +0000] [4729] [INFO] Worker (pid:4846) was sent SIGTERM!
-[2026-03-08 22:41:23 +0000] [4729] [INFO] Shutting down: Master
