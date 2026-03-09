@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import useStore from '../store/useStore';
 import ItemCard from './ItemCard';
+import { motion } from 'framer-motion';
 
 const ItemList = () => {
   const inventory = useStore((state) => state.inventory);
@@ -37,7 +38,14 @@ const ItemList = () => {
       {/* Item List Scroll Area */}
       <div className="scroll-area flex-1 overflow-y-auto pr-2 space-y-2 relative z-10">
         {filteredInventory.map((item) => (
-          <ItemCard key={item.id} item={item} />
+          <motion.div
+            key={item.id}
+            layout
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <ItemCard item={item} />
+          </motion.div>
         ))}
         {filteredInventory.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-black/40 border border-white/10 clip-hex">

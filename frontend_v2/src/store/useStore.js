@@ -1,35 +1,49 @@
 import { create } from 'zustand';
+import axios from 'axios';
 
 const useStore = create((set) => ({
   profile: {
     name: "CYBER_NOMAD",
-    level: 42,
-    faction: "NEON_SYNDICATE",
-    biocoins: 1337,
+    level: 0,
+    faction: "UNKNOWN",
+    biocoins: 0,
     stats: {
-      atk: 150,
-      def: 80,
-      luck: 15,
-      signal: 100
+      atk: 0,
+      def: 0,
+      luck: 0,
+      signal: 0
     }
   },
-  inventory: [
-    { id: 1, name: "Neural Implant v2", type: "Software", rarity: "rare", stats: { def: 10 } },
-    { id: 2, name: "Plasma Cutter", type: "Weapon", rarity: "epic", stats: { atk: 55 } },
-    { id: 3, name: "Scrap Metal", type: "Consumable", rarity: "common", amount: 5 },
-    { id: 4, name: "Quantum Processor", type: "Artifact", rarity: "legendary", stats: { luck: 25, signal: 10 } },
-    { id: 5, name: "Kevlar Vest", type: "Body", rarity: "common", stats: { def: 20 } },
-    { id: 6, name: "Optic Sensor", type: "Head", rarity: "rare", stats: { signal: 5 } },
-    { id: 7, name: "Energy Drink", type: "Consumable", rarity: "common", amount: 12 }
-  ],
+  inventory: [],
   equipped: {
-    head: 6,
-    body: 5,
-    weapon: 2,
-    software: 1,
+    head: null,
+    body: null,
+    weapon: null,
+    software: null,
     artifact: null
   },
   // Actions
+  fetchProfile: async (uid) => {
+    try {
+      const response = await axios.get('/api/inventory', { params: { uid } });
+      const data = response.data;
+
+      set({
+        profile: data.profile || {
+          name: data.name || data.player?.name || "UNKNOWN",
+          level: data.level || data.player?.level || 0,
+          faction: data.faction || data.player?.faction || "UNKNOWN",
+          biocoins: data.biocoins || data.player?.biocoins || data.balance || 0,
+          stats: data.stats || data.player?.stats || { atk: 0, def: 0, luck: 0, signal: 0 }
+        },
+        inventory: data.inventory || data.items || [],
+        equipped: data.equipped || { head: null, body: null, weapon: null, software: null, artifact: null }
+      });
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  },
+
   equipItem: (slot, itemId) => set((state) => ({
     equipped: { ...state.equipped, [slot]: itemId }
   })),
