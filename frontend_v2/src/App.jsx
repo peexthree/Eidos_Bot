@@ -107,7 +107,7 @@ function App() {
     return (
       <div className="flex items-center justify-center h-screen bg-[var(--color-eidos-bg)]">
         <div className="loading-screen text-center font-orbitron text-eidos-cyan text-xl animate-pulse text-glow-cyan">
-          INITIALIZING NEURAL LINK...
+          ESTABLISHING NEURAL LINK...
         </div>
       </div>
     );

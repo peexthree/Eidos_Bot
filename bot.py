@@ -231,11 +231,12 @@ def inventory_api():
 @app.route('/api/inventory/equip', methods=['POST'])
 def inventory_equip():
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
-    if not init_data:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    item_id = data.get('item_id')
 
-    data = flask.request.json
-    uid, item_id = data.get('uid'), data.get('item_id')
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
     from modules.services.inventory import equip_item
     success = equip_item(uid, item_id)
     return flask.jsonify({"success": success})
@@ -243,11 +244,12 @@ def inventory_equip():
 @app.route('/api/inventory/unequip', methods=['POST'])
 def inventory_unequip():
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
-    if not init_data:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    slot = data.get('slot')
 
-    data = flask.request.json
-    uid, slot = data.get('uid'), data.get('slot')
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
     from modules.services.inventory import unequip_item
     success = unequip_item(uid, slot)
     return flask.jsonify({"success": success})
@@ -255,24 +257,26 @@ def inventory_unequip():
 @app.route('/api/inventory/use', methods=['POST'])
 def inventory_use():
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
-    if not init_data:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    item_id = data.get('item_id')
 
-    data = flask.request.json
-    uid, item_id = data.get('uid'), data.get('item_id')
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
     success = db.use_item(uid, item_id, 1)
     return flask.jsonify({"success": success})
 
 @app.route('/api/inventory/dismantle', methods=['POST'])
 def inventory_dismantle():
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
-    if not init_data:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData"}), 401
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    item_id_str = data.get('item_id')
+
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
 
     try:
-        data = flask.request.json
-        uid = data.get('uid')
-        item_id_str = data.get('item_id') 
 
         if not uid or not item_id_str:
             return flask.jsonify({"error": "Missing parameters"}), 400

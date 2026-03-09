@@ -7,7 +7,11 @@ const ItemList = () => {
   const inventory = useStore((state) => state.inventory);
   const [filter, setFilter] = useState('ALL');
 
-  const filters = ['ALL', 'EQUIP', 'CONSUMABLES'];
+  const filters = [
+    { id: 'ALL', label: 'ALL', icon: '/IMG/nav_tab-all.svg' },
+    { id: 'EQUIP', label: 'EQUIP', icon: '/IMG/nav_tab-equip.svg' },
+    { id: 'CONSUMABLES', label: 'CONSUMABLES', icon: '/IMG/nav_tab-consum.svg' }
+  ];
 
   const filteredInventory = inventory.filter((item) => {
     if (filter === 'ALL') return true;
@@ -22,15 +26,22 @@ const ItemList = () => {
       <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
         {filters.map((f) => (
           <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`font-orbitron text-xs px-3 py-1 transition-all clip-hex ${
-              filter === f
-                ? 'bg-eidos-cyan text-black font-bold text-glow-cyan'
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={`font-orbitron text-xs px-3 py-1 transition-all clip-hex flex items-center gap-2 ${
+              filter === f.id
+                ? 'bg-eidos-cyan text-black font-bold text-glow-cyan border border-eidos-cyan'
                 : 'text-white/50 hover:text-white bg-black/40 border border-white/20'
             }`}
           >
-            {f}
+            <img
+               src={f.icon}
+               alt={f.label}
+               className="w-4 h-4"
+               style={filter === f.id ? { filter: 'invert(1)' } : { filter: 'var(--svg-color-white, invert(1)) opacity(0.5)' }}
+               onError={(e) => e.target.style.display='none'}
+            />
+            {f.label}
           </button>
         ))}
       </div>

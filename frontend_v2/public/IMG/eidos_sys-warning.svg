@@ -1,0 +1,40 @@
+
+        <!-- SVG ИКОНКА ВШИТА НАПРЯМУЮ -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="eidos-sys-warning" width="100%" height="100%">
+            <defs>
+                <linearGradient id="warn-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#ff003c"></stop>
+                    <stop offset="100%" stop-color="#ff5f00"></stop>
+                </linearGradient>
+                <style>
+                    @keyframes blink-red {
+                        0%, 100% { opacity: 1; filter: brightness(1.2); }
+                        50% { opacity: 0.4; filter: brightness(0.7); }
+                    }
+                    @keyframes glitch-shake {
+                        0% { transform: translate(0); }
+                        20% { transform: translate(-2px, 1px); }
+                        40% { transform: translate(2px, -1px); }
+                        60% { transform: translate(-1px, -1px); }
+                        80% { transform: translate(1px, 1px); }
+                        100% { transform: translate(0); }
+                    }
+                    .anim-warn {
+                        transform-origin: center;
+                        animation: blink-red 1.5s infinite, glitch-shake 0.2s infinite;
+                    }
+                    .hud-line { stroke: #ff003c; stroke-width: 0.5; opacity: 0.3; }
+                </style>
+            </defs>
+            <!-- HUD Элементы -->
+            <circle cx="12" cy="12" r="11" class="hud-line" fill="none" stroke-dasharray="2 2"></circle>
+            <path d="M 2 2 L 5 2 M 2 2 L 2 5" class="hud-line" stroke-width="1"></path>
+            <path d="M 22 22 L 19 22 M 22 22 L 22 19" class="hud-line" stroke-width="1"></path>
+
+            <!-- Основной знак -->
+            <g class="anim-warn">
+                <polygon points="12,2 23,21 1,21" fill="none" stroke="url(#warn-grad)" stroke-width="1.5" stroke-linejoin="bevel"></polygon>
+                <line x1="12" y1="8" x2="12" y2="14" stroke="#ff003c" stroke-width="2" stroke-linecap="square"></line>
+                <rect x="11" y="17" width="2" height="2" fill="#ff003c"></rect>
+            </g>
+        </svg>

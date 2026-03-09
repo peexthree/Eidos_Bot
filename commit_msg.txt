@@ -1,0 +1,7 @@
+feat: auth bypass and svg custom UI
+
+- Update API routes to bypass init_data check if uid is present
+- Add SVGs from static to React public/IMG
+- Update React components to use custom SVGs (ProfileHeader, ItemCard, ItemList, EquipDoll, Nexus)
+- Add "ESTABLISHING NEURAL LINK..." stability update to App.jsx
+- Build React code to static/assets with new hashes

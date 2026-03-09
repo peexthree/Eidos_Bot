@@ -27,26 +27,38 @@ const ItemCard = ({ item }) => {
     <div
       className={`relative flex items-center justify-between p-3 mb-2 clip-hex bg-eidos-glass border border-white/10 border-l-4 ${borderColor} transition-all duration-300 hover:bg-white/10 group`}
     >
-      <div className="flex flex-col flex-1">
-        <h3 className="font-orbitron text-sm font-bold tracking-widest text-white/90 group-hover:text-white transition-colors">
-          {item?.name || 'Unknown Item'}
-        </h3>
-        <div className="flex items-center space-x-2 mt-1">
-          <span className="font-share text-[10px] uppercase text-white/50 border border-white/20 px-1 py-0.5 rounded-sm">
-            {item?.type || 'Unknown'}
-          </span>
-          {item?.amount && (
-            <span className="font-share text-[10px] text-yellow-400">
-              QTY: {item.amount}
+      <div className="flex items-center flex-1 gap-3">
+        {/* Item Image */}
+        <div className="w-12 h-12 flex-shrink-0 bg-black/40 border border-white/20 clip-hex flex items-center justify-center overflow-hidden">
+           {item?.image_url ? (
+             <img src={item.image_url} alt={item?.name} className="w-full h-full object-cover" />
+           ) : (
+             <span className="font-share text-[8px] text-white/40">NO IMG</span>
+           )}
+        </div>
+
+        <div className="flex flex-col flex-1">
+          <h3 className="font-orbitron text-sm font-bold tracking-widest text-white/90 group-hover:text-white transition-colors">
+            {item?.name || 'Unknown Item'}
+          </h3>
+          <div className="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
+            <span className="font-share text-[10px] uppercase text-white/50 border border-white/20 px-1 py-0.5 rounded-sm flex items-center gap-1">
+              <img src="/IMG/nav_tab-equip.svg" alt="" className="w-2 h-2 opacity-50" />
+              {item?.type || 'Unknown'}
             </span>
-          )}
-          {item?.stats && (
-            <div className="font-share text-[10px] text-eidos-cyan flex space-x-2">
-              {Object.entries(item.stats).map(([k, v]) => (
-                <span key={k}>+{v}{k.toUpperCase()}</span>
-              ))}
-            </div>
-          )}
+            {item?.amount && (
+              <span className="font-share text-[10px] text-yellow-400">
+                QTY: {item.amount}
+              </span>
+            )}
+            {item?.stats && (
+              <div className="font-share text-[10px] text-eidos-cyan flex space-x-2">
+                {Object.entries(item.stats).map(([k, v]) => (
+                  <span key={k}>+{v}{k.toUpperCase()}</span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -54,7 +66,7 @@ const ItemCard = ({ item }) => {
         <button
           onClick={handleEquip}
           disabled={isEquipped}
-          className={`ml-4 font-share text-xs px-3 py-1 border clip-hex transition-colors ${
+          className={`ml-4 font-share text-xs px-3 py-1 border clip-hex transition-colors flex-shrink-0 ${
             isEquipped
               ? 'border-eidos-neon text-eidos-neon bg-eidos-neon/10 opacity-50 cursor-not-allowed'
               : 'border-white/30 text-white/70 hover:border-eidos-cyan hover:text-eidos-cyan bg-black/40'
