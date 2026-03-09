@@ -3,46 +3,6 @@ import { motion } from 'framer-motion';
 import ProfileHeader from '../components/ProfileHeader';
 import axios from 'axios';
 
-const HexButton = ({ title, iconUrl, tgImageUrl, onClick }) => {
-  return (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={() => onClick(tgImageUrl)}
-      className="relative flex flex-col items-center justify-center cursor-pointer group focus:outline-none bg-transparent border-none aspect-[100/115] w-full max-w-[100px] mx-auto overflow-hidden"
-      style={{
-        backgroundImage: 'url(/video/hex_frame.png)',
-        backgroundSize: 'contain',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-      }}
-    >
-      {/* Затемнение внутри гексогона 30% */}
-      <div
-        className="absolute inset-0 bg-black/30 transition-all duration-300 group-hover:bg-black/10"
-        style={{
-          clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-          transform: 'scale(0.85)'
-        }}
-      ></div>
-
-      {iconUrl && (
-        <img
-          src={iconUrl}
-          alt={title}
-          className="relative z-10 w-8 h-8 md:w-10 md:h-10 mb-1 drop-shadow-[0_0_5px_rgba(255,255,255,0.5)] group-hover:drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] transition-all object-contain"
-        />
-      )}
-      <span
-        className="relative z-10 font-orbitron font-bold text-[8px] md:text-[9px] uppercase tracking-wider text-center leading-tight px-1"
-        style={{ color: '#00E5FF', textShadow: '0 0 5px #00E5FF, 0 0 10px #00E5FF' }}
-      >
-        {title}
-      </span>
-    </motion.button>
-  );
-};
-
 const Hub = ({ setView }) => {
   const twa = window.Telegram?.WebApp;
   const [hubData, setHubData] = useState({});
@@ -60,94 +20,211 @@ const Hub = ({ setView }) => {
     fetchHubData();
   }, []);
 
-  const handleAction = (tgImageUrl, action) => {
-      if (tgImageUrl) {
-          setModalImage(tgImageUrl);
-      } else if (action) {
-          action();
-      } else {
-          if (twa && twa.showPopup) {
-              twa.showPopup({
-                  title: 'SYSTEM MODULE OFFLINE',
-                  message: 'Модуль находится в разработке.',
-                  buttons: [{type: 'close'}]
-              });
-          } else {
-              alert("MODULE OFFLINE");
-          }
+  const handleAction = async (tgImageUrl, actionUrl, customAction) => {
+    if (customAction) {
+      customAction();
+      return;
+    }
+
+    if (actionUrl) {
+      try {
+        if (twa && twa.HapticFeedback) {
+          twa.HapticFeedback.impactOccurred('light');
+        }
+        await axios.post(actionUrl);
+        // Might need a toast or some feedback here, but for now we just post
+      } catch (e) {
+        console.error(`Failed action: ${actionUrl}`, e);
       }
+      return;
+    }
+
+    if (tgImageUrl) {
+        setModalImage(tgImageUrl);
+    } else {
+        if (twa && twa.showPopup) {
+            twa.showPopup({
+                title: 'SYSTEM MODULE OFFLINE',
+                message: 'Модуль находится в разработке.',
+                buttons: [{type: 'close'}]
+            });
+        } else {
+            alert("MODULE OFFLINE");
+        }
+    }
   }
 
-  // Helper for safe lookup
   const getImg = (key) => hubData[key] || '';
 
+  const btnStyle = {
+    cursor: 'pointer',
+    transition: 'transform 0.1s ease, filter 0.2s',
+  };
+
+  const btnHoverActiveStyle = `
+    hover:scale-95 hover:brightness-125
+    active:scale-95 active:brightness-125
+  `;
+
   return (
-    <>
-      {/* Layer 0: Video Background */}
-      <div className="fixed inset-0 w-[100vw] h-[100vh] -z-20">
-        <video
-          src="/video/loop_bg.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="w-full h-full object-cover"
-        />
-      </div>
+    <div style={{
+      aspectRatio: '9 / 16',
+      width: '100%',
+      maxHeight: '100vh',
+      position: 'relative',
+      margin: '0 auto',
+      overflow: 'hidden'
+    }}>
+      {/* Layer 0: Background Video */}
+      <video
+        src="/video/back.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          zIndex: 0
+        }}
+      />
 
-      {/* Layer 1: Main Frame Overlay */}
-      <div className="fixed inset-0 w-[100vw] h-[100vh] z-[50] pointer-events-none">
-        <img
-          src="/video/main_frame.png"
-          alt="Main Frame"
-          className="w-full h-full object-cover"
-        />
-      </div>
+      {/* Layer 1: Button Grid (The Precision Grid) */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 5,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        padding: '15% 5% 5% 5%'
+      }}>
+        {/* Profile Header injected at the top inside the grid layout so it doesn't break absolute positioning */}
+        <div style={{ marginBottom: '5%' }}>
+          <ProfileHeader />
+        </div>
 
-      {/* Layer 2: Interactive Grid */}
-      <div className="relative z-10 flex flex-col h-full w-full max-w-sm mx-auto pt-32 pb-16 px-4">
+        {/* Header Row */}
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '5%' }}>
+          <img
+            src="/video/nadpis.png"
+            alt="Title"
+            style={{ width: '80%', objectFit: 'contain' }}
+          />
+        </div>
 
-        {/* BLOCK 1: HEADER */}
-        <ProfileHeader />
+        {/* Row 1 (Split 40/60) */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '5%' }}>
+          <img
+            src="/video/signa.png"
+            alt="Signal"
+            className={btnHoverActiveStyle}
+            style={{ width: '40%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(null, '/api/action/signal')}
+          />
+          <img
+            src="/video/sinxr.png"
+            alt="Synchron"
+            className={btnHoverActiveStyle}
+            style={{ width: '55%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(null, '/api/action/synchron')}
+          />
+        </div>
 
-        {/* HEXAGONAL GRID CONTAINER */}
-        <div className="flex flex-col items-center justify-center mt-auto mb-8 w-full space-y-2">
+        {/* Row 2 (4 Items) */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: '2%', marginTop: '5%' }}>
+          <img
+            src="/video/_nul.png"
+            alt="Zero Layer"
+            className={btnHoverActiveStyle}
+            style={{ width: '23%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(getImg("zero_layer_menu"))}
+          />
+          <img
+            src="/video/shop.png"
+            alt="Shop"
+            className={btnHoverActiveStyle}
+            style={{ width: '23%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(getImg("shop_menu"))}
+          />
+          <img
+            src="/video/invent.png"
+            alt="Inventory"
+            className={btnHoverActiveStyle}
+            style={{ width: '23%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(null, null, () => setView('INVENTORY'))}
+          />
+          <img
+            src="/video/dnecvnik.png"
+            alt="Diary"
+            className={btnHoverActiveStyle}
+            style={{ width: '23%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(getImg("diary_menu"))}
+          />
+        </div>
 
-          {/* Row 1 */}
-          <div className="grid grid-cols-3 gap-2 w-full max-w-[320px]">
-            <HexButton title="СИНХРОН" iconUrl="/IMG/eidos_sync.svg" tgImageUrl={getImg("get_protocol")} onClick={(img) => handleAction(img, null)} />
-            <HexButton title="СИГНАЛ" iconUrl="/IMG/eidos_signal.svg" tgImageUrl={getImg("get_signal")} onClick={(img) => handleAction(img, null)} />
-            <HexButton title="НУЛЕВОЙ СЛОЙ" iconUrl="/IMG/eidos_zero-layer.svg" tgImageUrl={getImg("zero_layer_menu")} onClick={(img) => handleAction(img, null)} />
-          </div>
+        {/* Row 3 (3 Items Centered) */}
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', gap: '4%', marginTop: '5%' }}>
+          <img
+            src="/video/sindi.png"
+            alt="Syndicate"
+            className={btnHoverActiveStyle}
+            style={{ width: '28%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(getImg("referral"))}
+          />
+          <img
+            src="/video/reiting.png"
+            alt="Rating"
+            className={btnHoverActiveStyle}
+            style={{ width: '28%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(getImg("leaderboard"))}
+          />
+          <img
+            src="/video/guid.png"
+            alt="Guide"
+            className={btnHoverActiveStyle}
+            style={{ width: '28%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(getImg("guide"))}
+          />
+        </div>
 
-          {/* Row 2 */}
-          <div className="grid grid-cols-3 gap-2 w-full max-w-[320px]">
-            <HexButton title="РЫНОК" iconUrl="/IMG/eidos_market.svg" tgImageUrl={getImg("shop_menu")} onClick={(img) => handleAction(img, null)} />
-            <HexButton title="ИНВЕНТАРЬ" iconUrl="/IMG/eidos_inventory.svg" tgImageUrl={getImg("inventory")} onClick={(img) => { setView('INVENTORY'); }} />
-            <HexButton title="ДНЕВНИК" iconUrl="/IMG/eidos_diary.svg" tgImageUrl={getImg("diary_menu")} onClick={(img) => handleAction(img, null)} />
-          </div>
-
-          {/* Row 3 */}
-          <div className="grid grid-cols-3 gap-2 w-full max-w-[320px]">
-            <HexButton title="СИНДИКАТ" iconUrl="/IMG/eidos_syndicate.svg" tgImageUrl={getImg("referral")} onClick={(img) => handleAction(img, null)} />
-            <HexButton title="РЕЙТИНГ" iconUrl="/IMG/eidos_rating.svg" tgImageUrl={getImg("leaderboard")} onClick={(img) => handleAction(img, null)} />
-            <HexButton title="ТЕНЕВОЙ БРОКЕР" iconUrl="/IMG/eidos_broker.svg" tgImageUrl={getImg("shadow_shop_menu")} onClick={(img) => handleAction(img, null)} />
-          </div>
-
-          {/* Row 4 */}
-          <div className="flex justify-center space-x-2 w-full max-w-[320px]">
-            <div className="w-1/3">
-              <HexButton title="ГАЙД" iconUrl="/IMG/eidos_guides.svg" tgImageUrl={getImg("guide")} onClick={(img) => handleAction(img, null)} />
-            </div>
-            <div className="w-1/3">
-              <HexButton title="GOD MODE" iconUrl="/IMG/eidos_god-mode.svg" tgImageUrl={getImg("admin_panel")} onClick={(img) => handleAction(img, null)} />
-            </div>
-          </div>
-
+        {/* Row 4 (Bottom Split) */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: '10%', marginTop: '5%' }}>
+          <img
+            src="/video/shadow_b.png"
+            alt="Shadow Broker"
+            className={btnHoverActiveStyle}
+            style={{ width: '45%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(getImg("shadow_shop_menu"))}
+          />
+          <img
+            src="/video/admin.png"
+            alt="Admin"
+            className={btnHoverActiveStyle}
+            style={{ width: '45%', objectFit: 'contain', ...btnStyle }}
+            onClick={() => handleAction(getImg("admin_panel"))}
+          />
         </div>
       </div>
 
-      {/* Image Modal */}
+      {/* Layer 2: Top Frame Overlay */}
+      <img
+        src="/video/frame.png"
+        alt="Frame Overlay"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          pointerEvents: 'none',
+          zIndex: 10
+        }}
+      />
+
+      {/* Image Modal (Z-index strictly highest) */}
       {modalImage && (
         <div
           className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
@@ -162,7 +239,7 @@ const Hub = ({ setView }) => {
           >
              <button
                 onClick={() => setModalImage(null)}
-                className="absolute top-4 right-4 text-eidos-cyan z-10 bg-black/50 w-8 h-8 rounded-full flex items-center justify-center border border-eidos-cyan/30"
+                className="absolute top-4 right-4 text-eidos-cyan z-10 bg-black/50 w-8 h-8 rounded-full flex items-center justify-center border border-eidos-cyan/30 cursor-pointer hover:bg-white/10"
              >
                ✕
              </button>
@@ -173,7 +250,7 @@ const Hub = ({ setView }) => {
           </motion.div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
