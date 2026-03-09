@@ -11,20 +11,20 @@ const ProfileHeader = () => {
         <div className="relative w-16 h-16 bg-eidos-cyan/20 clip-hex flex items-center justify-center border border-eidos-cyan">
           <span className="font-orbitron text-xl text-eidos-cyan font-bold">CN</span>
           <div className="absolute -bottom-2 -right-2 bg-eidos-red text-white text-xs px-1 font-share clip-hex font-bold">
-            LVL {profile.level}
+            LVL {profile?.level || 0}
           </div>
         </div>
 
         {/* Имя, Фракция, Биокоины */}
         <div className="flex flex-col flex-1">
           <h2 className="font-orbitron text-lg text-eidos-cyan text-glow-cyan uppercase tracking-wider">
-            {profile.name}
+            {profile?.name || "UNKNOWN"}
           </h2>
           <div className="font-share text-xs text-white/70 mb-1">
-            FACTION: <span className="text-eidos-neon text-glow-neon">{profile.faction}</span>
+            FACTION: <span className="text-eidos-neon text-glow-neon">{profile?.faction || "UNKNOWN"}</span>
           </div>
           <div className="font-share text-sm text-yellow-400 flex items-center">
-            <span className="mr-1">◈</span> {profile.biocoins.toLocaleString()} BC
+            <span className="mr-1">◈</span> {(profile?.biocoins || 0).toLocaleString()} BC
           </div>
         </div>
       </div>
@@ -34,22 +34,22 @@ const ProfileHeader = () => {
         {/* ATK - Red */}
         <div className="flex flex-col items-center justify-center bg-black/40 p-2 clip-hex border border-eidos-red/30">
           <span className="font-share text-[10px] text-eidos-red mb-1">ATK</span>
-          <span className="font-rajdhani text-lg text-white font-bold">{profile.stats.atk}</span>
+          <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.atk || 0}</span>
         </div>
         {/* DEF - Blue */}
         <div className="flex flex-col items-center justify-center bg-black/40 p-2 clip-hex border border-blue-400/30">
           <span className="font-share text-[10px] text-blue-400 mb-1">DEF</span>
-          <span className="font-rajdhani text-lg text-white font-bold">{profile.stats.def}</span>
+          <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.def || 0}</span>
         </div>
         {/* LCK - Yellow */}
         <div className="flex flex-col items-center justify-center bg-black/40 p-2 clip-hex border border-yellow-400/30">
           <span className="font-share text-[10px] text-yellow-400 mb-1">LCK</span>
-          <span className="font-rajdhani text-lg text-white font-bold">{profile.stats.luck}</span>
+          <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.luck || 0}</span>
         </div>
         {/* SIGNAL - Neon Green */}
         <div className="flex flex-col items-center justify-center bg-black/40 p-2 clip-hex border border-eidos-neon/30">
           <span className="font-share text-[10px] text-eidos-neon mb-1">SIGNAL</span>
-          <span className="font-rajdhani text-lg text-white font-bold">{profile.stats.signal}%</span>
+          <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.signal || 0}%</span>
         </div>
       </div>
     </div>

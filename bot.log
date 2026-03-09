@@ -768,3 +768,5 @@ ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app
 2026-03-09 05:27:27,107 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 05:27:27] "GET /assets/vendor-BnszM7OU.js HTTP/1.1" 200 -
 2026-03-09 05:27:27,109 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 05:27:27] "GET /assets/motion-xpJi8bBL.js HTTP/1.1" 200 -
 2026-03-09 05:27:27,712 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 05:27:27] "[31m[1mGET /api/inventory?uid=123456789 HTTP/1.1[0m" 401 -
+2026-03-09 05:52:40,068 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-09 05:52:40,068 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts

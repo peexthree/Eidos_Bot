@@ -55,6 +55,8 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 }
 
 function App() {
+  const isLoading = useStore((state) => state.isLoading);
+  const profile = useStore((state) => state.profile);
 
   useEffect(() => {
     console.log("/// EIDOS: Starting initialization sequence...");
@@ -100,6 +102,16 @@ function App() {
         console.error("/// EIDOS FATAL: Could not determine UID from any source.");
     }
   }, []);
+
+  if (isLoading || !profile) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[var(--color-eidos-bg)]">
+        <div className="loading-screen text-center font-orbitron text-eidos-cyan text-xl animate-pulse text-glow-cyan">
+          INITIALIZING NEURAL LINK...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
