@@ -1,142 +1,17 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>EIDOS | ТЕРМИНАЛ</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="css/style.css">
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="0" width="0" style="position: absolute;">
-<defs>
-<filter id="liquid-morph">
-<feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
-<feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="liquid" />
-<feBlend in="SourceGraphic" in2="liquid" />
-</filter>
-</defs>
-</svg>
-</head>
-<body>
-
-    <div id="eidos-loader" onclick="forceCloseLoader()">
-        <video src="video/LOGO.mp4" autoplay muted playsinline></video>
-        <div class="loader-overlay-text" style="color: #00ff41; text-shadow: 0 0 8px #00ff41; font-weight: bold;">ПОДКЛЮЧЕНИЕ К НЕЙРОСЕТИ...</div>
-    </div>
-
-    <div class="sys-background">
-        <div class="sys-scanline"></div>
-        <div class="nexus-grid-container"><div class="nexus-grid-plane"></div></div>
-        <div class="nexus-particles" id="p-box"></div>
-    </div>
-
-    <div id="loading-overlay" class="sys-boot-overlay">
-        <div class="boot-content">
-            <svg class="sys-boot-core" viewBox="0 0 100 100">
-                <circle class="sys-spin-cw" cx="50" cy="50" r="45" fill="none" stroke="#00ff41" stroke-width="1" stroke-dasharray="10 5" opacity="0.4"/>
-                <circle class="sys-spin-ccw" cx="50" cy="50" r="35" fill="none" stroke="#00ffff" stroke-width="2" stroke-dasharray="20 10"/>
-                <circle cx="50" cy="50" r="5" fill="#00ff41">
-                    <animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite" />
-                </circle>
-            </svg>
-            <div class="sys-title" style="color: #fff; text-shadow: 0 0 10px #00ffff;">EIDOS<span>_ИНТЕРФЕЙС</span></div>
-            <div class="sys-progress-box"><div id="sys-progress" class="sys-progress-bar"></div></div>
-            <div id="progress-text" class="sys-progress-text" style="color: #66FCF1;">ДЕШИФРОВКА: 0%</div>
-        </div>
-    </div>
-
-
-
-    <main id="views-container">
-
-        <section id="view-nexus" class="view-panel active" style="display: flex; align-items: center; justify-content: center; height: 100vh;">
-            <div class="nexus-grid" id="nexus-grid-tiles"></div>
-        </section>
-
-        <section id="view-inventory" class="view-panel">
-<div class="optical-scanner"></div>
-            
-            <button class="web-app-back-btn" onclick="showView('view-nexus')" style="background: none; border: none; color: var(--eidos-cyan); font-family: Orbitron; font-size: 16px; margin-bottom: 10px; cursor: pointer; text-shadow: 0 0 5px var(--eidos-cyan);">&lt; НАЗАД В НЕКСУС</button>
-            <div class="profile-header">
-                <div class="avatar-wrapper">
-                    <img id="profile-avatar" src="IMG/eidos_demiurge-user.svg" class="avatar" alt="Объект">
-                    <div class="lvl-badge" id="profile-lvl" style="color: #000; background: #66FCF1; box-shadow: 0 0 5px #66FCF1;">1</div>
-                </div>
-                <div class="user-details">
-                    <h2 id="profile-name" style="color: #ffffff; text-shadow: 0 0 5px #66FCF1;">ИДЕНТИФИКАЦИЯ...</h2>
-                    <p id="profile-faction" style="color: #a0a0a0;">ФРАКЦИЯ: НЕЙТРАЛ</p>
-
-                <div class="user-stats-line" style="display: flex; gap: 15px; justify-content: center; margin-top: 10px; font-size: 14px; color: #fff;">
-                    <span title="АТК"><img src="IMG/eidos_weapon-attack.svg" style="width:14px; filter: invert(0.5) sepia(1) saturate(5) hue-rotate(330deg); vertical-align: middle;"> <span id="stat-atk" style="color: #ff4d4d;">0</span></span>
-                    <span title="ЗАЩ"><img src="IMG/eidos_armor-defense.svg" style="width:14px; filter: invert(0.5) sepia(1) saturate(5) hue-rotate(200deg); vertical-align: middle;"> <span id="stat-def" style="color: #4da6ff;">0</span></span>
-                    <span title="УДАЧА"><img src="IMG/eidos_luck-dice.svg" style="width:14px; filter: invert(0.5) sepia(1) saturate(5) hue-rotate(90deg); vertical-align: middle;"> <span id="stat-luck" style="color: #00ff41;">0</span></span>
-                </div>
-<div class="currency-display" style="color: #66FCF1; font-weight: bold;">
-                        <span id="profile-biocoins" style="text-shadow: 0 0 5px #66FCF1;">0</span> <small style="color: #c5c6c7;">БИОКОИНОВ</small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="doll-container">
-                <div class="equip-slot head" id="slot-head" title="Шлем"></div>
-                <div class="equip-slot weapon" id="slot-weapon" title="Оружие"></div>
-                <div class="equip-slot body" id="slot-body" title="Броня"></div>
-                <div class="equip-slot software" id="slot-software" title="Софт"></div>
-                <div class="equip-slot artifact" id="slot-artifact" title="Артефакт"></div>
-            </div>
-
-            <button class="web-app-back-btn" onclick="showView('view-nexus')" style="background: none; border: none; color: var(--eidos-cyan); font-family: Orbitron; font-size: 16px; margin-bottom: 10px; cursor: pointer; text-shadow: 0 0 5px var(--eidos-cyan);">&lt; НАЗАД В НЕКСУС</button>
-            <div class="optical-scanner"></div><div class="tabs">
-                <div class="tab active" data-filter="all" style="color: #fff;">ВСЕ</div>
-                <div class="tab" data-filter="equip" style="color: #fff;">СНАРЯЖЕНИЕ</div>
-                <div class="tab" data-filter="consumable" style="color: #fff;">РАСХОДНИКИ</div>
-            </div>
-
-            <div class="items-list" id="inventory-list"></div>
-        </section>
-
-        <section id="view-shop" class="view-panel">
-            <button class="web-app-back-btn" onclick="showView('view-nexus')" style="background: none; border: none; color: var(--eidos-cyan); font-family: Orbitron; font-size: 16px; margin-bottom: 10px; cursor: pointer; text-shadow: 0 0 5px var(--eidos-cyan);">&lt; НАЗАД В НЕКСУС</button>
-            <div class="view-title" style="color: #66FCF1; text-shadow: 0 0 8px #66FCF1;">ТОРГОВЫЙ ШЛЮЗ</div>
-            <div class="scroll-area" id="shop-list"></div>
-        </section>
-
-        <section id="view-social" class="view-panel">
-            <button class="web-app-back-btn" onclick="showView('view-nexus')" style="background: none; border: none; color: var(--eidos-cyan); font-family: Orbitron; font-size: 16px; margin-bottom: 10px; cursor: pointer; text-shadow: 0 0 5px var(--eidos-cyan);">&lt; НАЗАД В НЕКСУС</button>
-            <div class="optical-scanner"></div><div class="tabs">
-                <div class="tab active" data-social-tab="leaderboard" style="color: #fff;">СЕТЬ</div>
-                <div class="tab" data-social-tab="ai" style="color: #fff;">ЭЙДОС</div>
-            </div>
-            <div id="social-leaderboard" class="scroll-area">
-                <div id="leaderboard-list"></div>
-            </div>
-            <div id="social-ai" style="display: none;">
-                <div class="ai-terminal-box">
-                    <div id="ai-log" class="ai-screen" style="color: #00ff41; text-shadow: 0 0 5px #00ff41;"></div>
-                    <button class="action-btn glow-purple" id="btn-dossier" style="color: #fff; background: rgba(184, 0, 255, 0.2); border: 1px solid #b800ff; text-shadow: 0 0 5px #b800ff;">АНАЛИЗ ОБЪЕКТА (100 БИОКОИНОВ)</button>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <footer class="action-log-terminal">
-        <div class="log-line">
-            <span class="log-tag" style="color: #4da6ff;">[СИСТЕМА]</span>
-            <span id="action-log-text" style="color: #00ff41; text-shadow: 0 0 4px #00ff41;">ТЕРМИНАЛ_ГОТОВ</span>
-        </div>
-    </footer>
-
-    <div class="modal-overlay" id="item-modal">
-        <div class="modal-content">
-            <div class="modal-close" id="modal-close" style="color: #ff4d4d; text-shadow: 0 0 5px #ff4d4d;">×</div>
-            <div id="modal-icon" class="modal-icon"></div>
-            <h3 id="modal-title" class="modal-title" style="color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5);">ОБЪЕКТ</h3>
-            <div id="modal-rarity" class="item-rarity" style="margin-bottom:10px; color: #a0a0a0;">БАЗОВЫЙ</div>
-            <div id="modal-desc" class="modal-desc" style="color: #c5c6c7;">ОШИБКА: НЕТ_ДАННЫХ</div>
-            <div id="modal-actions" class="modal-actions"></div>
-        </div>
-    </div>
-
-    <script src="js/app.js"></script>
-</body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend_v2</title>
+    <script type="module" crossorigin src="/assets/index-C1SOpFe4.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/query-BIJ19OAc.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-BnszM7OU.js">
+    <link rel="modulepreload" crossorigin href="/assets/motion-xpJi8bBL.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-4VQiAXC5.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>

@@ -81,6 +81,12 @@ def send_js(path):
     static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/js')
     return flask.send_from_directory(static_dir, path)
 
+@app.route('/assets/<path:path>', methods=['GET'])
+def send_assets(path):
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/assets')
+    return flask.send_from_directory(static_dir, path)
+
+
 @app.route("/", methods=["GET"])
 def index():
     return "Eidos Terminal Interface Operational", 200
