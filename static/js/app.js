@@ -328,15 +328,17 @@ function renderDoll() {
                 extraStyle = `border: 1px solid ${color}; box-shadow: inset 0 0 15px ${color}40;`;
             }
 
-            const iconContent = getItemIcon(item, slot);
 
-            slotEl.innerHTML = `
-                <div class="equipped-item ${extraClass}" style="${extraStyle} width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background: rgba(0,0,0,0.6);">
-                    <div style="width: 32px; height: 32px; display:flex; align-items:center; justify-content:center;">
-                        ${iconContent}
-                    </div>
-                    <div style="font-size: 8px; color: ${color}; text-align: center; margin-top:5px; word-wrap: break-word; padding: 0 2px;">${item.name}</div>
-                </div>`;
+            // Modified renderDoll
+            let imgHtml = '';
+            if (item.type && item.type.startsWith('eidos_')) {
+                imgHtml = `<img src="https://api.telegram.org/file/bot${window.tgBotToken || ''}/${item.item_id}" alt="item" style="width: 100%; height: 100%; object-fit: cover;">`;
+            } else {
+                imgHtml = `<img src="/api/inventory/image?item_id=${item.item_id}" alt="item" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='IMG/eidos_sys-warning.svg'">`;
+            }
+            slotEl.innerHTML = imgHtml;
+            slotEl.onclick = () => openUnequipModal(slot, item);
+
             slotEl.onclick = () => openUnequipModal(slot, item);
         } else {
             let rawIcon = ICONS[slot] || ICONS['default'];

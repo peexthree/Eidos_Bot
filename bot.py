@@ -185,7 +185,27 @@ def inventory_api():
         })
 
     # --- Equipped (Enriching Data for WebApp) ---
-    raw_equipped = db.get_user_equipment(uid)
+    raw_
+    equipped_raw = db.get_user_equipment(uid)
+    import config
+    equipped = {}
+    for slot, item_data in equipped_raw.items():
+        if item_data and "item_id" in item_data:
+            i_id = item_data["item_id"]
+            info = config.ITEMS_INFO.get(i_id, {})
+            # merge
+            equipped[slot] = {
+                "item_id": i_id,
+                "durability": item_data.get("durability", 100),
+                "name": info.get("name", i_id),
+                "description": info.get("description", "Данные отсутствуют."),
+                "rarity": info.get("rarity", "common"),
+                "type": info.get("type", "misc"),
+                "stats": info.get("stats", {})
+            }
+        else:
+            equipped[slot] = None
+
     enriched_equipped = {}
     for slot, item_data in raw_equipped.items():
         # База может вернуть либо строку с ID, либо словарь. Обрабатываем оба варианта.
