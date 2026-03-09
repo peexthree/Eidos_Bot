@@ -6,6 +6,7 @@ import { Route, Switch } from 'wouter';
 // Импорт компонентов
 import Layout from './components/Layout';
 import Nexus from './pages/Nexus';
+import Inventory from './pages/Inventory';
 
 // Инстанс для кэша и серверного состояния
 const queryClient = new QueryClient({
@@ -63,12 +64,12 @@ function App() {
             {/* Главный хаб */}
             <Route path="/" component={Nexus} />
 
+            {/* Модуль Инвентаря */}
+            <Route path="/inventory" component={Inventory} />
+
             {/* Заглушки для основных модулей */}
             <Route path="/profile">
               <Placeholder name="PROFILE MODULE" />
-            </Route>
-            <Route path="/inventory">
-              <Placeholder name="GEAR MODULE" />
             </Route>
             <Route path="/shop">
               <Placeholder name="MARKET MODULE" />

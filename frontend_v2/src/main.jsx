@@ -9,16 +9,22 @@ import WebApp from '@twa-dev/sdk'
 // ==========================================
 
 // Конфигурация темы и TWA UI
-if (WebApp.initData) {
-  WebApp.expand();
-  WebApp.ready();
-  WebApp.disableVerticalSwipes();
-  WebApp.setHeaderColor('#020304');
-  WebApp.setBackgroundColor('#020304');
-} else {
-  console.warn("/// CRITICAL: TWA Environment not detected. Injecting MOCK initData. ///");
+try {
+  if (WebApp.initData) {
+    WebApp.expand();
+    WebApp.ready();
+    WebApp.disableVerticalSwipes();
+    WebApp.setHeaderColor('#020304');
+    WebApp.setBackgroundColor('#020304');
+  } else {
+    console.warn("/// CRITICAL: TWA Environment not detected. Injecting MOCK initData. ///");
+  }
+} catch (e) {
+  console.warn("TWA Init failed:", e);
+}
 
-  // Локальная заглушка для разработки вне Telegram
+// Переопределяем WebApp для локальной среды
+if (!window.Telegram?.WebApp?.initData) {
   const mockUser = encodeURIComponent(JSON.stringify({
     id: 123456789,
     first_name: "DevUser",
@@ -28,15 +34,18 @@ if (WebApp.initData) {
   }));
   const mockInitData = `query_id=mock123&user=${mockUser}&auth_date=${Math.floor(Date.now() / 1000)}&hash=devmock`;
 
-  // Полифилл для WebApp SDK
-  WebApp.initData = mockInitData;
-  WebApp.initDataUnsafe = {
-    user: {
-      id: 123456789,
-      first_name: "DevUser",
-      last_name: "Mock",
-      username: "dev_mock",
-      language_code: "ru"
+  if (!window.Telegram) window.Telegram = {};
+  window.Telegram.WebApp = {
+    ...WebApp,
+    initData: mockInitData,
+    initDataUnsafe: {
+      user: {
+        id: 123456789,
+        first_name: "DevUser",
+        last_name: "Mock",
+        username: "dev_mock",
+        language_code: "ru"
+      }
     }
   };
 }
