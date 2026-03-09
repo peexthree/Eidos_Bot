@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-head-eidos" width="100%" height="100%" class="w-full h-full">
+                <defs>
+                    <linearGradient id="grad-head-eidos" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#00ffff" />
+                        <stop offset="100%" stop-color="#00ff41" />
+                    </linearGradient>
+                    <filter id="glow-head-eidos" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-head-eidos { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-head-eidos { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); filter: brightness(1.3); } }
+                        @keyframes float-head-eidos { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes breathe-head-eidos { 0%, 100% { opacity: 0.6; stroke-width: 1.2; } 50% { opacity: 1; stroke-width: 1.8; filter: drop-shadow(0 0 4px #00ffff); } }
+                        @keyframes draw-head-eidos { 0% { stroke-dashoffset: 60; } 50% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -60; } }
+                        @keyframes blink-head-eidos { 0%, 50% { opacity: 1; stroke: #00ffff; } 51%, 100% { opacity: 0.4; stroke: url(#grad-head-eidos); } }
+                        @keyframes shake-head-eidos { 0%, 80%, 100% { transform: rotate(0deg); } 85% { transform: rotate(-5deg); } 90% { transform: rotate(5deg); } 95% { transform: rotate(-5deg); } }
+                        @keyframes wave-head-eidos { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.2); } }
+                        @keyframes glitch-heavy-head-eidos { 0%, 80%, 100% { transform: translate(0,0) scale(1); stroke: url(#grad-head-eidos); } 82% { transform: translate(-3px, 2px) scale(1.05); stroke: #ff003c; } 86% { transform: translate(3px, -2px) scale(0.95); stroke: #00ffff; } 88% { stroke: #ffffff; } }
+
+                        #svg-head-eidos .core-anim { transform-origin: 12px 12px; animation: glitch-heavy-head-eidos 2s infinite; }
+                    </style>
+                </defs>
+                <g stroke="url(#grad-head-eidos)" stroke-width="1.5" fill="none" stroke-linecap="square" stroke-linejoin="miter" class="core-anim" filter="url(#glow-head-eidos)">
+                    <polygon points="12,1 23,12 12,23 1,12"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="23"/><line x1="1" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="23" y2="12"/>
+                </g>
+            </svg>

@@ -1,33 +1,58 @@
 import re
+import os
 
-with open('static/inventory.html', 'r') as f:
+html_path = 'static/inventory.html'
+with open(html_path, 'r', encoding='utf-8') as f:
     content = f.read()
 
-# Make sure we don't have bottom-nav (grep showed nothing, but double check)
-content = re.sub(r'<nav class="bottom-nav">.*?</nav>', '', content, flags=re.DOTALL)
+# Find the built CSS and JS files
+assets_dir = 'static/assets'
+css_files = [f for f in os.listdir(assets_dir) if f.endswith('.css')]
+js_files = [f for f in os.listdir(assets_dir) if f.endswith('.js')]
 
-# Let's ensure <section id="view-nexus" class="view active"> has the proper structure from instructions:
-# <section id="view-nexus" class="view-panel active">
-#     <div class="nexus-grid" id="nexus-grid-tiles">
-#     </div>
-# </section>
+index_css = next((f for f in css_files if f.startswith('index-')), None)
+index_js = next((f for f in js_files if f.startswith('index-')), None)
+vendor_js = next((f for f in js_files if f.startswith('vendor-')), None)
+query_js = next((f for f in js_files if f.startswith('query-')), None)
+motion_js = next((f for f in js_files if f.startswith('motion-')), None)
 
-# Current structure:
-# <section id="view-nexus" class="view active">
-#     <div id="nexus-grid-content" class="nexus-grid"></div>
-# </section>
+if index_css:
+    content = re.sub(
+        r'<link rel="stylesheet" crossorigin href="/assets/index-.*?\.css">',
+        f'<link rel="stylesheet" crossorigin href="/assets/{index_css}">',
+        content
+    )
 
-old_nexus = """<section id="view-nexus" class="view active">
-            <div id="nexus-grid-content" class="nexus-grid"></div>
-        </section>"""
+if index_js:
+    content = re.sub(
+        r'<script type="module" crossorigin src="/assets/index-.*?\.js"></script>',
+        f'<script type="module" crossorigin src="/assets/{index_js}"></script>',
+        content
+    )
 
-new_nexus = """<section id="view-nexus" class="view-panel active">
-            <div class="nexus-grid" id="nexus-grid-tiles"></div>
-        </section>"""
+if vendor_js:
+    content = re.sub(
+        r'<link rel="modulepreload" crossorigin href="/assets/vendor-.*?\.js">',
+        f'<link rel="modulepreload" crossorigin href="/assets/{vendor_js}">',
+        content
+    )
 
-content = content.replace(old_nexus, new_nexus)
+if query_js:
+    content = re.sub(
+        r'<link rel="modulepreload" crossorigin href="/assets/query-.*?\.js">',
+        f'<link rel="modulepreload" crossorigin href="/assets/{query_js}">',
+        content
+    )
 
-with open('static/inventory.html', 'w') as f:
+if motion_js:
+    content = re.sub(
+        r'<link rel="modulepreload" crossorigin href="/assets/motion-.*?\.js">',
+        f'<link rel="modulepreload" crossorigin href="/assets/{motion_js}">',
+        content
+    )
+
+
+with open(html_path, 'w', encoding='utf-8') as f:
     f.write(content)
 
-print("HTML Structure updated")
+print(f"Updated HTML with new hashes: JS: {index_js}, CSS: {index_css}")

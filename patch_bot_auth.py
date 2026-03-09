@@ -1,35 +1,68 @@
 import re
 
-with open('bot.py', 'r') as f:
+with open('bot.py', 'r', encoding='utf-8') as f:
     content = f.read()
 
-# Define a validation stub (or full HMAC logic if necessary, but stub matches requirements "a stub check for now, matching the standard approach")
-def add_auth_check(func_name, code):
-    check_code = f"""
-    init_data = flask.request.headers.get('X-Telegram-Init-Data')
-    if not init_data:
-        print("/// SECURITY WARN: No initData provided in {func_name}")
-        # return flask.jsonify({{"error": "Unauthorized"}}), 401
-    """
+def replace_auth(match):
+    return """    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    data = flask.request.json or {}
+    uid = data.get('uid')
 
-    # Let's actually enforce it gently, returning 401 if strict. The instruction says: "Return a 401 error if it's missing or invalid (a stub check for now...)"
-    check_code_strict = f"""
-    init_data = flask.request.headers.get('X-Telegram-Init-Data')
-    if not init_data:
-        return flask.jsonify({{"error": "Unauthorized - Missing InitData"}}), 401
-    """
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401"""
 
-    # insert after def <func_name>():
-    func_pattern = rf"def {func_name}\(\):"
-    return re.sub(func_pattern, f"def {func_name}():\n{check_code_strict}", code, count=1)
+# Match equip
+content = re.sub(
+    r"    init_data = flask\.request\.headers\.get\('X-Telegram-Init-Data'\)\n    if not init_data:\n        return flask\.jsonify\(\{\"error\": \"Unauthorized - Missing InitData\"\}\), 401\n\n    data = flask\.request\.json\n    uid, item_id = data\.get\('uid'\), data\.get\('item_id'\)",
+    """    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    item_id = data.get('item_id')
 
-content = add_auth_check("inventory_api", content)
-content = add_auth_check("inventory_equip", content)
-content = add_auth_check("inventory_unequip", content)
-content = add_auth_check("inventory_use", content)
-content = add_auth_check("inventory_dismantle", content)
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401""",
+    content
+)
 
-with open('bot.py', 'w') as f:
+# Match unequip
+content = re.sub(
+    r"    init_data = flask\.request\.headers\.get\('X-Telegram-Init-Data'\)\n    if not init_data:\n        return flask\.jsonify\(\{\"error\": \"Unauthorized - Missing InitData\"\}\), 401\n\n    data = flask\.request\.json\n    uid, slot = data\.get\('uid'\), data\.get\('slot'\)",
+    """    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    slot = data.get('slot')
+
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401""",
+    content
+)
+
+# Match use
+content = re.sub(
+    r"    init_data = flask\.request\.headers\.get\('X-Telegram-Init-Data'\)\n    if not init_data:\n        return flask\.jsonify\(\{\"error\": \"Unauthorized - Missing InitData\"\}\), 401\n\n    data = flask\.request\.json\n    uid, item_id = data\.get\('uid'\), data\.get\('item_id'\)",
+    """    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    item_id = data.get('item_id')
+
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401""",
+    content
+)
+
+# Match dismantle
+content = re.sub(
+    r"    init_data = flask\.request\.headers\.get\('X-Telegram-Init-Data'\)\n    if not init_data:\n        return flask\.jsonify\(\{\"error\": \"Unauthorized - Missing InitData\"\}\), 401\n\n    try:\n        data = flask\.request\.json\n        uid = data\.get\('uid'\)",
+    """    init_data = flask.request.headers.get('X-Telegram-Init-Data')
+    data = flask.request.json or {}
+    uid = data.get('uid')
+
+    if not init_data and not uid:
+        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
+
+    try:""",
+    content
+)
+
+with open('bot.py', 'w', encoding='utf-8') as f:
     f.write(content)
-
-print("Auth checks added to bot.py")

@@ -27,21 +27,25 @@ const EquipSlot = ({ label, slot, item }) => {
       onClick={handleUnequip}
       className={`relative flex flex-col items-center justify-center p-2 w-20 h-24 clip-hex border-2 transition-all duration-300 ${slotColorClass} ${bgClass} cursor-pointer hover:bg-white/10`}
     >
-      <div className="absolute top-1 left-2 text-[8px] font-share uppercase opacity-50 tracking-widest">
+      <div className="absolute top-1 left-2 text-[8px] font-share uppercase opacity-50 tracking-widest z-10">
         {label}
       </div>
       {isEmpty ? (
         <div className="font-share text-xs opacity-30 mt-2">EMPTY</div>
       ) : (
-        <div className="flex flex-col items-center text-center mt-2">
-           <div className={`font-orbitron text-[10px] leading-tight font-bold mb-1 ${itemRarity === 'legendary' ? 'text-glow-red' : ''}`}>
+        <div className="flex flex-col items-center text-center w-full h-full relative z-0 mt-2">
+           {item?.image_url ? (
+             <div className="w-10 h-10 mb-1 flex-shrink-0">
+               <img src={item.image_url} alt={item?.name} className="w-full h-full object-cover rounded-sm" />
+             </div>
+           ) : (
+             <div className="w-10 h-10 mb-1 bg-white/10 flex items-center justify-center flex-shrink-0">
+               <span className="font-share text-[8px] opacity-50">NO IMG</span>
+             </div>
+           )}
+
+           <div className={`font-orbitron text-[8px] leading-tight font-bold truncate w-full ${itemRarity === 'legendary' ? 'text-glow-red' : ''}`}>
              {item?.name || 'Unknown'}
-           </div>
-           {/* Краткие статы */}
-           <div className="font-share text-[8px] text-white/70">
-             {item?.stats && Object.entries(item.stats).map(([k, v]) => (
-                <span key={k} className="mx-0.5">+{v}{k.toUpperCase()}</span>
-             ))}
            </div>
         </div>
       )}
