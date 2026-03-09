@@ -57,40 +57,47 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 function App() {
 
   useEffect(() => {
-    let finalUid = null;
+    console.log("/// EIDOS: Starting initialization sequence...");
 
-    // 1. Primary ID Source: TWA initDataUnsafe
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
-      finalUid = window.Telegram.WebApp.initDataUnsafe.user.id;
-    } else {
-      // 2. Fallback Parser: Extract from window.location.hash
-      try {
-        const hash = window.location.hash;
-        if (hash && hash.length > 1) {
-          const params = new URLSearchParams(hash.substring(1));
-          const tgWebAppData = params.get('tgWebAppData');
-          if (tgWebAppData) {
-            const tgParams = new URLSearchParams(tgWebAppData);
-            const userStr = tgParams.get('user');
-            if (userStr) {
-              const userObj = JSON.parse(userStr);
-              if (userObj && userObj.id) {
-                finalUid = userObj.id;
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Fallback parser failed to extract UID from hash:", err);
-      }
+    // 1. Try TWA SDK First
+    let uid = null;
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+        uid = window.Telegram.WebApp.initDataUnsafe.user?.id;
+        console.log("/// EIDOS: UID from TWA SDK:", uid);
     }
 
-    // Log the detected UID for debugging
-    console.log("REACT DETECTED UID:", finalUid);
+    // 2. Fallback to URL Hash parsing if SDK fails
+    if (!uid) {
+        try {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const tgWebAppData = params.get('tgWebAppData');
+            if (tgWebAppData) {
+                const tgParams = new URLSearchParams(tgWebAppData);
+                const userStr = tgParams.get('user');
+                if (userStr) {
+                    const userObj = JSON.parse(decodeURIComponent(userStr));
+                    uid = userObj.id;
+                    console.log("/// EIDOS: UID from Hash Fallback:", uid);
+                }
+            }
+        } catch (e) {
+            console.error("/// EIDOS: Hash parsing failed", e);
+        }
+    }
 
-    // 3. Trigger data fetching if valid ID
-    if (finalUid) {
-      useStore.getState().fetchProfile(finalUid);
+    // 3. Fallback to Search Params (just in case)
+    if (!uid) {
+        uid = new URLSearchParams(window.location.search).get('uid');
+        console.log("/// EIDOS: UID from Search Params:", uid);
+    }
+
+    // 4. Final Execution
+    if (uid) {
+        console.log("/// EIDOS: Final UID determined. Triggering fetchProfile for:", uid);
+        useStore.getState().fetchProfile(uid);
+    } else {
+        console.error("/// EIDOS FATAL: Could not determine UID from any source.");
     }
   }, []);
 
