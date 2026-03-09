@@ -8,13 +8,13 @@ const ProfileHeader = () => {
     <div className="w-full bg-eidos-glass p-4 border-b border-eidos-cyan/30 clip-hex mb-4">
       <div className="flex items-center space-x-4 mb-4">
         {/* Аватар с clip-hex */}
-        <div className="relative w-16 h-16 bg-eidos-cyan/20 clip-hex flex items-center justify-center border border-eidos-cyan">
+        <div className="relative w-20 h-20 bg-eidos-cyan/20 clip-hex flex items-center justify-center border border-eidos-cyan">
           {profile?.avatar_url ? (
             <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover clip-hex" />
           ) : (
             <span className="font-orbitron text-xl text-eidos-cyan font-bold">CN</span>
           )}
-          <div className="absolute -bottom-2 -right-2 bg-eidos-red text-white text-xs px-1 font-share clip-hex font-bold z-10">
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-eidos-red text-white text-xs px-1 font-share clip-hex font-bold z-10">
             LVL {profile?.level || 0}
           </div>
         </div>
