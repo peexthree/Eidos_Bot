@@ -175,14 +175,14 @@ body {
 
     /* Скошенные углы - основа дизайна EIDOS */
     clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-    padding: 2vh 10px;
+    padding: 1.5vh 5px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease-out;
     cursor: pointer;
-    min-height: 14vh; /* Адаптивная высота */
+    min-height: 10vh; /* Адаптивная высота */
     box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
 }
 
@@ -723,4 +723,107 @@ body.low-signal .view-panel {
     .nexus-tile, .modal-content, .equip-slot, .inv-item {
         border-width: 0.33px !important;
     }
+}
+
+/* ====== ПРОФИЛЬ (PROFILE) ====== */
+.profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 10px;
+    text-align: center;
+    max-width: 100vw;
+    overflow: hidden;
+}
+
+.avatar-wrapper {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    max-width: 100%;
+    margin: 0 auto 15px auto;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--eidos-cyan);
+    box-shadow: 0 0 15px rgba(102, 252, 241, 0.4);
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.lvl-badge {
+    position: absolute;
+    bottom: -5px;
+    right: 50%;
+    transform: translateX(50%);
+    background: var(--eidos-cyan);
+    color: #000;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: bold;
+    box-shadow: 0 0 10px var(--eidos-cyan);
+}
+
+.user-details h2 {
+    margin: 0 0 5px 0;
+    font-size: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90vw;
+}
+
+.user-details p {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+}
+
+/* ====== WEB APP NAVIGATION ====== */
+.web-app-back-btn {
+    display: none;
+}
+
+/* ====== WEB APP NAVIGATION ====== */
+.web-app-back-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 5px 15px;
+}
+
+/* ====== ВСТУПИТЕЛЬНОЕ ВИДЕО (INTRO VIDEO) ====== */
+#eidos-loader {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100dvh;
+    z-index: 99999;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: opacity 0.8s ease;
+}
+
+#eidos-loader video {
+    width: 100vw;
+    height: 100dvh;
+    object-fit: cover;
+    position: absolute;
+    top: 0; left: 0;
+}
+
+.loader-overlay-text {
+    position: relative;
+    z-index: 100000;
+    font-size: 14px;
+    letter-spacing: 2px;
 }
