@@ -1,38 +1,35 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from 'react-error-boundary';
-import { Route, Switch } from 'wouter';
 import useStore from './store/useStore';
 
-// Импорт компонентов
+// Components
 import Layout from './components/Layout';
-import Nexus from './pages/Nexus';
+import IntroVideo from './components/IntroVideo';
+import Hub from './pages/Hub';
 import Inventory from './pages/Inventory';
 
-// Инстанс для кэша и серверного состояния
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2,
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 минут
+      staleTime: 1000 * 60 * 5,
     },
   },
 });
 
-// Заглушка для ненайденных маршрутов или заглушек страниц
 const Placeholder = ({ name }) => (
   <div className="flex flex-col items-center justify-center h-full text-center">
-    <h2 className="text-2xl font-orbitron text-[var(--color-eidos-cyan)] mb-4 animate-pulse">
-      {name} // ONLINE
+    <h2 className="text-2xl font-orbitron text-[var(--color-eidos-cyan)] mb-4 animate-pulse uppercase">
+      {name} // OFFLINE
     </h2>
-    <p className="font-share text-white/50 border border-white/20 p-4 clip-hex bg-black/50">
-      SYSTEM MODULE IN DEVELOPMENT...
+    <p className="font-share text-white/50 border border-white/20 p-4 clip-hex bg-black/50 uppercase">
+      MODULE OFFLINE
     </p>
   </div>
 );
 
-// Custom Error Fallback Components (Терминал сбоя)
 function ErrorFallback({ error, resetErrorBoundary }) {
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-[var(--color-eidos-bg)] text-[var(--color-eidos-red)] p-4 text-center clip-hex">
@@ -57,18 +54,16 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 function App() {
   const isLoading = useStore((state) => state.isLoading);
   const profile = useStore((state) => state.profile);
+  const [currentView, setCurrentView] = useState('INTRO');
 
   useEffect(() => {
     console.log("/// EIDOS: Starting initialization sequence...");
 
-    // 1. Try TWA SDK First
     let uid = null;
     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
         uid = window.Telegram.WebApp.initDataUnsafe.user?.id;
-        console.log("/// EIDOS: UID from TWA SDK:", uid);
     }
 
-    // 2. Fallback to URL Hash parsing if SDK fails
     if (!uid) {
         try {
             const hash = window.location.hash.substring(1);
@@ -80,7 +75,6 @@ function App() {
                 if (userStr) {
                     const userObj = JSON.parse(decodeURIComponent(userStr));
                     uid = userObj.id;
-                    console.log("/// EIDOS: UID from Hash Fallback:", uid);
                 }
             }
         } catch (e) {
@@ -88,20 +82,41 @@ function App() {
         }
     }
 
-    // 3. Fallback to Search Params (just in case)
     if (!uid) {
         uid = new URLSearchParams(window.location.search).get('uid');
-        console.log("/// EIDOS: UID from Search Params:", uid);
     }
 
-    // 4. Final Execution
     if (uid) {
-        console.log("/// EIDOS: Final UID determined. Triggering fetchProfile for:", uid);
         useStore.getState().fetchProfile(uid);
     } else {
         console.error("/// EIDOS FATAL: Could not determine UID from any source.");
     }
   }, []);
+
+  useEffect(() => {
+    // Manage Telegram BackButton visibility based on currentView
+    const twa = window.Telegram?.WebApp;
+    if (twa && twa.BackButton) {
+      if (currentView !== 'HUB' && currentView !== 'INTRO') {
+        twa.BackButton.show();
+        twa.BackButton.onClick(() => {
+          setCurrentView('HUB');
+        });
+      } else {
+        twa.BackButton.hide();
+      }
+    }
+
+    return () => {
+        if (twa && twa.BackButton) {
+            twa.BackButton.offClick();
+        }
+    }
+  }, [currentView]);
+
+  if (currentView === 'INTRO') {
+    return <IntroVideo onComplete={() => setCurrentView('HUB')} />;
+  }
 
   if (isLoading || !profile) {
     return (
@@ -113,45 +128,22 @@ function App() {
     );
   }
 
+  const renderView = () => {
+    switch (currentView) {
+      case 'HUB':
+        return <Hub setView={setCurrentView} />;
+      case 'INVENTORY':
+        return <Inventory />;
+      default:
+        return <Placeholder name={currentView} />;
+    }
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
-        {/* Обертываем приложение главным слоем интерфейса */}
         <Layout>
-          {/* Маршрутизация Wouter */}
-          <Switch>
-            {/* Главный хаб */}
-            <Route path="/" component={Nexus} />
-
-            {/* Модуль Инвентаря */}
-            <Route path="/inventory" component={Inventory} />
-
-            {/* Заглушки для основных модулей */}
-            <Route path="/profile">
-              <Placeholder name="PROFILE MODULE" />
-            </Route>
-            <Route path="/shop">
-              <Placeholder name="MARKET MODULE" />
-            </Route>
-            <Route path="/arena">
-              <Placeholder name="ARENA MODULE" />
-            </Route>
-            <Route path="/raids">
-              <Placeholder name="RAIDS MODULE" />
-            </Route>
-
-            {/* Fallback маршрут (404) */}
-            <Route>
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <h2 className="text-2xl font-orbitron text-[var(--color-eidos-red)] text-glow-red mb-4">
-                  404 // MODULE NOT FOUND
-                </h2>
-                <p className="font-share text-white/50 border border-[var(--color-eidos-red)]/50 p-4 clip-hex bg-black/50">
-                  INVALID ADDRESS MEMORY REGION
-                </p>
-              </div>
-            </Route>
-          </Switch>
+          {renderView()}
         </Layout>
       </ErrorBoundary>
     </QueryClientProvider>

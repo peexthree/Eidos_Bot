@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import useStore from '../store/useStore';
 
 const EquipSlot = ({ label, slot, item }) => {
@@ -30,24 +30,23 @@ const EquipSlot = ({ label, slot, item }) => {
       <div className="absolute top-1 left-2 text-[8px] font-share uppercase opacity-50 tracking-widest z-10">
         {label}
       </div>
-      {isEmpty ? (
-        <div className="font-share text-xs opacity-30 mt-2">EMPTY</div>
-      ) : (
-        <div className="flex flex-col items-center text-center w-full h-full relative z-0 mt-2">
-           {item?.image_url ? (
-             <div className="w-10 h-10 mb-1 flex-shrink-0">
-               <img src={item.image_url} alt={item?.name} className="w-full h-full object-cover rounded-sm" />
-             </div>
-           ) : (
-             <div className="w-10 h-10 mb-1 bg-white/10 flex items-center justify-center flex-shrink-0">
-               <span className="font-share text-[8px] opacity-50">NO IMG</span>
-             </div>
-           )}
 
-           <div className={`font-orbitron text-[8px] leading-tight font-bold truncate w-full ${itemRarity === 'legendary' ? 'text-glow-red' : ''}`}>
-             {item?.name || 'Unknown'}
-           </div>
-        </div>
+      {!isEmpty && (
+         <div className="flex flex-col items-center justify-center text-center w-full h-full relative z-0 mt-2">
+             {item?.image_url ? (
+                 <div className="w-10 h-10 mb-1 flex-shrink-0">
+                   <img src={item.image_url} alt={item?.name || 'Item'} className="w-full h-full object-contain" />
+                 </div>
+             ) : (
+                 <div className="font-share text-xs opacity-50">NO IMG</div>
+             )}
+             <div className={`font-orbitron text-[8px] leading-tight font-bold truncate w-full px-1 ${itemRarity === 'legendary' ? 'text-glow-red' : ''}`}>
+               {item?.name || 'Unknown'}
+             </div>
+         </div>
+      )}
+      {isEmpty && (
+        <div className="font-share text-xs opacity-30 mt-2">EMPTY</div>
       )}
     </div>
   );
@@ -57,11 +56,27 @@ const EquipDoll = () => {
   const equipped = useStore((state) => state.equipped) || {};
   const inventory = useStore((state) => state.inventory) || [];
 
-  const getItem = (id) => inventory.find(i => i?.id === id);
+  useEffect(() => {
+     console.log("/// EIDOS: Doll Equipped Data:", equipped);
+  }, [equipped]);
+
+  // Handle both complex DB objects { item_id, durability } and simple IDs
+  const getItem = (slotData) => {
+    if (!slotData) return undefined;
+
+    let targetId = slotData;
+    if (typeof slotData === 'object' && slotData.item_id) {
+       targetId = slotData.item_id;
+    } else if (typeof slotData === 'object' && slotData.id) {
+       targetId = slotData.id;
+    }
+
+    // Convert to string for solid comparison since IDs in DB might be numeric but JS sees strings
+    return inventory.find(i => String(i?.id) === String(targetId));
+  };
 
   return (
     <div className="w-full bg-eidos-glass p-6 clip-hex border border-white/10 relative overflow-hidden mb-6">
-      {/* Background Grid Pattern */}
       <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(var(--color-eidos-cyan) 1px, transparent 1px), linear-gradient(90deg, var(--color-eidos-cyan) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
       <div className="relative z-10 flex flex-col items-center">
