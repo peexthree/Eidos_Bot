@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-signal" width="100%" height="100%">
+                <defs>
+                    <filter id="glow-signal">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-signal { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-signal { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+                        @keyframes float-signal { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes blink-signal { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        @keyframes draw-signal { 0% { stroke-dashoffset: 50; opacity: 0.5; } 50% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -50; opacity: 0.5; } }
+                        @keyframes shake-signal { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+                        @keyframes scan-move { 0% { transform: translateY(-8px); } 100% { transform: translateY(8px); } }
+                        @keyframes glitch-signal { 
+                            0%, 90%, 100% { transform: translate(0); }
+                            92% { transform: translate(-2px, 1px); color: #ff003c; }
+                            95% { transform: translate(2px, -1px); color: #00ffff; }
+                        }
+
+                        #svg-signal .main-path { 
+                            stroke: #00ff41; fill: none; stroke-width: 1.5; 
+                            stroke-linecap: square; filter: url(#glow-signal);
+                            transform-origin: center;
+                        }
+                        #svg-signal .anim-spin { animation: spin-signal 10s linear infinite; }
+                        #svg-signal .anim-pulse { animation: pulse-signal 3s ease-in-out infinite; }
+                        #svg-signal .anim-float { animation: float-signal 4s ease-in-out infinite; }
+                        #svg-signal .anim-blink { animation: blink-signal 2s steps(2) infinite; }
+                        #svg-signal .anim-draw { stroke-dasharray: 50; animation: draw-signal 4s linear infinite; }
+                        #svg-signal .anim-shake { animation: shake-signal 0.2s infinite; }
+                        #svg-signal .scan-line-anim { animation: scan-move 2s ease-in-out infinite; }
+                        #svg-signal .anim-glitch { animation: glitch-signal 3s infinite; }
+                    </style>
+                </defs>
+                <g class="main-path anim-pulse">
+                    <path d="M12 18v-4M8 18v-7M4 18v-10M16 18v-13M20 18v-16"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/>
+                </g>
+            </svg>

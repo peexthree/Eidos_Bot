@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-guides" width="100%" height="100%">
+                <defs>
+                    <filter id="glow-guides">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-guides { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-guides { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+                        @keyframes float-guides { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes blink-guides { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        @keyframes draw-guides { 0% { stroke-dashoffset: 50; opacity: 0.5; } 50% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -50; opacity: 0.5; } }
+                        @keyframes shake-guides { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+                        @keyframes scan-move { 0% { transform: translateY(-8px); } 100% { transform: translateY(8px); } }
+                        @keyframes glitch-guides { 
+                            0%, 90%, 100% { transform: translate(0); }
+                            92% { transform: translate(-2px, 1px); color: #ff003c; }
+                            95% { transform: translate(2px, -1px); color: #00ffff; }
+                        }
+
+                        #svg-guides .main-path { 
+                            stroke: #00ff41; fill: none; stroke-width: 1.5; 
+                            stroke-linecap: square; filter: url(#glow-guides);
+                            transform-origin: center;
+                        }
+                        #svg-guides .anim-spin { animation: spin-guides 10s linear infinite; }
+                        #svg-guides .anim-pulse { animation: pulse-guides 3s ease-in-out infinite; }
+                        #svg-guides .anim-float { animation: float-guides 4s ease-in-out infinite; }
+                        #svg-guides .anim-blink { animation: blink-guides 2s steps(2) infinite; }
+                        #svg-guides .anim-draw { stroke-dasharray: 50; animation: draw-guides 4s linear infinite; }
+                        #svg-guides .anim-shake { animation: shake-guides 0.2s infinite; }
+                        #svg-guides .scan-line-anim { animation: scan-move 2s ease-in-out infinite; }
+                        #svg-guides .anim-glitch { animation: glitch-guides 3s infinite; }
+                    </style>
+                </defs>
+                <g class="main-path anim-draw">
+                    <circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+                </g>
+            </svg>

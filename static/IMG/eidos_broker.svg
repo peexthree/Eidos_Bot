@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-broker" width="100%" height="100%">
+                <defs>
+                    <filter id="glow-broker">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-broker { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-broker { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+                        @keyframes float-broker { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes blink-broker { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        @keyframes draw-broker { 0% { stroke-dashoffset: 50; opacity: 0.5; } 50% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -50; opacity: 0.5; } }
+                        @keyframes shake-broker { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+                        @keyframes scan-move { 0% { transform: translateY(-8px); } 100% { transform: translateY(8px); } }
+                        @keyframes glitch-broker { 
+                            0%, 90%, 100% { transform: translate(0); }
+                            92% { transform: translate(-2px, 1px); color: #ff003c; }
+                            95% { transform: translate(2px, -1px); color: #00ffff; }
+                        }
+
+                        #svg-broker .main-path { 
+                            stroke: #00ffff; fill: none; stroke-width: 1.5; 
+                            stroke-linecap: square; filter: url(#glow-broker);
+                            transform-origin: center;
+                        }
+                        #svg-broker .anim-spin { animation: spin-broker 10s linear infinite; }
+                        #svg-broker .anim-pulse { animation: pulse-broker 3s ease-in-out infinite; }
+                        #svg-broker .anim-float { animation: float-broker 4s ease-in-out infinite; }
+                        #svg-broker .anim-blink { animation: blink-broker 2s steps(2) infinite; }
+                        #svg-broker .anim-draw { stroke-dasharray: 50; animation: draw-broker 4s linear infinite; }
+                        #svg-broker .anim-shake { animation: shake-broker 0.2s infinite; }
+                        #svg-broker .scan-line-anim { animation: scan-move 2s ease-in-out infinite; }
+                        #svg-broker .anim-glitch { animation: glitch-broker 3s infinite; }
+                    </style>
+                </defs>
+                <g class="main-path anim-glitch">
+                    <path d="M12 2L4 10v4l8 8 8-8v-4z"/><circle cx="12" cy="10" r="2"/><path d="M8 14s2 2 4 2 4-2 4-2" stroke-width="1"/>
+                </g>
+            </svg>

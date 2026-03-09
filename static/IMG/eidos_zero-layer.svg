@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-zero-layer" width="100%" height="100%">
+                <defs>
+                    <filter id="glow-zero-layer">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-zero-layer { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-zero-layer { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+                        @keyframes float-zero-layer { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes blink-zero-layer { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        @keyframes draw-zero-layer { 0% { stroke-dashoffset: 50; opacity: 0.5; } 50% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -50; opacity: 0.5; } }
+                        @keyframes shake-zero-layer { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+                        @keyframes scan-move { 0% { transform: translateY(-8px); } 100% { transform: translateY(8px); } }
+                        @keyframes glitch-zero-layer { 
+                            0%, 90%, 100% { transform: translate(0); }
+                            92% { transform: translate(-2px, 1px); color: #ff003c; }
+                            95% { transform: translate(2px, -1px); color: #00ffff; }
+                        }
+
+                        #svg-zero-layer .main-path { 
+                            stroke: #00ff41; fill: none; stroke-width: 1.5; 
+                            stroke-linecap: square; filter: url(#glow-zero-layer);
+                            transform-origin: center;
+                        }
+                        #svg-zero-layer .anim-spin { animation: spin-zero-layer 10s linear infinite; }
+                        #svg-zero-layer .anim-pulse { animation: pulse-zero-layer 3s ease-in-out infinite; }
+                        #svg-zero-layer .anim-float { animation: float-zero-layer 4s ease-in-out infinite; }
+                        #svg-zero-layer .anim-blink { animation: blink-zero-layer 2s steps(2) infinite; }
+                        #svg-zero-layer .anim-draw { stroke-dasharray: 50; animation: draw-zero-layer 4s linear infinite; }
+                        #svg-zero-layer .anim-shake { animation: shake-zero-layer 0.2s infinite; }
+                        #svg-zero-layer .scan-line-anim { animation: scan-move 2s ease-in-out infinite; }
+                        #svg-zero-layer .anim-glitch { animation: glitch-zero-layer 3s infinite; }
+                    </style>
+                </defs>
+                <g class="main-path anim-breathe">
+                    <rect x="4" y="4" width="16" height="16"/><rect x="8" y="8" width="8" height="8" opacity="0.5"/><path d="M2 2l4 4M22 2l-4 4M2 22l4-4M22 22l-4-4" stroke-width="1"/>
+                </g>
+            </svg>

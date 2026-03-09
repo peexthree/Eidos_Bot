@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-market" width="100%" height="100%">
+                <defs>
+                    <filter id="glow-market">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-market { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-market { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+                        @keyframes float-market { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes blink-market { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        @keyframes draw-market { 0% { stroke-dashoffset: 50; opacity: 0.5; } 50% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -50; opacity: 0.5; } }
+                        @keyframes shake-market { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+                        @keyframes scan-move { 0% { transform: translateY(-8px); } 100% { transform: translateY(8px); } }
+                        @keyframes glitch-market { 
+                            0%, 90%, 100% { transform: translate(0); }
+                            92% { transform: translate(-2px, 1px); color: #ff003c; }
+                            95% { transform: translate(2px, -1px); color: #00ffff; }
+                        }
+
+                        #svg-market .main-path { 
+                            stroke: #00ff41; fill: none; stroke-width: 1.5; 
+                            stroke-linecap: square; filter: url(#glow-market);
+                            transform-origin: center;
+                        }
+                        #svg-market .anim-spin { animation: spin-market 10s linear infinite; }
+                        #svg-market .anim-pulse { animation: pulse-market 3s ease-in-out infinite; }
+                        #svg-market .anim-float { animation: float-market 4s ease-in-out infinite; }
+                        #svg-market .anim-blink { animation: blink-market 2s steps(2) infinite; }
+                        #svg-market .anim-draw { stroke-dasharray: 50; animation: draw-market 4s linear infinite; }
+                        #svg-market .anim-shake { animation: shake-market 0.2s infinite; }
+                        #svg-market .scan-line-anim { animation: scan-move 2s ease-in-out infinite; }
+                        #svg-market .anim-glitch { animation: glitch-market 3s infinite; }
+                    </style>
+                </defs>
+                <g class="main-path anim-draw">
+                    <path d="M4 4h2v16H4zm4 0h1v16H8zm3 0h3v16h-3zm5 0h1v16h-1zm3 0h2v16h-2z"/><path d="M2 10h20" stroke="#00ffff" stroke-width="1" class="scan-line-anim"/>
+                </g>
+            </svg>

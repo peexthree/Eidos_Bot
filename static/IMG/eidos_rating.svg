@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-rating" width="100%" height="100%">
+                <defs>
+                    <filter id="glow-rating">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-rating { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-rating { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+                        @keyframes float-rating { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes blink-rating { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        @keyframes draw-rating { 0% { stroke-dashoffset: 50; opacity: 0.5; } 50% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -50; opacity: 0.5; } }
+                        @keyframes shake-rating { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+                        @keyframes scan-move { 0% { transform: translateY(-8px); } 100% { transform: translateY(8px); } }
+                        @keyframes glitch-rating { 
+                            0%, 90%, 100% { transform: translate(0); }
+                            92% { transform: translate(-2px, 1px); color: #ff003c; }
+                            95% { transform: translate(2px, -1px); color: #00ffff; }
+                        }
+
+                        #svg-rating .main-path { 
+                            stroke: #00ff41; fill: none; stroke-width: 1.5; 
+                            stroke-linecap: square; filter: url(#glow-rating);
+                            transform-origin: center;
+                        }
+                        #svg-rating .anim-spin { animation: spin-rating 10s linear infinite; }
+                        #svg-rating .anim-pulse { animation: pulse-rating 3s ease-in-out infinite; }
+                        #svg-rating .anim-float { animation: float-rating 4s ease-in-out infinite; }
+                        #svg-rating .anim-blink { animation: blink-rating 2s steps(2) infinite; }
+                        #svg-rating .anim-draw { stroke-dasharray: 50; animation: draw-rating 4s linear infinite; }
+                        #svg-rating .anim-shake { animation: shake-rating 0.2s infinite; }
+                        #svg-rating .scan-line-anim { animation: scan-move 2s ease-in-out infinite; }
+                        #svg-rating .anim-glitch { animation: glitch-rating 3s infinite; }
+                    </style>
+                </defs>
+                <g class="main-path anim-pulse-fast">
+                    <path d="M4 20h4v-5H4zm6 0h4v-10h-4zm6 0h4v-15h-4z"/><path d="M2 20h20" stroke-width="1"/>
+                </g>
+            </svg>

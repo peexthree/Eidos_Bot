@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-god-mode" width="100%" height="100%">
+                <defs>
+                    <filter id="glow-god-mode">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-god-mode { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-god-mode { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+                        @keyframes float-god-mode { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes blink-god-mode { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        @keyframes draw-god-mode { 0% { stroke-dashoffset: 50; opacity: 0.5; } 50% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -50; opacity: 0.5; } }
+                        @keyframes shake-god-mode { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+                        @keyframes scan-move { 0% { transform: translateY(-8px); } 100% { transform: translateY(8px); } }
+                        @keyframes glitch-god-mode { 
+                            0%, 90%, 100% { transform: translate(0); }
+                            92% { transform: translate(-2px, 1px); color: #ff003c; }
+                            95% { transform: translate(2px, -1px); color: #00ffff; }
+                        }
+
+                        #svg-god-mode .main-path { 
+                            stroke: #ff003c; fill: none; stroke-width: 1.5; 
+                            stroke-linecap: square; filter: url(#glow-god-mode);
+                            transform-origin: center;
+                        }
+                        #svg-god-mode .anim-spin { animation: spin-god-mode 10s linear infinite; }
+                        #svg-god-mode .anim-pulse { animation: pulse-god-mode 3s ease-in-out infinite; }
+                        #svg-god-mode .anim-float { animation: float-god-mode 4s ease-in-out infinite; }
+                        #svg-god-mode .anim-blink { animation: blink-god-mode 2s steps(2) infinite; }
+                        #svg-god-mode .anim-draw { stroke-dasharray: 50; animation: draw-god-mode 4s linear infinite; }
+                        #svg-god-mode .anim-shake { animation: shake-god-mode 0.2s infinite; }
+                        #svg-god-mode .scan-line-anim { animation: scan-move 2s ease-in-out infinite; }
+                        #svg-god-mode .anim-glitch { animation: glitch-god-mode 3s infinite; }
+                    </style>
+                </defs>
+                <g class="main-path anim-glitch-heavy">
+                    <path d="M12 2l10 10-10 10L2 12z"/><path d="M12 7v10M7 12h10"/><circle cx="12" cy="12" r="4" stroke-dasharray="2 2"/>
+                </g>
+            </svg>

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="svg-syndicate" width="100%" height="100%">
+                <defs>
+                    <filter id="glow-syndicate">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <style>
+                        @keyframes spin-syndicate { 100% { transform: rotate(360deg); } }
+                        @keyframes pulse-syndicate { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+                        @keyframes float-syndicate { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+                        @keyframes blink-syndicate { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        @keyframes draw-syndicate { 0% { stroke-dashoffset: 50; opacity: 0.5; } 50% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -50; opacity: 0.5; } }
+                        @keyframes shake-syndicate { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+                        @keyframes scan-move { 0% { transform: translateY(-8px); } 100% { transform: translateY(8px); } }
+                        @keyframes glitch-syndicate { 
+                            0%, 90%, 100% { transform: translate(0); }
+                            92% { transform: translate(-2px, 1px); color: #ff003c; }
+                            95% { transform: translate(2px, -1px); color: #00ffff; }
+                        }
+
+                        #svg-syndicate .main-path { 
+                            stroke: #00ff41; fill: none; stroke-width: 1.5; 
+                            stroke-linecap: square; filter: url(#glow-syndicate);
+                            transform-origin: center;
+                        }
+                        #svg-syndicate .anim-spin { animation: spin-syndicate 10s linear infinite; }
+                        #svg-syndicate .anim-pulse { animation: pulse-syndicate 3s ease-in-out infinite; }
+                        #svg-syndicate .anim-float { animation: float-syndicate 4s ease-in-out infinite; }
+                        #svg-syndicate .anim-blink { animation: blink-syndicate 2s steps(2) infinite; }
+                        #svg-syndicate .anim-draw { stroke-dasharray: 50; animation: draw-syndicate 4s linear infinite; }
+                        #svg-syndicate .anim-shake { animation: shake-syndicate 0.2s infinite; }
+                        #svg-syndicate .scan-line-anim { animation: scan-move 2s ease-in-out infinite; }
+                        #svg-syndicate .anim-glitch { animation: glitch-syndicate 3s infinite; }
+                    </style>
+                </defs>
+                <g class="main-path anim-shake">
+                    <path d="M12 2l10 6-10 6-10-6zM12 10l10 6-10 6-10-6z" stroke-width="1.5"/>
+                </g>
+            </svg>
