@@ -3,15 +3,26 @@ import re
 with open('frontend_v2/src/pages/Hub.jsx', 'r') as f:
     content = f.read()
 
-# Make sure onClick handles 'INVENTORY' correctly
-# If INVENTORY is clicked, we probably want to setView('INVENTORY') rather than open modal.
-# Let's adjust the row for INVENTORY:
-# <HexButton title="ИНВЕНТАРЬ" iconUrl="/IMG/eidos_inventory.svg" tgImageUrl={getImg("inventory")} onClick={(img) => { setView('INVENTORY'); }} />
+# Make sure background video is positioned right
+old_video = """        style={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          zIndex: 0
+        }}"""
 
-content = content.replace(
-    '<HexButton title="ИНВЕНТАРЬ" iconUrl="/IMG/eidos_inventory.svg" tgImageUrl={getImg("inventory")} onClick={(img) => setView(\'INVENTORY\')} />',
-    '<HexButton title="ИНВЕНТАРЬ" iconUrl="/IMG/eidos_inventory.svg" tgImageUrl={getImg("inventory")} onClick={(img) => { setView(\'INVENTORY\'); }} />'
-)
+new_video = """        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          zIndex: 0
+        }}"""
+
+content = content.replace(old_video, new_video)
 
 with open('frontend_v2/src/pages/Hub.jsx', 'w') as f:
     f.write(content)

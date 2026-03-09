@@ -83,3 +83,20 @@ eidos_sys-warning.svg - ошибка или опасность
 - `nav_head-raid.svg` (ВИЗУАЛИЗАТОР) -> Вращающийся радар. Рейды.
 - `nav_head-psycho.svg` (ОТДЕЛ ПСИХОАНАЛИЗА) -> Волны мозга. Досье, Сеть.
 - `nav_head-eidos.svg` (ЭЙДОС) -> Глитчующий куб. ИИ, системные уведомления.
+
+## СЕКТОР 7: ГРАФИЧЕСКАЯ МАТРИЦА ХАБА (Hub.jsx)
+Абсолютное позиционирование элементов поверх видеофона (`/video/back.mp4`).
+
+- `/video/nadpis.png` (НЕЙРОИНТЕРФЕЙС) -> Заголовок хаба (pointer-events: none).
+- `/video/signa.png` (СИГНАЛ) -> Кнопка действия (POST `/api/action/signal`).
+- `/video/sinxr.png` (СИНХРОН) -> Кнопка действия (POST `/api/action/synchron`).
+- `/video/_nul.png` (НУЛЕВОЙ СЛОЙ) -> Меню нулевого слоя.
+- `/video/shop.png` (МАГАЗИН) -> Переход в магазин.
+- `/video/invent.png` (ИНВЕНТАРЬ) -> Переход к инвентарю (`Inventory.jsx`).
+- `/video/dnecvnik.png` (ДНЕВНИК) -> Меню дневника.
+- `/video/sindi.png` (СИНДИКАТ) -> Реферальная система / Синдикат.
+- `/video/reiting.png` (РЕЙТИНГ) -> Таблица лидеров.
+- `/video/guid.png` (ГИД) -> Игровой гайд.
+- `/video/shadow_b.png` (ТЕНЕВОЙ БРОКЕР) -> Теневой магазин.
+- `/video/admin.png` (РЕЖИМ БОГА) -> Админ-панель.
+- `/video/frame.png` -> Верхний слой-рамка комикса (pointer-events: none, Z-Index: 20).
