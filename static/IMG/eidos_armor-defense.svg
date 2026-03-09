@@ -1,0 +1,20 @@
+
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%">
+                    <defs>
+                        <style>
+                            @keyframes scan-v { 0% { opacity: 0.2; transform: translateY(-5px); } 50% { opacity: 1; transform: translateY(5px); } 100% { opacity: 0.2; transform: translateY(-5px); } }
+                            @keyframes pulse-shield { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.5); } }
+                            .anim-armor { animation: pulse-shield 2s infinite; }
+                            .anim-scan { animation: scan-v 1.5s infinite; }
+                        </style>
+                    </defs>
+                    <g class="anim-armor" stroke="#00ffff" fill="none" stroke-width="1.5">
+                        <path d="M12,2 L20,6 L20,12 C20,18 12,22 12,22 C12,22 4,18 4,12 L4,6 Z" stroke-linecap="square"></path>
+                        <g class="anim-scan">
+                            <line x1="6" y1="10" x2="18" y2="10" stroke-width="0.5" opacity="0.8"></line>
+                            <line x1="7" y1="13" x2="17" y2="13" stroke-width="0.5" opacity="0.5"></line>
+                        </g>
+                        <path d="M12,7 L12,17 M9,10 L15,10" stroke-width="0.8" opacity="0.6"></path>
+                    </g>
+                </svg>
+            
