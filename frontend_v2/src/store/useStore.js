@@ -1,23 +1,23 @@
 import { create } from 'zustand';
-import axios from 'axios';
+import { eidosApi as axios } from '../api/client';
 
-const useStore = create((set) => ({
-  isLoading: true,
-  profile: null, // Initially null to enforce the loading screen
+const useStore = create((set, get) => ({
+  profile: null,
   inventory: [],
-  equipped: {
-    head: null,
-    armor: null,
-    weapon: null,
-    chip: null,
-    eidos_shard: null
-  },
-  // Actions
+  equipped: { head: null, armor: null, weapon: null, chip: null, eidos_shard: null },
+  isLoading: true,
+  currentView: 'HUB', // HUB, INVENTORY, RAID, SHOP, SOCIAL, PROFILE
+  raidData: null,
+  shopData: null,
+
+  setCurrentView: (view) => set({ currentView: view }),
+
   fetchProfile: async (uid) => {
     try {
       set({ isLoading: true });
-      const response = await axios.get('/api/inventory', { params: { uid } });
-      const data = response.data;
+
+      const response = await axios.get('/inventory', { params: { uid } });
+      const data = response;
 
       set({
         isLoading: false,
@@ -38,17 +38,19 @@ const useStore = create((set) => ({
         } : { head: null, armor: null, weapon: null, chip: null, eidos_shard: null }
       });
     } catch (error) {
-      console.error("Error fetching profile:", error);
-      set({ isLoading: false }); // To ensure we don't get stuck, though profile will remain null and show loader
+      console.error('Error fetching profile:', error);
+      set({ isLoading: false });
     }
   },
 
-  equipItem: (slot, itemId) => set((state) => ({
-    equipped: { ...state.equipped, [slot]: itemId }
-  })),
-  unequipItem: (slot) => set((state) => ({
-    equipped: { ...state.equipped, [slot]: null }
-  }))
+  fetchRaidData: async (uid) => {
+    try {
+        const response = await axios.get('/hub_data', { params: { uid } });
+        set({ raidData: response.raids || [] });
+    } catch (e) {
+        console.error(e);
+    }
+  }
 }));
 
 export default useStore;

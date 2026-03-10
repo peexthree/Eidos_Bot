@@ -78,3 +78,30 @@ def convert_legacy_items(uid):
                     msg += f"✅ {old_name} -> {new_name} (x{qty})\n"
 
     return msg if msg else "Нет предметов для конвертации."
+
+def equip_item(uid, item_id):
+    """Одевает предмет на персонажа, если он есть в инвентаре."""
+    # Получаем инвентарь пользователя (список словарей)
+    inventory = db.get_inventory(uid)
+
+    # Ищем предмет в инвентаре по item_id
+    target_item = None
+    for item in inventory:
+        if item.get('item_id') == item_id:
+            target_item = item
+            break
+
+    if not target_item:
+        return False
+
+    # Проверяем, что предмет можно надеть
+    info = EQUIPMENT_DB.get(item_id)
+    if not info or 'slot' not in info:
+        return False
+
+    # Вызываем функцию базы данных
+    return db.equip_item(uid, target_item['id'], info['slot'])
+
+def unequip_item(uid, slot):
+    """Снимает предмет с персонажа."""
+    return db.unequip_item(uid, slot)
