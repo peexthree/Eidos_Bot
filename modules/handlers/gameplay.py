@@ -331,6 +331,18 @@ def raid_handler(call):
     elif call.data == "raid_use_stimulator":
          handle_raid_action(call, uid, {'answer': 'use_stimulator'})
 
+    elif call.data == "use_admin_key":
+         with db.db_cursor() as cur:
+             if db.get_item_count(uid, 'admin_key', cursor=cur) > 0:
+                 db.use_item(uid, 'admin_key', cursor=cur)
+                 db.update_user(uid, path='architect', cursor=cur)
+                 msg = "<b>🟠 ВНИМАНИЕ: СИСТЕМА ВЗЛОМАНА</b>\n\nВы использовали Ключ Архитектора. Вы чувствуете, как исходный код реальности меняется перед вашими глазами. Теперь вы — Архитектор.\n\n🧿 Ваша фракция изменена на <b>Архитектор</b> (+20 ко всем статам).\nКлюч также дал вам способность заглянуть в будущее в Нулевом Слое."
+                 safe_answer_callback(bot, call.id, "Ключ Архитектора применен.", show_alert=True)
+                 call.data = "inventory"
+                 menu_update(call, msg, kb.back_button(), image_url=config.MENU_IMAGE_URL_ARCHITECT)
+             else:
+                 safe_answer_callback(bot, call.id, "❌ У вас нет Ключа Архитектора.", show_alert=True)
+
     elif call.data == "raid_use_architect_key":
          handle_raid_action(call, uid, {"answer": "use_architect_key"})
 

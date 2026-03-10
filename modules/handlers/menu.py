@@ -140,8 +140,9 @@ def profile_handler(call):
     elif call.data.startswith("set_path_"):
         path = call.data.replace("set_path_", "")
         if path == "architect":
-            safe_answer_callback(bot, call.id, "❌ Доступ закрыт. Требуется Ключ Архитектора.", show_alert=True)
-            return
+            if db.get_item_count(uid, 'admin_key') <= 0 and u.get('path') != 'architect':
+                safe_answer_callback(bot, call.id, "❌ Доступ закрыт. Требуется Ключ Архитектора.", show_alert=True)
+                return
         info = SCHOOLS_INFO.get(path)
         txt = (f"🧬 <b>ВЫБОР: {info['name']}</b>\n\n"
                f"✅ Бонус: {info['bonus']}\n"
@@ -157,6 +158,8 @@ def profile_handler(call):
             faction_img = config.MENU_IMAGE_URL_MIND
         elif path == "tech":
             faction_img = config.MENU_IMAGE_URL_TECH
+        elif path == "architect":
+            faction_img = config.MENU_IMAGE_URL_ARCHITECT
         else:
             faction_img = config.MENU_IMAGE_URL
 
@@ -164,8 +167,19 @@ def profile_handler(call):
 
     elif call.data.startswith("confirm_path_"):
         path = call.data.replace("confirm_path_", "")
-        db.update_user(uid, path=path)
-        safe_answer_callback(bot, call.id, f"✅ ВЫБРАН ПУТЬ: {path.upper()}")
+        if path == 'architect':
+            if db.get_item_count(uid, 'admin_key') > 0:
+                db.use_item(uid, 'admin_key')
+                db.update_user(uid, path=path)
+                safe_answer_callback(bot, call.id, f"✅ ВЫБРАН ПУТЬ: {path.upper()} (Ключ использован)")
+            elif u.get('path') == 'architect':
+                safe_answer_callback(bot, call.id, f"✅ ВЫ УЖЕ АРХИТЕКТОР")
+            else:
+                safe_answer_callback(bot, call.id, "❌ У вас нет Ключа Архитектора.", show_alert=True)
+                return
+        else:
+            db.update_user(uid, path=path)
+            safe_answer_callback(bot, call.id, f"✅ ВЫБРАН ПУТЬ: {path.upper()}")
         u = db.get_user(uid)
         bot.send_photo(uid, get_menu_image(u), caption=get_menu_text(u), reply_markup=kb.main_menu(u), parse_mode="HTML")
 
