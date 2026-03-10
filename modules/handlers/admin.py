@@ -442,26 +442,19 @@ def send_full_backup(message):
             bot.send_message(uid, "⚠️ Не удалось получить список таблиц.")
             return
 
-        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zip_obj:
-            for table in tables:
-                csv_filename = f"{table}.csv"
-                temp_files.append(csv_filename)
-                try:
-                    with open(csv_filename, 'w', newline='', encoding='utf-8') as f:
-                        writer = csv.writer(f)
-                        with db.db_cursor() as cur:
-                            cur.execute(f"SELECT * FROM {table}")
-                            if cur.description:
-                                headers = [desc[0] for desc in cur.description]
-                                writer.writerow(headers)
-                                # Fetch in chunks if needed, but fetchall is simpler for now
-                                writer.writerows(cur.fetchall())
-                            else:
-                                writer.writerow(['(Empty Table Structure)'])
-
-                    zip_obj.write(csv_filename)
-                except Exception as e:
-                    bot.send_message(uid, f"⚠️ Ошибка при экспорте таблицы {table}: {e}")
+        with db.db_session() as conn:
+            with conn.cursor() as cur:
+                with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zip_obj:
+                    for table in tables:
+                        csv_filename = f"{table}.csv"
+                        temp_files.append(csv_filename)
+                        try:
+                            # Using COPY TO STDOUT for maximum performance and minimum memory footprint
+                            with open(csv_filename, 'wb') as f:
+                                cur.copy_expert(f"COPY (SELECT * FROM {table}) TO STDOUT WITH CSV HEADER", f)
+                            zip_obj.write(csv_filename)
+                        except Exception as e:
+                            bot.send_message(uid, f"⚠️ Ошибка при экспорте таблицы {table}: {e}")
 
         if os.path.exists(zip_filename):
             with open(zip_filename, 'rb') as doc:
