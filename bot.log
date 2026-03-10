@@ -1,51 +1,609 @@
 /// REDIS CONNECTION ERROR: Error -2 connecting to red-d6llkmftskes73dhkd10:6379. Name or service not known.
-2026-03-09 20:24:43,250 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-09 20:24:43,250 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-09 20:24:43,250 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-09 20:24:43,250 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-/// TASK WORKER STARTED IN PID 6951
+2026-03-10 19:15:38,180 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-10 19:15:38,180 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-10 19:15:38,181 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-10 19:15:38,181 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+/// TASK WORKER STARTED IN PID 9464
 /// SYSTEM STARTUP INITIATED...
 /// DEBUG: Checking and fixing indexes...
 /// DB URL FORMATTED FOR DIRECT PGBOUNCER CONNECTION
  * Serving Flask app 'modules.bot_instance'
  * Debug mode: off
-2026-03-09 20:24:43,255 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+2026-03-10 19:15:38,185 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5000
  * Running on http://192.168.0.2:5000
-2026-03-09 20:24:43,255 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+2026-03-10 19:15:38,185 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5000
  * Running on http://192.168.0.2:5000
-2026-03-09 20:24:43,255 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
-2026-03-09 20:24:43,255 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-03-10 19:15:38,185 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-03-10 19:15:38,185 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
 /// FIX: Indexes verified and created successfully.
 /// WEBHOOK SET: https://eidos-bot-n5oo.onrender.com
-2026-03-09 20:24:45,947 - apscheduler.scheduler - INFO - Added job "stats_flusher" to job store "default"
-2026-03-09 20:24:45,947 - apscheduler.scheduler - INFO - Added job "stats_flusher" to job store "default"
-2026-03-09 20:24:45,947 - apscheduler.scheduler - INFO - Added job "xp_flusher" to job store "default"
-2026-03-09 20:24:45,947 - apscheduler.scheduler - INFO - Added job "xp_flusher" to job store "default"
-2026-03-09 20:24:45,947 - apscheduler.scheduler - INFO - Scheduler started
-2026-03-09 20:24:45,947 - apscheduler.scheduler - INFO - Scheduler started
-2026-03-09 20:25:01,742 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 20:25:01] "[33mGET /static/inventory.html HTTP/1.1[0m" 404 -
-2026-03-09 20:25:01,742 - werkzeug - INFO - 127.0.0.1 - - [09/Mar/2026 20:25:01] "[33mGET /static/inventory.html HTTP/1.1[0m" 404 -
-2026-03-09 20:25:13,251 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 20:25:13 UTC)" (scheduled at 2026-03-09 20:25:13.249835+00:00)
-2026-03-09 20:25:13,251 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 20:25:43 UTC)" (scheduled at 2026-03-09 20:25:13.249835+00:00)
-2026-03-09 20:25:13,252 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 20:25:43 UTC)" raised an exception
+2026-03-10 19:15:40,843 - apscheduler.scheduler - INFO - Added job "stats_flusher" to job store "default"
+2026-03-10 19:15:40,843 - apscheduler.scheduler - INFO - Added job "stats_flusher" to job store "default"
+2026-03-10 19:15:40,844 - apscheduler.scheduler - INFO - Added job "xp_flusher" to job store "default"
+2026-03-10 19:15:40,844 - apscheduler.scheduler - INFO - Added job "xp_flusher" to job store "default"
+2026-03-10 19:15:40,844 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-10 19:15:40,844 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-10 19:15:54,752 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /inventory HTTP/1.1" 200 -
+2026-03-10 19:15:54,752 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /inventory HTTP/1.1" 200 -
+2026-03-10 19:15:54,884 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:15:54,884 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:15:54,885 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/index-DDABIRWM.js HTTP/1.1" 200 -
+2026-03-10 19:15:54,885 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/index-DDABIRWM.js HTTP/1.1" 200 -
+2026-03-10 19:15:54,885 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:15:54,887 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:15:54,885 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:15:54,887 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:15:54,887 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:15:54,887 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:54] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:15:55,481 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:55] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:15:55,481 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:15:55] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:16:03,728 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,728 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,732 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,732 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,735 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,735 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,736 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,737 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,738 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,736 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,738 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,742 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,742 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,744 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,737 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,744 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,777 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,777 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,784 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,784 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,792 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,792 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,798 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,798 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,808 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,808 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:16:03,810 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:16:03,810 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:16:03,839 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:16:03,839 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:03] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:16:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:16:08 UTC)" (scheduled at 2026-03-10 19:16:08.180338+00:00)
+2026-03-10 19:16:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:16:38 UTC)" (scheduled at 2026-03-10 19:16:08.180338+00:00)
+2026-03-10 19:16:08,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:16:38 UTC)" raised an exception
 Traceback (most recent call last):
   File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
     retval = job.func(*job.args, **job.kwargs)
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/app/bot.py", line 407, in stats_flusher
+  File "/app/bot.py", line 409, in stats_flusher
     from modules.services.user import flush_stats
 ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
-2026-03-09 20:25:13,252 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-09 20:25:43 UTC)" raised an exception
+2026-03-10 19:16:08,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:16:38 UTC)" raised an exception
 Traceback (most recent call last):
   File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
     retval = job.func(*job.args, **job.kwargs)
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/app/bot.py", line 407, in stats_flusher
+  File "/app/bot.py", line 409, in stats_flusher
     from modules.services.user import flush_stats
 ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
-2026-03-09 21:14:33,091 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-09 21:14:33,091 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-10 19:16:34,009 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /inventory HTTP/1.1" 200 -
+2026-03-10 19:16:34,009 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /inventory HTTP/1.1" 200 -
+2026-03-10 19:16:34,030 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:16:34,030 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:16:34,032 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:16:34,032 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/index-DDABIRWM.js HTTP/1.1" 200 -
+2026-03-10 19:16:34,032 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:16:34,033 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:16:34,034 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:16:34,033 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:16:34,032 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/index-DDABIRWM.js HTTP/1.1" 200 -
+2026-03-10 19:16:34,034 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:16:34,131 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:16:34,131 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:34] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:16:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:17:08 UTC)" (scheduled at 2026-03-10 19:16:38.180338+00:00)
+2026-03-10 19:16:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:17:08 UTC)" (scheduled at 2026-03-10 19:16:38.180338+00:00)
+2026-03-10 19:16:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:17:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:16:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:17:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:16:38,183 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:16:38 UTC)" (scheduled at 2026-03-10 19:16:38.180931+00:00)
+2026-03-10 19:16:38,183 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:16:38 UTC)" (scheduled at 2026-03-10 19:16:38.180931+00:00)
+2026-03-10 19:16:38,183 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:16:38 UTC)" executed successfully
+2026-03-10 19:16:38,183 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:16:38 UTC)" executed successfully
+2026-03-10 19:16:42,173 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,173 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,176 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,176 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,178 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,178 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,183 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,183 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,185 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,185 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,185 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:16:42,185 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:16:42,188 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,189 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,188 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,189 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,195 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,195 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,211 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,211 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,212 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,212 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,213 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,213 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,214 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:16:42,214 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:16:42,219 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,219 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,214 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:16:42,214 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:16:42] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:17:05,744 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /inventory HTTP/1.1" 200 -
+2026-03-10 19:17:05,744 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /inventory HTTP/1.1" 200 -
+2026-03-10 19:17:05,765 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/index-DDABIRWM.js HTTP/1.1" 200 -
+2026-03-10 19:17:05,765 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/index-DDABIRWM.js HTTP/1.1" 200 -
+2026-03-10 19:17:05,766 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:17:05,766 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:17:05,767 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:17:05,767 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:17:05,770 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:17:05,770 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:17:05,771 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:17:05,771 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:17:05,868 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:17:05,868 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:05] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:17:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:17:38 UTC)" (scheduled at 2026-03-10 19:17:08.180338+00:00)
+2026-03-10 19:17:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:17:38 UTC)" (scheduled at 2026-03-10 19:17:08.180338+00:00)
+2026-03-10 19:17:08,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:17:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:17:08,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:17:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:17:13,895 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,895 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,903 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,903 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,906 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,906 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,910 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,910 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,911 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,911 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,916 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,916 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,938 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,938 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,965 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,966 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,965 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,974 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,976 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,966 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,981 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,981 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,976 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,974 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,986 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:17:13,986 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:13] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:17:14,029 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:14] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:17:14,029 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:14] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:17:14,033 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:14] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:17:14,033 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:17:14] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:17:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:18:08 UTC)" (scheduled at 2026-03-10 19:17:38.180338+00:00)
+2026-03-10 19:17:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:18:08 UTC)" (scheduled at 2026-03-10 19:17:38.180338+00:00)
+2026-03-10 19:17:38,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:18:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:17:38,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:18:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:17:38,183 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:18:38 UTC)" (scheduled at 2026-03-10 19:17:38.180931+00:00)
+2026-03-10 19:17:38,183 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:18:38 UTC)" (scheduled at 2026-03-10 19:17:38.180931+00:00)
+2026-03-10 19:17:38,183 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:18:38 UTC)" executed successfully
+2026-03-10 19:17:38,183 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:18:38 UTC)" executed successfully
+2026-03-10 19:18:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:18:38 UTC)" (scheduled at 2026-03-10 19:18:08.180338+00:00)
+2026-03-10 19:18:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:18:38 UTC)" (scheduled at 2026-03-10 19:18:08.180338+00:00)
+2026-03-10 19:18:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:18:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:18:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:18:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:18:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:19:08 UTC)" (scheduled at 2026-03-10 19:18:38.180338+00:00)
+2026-03-10 19:18:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:19:08 UTC)" (scheduled at 2026-03-10 19:18:38.180338+00:00)
+2026-03-10 19:18:38,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:19:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:18:38,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:19:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:18:38,183 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:19:38 UTC)" (scheduled at 2026-03-10 19:18:38.180931+00:00)
+2026-03-10 19:18:38,183 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:19:38 UTC)" (scheduled at 2026-03-10 19:18:38.180931+00:00)
+2026-03-10 19:18:38,183 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:19:38 UTC)" executed successfully
+2026-03-10 19:18:38,183 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:19:38 UTC)" executed successfully
+2026-03-10 19:19:08,180 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:19:38 UTC)" (scheduled at 2026-03-10 19:19:08.180338+00:00)
+2026-03-10 19:19:08,180 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:19:38 UTC)" (scheduled at 2026-03-10 19:19:08.180338+00:00)
+2026-03-10 19:19:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:19:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:19:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:19:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:19:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:20:08 UTC)" (scheduled at 2026-03-10 19:19:38.180338+00:00)
+2026-03-10 19:19:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:20:08 UTC)" (scheduled at 2026-03-10 19:19:38.180338+00:00)
+2026-03-10 19:19:38,181 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:20:38 UTC)" (scheduled at 2026-03-10 19:19:38.180931+00:00)
+2026-03-10 19:19:38,181 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:20:38 UTC)" (scheduled at 2026-03-10 19:19:38.180931+00:00)
+2026-03-10 19:19:38,182 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:20:38 UTC)" executed successfully
+2026-03-10 19:19:38,182 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:20:38 UTC)" executed successfully
+2026-03-10 19:19:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:20:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:19:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:20:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:19:52,971 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /inventory?uid=123456789 HTTP/1.1" 200 -
+2026-03-10 19:19:52,971 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /inventory?uid=123456789 HTTP/1.1" 200 -
+2026-03-10 19:19:52,992 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/index-DDABIRWM.js HTTP/1.1" 200 -
+2026-03-10 19:19:52,992 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/index-DDABIRWM.js HTTP/1.1" 200 -
+2026-03-10 19:19:52,992 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:19:52,992 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:19:52,993 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:19:52,993 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:19:52,993 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:19:52,993 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:19:52,996 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:19:52,996 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:52] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:19:53,088 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:53] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:19:53,088 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:53] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:19:55,109 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,109 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,110 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,110 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,112 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,112 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,113 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,113 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,115 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,115 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,117 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:19:55,117 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:19:55,118 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,118 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,123 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,123 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,130 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,130 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,132 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,132 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,135 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,135 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,144 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,144 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,146 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,146 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,147 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,147 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:19:55,160 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:19:55,160 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:19:55,435 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "[33mGET /IMG/eidos_faction-icon.svg HTTP/1.1[0m" 404 -
+2026-03-10 19:19:55,435 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "[33mGET /IMG/eidos_faction-icon.svg HTTP/1.1[0m" 404 -
+2026-03-10 19:19:55,468 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_shield-armor.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,468 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_shield-armor.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,470 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "[33mGET /IMG/eidos_signal-wave.svg HTTP/1.1[0m" 404 -
+2026-03-10 19:19:55,470 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "[33mGET /IMG/eidos_signal-wave.svg HTTP/1.1[0m" 404 -
+2026-03-10 19:19:55,471 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/nav_tab-all.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,471 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/nav_tab-all.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,471 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_weapon-attack.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,471 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_weapon-attack.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,472 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_credits-crypto.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,472 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_credits-crypto.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,472 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_luck-dice.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,472 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_luck-dice.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,485 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/nav_tab-consum.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,485 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/nav_tab-consum.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,486 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/nav_tab-equip.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,486 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/nav_tab-equip.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,537 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_audio-wave.svg HTTP/1.1" 200 -
+2026-03-10 19:19:55,537 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:19:55] "GET /IMG/eidos_audio-wave.svg HTTP/1.1" 200 -
+2026-03-10 19:20:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:20:38 UTC)" (scheduled at 2026-03-10 19:20:08.180338+00:00)
+2026-03-10 19:20:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:20:38 UTC)" (scheduled at 2026-03-10 19:20:08.180338+00:00)
+2026-03-10 19:20:08,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:20:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:20:08,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:20:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:20:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:21:08 UTC)" (scheduled at 2026-03-10 19:20:38.180338+00:00)
+2026-03-10 19:20:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:21:08 UTC)" (scheduled at 2026-03-10 19:20:38.180338+00:00)
+2026-03-10 19:20:38,181 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:21:38 UTC)" (scheduled at 2026-03-10 19:20:38.180931+00:00)
+2026-03-10 19:20:38,181 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:21:38 UTC)" (scheduled at 2026-03-10 19:20:38.180931+00:00)
+2026-03-10 19:20:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:21:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:20:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:21:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:20:38,182 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:21:38 UTC)" executed successfully
+2026-03-10 19:20:38,182 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:21:38 UTC)" executed successfully
+2026-03-10 19:21:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:21:38 UTC)" (scheduled at 2026-03-10 19:21:08.180338+00:00)
+2026-03-10 19:21:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:21:38 UTC)" (scheduled at 2026-03-10 19:21:08.180338+00:00)
+2026-03-10 19:21:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:21:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:21:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:21:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:21:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:22:08 UTC)" (scheduled at 2026-03-10 19:21:38.180338+00:00)
+2026-03-10 19:21:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:22:08 UTC)" (scheduled at 2026-03-10 19:21:38.180338+00:00)
+2026-03-10 19:21:38,181 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:22:38 UTC)" (scheduled at 2026-03-10 19:21:38.180931+00:00)
+2026-03-10 19:21:38,181 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:22:38 UTC)" (scheduled at 2026-03-10 19:21:38.180931+00:00)
+2026-03-10 19:21:38,183 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:22:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:21:38,184 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:22:38 UTC)" executed successfully
+2026-03-10 19:21:38,183 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:22:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:21:38,184 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:22:38 UTC)" executed successfully
+2026-03-10 19:22:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:22:38 UTC)" (scheduled at 2026-03-10 19:22:08.180338+00:00)
+2026-03-10 19:22:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:22:38 UTC)" (scheduled at 2026-03-10 19:22:08.180338+00:00)
+2026-03-10 19:22:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:22:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:22:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:22:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:22:14,833 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /inventory?uid=123456789 HTTP/1.1" 200 -
+2026-03-10 19:22:14,833 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /inventory?uid=123456789 HTTP/1.1" 200 -
+2026-03-10 19:22:14,859 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/index-Ek3nVVWk.js HTTP/1.1" 200 -
+2026-03-10 19:22:14,859 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/index-Ek3nVVWk.js HTTP/1.1" 200 -
+2026-03-10 19:22:14,862 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:22:14,862 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/query-D0mM5Zdf.js HTTP/1.1" 200 -
+2026-03-10 19:22:14,866 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:22:14,866 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/index-B6KEEgnV.css HTTP/1.1" 200 -
+2026-03-10 19:22:14,869 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:22:14,870 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:22:14,869 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/motion-CaFztybW.js HTTP/1.1" 200 -
+2026-03-10 19:22:14,870 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:14] "GET /assets/vendor-DhV5bNOF.js HTTP/1.1" 200 -
+2026-03-10 19:22:15,012 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:15] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:22:15,012 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:15] "[35m[1mGET /video/LOGO.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:22:17,049 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,049 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/sinxr.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,049 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,049 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/signa.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,058 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,058 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/nadpis.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,059 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,059 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/shop.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,062 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,062 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/_nul.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,065 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:22:17,065 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /api/hub_data HTTP/1.1" 200 -
+2026-03-10 19:22:17,069 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,069 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/invent.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,073 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,073 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/frame.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,086 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,086 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/sindi.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,100 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,100 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/reiting.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,101 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,101 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/dnecvnik.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,109 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,109 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/guid.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,113 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,113 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/shadow_b.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,116 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,116 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /video/admin.png HTTP/1.1" 200 -
+2026-03-10 19:22:17,130 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:22:17,130 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "[35m[1mGET /video/back.mp4 HTTP/1.1[0m" 206 -
+2026-03-10 19:22:17,440 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "[33mGET /IMG/eidos_faction-icon.svg HTTP/1.1[0m" 404 -
+2026-03-10 19:22:17,440 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "[33mGET /IMG/eidos_faction-icon.svg HTTP/1.1[0m" 404 -
+2026-03-10 19:22:17,443 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "[33mGET /IMG/eidos_signal-wave.svg HTTP/1.1[0m" 404 -
+2026-03-10 19:22:17,443 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "[33mGET /IMG/eidos_signal-wave.svg HTTP/1.1[0m" 404 -
+2026-03-10 19:22:17,449 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_shield-armor.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,449 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_shield-armor.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,450 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_luck-dice.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,450 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_luck-dice.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,453 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_credits-crypto.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,453 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_credits-crypto.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,454 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/nav_tab-all.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,454 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/nav_tab-all.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,454 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_weapon-attack.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,454 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_weapon-attack.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,473 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/nav_tab-equip.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,473 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/nav_tab-equip.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,477 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/nav_tab-consum.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,477 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/nav_tab-consum.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,538 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_audio-wave.svg HTTP/1.1" 200 -
+2026-03-10 19:22:17,538 - werkzeug - INFO - 127.0.0.1 - - [10/Mar/2026 19:22:17] "GET /IMG/eidos_audio-wave.svg HTTP/1.1" 200 -
+2026-03-10 19:22:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:23:08 UTC)" (scheduled at 2026-03-10 19:22:38.180338+00:00)
+2026-03-10 19:22:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:23:08 UTC)" (scheduled at 2026-03-10 19:22:38.180338+00:00)
+2026-03-10 19:22:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:23:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:22:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:23:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:22:38,185 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:23:38 UTC)" (scheduled at 2026-03-10 19:22:38.180931+00:00)
+2026-03-10 19:22:38,185 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:23:38 UTC)" (scheduled at 2026-03-10 19:22:38.180931+00:00)
+2026-03-10 19:22:38,185 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:23:38 UTC)" executed successfully
+2026-03-10 19:22:38,185 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:23:38 UTC)" executed successfully
+2026-03-10 19:23:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:23:38 UTC)" (scheduled at 2026-03-10 19:23:08.180338+00:00)
+2026-03-10 19:23:08,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:23:38 UTC)" (scheduled at 2026-03-10 19:23:08.180338+00:00)
+2026-03-10 19:23:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:23:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:23:08,181 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:23:38 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:23:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:24:08 UTC)" (scheduled at 2026-03-10 19:23:38.180338+00:00)
+2026-03-10 19:23:38,181 - apscheduler.executors.default - INFO - Running job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:24:08 UTC)" (scheduled at 2026-03-10 19:23:38.180338+00:00)
+2026-03-10 19:23:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:24:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:23:38,182 - apscheduler.executors.default - ERROR - Job "stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-10 19:24:08 UTC)" raised an exception
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/apscheduler/executors/base.py", line 131, in run_job
+    retval = job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/bot.py", line 409, in stats_flusher
+    from modules.services.user import flush_stats
+ImportError: cannot import name 'flush_stats' from 'modules.services.user' (/app/modules/services/user.py)
+2026-03-10 19:23:38,183 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:24:38 UTC)" (scheduled at 2026-03-10 19:23:38.180931+00:00)
+2026-03-10 19:23:38,183 - apscheduler.executors.default - INFO - Running job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:24:38 UTC)" (scheduled at 2026-03-10 19:23:38.180931+00:00)
+2026-03-10 19:23:38,184 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:24:38 UTC)" executed successfully
+2026-03-10 19:23:38,184 - apscheduler.executors.default - INFO - Job "xp_flusher (trigger: interval[0:01:00], next run at: 2026-03-10 19:24:38 UTC)" executed successfully

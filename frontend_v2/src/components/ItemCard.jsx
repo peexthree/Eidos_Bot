@@ -2,22 +2,21 @@ import React from 'react';
 import useStore from '../store/useStore';
 
 const ItemCard = ({ item }) => {
-  const equipItem = useStore((state) => state.equipItem);
   const equipped = useStore((state) => state.equipped) || {};
 
-  const isEquipped = Object.values(equipped).includes(item?.id);
-
-  const handleEquip = () => {
-    if (item?.type !== 'Consumable') {
-      equipItem(item?.type?.toLowerCase(), item?.id);
-    }
-  };
+  const isEquipped = Object.values(equipped).some(val =>
+    val === item?.id || (val && typeof val === 'object' && val.item_id === item?.id)
+  );
 
   const rarityStyles = {
     common: 'border-l-white bg-white/5',
     rare: 'border-l-eidos-cyan bg-eidos-cyan/10',
     epic: 'border-l-purple-500 bg-purple-500/10 text-glow-purple',
     legendary: 'border-l-eidos-red bg-eidos-red/10 text-glow-red',
+    Common: 'border-l-white bg-white/5',
+    Rare: 'border-l-eidos-cyan bg-eidos-cyan/10',
+    Epic: 'border-l-purple-500 bg-purple-500/10 text-glow-purple',
+    Legendary: 'border-l-eidos-red bg-eidos-red/10 text-glow-red'
   };
 
   const itemRarity = item?.rarity || 'common';
@@ -25,7 +24,7 @@ const ItemCard = ({ item }) => {
 
   return (
     <div
-      className={`relative flex items-center justify-between p-3 mb-2 clip-hex bg-eidos-glass border border-white/10 border-l-4 ${borderColor} transition-all duration-300 hover:bg-white/10 group`}
+      className={`relative flex items-center justify-between p-3 mb-2 clip-hex bg-eidos-glass border border-white/10 border-l-4 ${borderColor} transition-all duration-300 hover:bg-white/10 group cursor-pointer`}
     >
       <div className="flex items-center flex-1 gap-3">
         {/* Item Image */}
@@ -33,7 +32,7 @@ const ItemCard = ({ item }) => {
            {item?.image_url ? (
              <img src={item.image_url} alt={item?.name} className="w-full h-full object-cover" />
            ) : (
-             <span className="font-share text-[8px] text-white/40">NO IMG</span>
+             <span className="font-share text-[20px]">{item?.icon || '📦'}</span>
            )}
         </div>
 
@@ -62,18 +61,16 @@ const ItemCard = ({ item }) => {
         </div>
       </div>
 
-      {item?.type !== 'Consumable' && (
-        <button
-          onClick={handleEquip}
-          disabled={isEquipped}
+      {item?.type !== 'Consumable' && item?.type !== 'consumable' && item?.type !== 'misc' && (
+        <div
           className={`ml-4 font-share text-xs px-3 py-1 border clip-hex transition-colors flex-shrink-0 ${
             isEquipped
-              ? 'border-eidos-neon text-eidos-neon bg-eidos-neon/10 opacity-50 cursor-not-allowed'
-              : 'border-white/30 text-white/70 hover:border-eidos-cyan hover:text-eidos-cyan bg-black/40'
+              ? 'border-eidos-neon text-eidos-neon bg-eidos-neon/10'
+              : 'border-white/30 text-white/70 bg-black/40'
           }`}
         >
-          {isEquipped ? 'EQUIPPED' : 'EQUIP'}
-        </button>
+          {isEquipped ? 'EQUIPPED' : 'IN BAG'}
+        </div>
       )}
     </div>
   );

@@ -3,7 +3,7 @@ import useStore from '../store/useStore';
 import ItemCard from './ItemCard';
 import { motion } from 'framer-motion';
 
-const ItemList = () => {
+const ItemList = ({ onItemClick }) => {
   const inventory = useStore((state) => state.inventory);
   const [filter, setFilter] = useState('ALL');
 
@@ -15,8 +15,8 @@ const ItemList = () => {
 
   const filteredInventory = inventory.filter((item) => {
     if (filter === 'ALL') return true;
-    if (filter === 'EQUIP') return item.type !== 'Consumable';
-    if (filter === 'CONSUMABLES') return item.type === 'Consumable';
+    if (filter === 'EQUIP') return item.type !== 'Consumable' && item.type !== 'consumable';
+    if (filter === 'CONSUMABLES') return item.type === 'Consumable' || item.type === 'consumable';
     return true;
   });
 
@@ -54,6 +54,7 @@ const ItemList = () => {
             layout
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            onClick={() => onItemClick && onItemClick(item)}
           >
             <ItemCard item={item} />
           </motion.div>

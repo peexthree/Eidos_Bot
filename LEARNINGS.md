@@ -1,0 +1,4 @@
+
+## React Playwright Verification
+- **Challenge:** The `frontend_v2` React App uses a video-based splash screen (`INTRO` view) and `window.Telegram` `initData` or a URL query param (`?uid=...`) to determine user context. Bypassing this programmatically via Playwright requires forcing an `ended` event on the `<video>` element to progress to the `HUB` view, followed by simulating clicks on visual hub buttons instead of texts.
+- **Solution:** Injecting `uid` directly as a query parameter (e.g. `?uid=123456789`) lets the app skip the "unauthorized" error. Then, dispatching `new Event('ended')` on the intro video bypasses the loader, enabling fast, isolated E2E tests of the React application frontend features like Modals. Additionally, for matching items in Modals across different data models (where `id` vs `item_id` might differ slightly in nested `equipped` states), it's important to strictly verify both keys against the inventory item's properties.

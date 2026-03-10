@@ -278,6 +278,7 @@ def inventory_api():
     _inventory_cache[uid] = {'time': time.time(), 'data': response_data}
 
     return flask.jsonify(response_data)
+@app.route('/api/action/equip', methods=['POST'])
 @app.route('/api/inventory/equip', methods=['POST'])
 def inventory_equip():
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
@@ -291,6 +292,7 @@ def inventory_equip():
     success = equip_item(uid, item_id)
     return flask.jsonify({"success": success})
 
+@app.route('/api/action/unequip', methods=['POST'])
 @app.route('/api/inventory/unequip', methods=['POST'])
 def inventory_unequip():
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
