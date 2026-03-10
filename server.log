@@ -1,26 +1,11 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+[2026-03-10 21:26:06 +0000] [6181] [INFO] Starting gunicorn 25.1.0
+[2026-03-10 21:26:06 +0000] [6181] [INFO] Listening at: http://0.0.0.0:10000 (6181)
+[2026-03-10 21:26:06 +0000] [6181] [INFO] Using worker: sync
+[2026-03-10 21:26:06 +0000] [6181] [INFO] Control socket listening at /app/gunicorn.ctl
+[2026-03-10 21:26:06 +0000] [6297] [INFO] Booting worker with pid: 6297
 /// REDIS CONNECTION ERROR: Error -2 connecting to red-d6llkmftskes73dhkd10:6379. Name or service not known.
-2026-03-08 14:39:19,820 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-08 14:39:19,821 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-08 14:39:19,822 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-08 14:39:19,826 - apscheduler.scheduler - INFO - Added job "aps_stats_flusher" to job store "default"
-2026-03-08 14:39:19,827 - apscheduler.scheduler - INFO - Added job "_flush_xp_cache" to job store "default"
-2026-03-08 14:39:19,827 - apscheduler.scheduler - INFO - Added job "aps_notification_loop" to job store "default"
-2026-03-08 14:39:19,827 - apscheduler.scheduler - INFO - Scheduler started
-/// APSCHEDULER STARTED WITH JOBS: stats_flusher(30s), xp_flusher(60s), notification_loop(60s)
-/// TASK WORKER STARTED IN PID 5640
-/// SYSTEM STARTUP INITIATED...
-/// DEBUG: Checking and fixing indexes...
+2026-03-10 21:26:06,720 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-10 21:26:06,721 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 /// DB URL FORMATTED FOR DIRECT PGBOUNCER CONNECTION
- * Serving Flask app 'modules.bot_instance'
- * Debug mode: off
-2026-03-08 14:39:19,836 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
- * Running on all addresses (0.0.0.0)
- * Running on http://127.0.0.1:5001
- * Running on http://192.168.0.2:5001
-2026-03-08 14:39:19,836 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
-/// FIX: Indexes verified and created successfully.
-/// WEBHOOK SET: https://eidos-bot-n5oo.onrender.com (Result: True)
-2026-03-08 14:39:33,476 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 14:39:33] "[33mGET /static/inventory.html?uid=12345 HTTP/1.1[0m" 404 -
-2026-03-08 14:39:49,821 - apscheduler.executors.default - INFO - Running job "aps_stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-08 14:39:49 UTC)" (scheduled at 2026-03-08 14:39:49.820682+00:00)
-2026-03-08 14:39:49,821 - apscheduler.executors.default - INFO - Job "aps_stats_flusher (trigger: interval[0:00:30], next run at: 2026-03-08 14:39:49 UTC)" executed successfully
-2026-03-08 14:39:58,707 - werkzeug - INFO - 127.0.0.1 - - [08/Mar/2026 14:39:58] "GET /api/inventory?uid=12345 HTTP/1.1" 200 -

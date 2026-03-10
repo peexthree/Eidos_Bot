@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import useStore from '../store/useStore';
 
-const EquipSlot = ({ label, slot, item, onClick }) => {
+const EquipSlot = ({ label, slot, item, onClick, style }) => {
   const unequipItem = useStore((state) => state.unequipItem);
 
   const handleClick = () => {
@@ -12,48 +12,22 @@ const EquipSlot = ({ label, slot, item, onClick }) => {
     }
   };
 
-  const rarityColorMap = {
-    common: 'border-white text-white',
-    rare: 'border-eidos-cyan text-eidos-cyan',
-    epic: 'border-purple-500 text-purple-500',
-    legendary: 'border-eidos-red text-eidos-red',
-    Common: 'border-white text-white',
-    Rare: 'border-eidos-cyan text-eidos-cyan',
-    Epic: 'border-purple-500 text-purple-500',
-    Legendary: 'border-eidos-red text-eidos-red'
-  };
-
   const isEmpty = !item;
-  const itemRarity = item?.rarity || 'common';
-  const slotColorClass = isEmpty ? 'border-white/20 text-white/40 border-dashed' : (rarityColorMap[itemRarity] || rarityColorMap.common);
-  const bgClass = isEmpty ? 'bg-black/20' : 'bg-eidos-glass';
+
+  if (isEmpty) {
+    return null;
+  }
 
   return (
     <div
       onClick={handleClick}
-      className={`relative flex flex-col items-center justify-center p-2 w-20 h-24 clip-hex border-2 transition-all duration-300 ${slotColorClass} ${bgClass} cursor-pointer hover:bg-white/10`}
+      style={style}
     >
-      <div className="absolute top-1 left-2 text-[8px] font-share uppercase opacity-50 tracking-widest z-10">
-        {label}
-      </div>
-
-      {!isEmpty && (
-         <div className="flex flex-col items-center justify-center text-center w-full h-full relative z-0 mt-2">
-             {item?.image_url ? (
-                 <div className="w-10 h-10 mb-1 flex-shrink-0">
-                   <img src={item.image_url} alt={item?.name || 'Item'} className="w-full h-full object-contain" />
-                 </div>
-             ) : (
-                 <div className="font-share text-xs opacity-50 text-2xl mb-1">{item?.icon || '📦'}</div>
-             )}
-             <div className={`font-orbitron text-[8px] leading-tight font-bold truncate w-full px-1 ${itemRarity === 'legendary' || itemRarity === 'Legendary' ? 'text-glow-red' : ''}`}>
-               {item?.name || 'Unknown'}
-             </div>
-         </div>
-      )}
-      {isEmpty && (
-        <div className="font-share text-xs opacity-30 mt-2">EMPTY</div>
-      )}
+      <img
+        src={item?.image_url || ('/api/image/' + item?.file_id)}
+        alt={item?.name || 'Item'}
+        style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer' }}
+      />
     </div>
   );
 };
@@ -66,11 +40,9 @@ const EquipDoll = ({ onSlotClick }) => {
      console.log("/// EIDOS: Doll Equipped Data:", equipped);
   }, [equipped]);
 
-  // Handle both complex DB objects { item_id, durability } and simple IDs
   const getItem = (slotData) => {
     if (!slotData) return undefined;
 
-    // If it's already an enriched item from the backend, use it directly!
     if (typeof slotData === 'object' && (slotData.image_url || slotData.name)) {
         return slotData;
     }
@@ -82,32 +54,18 @@ const EquipDoll = ({ onSlotClick }) => {
        targetId = slotData.id;
     }
 
-    // Fallback: search in inventory
     return inventory.find(i => String(i?.id) === String(targetId));
   };
 
   return (
-    <div className="w-full bg-eidos-glass p-6 clip-hex border border-white/10 relative overflow-hidden mb-6 mt-4">
-      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(var(--color-eidos-cyan) 1px, transparent 1px), linear-gradient(90deg, var(--color-eidos-cyan) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+    <div className="w-full relative overflow-hidden mb-6 mt-4" style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
+      <video src="/video/DOLL.mp4" autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0, zIndex: 0 }} />
 
-      <div className="relative z-10 flex flex-col items-center">
-        {/* Head */}
-        <div className="mb-2">
-          <EquipSlot label="HEAD" slot="head" item={getItem(equipped?.head)} onClick={onSlotClick} />
-        </div>
-
-        {/* Middle row: Weapon, Armor, Chip */}
-        <div className="flex items-center justify-center gap-4 mb-2">
-          <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped?.weapon)} onClick={onSlotClick} />
-          <EquipSlot label="ARMOR" slot="armor" item={getItem(equipped?.armor)} onClick={onSlotClick} />
-          <EquipSlot label="CHIP" slot="chip" item={getItem(equipped?.chip)} onClick={onSlotClick} />
-        </div>
-
-        {/* Eidos Shard */}
-        <div>
-           <EquipSlot label="SHARD" slot="eidos_shard" item={getItem(equipped?.eidos_shard)} onClick={onSlotClick} />
-        </div>
-      </div>
+      <EquipSlot label="HEAD" slot="head" item={getItem(equipped?.head)} onClick={onSlotClick} style={{ position: 'absolute', top: '10%', left: '40%', width: '20%', height: '30%', zIndex: 10 }} />
+      <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped?.weapon)} onClick={onSlotClick} style={{ position: 'absolute', top: '35%', left: '5%', width: '22%', height: '35%', zIndex: 10 }} />
+      <EquipSlot label="ARMOR" slot="armor" item={getItem(equipped?.armor)} onClick={onSlotClick} style={{ position: 'absolute', top: '65%', left: '30%', width: '18%', height: '30%', zIndex: 10 }} />
+      <EquipSlot label="SHARD" slot="eidos_shard" item={getItem(equipped?.eidos_shard)} onClick={onSlotClick} style={{ position: 'absolute', top: '65%', left: '52%', width: '18%', height: '30%', zIndex: 10 }} />
+      <EquipSlot label="CHIP" slot="chip" item={getItem(equipped?.chip)} onClick={onSlotClick} style={{ position: 'absolute', top: '35%', left: '73%', width: '22%', height: '35%', zIndex: 10 }} />
     </div>
   );
 };
