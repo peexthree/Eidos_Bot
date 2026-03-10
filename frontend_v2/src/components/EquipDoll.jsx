@@ -8,7 +8,6 @@ const EquipSlot = ({ label, slot, item, onClick }) => {
     if (onClick && item) {
        onClick(item);
     } else if (item) {
-       // fallback if no modal handler
        unequipItem(slot);
     }
   };
@@ -88,7 +87,7 @@ const EquipDoll = ({ onSlotClick }) => {
   };
 
   return (
-    <div className="w-full bg-eidos-glass p-6 clip-hex border border-white/10 relative overflow-hidden mb-6">
+    <div className="w-full bg-eidos-glass p-6 clip-hex border border-white/10 relative overflow-hidden mb-6 mt-4">
       <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(var(--color-eidos-cyan) 1px, transparent 1px), linear-gradient(90deg, var(--color-eidos-cyan) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
       <div className="relative z-10 flex flex-col items-center">
@@ -97,16 +96,16 @@ const EquipDoll = ({ onSlotClick }) => {
           <EquipSlot label="HEAD" slot="head" item={getItem(equipped?.head)} onClick={onSlotClick} />
         </div>
 
-        {/* Middle row: Weapon, Body, Software */}
+        {/* Middle row: Weapon, Armor, Chip */}
         <div className="flex items-center justify-center gap-4 mb-2">
           <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped?.weapon)} onClick={onSlotClick} />
           <EquipSlot label="ARMOR" slot="armor" item={getItem(equipped?.armor)} onClick={onSlotClick} />
           <EquipSlot label="CHIP" slot="chip" item={getItem(equipped?.chip)} onClick={onSlotClick} />
         </div>
 
-        {/* Artifact */}
+        {/* Eidos Shard */}
         <div>
-           <EquipSlot label="CORE" slot="eidos_shard" item={getItem(equipped?.eidos_shard)} onClick={onSlotClick} />
+           <EquipSlot label="SHARD" slot="eidos_shard" item={getItem(equipped?.eidos_shard)} onClick={onSlotClick} />
         </div>
       </div>
     </div>

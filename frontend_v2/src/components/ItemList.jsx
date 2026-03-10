@@ -8,15 +8,22 @@ const ItemList = ({ onItemClick }) => {
   const [filter, setFilter] = useState('ALL');
 
   const filters = [
-    { id: 'ALL', label: 'ALL', icon: '/IMG/nav_tab-all.svg' },
-    { id: 'EQUIP', label: 'EQUIP', icon: '/IMG/nav_tab-equip.svg' },
-    { id: 'CONSUMABLES', label: 'CONSUMABLES', icon: '/IMG/nav_tab-consum.svg' }
+    { id: 'ALL', label: 'ВСЁ', icon: '/IMG/nav_tab-all.svg' },
+    { id: 'EQUIP', label: 'ЭКИПИРОВКА', icon: '/IMG/nav_tab-equip.svg' },
+    { id: 'CONSUMABLES', label: 'РАСХОДНИКИ', icon: '/IMG/nav_tab-consum.svg' }
   ];
 
   const filteredInventory = inventory.filter((item) => {
     if (filter === 'ALL') return true;
-    if (filter === 'EQUIP') return item.type !== 'Consumable' && item.type !== 'consumable';
-    if (filter === 'CONSUMABLES') return item.type === 'Consumable' || item.type === 'consumable';
+
+    // According to config.py, types are usually 'equip' and 'consumable'
+    // but might also specifically be 'weapon', 'armor', etc.
+    const isEquip = ['equip', 'weapon', 'armor', 'head', 'chip', 'eidos_shard', 'software', 'artifact', 'shards'].includes(item.type?.toLowerCase());
+    const isConsumable = ['consumable', 'misc'].includes(item.type?.toLowerCase());
+
+    if (filter === 'EQUIP') return isEquip || (!isConsumable && item.type !== 'consumable');
+    if (filter === 'CONSUMABLES') return isConsumable;
+
     return true;
   });
 
@@ -28,7 +35,7 @@ const ItemList = ({ onItemClick }) => {
           <button
             key={f.id}
             onClick={() => setFilter(f.id)}
-            className={`font-orbitron text-xs px-3 py-1 transition-all clip-hex flex items-center gap-2 ${
+            className={`font-orbitron text-xs px-2 py-1 transition-all clip-hex flex items-center gap-1 ${
               filter === f.id
                 ? 'bg-eidos-cyan text-black font-bold text-glow-cyan border border-eidos-cyan'
                 : 'text-white/50 hover:text-white bg-black/40 border border-white/20'

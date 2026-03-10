@@ -7,10 +7,10 @@ const useStore = create((set) => ({
   inventory: [],
   equipped: {
     head: null,
-    body: null,
+    armor: null,
     weapon: null,
-    software: null,
-    artifact: null
+    chip: null,
+    eidos_shard: null
   },
   // Actions
   fetchProfile: async (uid) => {
@@ -29,7 +29,7 @@ const useStore = create((set) => ({
           stats: data.stats || data.player?.stats || { atk: 0, def: 0, luck: 0, signal: 0 }
         },
         inventory: data.inventory || data.items || [],
-        equipped: data.equipped || { head: null, body: null, weapon: null, software: null, artifact: null }
+        equipped: data.equipped || { head: null, armor: null, weapon: null, chip: null, eidos_shard: null }
       });
     } catch (error) {
       console.error("Error fetching profile:", error);

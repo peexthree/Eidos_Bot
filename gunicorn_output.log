@@ -1,9 +1,0 @@
-[2026-03-09 19:19:35 +0000] [6727] [INFO] Starting gunicorn 25.1.0
-[2026-03-09 19:19:35 +0000] [6727] [INFO] Listening at: http://0.0.0.0:5000 (6727)
-[2026-03-09 19:19:35 +0000] [6727] [INFO] Using worker: sync
-[2026-03-09 19:19:35 +0000] [6727] [INFO] Control socket listening at /app/gunicorn.ctl
-[2026-03-09 19:19:35 +0000] [6865] [INFO] Booting worker with pid: 6865
-/// REDIS CONNECTION ERROR: Error -2 connecting to red-d6llkmftskes73dhkd10:6379. Name or service not known.
-2026-03-09 19:19:35,878 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-03-09 19:19:35,878 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-/// DB URL FORMATTED FOR DIRECT PGBOUNCER CONNECTION
