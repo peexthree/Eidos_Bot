@@ -5,73 +5,90 @@ const ProfileHeader = () => {
   const profile = useStore((state) => state.profile);
 
   return (
-    <div className="w-full bg-eidos-glass p-4 border-b border-eidos-cyan/30 clip-hex mb-4">
-      <div className="flex items-center space-x-4 mb-4">
-        {/* Аватар с clip-hex */}
-        <div className="relative w-20 h-20 bg-eidos-cyan/20 clip-hex flex items-center justify-center border border-eidos-cyan">
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover clip-hex" />
-          ) : (
-            <span className="font-orbitron text-xl text-eidos-cyan font-bold">CN</span>
-          )}
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-eidos-red text-white text-xs px-1 font-share clip-hex font-bold z-10">
-            LVL {profile?.level || 0}
+    <div
+      className="relative w-full overflow-hidden"
+      style={{
+        height: '30vh',
+        minHeight: '220px',
+        width: '100vw',
+        marginLeft: 'calc(-50vw + 50%)', // Break out of container padding to fill width
+        marginRight: 'calc(-50vw + 50%)',
+        backgroundImage: `url(${profile?.avatar_url || ''})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center center'
+      }}
+    >
+      {/* Dark overlay to make avatar visible but let text pop */}
+      <div className="absolute inset-0 bg-black/30" />
+
+      {/* Top gradient for scanline/tech effect */}
+      <div className="absolute top-0 left-0 w-full h-1/4 bg-gradient-to-b from-black/80 to-transparent" />
+
+      {/* Bottom overlay with gradient mask for text & stats readability */}
+      <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black via-black/80 to-transparent pt-12 pb-2 px-4">
+
+        {/* Nickname, Faction, Level area */}
+        <div className="flex items-end justify-between mb-3 w-full max-w-2xl mx-auto px-2">
+          <div className="flex flex-col">
+            <h2 className="font-orbitron text-2xl text-eidos-cyan text-glow-cyan uppercase tracking-wider leading-none">
+              {profile?.name || "UNKNOWN"}
+            </h2>
+            <div className="flex items-center gap-2 mt-1">
+               <div className="absolute top-3 right-3 bg-eidos-red text-white text-sm px-2 py-0.5 font-share clip-hex font-bold z-10 shadow-[0_0_10px_rgba(255,51,51,0.5)]">
+                 LVL {profile?.level || 0}
+               </div>
+               <div className="font-share text-xs text-white/70 flex items-center gap-1 bg-black/50 px-2 py-0.5 clip-hex border border-white/10">
+                  <img src="/IMG/eidos_faction-icon.svg" alt="" className="w-3 h-3 opacity-70" onError={(e) => e.target.style.display='none'} />
+                  FACTION: <span className="text-eidos-neon text-glow-neon">{profile?.faction || "UNKNOWN"}</span>
+               </div>
+               <div className="font-share text-xs text-yellow-400 flex items-center bg-black/50 px-2 py-0.5 clip-hex border border-yellow-400/20">
+                 <img src="/IMG/eidos_credits-crypto.svg" alt="BC" className="w-3 h-3 mr-1" />
+                 {(profile?.biocoins || 0).toLocaleString()} BC
+               </div>
+            </div>
           </div>
         </div>
 
-        {/* Имя, Фракция, Биокоины */}
-        <div className="flex flex-col flex-1">
-          <h2 className="font-orbitron text-lg text-eidos-cyan text-glow-cyan uppercase tracking-wider">
-            {profile?.name || "UNKNOWN"}
-          </h2>
-          <div className="flex items-center gap-2 mb-1">
-             <div className="font-share text-xs text-white/70 flex items-center gap-1">
-                <img src="/IMG/eidos_faction-icon.svg" alt="" className="w-3 h-3 opacity-70" onError={(e) => e.target.style.display='none'} />
-                FACTION: <span className="text-eidos-neon text-glow-neon">{profile?.faction || "UNKNOWN"}</span>
-             </div>
+        {/* Сетка статов */}
+        <div className="grid grid-cols-4 gap-2 border-t border-eidos-cyan/30 pt-3 w-full max-w-2xl mx-auto">
+          {/* ATK - Red */}
+          <div className="flex flex-col items-center justify-center bg-black/60 p-2 clip-hex border border-eidos-red/50 backdrop-blur-sm">
+            <div className="flex items-center space-x-1 mb-1">
+              <img src="/IMG/eidos_weapon-attack.svg" alt="ATK" className="w-3 h-3 text-eidos-red" style={{ filter: 'var(--svg-color-red, invert(28%) sepia(85%) saturate(7186%) hue-rotate(352deg) brightness(102%) contrast(106%))' }} />
+              <span className="font-share text-[10px] text-eidos-red">ATK</span>
+            </div>
+            <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.atk || profile?.atk || 0}</span>
           </div>
-          <div className="font-share text-sm text-yellow-400 flex items-center">
-            <img src="/IMG/eidos_credits-crypto.svg" alt="BC" className="w-4 h-4 mr-1" />
-            {(profile?.biocoins || 0).toLocaleString()} BC
+          {/* DEF - Blue */}
+          <div className="flex flex-col items-center justify-center bg-black/60 p-2 clip-hex border border-blue-400/50 backdrop-blur-sm">
+            <div className="flex items-center space-x-1 mb-1">
+              <img src="/IMG/eidos_shield-armor.svg" alt="DEF" className="w-3 h-3 text-blue-400" style={{ filter: 'var(--svg-color-blue, invert(60%) sepia(45%) saturate(4522%) hue-rotate(193deg) brightness(101%) contrast(105%))' }} />
+              <span className="font-share text-[10px] text-blue-400">DEF</span>
+            </div>
+            <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.def || profile?.def || 0}</span>
+          </div>
+          {/* LCK - Yellow */}
+          <div className="flex flex-col items-center justify-center bg-black/60 p-2 clip-hex border border-yellow-400/50 backdrop-blur-sm">
+            <div className="flex items-center space-x-1 mb-1">
+               <img src="/IMG/eidos_luck-dice.svg" alt="LCK" className="w-3 h-3 text-yellow-400" style={{ filter: 'var(--svg-color-yellow, invert(85%) sepia(50%) saturate(1008%) hue-rotate(359deg) brightness(105%) contrast(104%))' }} />
+               <span className="font-share text-[10px] text-yellow-400">LCK</span>
+            </div>
+            <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.luck || profile?.luck || 0}</span>
+          </div>
+          {/* SIGNAL - Neon Green */}
+          <div className="flex flex-col items-center justify-center bg-black/60 p-2 clip-hex border border-eidos-neon/50 backdrop-blur-sm">
+            <div className="flex items-center space-x-1 mb-1">
+              <img src="/IMG/eidos_signal-wave.svg" alt="SIGNAL" className="w-3 h-3 text-eidos-neon" onError={(e) => { e.target.src='/IMG/eidos_audio-wave.svg' }} style={{ filter: 'var(--svg-color-neon, invert(67%) sepia(61%) saturate(3065%) hue-rotate(85deg) brightness(102%) contrast(110%))' }} />
+              <span className="font-share text-[10px] text-eidos-neon">SIGNAL</span>
+            </div>
+            <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.signal || profile?.signal || 0}%</span>
           </div>
         </div>
       </div>
 
-      {/* Сетка статов */}
-      <div className="grid grid-cols-4 gap-2 border-t border-white/10 pt-3">
-        {/* ATK - Red */}
-        <div className="flex flex-col items-center justify-center bg-black/40 p-2 clip-hex border border-eidos-red/30">
-          <div className="flex items-center space-x-1 mb-1">
-            <img src="/IMG/eidos_weapon-attack.svg" alt="ATK" className="w-3 h-3 text-eidos-red" style={{ filter: 'var(--svg-color-red, invert(28%) sepia(85%) saturate(7186%) hue-rotate(352deg) brightness(102%) contrast(106%))' }} />
-            <span className="font-share text-[10px] text-eidos-red">ATK</span>
-          </div>
-          <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.atk || profile?.atk || 0}</span>
-        </div>
-        {/* DEF - Blue */}
-        <div className="flex flex-col items-center justify-center bg-black/40 p-2 clip-hex border border-blue-400/30">
-          <div className="flex items-center space-x-1 mb-1">
-            <img src="/IMG/eidos_shield-armor.svg" alt="DEF" className="w-3 h-3 text-blue-400" style={{ filter: 'var(--svg-color-blue, invert(60%) sepia(45%) saturate(4522%) hue-rotate(193deg) brightness(101%) contrast(105%))' }} />
-            <span className="font-share text-[10px] text-blue-400">DEF</span>
-          </div>
-          <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.def || profile?.def || 0}</span>
-        </div>
-        {/* LCK - Yellow */}
-        <div className="flex flex-col items-center justify-center bg-black/40 p-2 clip-hex border border-yellow-400/30">
-          <div className="flex items-center space-x-1 mb-1">
-             <img src="/IMG/eidos_luck-dice.svg" alt="LCK" className="w-3 h-3 text-yellow-400" style={{ filter: 'var(--svg-color-yellow, invert(85%) sepia(50%) saturate(1008%) hue-rotate(359deg) brightness(105%) contrast(104%))' }} />
-             <span className="font-share text-[10px] text-yellow-400">LCK</span>
-          </div>
-          <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.luck || profile?.luck || 0}</span>
-        </div>
-        {/* SIGNAL - Neon Green */}
-        <div className="flex flex-col items-center justify-center bg-black/40 p-2 clip-hex border border-eidos-neon/30">
-          <div className="flex items-center space-x-1 mb-1">
-            <img src="/IMG/eidos_signal-wave.svg" alt="SIGNAL" className="w-3 h-3 text-eidos-neon" onError={(e) => { e.target.src='/IMG/eidos_audio-wave.svg' }} style={{ filter: 'var(--svg-color-neon, invert(67%) sepia(61%) saturate(3065%) hue-rotate(85deg) brightness(102%) contrast(110%))' }} />
-            <span className="font-share text-[10px] text-eidos-neon">SIGNAL</span>
-          </div>
-          <span className="font-rajdhani text-lg text-white font-bold">{profile?.stats?.signal || profile?.signal || 0}%</span>
-        </div>
-      </div>
+      {/* Cyberpunk accent lines overlay */}
+      <div className="absolute bottom-0 left-0 w-full h-[2px] bg-eidos-cyan/50" />
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-eidos-cyan/20" />
     </div>
   );
 };

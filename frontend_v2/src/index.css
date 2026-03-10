@@ -46,6 +46,8 @@ body {
   background-color: var(--color-eidos-bg);
   color: #ffffff;
   overscroll-behavior-y: none;
+  overflow-x: hidden !important;
+  touch-action: pan-y !important;
   -webkit-overflow-scrolling: auto;
   margin: 0;
   padding: 0;
