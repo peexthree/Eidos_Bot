@@ -230,8 +230,6 @@ def inventory_menu(items, equipped, dismantle_mode=False, category='equip', has_
                 else:
                     if item_id in EQUIPMENT_DB:
                         m.add(types.InlineKeyboardButton(f"⬆️ {display_name}", callback_data=f"view_item_{inv_id}"[:64]))
-                    elif item_id == 'admin_key':
-                        m.add(types.InlineKeyboardButton(f"🔴 ЮЗНУТЬ: {display_name}", callback_data="use_admin_key"))
                     else:
                         m.add(types.InlineKeyboardButton(f"{display_name}", callback_data=f"view_item_{inv_id}"[:64]))
 
@@ -582,6 +580,8 @@ def item_details_keyboard(item_id, is_owned=True, is_equipped=False, durability=
             if item_id in EQUIPMENT_DB:
                  cb = f"equip_{inv_id}" if inv_id else f"equip_{item_id}"
                  m.add(types.InlineKeyboardButton("🛡 НАДЕТЬ", callback_data=cb))
+            elif item_id == 'admin_key':
+                 m.add(types.InlineKeyboardButton("🔴 ИСПОЛЬЗОВАТЬ", callback_data="use_admin_key"))
             else:
                  m.add(types.InlineKeyboardButton("⚡️ ИСПОЛЬЗОВАТЬ", callback_data=f"use_item_{item_id}"))
         if inv_id:
