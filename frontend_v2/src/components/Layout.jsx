@@ -21,8 +21,8 @@ export default function Layout({ children }) {
         Учитываем безопасные зоны iOS: pt-[env(safe-area-inset-top)].
         Класс scroll-area ограничивает скролл, предотвращая rubber-banding (bounce) на мобильных.
       */}
-      <main className="flex-1 overflow-y-auto scroll-area w-full h-full relative z-[1] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] flex flex-col items-center">
-        <div className="w-full max-w-2xl px-4 py-6">
+      <main className="flex-1 overflow-y-auto scroll-area w-full h-full relative z-[1] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] flex flex-col items-center" style={{ overflowX: 'hidden' }}>
+        <div className="w-full h-full">
           {children}
         </div>
       </main>
