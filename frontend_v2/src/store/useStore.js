@@ -29,7 +29,13 @@ const useStore = create((set) => ({
           stats: data.stats || data.player?.stats || { atk: 0, def: 0, luck: 0, signal: 0 }
         },
         inventory: data.inventory || data.items || [],
-        equipped: data.equipped || { head: null, armor: null, weapon: null, chip: null, eidos_shard: null }
+        equipped: data.equipped ? {
+            head: data.equipped.head || null,
+            armor: data.equipped.armor || data.equipped.body || null,
+            weapon: data.equipped.weapon || null,
+            chip: data.equipped.chip || data.equipped.software || null,
+            eidos_shard: data.equipped.eidos_shard || data.equipped.artifact || null
+        } : { head: null, armor: null, weapon: null, chip: null, eidos_shard: null }
       });
     } catch (error) {
       console.error("Error fetching profile:", error);

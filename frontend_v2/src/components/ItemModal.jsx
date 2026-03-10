@@ -40,11 +40,24 @@ const ItemModal = ({ isOpen, onClose, item }) => {
 
   if (!item) return null;
 
-  const handleEquipToggle = async () => {
+  const handleDismantle = async () => {
     setIsLoading(true);
     try {
-      // Telegram initData injection should be handled globally via axios interceptor
-      // but let's pass uid here as well
+      let uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
+      // The backend uses string ids or internal ids, try the default item_id from DB
+      await axios.post('/api/inventory/dismantle', { uid, inv_id: item.id });
+      if (uid) await fetchProfile(uid);
+      onClose();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEquipToggle = async (action) => {
+    setIsLoading(true);
+    try {
       let uid;
       if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
           uid = window.Telegram.WebApp.initDataUnsafe.user.id;
@@ -53,8 +66,15 @@ const ItemModal = ({ isOpen, onClose, item }) => {
           uid = urlParams.get('uid');
       }
 
-      if (isEquipped) {
-        // Find which slot it is equipped in
+      // API mapping for unequip slot.
+      // API expects: head, weapon, body, software, artifact
+      const apiSlotMap = {
+          'armor': 'body',
+          'chip': 'software',
+          'eidos_shard': 'artifact'
+      };
+
+      if (action === 'unequip' || isEquipped) {
         let slotToUnequip = null;
         for (const [slot, val] of Object.entries(equipped)) {
            if (val === itemId || (val && typeof val === 'object' && (val.item_id === itemId || val.id === itemId))) {
@@ -64,10 +84,11 @@ const ItemModal = ({ isOpen, onClose, item }) => {
         }
 
         if (slotToUnequip) {
-          await axios.post('/api/action/unequip', { uid: uid, item_id: itemId }); // Using /api/action/unequip as per directive, although bot.py says /api/inventory/unequip (let's use bot.py's one if it exists or action if specified) Wait, user said `POST /api/action/unequip`. I will use `/api/inventory/unequip` to be safe if that's what's mapped, or use both if one fails. Actually I will just check the bot.py and update it if necessary or just use `/api/inventory/unequip`. Wait, the prompt specifically says "triggers POST /api/action/unequip". Let me update bot.py to handle this route.
+          const apiSlot = apiSlotMap[slotToUnequip] || slotToUnequip;
+          await axios.post('/api/inventory/unequip', { uid: uid, slot: apiSlot });
         }
       } else {
-        await axios.post('/api/action/equip', { uid: uid, item_id: itemId });
+        await axios.post('/api/inventory/equip', { uid: uid, item_id: itemId });
       }
 
       // Immediately fetch updated profile
@@ -140,11 +161,30 @@ const ItemModal = ({ isOpen, onClose, item }) => {
               className="flex flex-col items-center gap-6"
             >
               {/* Голограмма предмета Large Image */}
-              <div className={`w-40 h-40 flex items-center justify-center border ${rarityColor} bg-black/40 backdrop-blur-md relative overflow-hidden clip-hex`}>
+              <div className={`w-full aspect-square flex items-center justify-center border-t border-b ${rarityColor} bg-black/40 backdrop-blur-md relative overflow-hidden`}>
+                 {/* ABSOLUTE STATS OVERLAY IN TOP LEFT CORNER */}
+                 <div className="absolute top-2 left-2 flex flex-col gap-1 z-20">
+                    <div className="flex items-center space-x-1 bg-black/60 px-2 py-1 rounded border border-white/10">
+                       <img src="/IMG/eidos_weapon-attack.svg" alt="ATK" className="w-3 h-3 text-eidos-red" style={{ filter: 'var(--svg-color-red, invert(28%) sepia(85%) saturate(7186%) hue-rotate(352deg) brightness(102%) contrast(106%))' }} />
+                       <span className="text-eidos-red text-[10px] uppercase font-share tracking-wider">ATK</span>
+                       <span className="text-white text-sm font-bold">{item?.stats?.atk || item?.atk || 0}</span>
+                    </div>
+                    <div className="flex items-center space-x-1 bg-black/60 px-2 py-1 rounded border border-white/10">
+                       <img src="/IMG/eidos_shield-armor.svg" alt="DEF" className="w-3 h-3 text-blue-400" style={{ filter: 'var(--svg-color-blue, invert(60%) sepia(45%) saturate(4522%) hue-rotate(193deg) brightness(101%) contrast(105%))' }} />
+                       <span className="text-blue-400 text-[10px] uppercase font-share tracking-wider">DEF</span>
+                       <span className="text-white text-sm font-bold">{item?.stats?.def || item?.def || 0}</span>
+                    </div>
+                    <div className="flex items-center space-x-1 bg-black/60 px-2 py-1 rounded border border-white/10">
+                       <img src="/IMG/eidos_luck-dice.svg" alt="LCK" className="w-3 h-3 text-yellow-400" style={{ filter: 'var(--svg-color-yellow, invert(85%) sepia(50%) saturate(1008%) hue-rotate(359deg) brightness(105%) contrast(104%))' }} />
+                       <span className="text-yellow-400 text-[10px] uppercase font-share tracking-wider">LCK</span>
+                       <span className="text-white text-sm font-bold">{item?.stats?.luck || item?.luck || 0}</span>
+                    </div>
+                 </div>
+
                  {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-contain p-2 z-10" />
+                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover z-10" />
                  ) : (
-                    <div className="text-4xl z-10">
+                    <div className="text-6xl z-10">
                       {item.icon || '📦'}
                     </div>
                  )}
@@ -156,46 +196,39 @@ const ItemModal = ({ isOpen, onClose, item }) => {
                 <h2 className={`text-2xl font-orbitron tracking-widest uppercase mb-2 ${rarityColor.split(' ')[0]}`}>
                   {item.name}
                 </h2>
-                <p className="text-sm font-share text-white/70 mb-4 px-4 h-20 overflow-y-auto">
+                <p className="text-sm font-share text-white/70 mb-4 px-4 w-full">
                   {item.description || item.desc || "Описание отсутствует."}
                 </p>
-                <div className="grid grid-cols-3 gap-2 text-sm font-rajdhani mb-4">
-                  <div className="bg-white/5 p-2 rounded border border-white/10 flex flex-col items-center">
-                    <span className="text-eidos-red text-[10px] uppercase font-share tracking-wider">ATK</span>
-                    <span className="text-white text-lg font-bold">{item?.stats?.atk || item?.atk || 0}</span>
-                  </div>
-                  <div className="bg-white/5 p-2 rounded border border-white/10 flex flex-col items-center">
-                    <span className="text-blue-400 text-[10px] uppercase font-share tracking-wider">DEF</span>
-                    <span className="text-white text-lg font-bold">{item?.stats?.def || item?.def || 0}</span>
-                  </div>
-                  <div className="bg-white/5 p-2 rounded border border-white/10 flex flex-col items-center">
-                    <span className="text-yellow-400 text-[10px] uppercase font-share tracking-wider">LUCK</span>
-                    <span className="text-white text-lg font-bold">{item?.stats?.luck || item?.luck || 0}</span>
-                  </div>
-                </div>
+
               </div>
 
               {/* Действия */}
-              <div className="w-full flex flex-col gap-3 mt-2">
-                {item.type !== 'Consumable' && item.type !== 'consumable' && item.type !== 'misc' && (
+              <div className="w-full flex justify-between gap-2 mt-2 px-2">
+                {item.type !== 'Consumable' && item.type !== 'consumable' && item.type !== 'misc' && !isEquipped && (
                   <button
-                     onClick={handleEquipToggle}
+                     onClick={() => handleEquipToggle('equip')}
                      disabled={isLoading}
-                     className={`w-full font-orbitron font-bold text-lg py-4 clip-hex border transition-all ${
-                        isEquipped
-                          ? 'bg-eidos-red/20 text-eidos-red border-eidos-red hover:bg-eidos-red/40'
-                          : 'bg-eidos-cyan/20 text-eidos-cyan border-eidos-cyan hover:bg-eidos-cyan/40'
-                     } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                     className={`flex-1 font-orbitron font-bold text-sm py-3 clip-hex border transition-all bg-eidos-cyan/20 text-eidos-cyan border-eidos-cyan hover:bg-eidos-cyan/40 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                     {isLoading ? 'ОБРАБОТКА...' : isEquipped ? 'СНЯТЬ (UNEQUIP)' : 'НАДЕТЬ (EQUIP)'}
+                     [ НАДЕТЬ ]
+                  </button>
+                )}
+                {isEquipped && (
+                  <button
+                     onClick={() => handleEquipToggle('unequip')}
+                     disabled={isLoading}
+                     className={`flex-1 font-orbitron font-bold text-sm py-3 clip-hex border transition-all bg-eidos-red/20 text-eidos-red border-eidos-red hover:bg-eidos-red/40 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                     [ СНЯТЬ ]
                   </button>
                 )}
 
                 <button
-                   onClick={onClose}
-                   className="w-full font-share text-sm py-2 text-white/50 hover:text-white transition-colors uppercase tracking-widest"
+                   onClick={handleDismantle}
+                   disabled={isLoading || isEquipped}
+                   className={`flex-1 font-orbitron font-bold text-sm py-3 clip-hex border transition-all bg-yellow-400/20 text-yellow-400 border-yellow-400 hover:bg-yellow-400/40 ${isLoading || isEquipped ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                   Закрыть
+                   [ РАЗОБРАТЬ ]
                 </button>
               </div>
             </motion.div>
