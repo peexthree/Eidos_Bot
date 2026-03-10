@@ -1720,6 +1720,19 @@ def admin_add_signal_to_db(text, level=1, c_type="protocol", path="general"):
         return True
 
 
+def get_all_tables():
+    with db_cursor() as cur:
+        if not cur:
+            return []
+        cur.execute("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_type = 'BASE TABLE'
+        """)
+        return [row[0] for row in cur.fetchall()]
+
+
 def set_user_admin(uid, status):
     with db_session() as conn:
         with conn.cursor() as cur:
