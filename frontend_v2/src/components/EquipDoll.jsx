@@ -1,12 +1,15 @@
 import React, { useEffect } from 'react';
 import useStore from '../store/useStore';
 
-const EquipSlot = ({ label, slot, item }) => {
+const EquipSlot = ({ label, slot, item, onClick }) => {
   const unequipItem = useStore((state) => state.unequipItem);
 
-  const handleUnequip = () => {
-    if (item) {
-      unequipItem(slot);
+  const handleClick = () => {
+    if (onClick && item) {
+       onClick(item);
+    } else if (item) {
+       // fallback if no modal handler
+       unequipItem(slot);
     }
   };
 
@@ -14,7 +17,11 @@ const EquipSlot = ({ label, slot, item }) => {
     common: 'border-white text-white',
     rare: 'border-eidos-cyan text-eidos-cyan',
     epic: 'border-purple-500 text-purple-500',
-    legendary: 'border-eidos-red text-eidos-red'
+    legendary: 'border-eidos-red text-eidos-red',
+    Common: 'border-white text-white',
+    Rare: 'border-eidos-cyan text-eidos-cyan',
+    Epic: 'border-purple-500 text-purple-500',
+    Legendary: 'border-eidos-red text-eidos-red'
   };
 
   const isEmpty = !item;
@@ -24,7 +31,7 @@ const EquipSlot = ({ label, slot, item }) => {
 
   return (
     <div
-      onClick={handleUnequip}
+      onClick={handleClick}
       className={`relative flex flex-col items-center justify-center p-2 w-20 h-24 clip-hex border-2 transition-all duration-300 ${slotColorClass} ${bgClass} cursor-pointer hover:bg-white/10`}
     >
       <div className="absolute top-1 left-2 text-[8px] font-share uppercase opacity-50 tracking-widest z-10">
@@ -38,9 +45,9 @@ const EquipSlot = ({ label, slot, item }) => {
                    <img src={item.image_url} alt={item?.name || 'Item'} className="w-full h-full object-contain" />
                  </div>
              ) : (
-                 <div className="font-share text-xs opacity-50">NO IMG</div>
+                 <div className="font-share text-xs opacity-50 text-2xl mb-1">{item?.icon || '📦'}</div>
              )}
-             <div className={`font-orbitron text-[8px] leading-tight font-bold truncate w-full px-1 ${itemRarity === 'legendary' ? 'text-glow-red' : ''}`}>
+             <div className={`font-orbitron text-[8px] leading-tight font-bold truncate w-full px-1 ${itemRarity === 'legendary' || itemRarity === 'Legendary' ? 'text-glow-red' : ''}`}>
                {item?.name || 'Unknown'}
              </div>
          </div>
@@ -52,7 +59,7 @@ const EquipSlot = ({ label, slot, item }) => {
   );
 };
 
-const EquipDoll = () => {
+const EquipDoll = ({ onSlotClick }) => {
   const equipped = useStore((state) => state.equipped) || {};
   const inventory = useStore((state) => state.inventory) || [];
 
@@ -87,19 +94,19 @@ const EquipDoll = () => {
       <div className="relative z-10 flex flex-col items-center">
         {/* Head */}
         <div className="mb-2">
-          <EquipSlot label="HEAD" slot="head" item={getItem(equipped?.head)} />
+          <EquipSlot label="HEAD" slot="head" item={getItem(equipped?.head)} onClick={onSlotClick} />
         </div>
 
         {/* Middle row: Weapon, Body, Software */}
         <div className="flex items-center justify-center gap-4 mb-2">
-          <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped?.weapon)} />
-          <EquipSlot label="BODY" slot="body" item={getItem(equipped?.body)} />
-          <EquipSlot label="SOFTWARE" slot="software" item={getItem(equipped?.software)} />
+          <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped?.weapon)} onClick={onSlotClick} />
+          <EquipSlot label="ARMOR" slot="armor" item={getItem(equipped?.armor)} onClick={onSlotClick} />
+          <EquipSlot label="CHIP" slot="chip" item={getItem(equipped?.chip)} onClick={onSlotClick} />
         </div>
 
         {/* Artifact */}
         <div>
-           <EquipSlot label="ARTIFACT" slot="artifact" item={getItem(equipped?.artifact)} />
+           <EquipSlot label="CORE" slot="eidos_shard" item={getItem(equipped?.eidos_shard)} onClick={onSlotClick} />
         </div>
       </div>
     </div>
