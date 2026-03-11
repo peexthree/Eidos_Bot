@@ -1,37 +1,6 @@
 import React, { useEffect } from 'react';
 import useStore from '../store/useStore';
 
-const EquipSlot = ({ label, slot, item, onClick, style }) => {
-  const unequipItem = useStore((state) => state.unequipItem);
-
-  const handleClick = () => {
-    if (onClick && item) {
-       onClick(item);
-    } else if (item) {
-       unequipItem(slot);
-    }
-  };
-
-  const isEmpty = !item;
-
-  if (isEmpty) {
-    return null;
-  }
-
-  return (
-    <div
-      onClick={handleClick}
-      style={style}
-    >
-      <img
-        src={item?.image_url || ('/api/image/' + item?.file_id)}
-        alt={item?.name || 'Item'}
-        style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer' }}
-      />
-    </div>
-  );
-};
-
 const EquipDoll = ({ onSlotClick }) => {
   const equipped = useStore((state) => state.equipped) || {};
   const inventory = useStore((state) => state.inventory) || [];
@@ -57,15 +26,30 @@ const EquipDoll = ({ onSlotClick }) => {
     return inventory.find(i => String(i?.id) === String(targetId));
   };
 
+  const headItem = getItem(equipped?.head);
+  const weaponItem = getItem(equipped?.weapon);
+  const chipItem = getItem(equipped?.chip);
+  const armorItem = getItem(equipped?.armor);
+  const eidosShardItem = getItem(equipped?.eidos_shard);
+
   return (
-    <div className="w-full relative overflow-hidden mb-6 mt-4" style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
+    <div className="w-full mb-6 mt-4" style={{ position: 'sticky', top: 0, zIndex: 50, backgroundColor: '#000', width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
       <video src="/video/DOLL.mp4" autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0, zIndex: 0 }} />
 
-      <EquipSlot label="HEAD" slot="head" item={getItem(equipped?.head)} onClick={onSlotClick} style={{ position: 'absolute', top: '10%', left: '40%', width: '20%', height: '30%', zIndex: 10 }} />
-      <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped?.weapon)} onClick={onSlotClick} style={{ position: 'absolute', top: '35%', left: '5%', width: '22%', height: '35%', zIndex: 10 }} />
-      <EquipSlot label="ARMOR" slot="armor" item={getItem(equipped?.armor)} onClick={onSlotClick} style={{ position: 'absolute', top: '65%', left: '30%', width: '18%', height: '30%', zIndex: 10 }} />
-      <EquipSlot label="SHARD" slot="eidos_shard" item={getItem(equipped?.eidos_shard)} onClick={onSlotClick} style={{ position: 'absolute', top: '65%', left: '52%', width: '18%', height: '30%', zIndex: 10 }} />
-      <EquipSlot label="CHIP" slot="chip" item={getItem(equipped?.chip)} onClick={onSlotClick} style={{ position: 'absolute', top: '35%', left: '73%', width: '22%', height: '35%', zIndex: 10 }} />
+      {/* Head */}
+      {headItem && <img src={`/api/image/${headItem.file_id}`} alt="Head" style={{ position: 'absolute', top: '10%', left: '40%', width: '20%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(headItem)} />}
+
+      {/* Weapon */}
+      {weaponItem && <img src={`/api/image/${weaponItem.file_id}`} alt="Weapon" style={{ position: 'absolute', top: '35%', left: '5%', width: '22%', height: '35%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(weaponItem)} />}
+
+      {/* Chip */}
+      {chipItem && <img src={`/api/image/${chipItem.file_id}`} alt="Chip" style={{ position: 'absolute', top: '35%', left: '73%', width: '22%', height: '35%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(chipItem)} />}
+
+      {/* Armor */}
+      {armorItem && <img src={`/api/image/${armorItem.file_id}`} alt="Armor" style={{ position: 'absolute', top: '65%', left: '30%', width: '18%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(armorItem)} />}
+
+      {/* Eidos Shard */}
+      {eidosShardItem && <img src={`/api/image/${eidosShardItem.file_id}`} alt="Eidos Shard" style={{ position: 'absolute', top: '65%', left: '52%', width: '18%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(eidosShardItem)} />}
     </div>
   );
 };

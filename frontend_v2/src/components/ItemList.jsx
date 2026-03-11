@@ -28,7 +28,7 @@ const ItemList = ({ onItemClick }) => {
   });
 
   return (
-    <div className="flex flex-col flex-1 bg-eidos-glass p-4 border border-white/10 clip-hex relative overflow-hidden h-full">
+    <div className="flex flex-col bg-eidos-glass p-4 border border-white/10 clip-hex relative overflow-visible">
       {/* Filters */}
       <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
         {filters.map((f) => (
@@ -54,7 +54,7 @@ const ItemList = ({ onItemClick }) => {
       </div>
 
       {/* Item List Scroll Area */}
-      <div className="scroll-area flex-1 overflow-y-auto pr-2 space-y-2 relative z-10">
+      <div className="pr-2 space-y-2 relative z-10 w-full">
         {filteredInventory.map((item) => (
           <motion.div
             key={item.id}
@@ -67,7 +67,7 @@ const ItemList = ({ onItemClick }) => {
           </motion.div>
         ))}
         {filteredInventory.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-black/40 border border-white/10 clip-hex">
+          <div className="flex flex-col items-center justify-center py-12 text-center bg-black/40 border border-white/10 clip-hex">
             <span className="font-orbitron text-eidos-red text-xl mb-2">EMPTY</span>
             <span className="font-share text-xs text-white/50">NO ITEMS FOUND IN STORAGE</span>
           </div>
