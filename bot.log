@@ -1,19 +1,10 @@
-/// REDIS CONNECTION ERROR: Error -2 connecting to red-d6llkmftskes73dhkd10:6379. Name or service not known.
 2026-03-11 09:24:00,138 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-03-11 09:24:00,138 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-/// TASK WORKER STARTED IN PID 5625
-/// SYSTEM STARTUP INITIATED...
-/// DEBUG: Checking and fixing indexes...
-/// DB URL FORMATTED FOR DIRECT PGBOUNCER CONNECTION
- * Serving Flask app 'modules.bot_instance'
- * Debug mode: off
 2026-03-11 09:24:00,147 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5000
  * Running on http://192.168.0.2:5000
 2026-03-11 09:24:00,148 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
-/// FIX: Indexes verified and created successfully.
-/// WEBHOOK SET: https://eidos-bot-n5oo.onrender.com
 2026-03-11 09:24:03,062 - apscheduler.scheduler - INFO - Added job "stats_flusher" to job store "default"
 2026-03-11 09:24:03,062 - apscheduler.scheduler - INFO - Added job "xp_flusher" to job store "default"
 2026-03-11 09:24:03,062 - apscheduler.scheduler - INFO - Scheduler started
