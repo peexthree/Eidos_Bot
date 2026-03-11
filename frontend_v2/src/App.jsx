@@ -144,22 +144,6 @@ function App() {
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <Layout>
           {renderView()}
-          {/* GLOBAL UI FRAME (Hidden on Start/Loading screen) */}
-          {currentView !== 'INTRO' && currentView !== 'LOADING' && (
-            <img
-              src="/video/frame.png"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'fill',
-                zIndex: 9999,
-                pointerEvents: 'none'
-              }}
-              alt="UI Frame"
-            />
-          )}
         </Layout>
       </ErrorBoundary>
     </QueryClientProvider>
