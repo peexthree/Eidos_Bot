@@ -281,6 +281,9 @@ def inventory_api():
 @app.route('/api/action/equip', methods=['POST'])
 @app.route('/api/inventory/equip', methods=['POST'])
 def inventory_equip():
+    global _inventory_cache
+    if flask.request.json and "uid" in flask.request.json:
+        _inventory_cache.pop(flask.request.json.get("uid"), None)
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
     data = flask.request.json or {}
     uid = data.get('uid')
@@ -295,6 +298,9 @@ def inventory_equip():
 @app.route('/api/action/unequip', methods=['POST'])
 @app.route('/api/inventory/unequip', methods=['POST'])
 def inventory_unequip():
+    global _inventory_cache
+    if flask.request.json and "uid" in flask.request.json:
+        _inventory_cache.pop(flask.request.json.get("uid"), None)
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
     data = flask.request.json or {}
     uid = data.get('uid')
