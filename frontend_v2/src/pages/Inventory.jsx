@@ -17,7 +17,7 @@ const Inventory = () => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full px-4 py-6" style={{ width: "100%", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}>
+    <div className="flex flex-col w-full px-4 py-6" style={{ width: "100%", maxWidth: "100vw", overflowY: "auto", height: "100vh", overflowX: "hidden", boxSizing: "border-box" }}>
       <ProfileHeader />
       <EquipDoll onSlotClick={handleOpenModal} />
       <ItemList onItemClick={handleOpenModal} />
