@@ -58,23 +58,14 @@ const EquipDoll = ({ onSlotClick }) => {
   };
 
   return (
-    <div className="w-full relative overflow-hidden mb-6 mt-4" style={{ position: 'sticky', top: 0, zIndex: 50, backgroundColor: '#000', width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
+    <div className="w-full relative overflow-hidden mb-6 mt-4" style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
       <video src="/video/DOLL.mp4" autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0, zIndex: 0 }} />
 
-      {/* Head */}
-      {equipped?.head && <img src={`/api/image/${equipped.head.file_id}`} style={{ position: 'absolute', top: '10%', left: '40%', width: '20%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(equipped.head)} />}
-
-      {/* Weapon */}
-      {equipped?.weapon && <img src={`/api/image/${equipped.weapon.file_id}`} style={{ position: 'absolute', top: '35%', left: '5%', width: '22%', height: '35%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(equipped.weapon)} />}
-
-      {/* Chip */}
-      {equipped?.chip && <img src={`/api/image/${equipped.chip.file_id}`} style={{ position: 'absolute', top: '35%', left: '73%', width: '22%', height: '35%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(equipped.chip)} />}
-
-      {/* Armor */}
-      {equipped?.armor && <img src={`/api/image/${equipped.armor.file_id}`} style={{ position: 'absolute', top: '65%', left: '30%', width: '18%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(equipped.armor)} />}
-
-      {/* Eidos Shard */}
-      {equipped?.eidos_shard && <img src={`/api/image/${equipped.eidos_shard.file_id}`} style={{ position: 'absolute', top: '65%', left: '52%', width: '18%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(equipped.eidos_shard)} />}
+      <EquipSlot label="HEAD" slot="head" item={getItem(equipped?.head)} onClick={onSlotClick} style={{ position: 'absolute', top: '10%', left: '40%', width: '20%', height: '30%', zIndex: 10 }} />
+      <EquipSlot label="WEAPON" slot="weapon" item={getItem(equipped?.weapon)} onClick={onSlotClick} style={{ position: 'absolute', top: '35%', left: '5%', width: '22%', height: '35%', zIndex: 10 }} />
+      <EquipSlot label="ARMOR" slot="armor" item={getItem(equipped?.armor)} onClick={onSlotClick} style={{ position: 'absolute', top: '65%', left: '30%', width: '18%', height: '30%', zIndex: 10 }} />
+      <EquipSlot label="SHARD" slot="eidos_shard" item={getItem(equipped?.eidos_shard)} onClick={onSlotClick} style={{ position: 'absolute', top: '65%', left: '52%', width: '18%', height: '30%', zIndex: 10 }} />
+      <EquipSlot label="CHIP" slot="chip" item={getItem(equipped?.chip)} onClick={onSlotClick} style={{ position: 'absolute', top: '35%', left: '73%', width: '22%', height: '35%', zIndex: 10 }} />
     </div>
   );
 };

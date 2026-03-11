@@ -28,7 +28,7 @@ const ItemList = ({ onItemClick }) => {
   });
 
   return (
-    <div className="flex flex-col bg-eidos-glass p-4 border border-white/10 clip-hex relative h-auto pb-24">
+    <div className="flex flex-col flex-1 bg-eidos-glass p-4 border border-white/10 clip-hex relative overflow-hidden h-full">
       {/* Filters */}
       <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
         {filters.map((f) => (
@@ -54,7 +54,7 @@ const ItemList = ({ onItemClick }) => {
       </div>
 
       {/* Item List Scroll Area */}
-      <div className="scroll-area pr-2 space-y-2 relative z-10 h-auto">
+      <div className="scroll-area flex-1 overflow-y-auto pr-2 space-y-2 relative z-10">
         {filteredInventory.map((item) => (
           <motion.div
             key={item.id}
