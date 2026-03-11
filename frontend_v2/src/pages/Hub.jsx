@@ -174,6 +174,7 @@ const Hub = ({ setView }) => {
       </div>
 
       {/* Layer 2: Top Frame Overlay (Z-Index: 20) */}
+      <img src="/video/frame.png" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', zIndex: 20, pointerEvents: 'none' }} />
 
       {/* Image Modal (Z-index strictly highest) */}
       {modalImage && (
