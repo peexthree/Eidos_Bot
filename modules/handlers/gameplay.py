@@ -1,6 +1,7 @@
 from modules.services.utils import safe_answer_callback
 from modules.bot_instance import bot
 import database as db
+import cache_db
 import config
 from config import COOLDOWN_ACCEL, COOLDOWN_BASE, COOLDOWN_SIGNAL
 import keyboards as kb
@@ -18,9 +19,6 @@ from telebot import types
 
 # Helper for Shadow Broker (Middleware-ish)
 def handle_raid_action(call, uid, action_args=None, custom_success_callback=None, text_prefix=""):
-    import traceback
-    import threading
-    from telebot import types
 
     if action_args is None: action_args = {}
 
@@ -249,7 +247,6 @@ def protocol_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("raid_") or call.data == "zero_layer_menu" or call.data.startswith("r_check_") or call.data == "use_admin_key")
 def raid_handler(call):
     uid = int(call.from_user.id)
-    import cache_db
     if cache_db.check_throttle(uid, 'raid_action'):
         try: safe_answer_callback(bot, call.id, "Обработка...", show_alert=False)
         except: pass
@@ -263,9 +260,8 @@ def raid_handler(call):
         return
 
     if call.data == "zero_layer_menu":
-         import database as _db
          session = None
-         with _db.db_cursor() as cur:
+         with db.db_cursor() as cur:
              if cur:
                  cur.execute("SELECT depth FROM raid_sessions WHERE uid=%s", (uid,))
                  session = cur.fetchone()
@@ -406,7 +402,6 @@ def raid_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("combat_"))
 def combat_handler(call):
      uid = int(call.from_user.id)
-     import cache_db
      if cache_db.check_throttle(uid, 'raid_action'):
          try: safe_answer_callback(bot, call.id, "Обработка...", show_alert=False)
          except: pass
@@ -467,7 +462,6 @@ def combat_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("anomaly_bet_"))
 def anomaly_handler(call):
     uid = int(call.from_user.id)
-    import cache_db
     if cache_db.check_throttle(uid, 'raid_action'):
         try: safe_answer_callback(bot, call.id, "Обработка...", show_alert=False)
         except: pass
