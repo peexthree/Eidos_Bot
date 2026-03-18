@@ -1,4 +1,4 @@
-from modules.services.worker_queue import start_worker
+from modules.services.worker_queue import start_worker, enqueue_task
 import logging_setup
 import cache_db
 import telebot
@@ -29,6 +29,10 @@ if sentry_dsn:
 sys.stdout.reconfigure(line_buffering=True)
 import config
 import database as db
+from modules.services.user import get_user_stats, flush_stats
+from modules.services.utils import get_user_display_name
+from modules.services.inventory import equip_item, unequip_item
+from modules.services.shop import get_shadow_shop_items
 
 # Import Bot Instance
 from modules.bot_instance import bot, app, TOKEN, WEBHOOK_URL
@@ -121,7 +125,6 @@ def get_telegram_image(file_id):
 
 @app.route('/api/hub_data', methods=['GET'])
 def hub_data_api():
-    import config
     hub_images = {}
     for key, file_id in getattr(config, 'MENU_IMAGES', {}).items():
         hub_images[key] = f"/api/image/{file_id}"
@@ -135,8 +138,6 @@ def action_synchron():
         return flask.jsonify({"error": "Unauthorized"}), 401
 
     # Just a placeholder for actual synchronization logic
-    import time
-    from database import db
     u = db.get_user(uid)
     if not u:
         return flask.jsonify({"error": "User not found"}), 404
@@ -155,8 +156,6 @@ def action_signal():
         return flask.jsonify({"error": "Unauthorized"}), 401
 
     # Just a placeholder for actual signal logic
-    import time
-    from database import db
     u = db.get_user(uid)
     if not u:
         return flask.jsonify({"error": "User not found"}), 404
@@ -172,7 +171,6 @@ _inventory_cache = {}
 _inventory_cache = {}
 @app.route('/api/inventory', methods=['GET'])
 def inventory_api():
-    import config
 
     uid_str = flask.request.args.get('uid')
     init_data = flask.request.headers.get('X-Telegram-Init-Data')
@@ -201,8 +199,6 @@ def inventory_api():
         return flask.jsonify({"error": "User not found"}), 404
 
     # --- Profile Data ---
-    from modules.services.utils import get_user_display_name
-    from modules.services.user import get_user_stats
 
     stats, _ = get_user_stats(uid)
     if not stats: stats = {'atk': 0, 'def': 0, 'luck': 0}
@@ -291,7 +287,6 @@ def inventory_equip():
 
     if not init_data and not uid:
         return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
-    from modules.services.inventory import equip_item
     success = equip_item(uid, item_id)
     return flask.jsonify({"success": success})
 
@@ -308,7 +303,6 @@ def inventory_unequip():
 
     if not init_data and not uid:
         return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
-    from modules.services.inventory import unequip_item
     success = unequip_item(uid, slot)
     return flask.jsonify({"success": success})
 
@@ -361,14 +355,12 @@ def inventory_dismantle():
             return flask.jsonify({"error": "Failed to dismantle"}), 400
 
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return flask.jsonify({"error": "Internal Server Error"}), 500
 
 @app.route('/api/shop', methods=['GET'])
 def shop_api():
     uid = int(flask.request.args.get('uid', 0))
-    from modules.services.shop import get_shadow_shop_items
     items = get_shadow_shop_items()
     for it in items:
         it['owned'] = db.get_item_count(uid, it['id']) > 0 if uid else False
@@ -376,7 +368,6 @@ def shop_api():
 
 @app.route('/api/shop/buy', methods=['POST'])
 def shop_buy():
-    import config
     data = flask.request.json
     uid, item_id = data.get('uid'), data.get('item_id')
     u = db.get_user(uid)
@@ -401,7 +392,6 @@ def dossier_api():
         if res:
             return flask.jsonify({"status": "ready", "text": res[0]})
 
-    from modules.services.worker_queue import enqueue_task
     enqueue_task("generate_user_dossier_worker", uid=uid, chat_id=uid, target_user_data=db.get_user(uid))
     return flask.jsonify({"status": "processing", "text": "ГЕНЕРАЦИЯ ДОСЬЕ ЗАПУЩЕНА..."})
 
@@ -412,7 +402,6 @@ scheduler = BackgroundScheduler()
 
 @scheduler.scheduled_job('interval', seconds=30)
 def stats_flusher():
-    from modules.services.user import flush_stats
     try: flush_stats()
     except: pass
 

@@ -8,6 +8,11 @@ from openai import OpenAI
 import re
 import logging
 import config
+import traceback
+import sentry_sdk
+import random
+import urllib.parse
+from modules.services.user import get_profile_stats
 
 # Берем твой Гугл-ключ из Render
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
@@ -210,8 +215,6 @@ def generate_eidos_response_worker(bot, chat_id, uid, analysis_type, charge_id=N
         else:
             handle_failure("👁‍🗨 Нейро-ядро перегружено или недоступно. Твоя телеметрия сохранена. Повтори запрос позже.")
     except Exception as e:
-        import traceback
-        import sentry_sdk
         logging.error(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", exc_info=True)
         sentry_sdk.capture_exception(e)
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
@@ -365,8 +368,6 @@ def generate_eidos_voice_worker(bot, chat_id, uid, user_text=None, charge_id=Non
                 print(f"/// AI WORKER PHOTO CAPTION ERROR: {e}", flush=True)
 
     except Exception as e:
-        import traceback
-        import sentry_sdk
         logging.error(f"[AI WORKER] FATAL ERROR for UID {uid}: {str(e)}", exc_info=True)
         sentry_sdk.capture_exception(e)
         handle_failure("👁‍🗨 Произошла непредвиденная ошибка при генерации ответа.")
@@ -379,11 +380,6 @@ def generate_user_dossier_worker(bot, chat_id, uid, target_user_data, loading_ms
             try: bot.delete_message(chat_id, loading_msg_id)
             except: pass
         return
-
-    import database as db
-    from modules.services.user import get_profile_stats
-    import random
-    import urllib.parse
 
     def update_progress(perc, status):
         if loading_msg_id:
