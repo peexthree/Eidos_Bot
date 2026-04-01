@@ -360,6 +360,27 @@ def shop_buy():
         return flask.jsonify({"success": True})
     return flask.jsonify({"success": False, "reason": "Insufficient biocoins"}), 400
 
+
+@app.route('/api/twa/sync', methods=['POST'])
+@require_telegram_auth
+def twa_sync():
+    data = flask.request.json or {}
+    uid = data.get('uid')
+    if not uid:
+        return flask.jsonify({"error": "Missing uid"}), 400
+
+    try:
+        # Clear redis cache for this specific user so next text interaction loads fresh data
+        cache_db.clear_cache(uid)
+
+        # Flush the background stats (which could be pending processing)
+        flush_stats()
+
+        return flask.jsonify({"success": True, "message": "Context synchronized"})
+    except Exception as e:
+        traceback.print_exc()
+        return flask.jsonify({"error": "Sync Failed"}), 500
+
 @app.route('/api/leaderboard', methods=['GET'])
 def leaderboard_api():
     top = db.get_leaderboard(limit=10)
