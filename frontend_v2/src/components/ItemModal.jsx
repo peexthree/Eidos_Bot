@@ -5,7 +5,7 @@ import DragToDismantle from './actions/DragToDismantle';
 import { motion, AnimatePresence } from 'framer-motion';
 import WebApp from '@twa-dev/sdk';
 import useStore from '../store/useStore';
-import axios from 'axios';
+import { eidosApi } from '../api/client';
 
 const ItemModal = ({ isOpen, onClose, item }) => {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -55,7 +55,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
 
   const equipMutation = useMutation({
     mutationFn: async ({ uid, itemId }) => {
-      return axios.post('/api/inventory/equip', { uid, item_id: itemId });
+      return eidosApi.post('/inventory/equip', { uid, item_id: itemId });
     },
     onMutate: async ({ itemId }) => {
       const prevEquipped = { ...equipped };
@@ -80,7 +80,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
 
   const unequipMutation = useMutation({
     mutationFn: async ({ uid, slot }) => {
-      return axios.post('/api/inventory/unequip', { uid, slot });
+      return eidosApi.post('/inventory/unequip', { uid, slot });
     },
     onMutate: async ({ slotToUnequip }) => {
       const prevEquipped = { ...equipped };
@@ -104,7 +104,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
 
   const dismantleMutation = useMutation({
     mutationFn: async ({ uid, invId }) => {
-      return axios.post('/api/inventory/dismantle', { uid, inv_id: invId });
+      return eidosApi.post('/inventory/dismantle', { uid, inv_id: invId });
     },
     onMutate: async () => {
       const prevEquipped = { ...equipped };

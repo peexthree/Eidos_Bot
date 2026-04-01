@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import { eidosApi } from '../api/client';
 
 
 const Hub = ({ setView }) => {
@@ -14,9 +14,9 @@ const Hub = ({ setView }) => {
       try {
         const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
         if (!uid) return;
-        const res = await axios.get('/api/hub_data', { params: { uid } });
-        setHubData(res.data.images || {});
-        setHubStatus(res.data.status || {});
+        const res = await eidosApi.get('/hub_data', { params: { uid } });
+        setHubData(res.images || {});
+        setHubStatus(res.status || {});
       } catch (e) {
         console.error("Failed to fetch hub images", e);
       }
@@ -43,7 +43,7 @@ const Hub = ({ setView }) => {
         if (twa && twa.HapticFeedback) {
           twa.HapticFeedback.impactOccurred('light');
         }
-        await axios.post(actionUrl);
+        await eidosApi.post(actionUrl.replace(/^\/api/, ''));
         // Might need a toast or some feedback here, but for now we just post
       } catch (e) {
         console.error(`Failed action: ${actionUrl}`, e);
