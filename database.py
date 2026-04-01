@@ -4,15 +4,11 @@ from psycopg2 import pool
 from psycopg2.extras import RealDictCursor, execute_values
 from contextlib import contextmanager
 import time
-import logging
 import random
-from datetime import datetime
-import re
 import html
-import traceback
 import threading
 from config import ITEMS_INFO, INVENTORY_LIMIT
-from content_presets import CONTENT_DATA, VILLAINS_DATA, OLD_VILLAINS_NAMES
+from content_presets import VILLAINS_DATA, OLD_VILLAINS_NAMES
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 # Global Connection Pool
@@ -278,13 +274,7 @@ TABLE_SCHEMAS = {
     },
 }
 import urllib.parse
-import threading
-import os
-import psycopg2
-from psycopg2.extras import RealDictCursor, execute_values
-from contextlib import contextmanager
 
-_formatted_db_url = None
 _db_lock = threading.Lock()
 
 
