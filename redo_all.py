@@ -1,5 +1,6 @@
 import re
 import os
+import textwrap
 
 print("--- Patching static/inventory.html ---")
 with open('static/inventory.html', 'r', encoding='utf-8') as f:
@@ -214,10 +215,42 @@ if not match:
         )
 
 # Fix equipped items having missing data
-match = re.search(r'equipped\s*=\s*db\.get_user_equipment\(uid\)', bot)
-if match:
-    new_code = """
-    equipped_raw = db.get_user_equipment(uid)
+if '# --- Equipped (Enriching Data for WebApp) ---' in bot:
+    new_equipped_block = """    # --- Equipped (Enriching Data for WebApp) ---
+    raw_equipped = db.get_user_equipment(uid)
+    equipped = {}
+    for slot, item_data in raw_equipped.items():
+        iid = item_data['item_id'] if isinstance(item_data, dict) else item_data
+        if iid:
+            info = config.ITEMS_INFO.get(iid, {})
+            img_file_id = info.get('file_id')
+            equipped[slot] = {
+                "item_id": iid,
+                "name": info.get('name', iid),
+                "description": info.get('desc', "Данные отсутствуют."),
+                "rarity": info.get('rarity', 'common'),
+                "type": info.get('type', slot),
+                "durability": item_data.get('durability', 100) if isinstance(item_data, dict) else 100,
+                "stats": info.get('stats', {}),
+                "image_url": f"/api/image/{img_file_id}" if img_file_id else None
+            }
+        else:
+            equipped[slot] = None
+
+    response_data = {
+        "profile": profile,
+        "items": items,
+        "equipped": equipped
+    }"""
+    # Clean up the triple-quote indentation mess
+    new_equipped_block = textwrap.dedent(new_equipped_block).strip()
+    # Add back the base 4-space indent
+    new_equipped_block = "\n".join("    " + line if line.strip() else "" for line in new_equipped_block.splitlines())
+
+    pattern = r'[ ]*# --- Equipped \(Enriching Data for WebApp\) ---.*?response_data = \{.*?\}'
+    bot = re.sub(pattern, new_equipped_block, bot, flags=re.DOTALL)
+elif 'equipped = db.get_user_equipment(uid)' in bot:
+    new_code = """    equipped_raw = db.get_user_equipment(uid)
     import config
     equipped = {}
     for slot, item_data in equipped_raw.items():
@@ -229,14 +262,14 @@ if match:
                 "item_id": i_id,
                 "durability": item_data.get("durability", 100),
                 "name": info.get("name", i_id),
-                "description": info.get("description", "Данные отсутствуют."),
+                "description": info.get("desc", "Данные отсутствуют."),
                 "rarity": info.get("rarity", "common"),
-                "type": info.get("type", "misc"),
-                "stats": info.get("stats", {})
+                "type": info.get("type", slot),
+                "stats": info.get("stats", {}),
+                "image_url": f"/api/image/{info.get('file_id')}" if info.get('file_id') else None
             }
         else:
-            equipped[slot] = None
-    """
+            equipped[slot] = None"""
     bot = bot.replace('equipped = db.get_user_equipment(uid)', new_code)
 
 with open('bot.py', 'w', encoding='utf-8') as f:

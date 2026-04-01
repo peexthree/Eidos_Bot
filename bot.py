@@ -245,30 +245,29 @@ def inventory_api():
 
     # --- Equipped (Enriching Data for WebApp) ---
     raw_equipped = db.get_user_equipment(uid)
-    enriched_equipped = {}
-    
+    equipped = {}
     for slot, item_data in raw_equipped.items():
-        # База может вернуть либо строку с ID, либо словарь. Обрабатываем оба варианта.
         iid = item_data['item_id'] if isinstance(item_data, dict) else item_data
-        
         if iid:
             info = config.ITEMS_INFO.get(iid, {})
-            img_file_id = info.get('file_id') # Извлекаем file_id из конфига
-            enriched_equipped[slot] = {
+            img_file_id = info.get('file_id')
+            equipped[slot] = {
                 "item_id": iid,
                 "name": info.get('name', iid),
+                "description": info.get('desc', "Данные отсутствуют."),
                 "rarity": info.get('rarity', 'common'),
                 "type": info.get('type', slot),
+                "durability": item_data.get('durability', 100) if isinstance(item_data, dict) else 100,
                 "stats": info.get('stats', {}),
                 "image_url": f"/api/image/{img_file_id}" if img_file_id else None
             }
         else:
-            enriched_equipped[slot] = None
+            equipped[slot] = None
 
     response_data = {
         "profile": profile,
         "items": items,
-        "equipped": enriched_equipped
+        "equipped": equipped
     }
 
     _inventory_cache[uid] = {'time': time.time(), 'data': response_data}
