@@ -33,6 +33,7 @@ from modules.services.user import get_user_stats, flush_stats
 from modules.services.utils import get_user_display_name
 from modules.services.inventory import equip_item, unequip_item
 from modules.services.shop import get_shadow_shop_items
+from modules.services.auth import require_telegram_auth
 
 # Import Bot Instance
 from modules.bot_instance import bot, app, TOKEN, WEBHOOK_URL
@@ -131,11 +132,10 @@ def hub_data_api():
     return flask.jsonify(hub_images)
 
 @app.route('/api/action/synchron', methods=['POST'])
+@require_telegram_auth
 def action_synchron():
     data = flask.request.json or {}
     uid = data.get('uid')
-    if not uid:
-        return flask.jsonify({"error": "Unauthorized"}), 401
 
     # Just a placeholder for actual synchronization logic
     u = db.get_user(uid)
@@ -149,11 +149,10 @@ def action_synchron():
     return flask.jsonify({"success": True, "message": "Синхронизация успешна. XP +50", "cooldown": 300})
 
 @app.route('/api/action/signal', methods=['POST'])
+@require_telegram_auth
 def action_signal():
     data = flask.request.json or {}
     uid = data.get('uid')
-    if not uid:
-        return flask.jsonify({"error": "Unauthorized"}), 401
 
     # Just a placeholder for actual signal logic
     u = db.get_user(uid)
@@ -170,16 +169,8 @@ _inventory_cache = {}
 
 _inventory_cache = {}
 @app.route('/api/inventory', methods=['GET'])
+@require_telegram_auth
 def inventory_api():
-
-    uid_str = flask.request.args.get('uid')
-    init_data = flask.request.headers.get('X-Telegram-Init-Data')
-
-    # ТВИК: Если есть UID, мы доверяем (на время тестов)
-    if not init_data and not uid_str:
-        return flask.jsonify({"error": "Unauthorized"}), 401
-    
-    # Дальше твой код без изменений...
 
     uid_str = flask.request.args.get('uid')
     if not uid_str:
@@ -276,57 +267,48 @@ def inventory_api():
     return flask.jsonify(response_data)
 @app.route('/api/action/equip', methods=['POST'])
 @app.route('/api/inventory/equip', methods=['POST'])
+@require_telegram_auth
 def inventory_equip():
     global _inventory_cache
     if flask.request.json and "uid" in flask.request.json:
         _inventory_cache.pop(flask.request.json.get("uid"), None)
-    init_data = flask.request.headers.get('X-Telegram-Init-Data')
     data = flask.request.json or {}
     uid = data.get('uid')
     item_id = data.get('item_id')
 
-    if not init_data and not uid:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
     success = equip_item(uid, item_id)
     return flask.jsonify({"success": success})
 
 @app.route('/api/action/unequip', methods=['POST'])
 @app.route('/api/inventory/unequip', methods=['POST'])
+@require_telegram_auth
 def inventory_unequip():
     global _inventory_cache
     if flask.request.json and "uid" in flask.request.json:
         _inventory_cache.pop(flask.request.json.get("uid"), None)
-    init_data = flask.request.headers.get('X-Telegram-Init-Data')
     data = flask.request.json or {}
     uid = data.get('uid')
     slot = data.get('slot')
 
-    if not init_data and not uid:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
     success = unequip_item(uid, slot)
     return flask.jsonify({"success": success})
 
 @app.route('/api/inventory/use', methods=['POST'])
+@require_telegram_auth
 def inventory_use():
-    init_data = flask.request.headers.get('X-Telegram-Init-Data')
     data = flask.request.json or {}
     uid = data.get('uid')
     item_id = data.get('item_id')
 
-    if not init_data and not uid:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
     success = db.use_item(uid, item_id, 1)
     return flask.jsonify({"success": success})
 
 @app.route('/api/inventory/dismantle', methods=['POST'])
+@require_telegram_auth
 def inventory_dismantle():
-    init_data = flask.request.headers.get('X-Telegram-Init-Data')
     data = flask.request.json or {}
     uid = data.get('uid')
     item_id_str = data.get('item_id')
-
-    if not init_data and not uid:
-        return flask.jsonify({"error": "Unauthorized - Missing InitData and UID"}), 401
 
     try:
 
@@ -367,6 +349,7 @@ def shop_api():
     return flask.jsonify({"items": items})
 
 @app.route('/api/shop/buy', methods=['POST'])
+@require_telegram_auth
 def shop_buy():
     data = flask.request.json
     uid, item_id = data.get('uid'), data.get('item_id')
@@ -384,6 +367,7 @@ def leaderboard_api():
     return flask.jsonify({"top": top})
 
 @app.route('/api/dossier', methods=['GET'])
+@require_telegram_auth
 def dossier_api():
     uid = int(flask.request.args.get('uid', 0))
     with db.db_cursor() as cur:
