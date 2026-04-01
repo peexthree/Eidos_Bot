@@ -37,19 +37,19 @@ const EquipDoll = ({ onSlotClick }) => {
       <video src="/video/DOLL.mp4" autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0, zIndex: 0 }} />
 
       {/* Head */}
-      {headItem && <img src={`/api/image/${headItem.file_id}`} alt="Head" style={{ position: 'absolute', top: '10%', left: '40%', width: '20%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(headItem)} />}
+      {headItem && <img src={`/api/image/${headItem.file_id}`} alt="Head" style={{ position: 'absolute', top: '10%', left: '40%', width: '20%', height: '30%', objectFit: 'contain', zIndex: 12, cursor: 'pointer' }} onClick={() => onSlotClick(headItem)} />}
 
       {/* Weapon */}
-      {weaponItem && <img src={`/api/image/${weaponItem.file_id}`} alt="Weapon" style={{ position: 'absolute', top: '35%', left: '5%', width: '22%', height: '35%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(weaponItem)} />}
+      {weaponItem && <img src={`/api/image/${weaponItem.file_id}`} alt="Weapon" style={{ position: 'absolute', top: '35%', left: '5%', width: '22%', height: '35%', objectFit: 'contain', zIndex: 15, cursor: 'pointer' }} onClick={() => onSlotClick(weaponItem)} />}
 
       {/* Chip */}
-      {chipItem && <img src={`/api/image/${chipItem.file_id}`} alt="Chip" style={{ position: 'absolute', top: '35%', left: '73%', width: '22%', height: '35%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(chipItem)} />}
+      {chipItem && <img src={`/api/image/${chipItem.file_id}`} alt="Chip" style={{ position: 'absolute', top: '35%', left: '73%', width: '22%', height: '35%', objectFit: 'contain', zIndex: 11, cursor: 'pointer' }} onClick={() => onSlotClick(chipItem)} />}
 
       {/* Armor */}
       {armorItem && <img src={`/api/image/${armorItem.file_id}`} alt="Armor" style={{ position: 'absolute', top: '65%', left: '30%', width: '18%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(armorItem)} />}
 
       {/* Eidos Shard */}
-      {eidosShardItem && <img src={`/api/image/${eidosShardItem.file_id}`} alt="Eidos Shard" style={{ position: 'absolute', top: '65%', left: '52%', width: '18%', height: '30%', objectFit: 'contain', zIndex: 10, cursor: 'pointer' }} onClick={() => onSlotClick(eidosShardItem)} />}
+      {eidosShardItem && <img src={`/api/image/${eidosShardItem.file_id}`} alt="Eidos Shard" style={{ position: 'absolute', top: '65%', left: '52%', width: '18%', height: '30%', objectFit: 'contain', zIndex: 11, cursor: 'pointer' }} onClick={() => onSlotClick(eidosShardItem)} />}
     </div>
   );
 };

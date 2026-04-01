@@ -6,13 +6,17 @@ import axios from 'axios';
 const Hub = ({ setView }) => {
   const twa = window.Telegram?.WebApp;
   const [hubData, setHubData] = useState({});
+  const [hubStatus, setHubStatus] = useState({});
   const [modalImage, setModalImage] = useState(null);
 
   useEffect(() => {
     const fetchHubData = async () => {
       try {
-        const res = await axios.get('/api/hub_data');
-        setHubData(res.data);
+        const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
+        if (!uid) return;
+        const res = await axios.get('/api/hub_data', { params: { uid } });
+        setHubData(res.data.images || {});
+        setHubStatus(res.data.status || {});
       } catch (e) {
         console.error("Failed to fetch hub images", e);
       }
@@ -20,7 +24,15 @@ const Hub = ({ setView }) => {
     fetchHubData();
   }, []);
 
-  const handleAction = async (tgImageUrl, actionUrl, customAction) => {
+  const handleAction = async (tgImageUrl, actionUrl, customAction, keyName) => {
+    if (keyName && hubStatus[keyName] === 'locked') {
+      if (twa && twa.showPopup) {
+        twa.showPopup({ title: 'ДОСТУП ЗАКРЫТ', message: 'Недостаточный уровень допуска или отсутствует ключ.', buttons: [{type: 'close'}] });
+      } else {
+        alert('ДОСТУП ЗАКРЫТ');
+      }
+      return;
+    }
     if (customAction) {
       customAction();
       return;
@@ -117,13 +129,13 @@ const Hub = ({ setView }) => {
           src="/video/_nul.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '45%', left: '4%', width: '21%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("zero_layer_menu"))}
+          onClick={() => handleAction(getImg("zero_layer_menu"), null, null, "zero_layer_menu")}
         />
         <img
           src="/video/shop.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '45%', left: '28%', width: '21%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("shop_menu"))}
+          onClick={() => handleAction(getImg("shop_menu"), null, null, "shop_menu")}
         />
         <img
           src="/video/invent.png"
@@ -135,7 +147,7 @@ const Hub = ({ setView }) => {
           src="/video/dnecvnik.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '45%', left: '76%', width: '21%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("diary_menu"))}
+          onClick={() => handleAction(getImg("diary_menu"), null, null, "diary_menu")}
         />
 
         {/* Row 3 */}
@@ -143,19 +155,19 @@ const Hub = ({ setView }) => {
           src="/video/sindi.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '60%', left: '14%', width: '22%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("referral"))}
+          onClick={() => handleAction(getImg("referral"), null, null, "referral")}
         />
         <img
           src="/video/reiting.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '60%', left: '39%', width: '22%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("leaderboard"))}
+          onClick={() => handleAction(getImg("leaderboard"), null, null, "leaderboard")}
         />
         <img
           src="/video/guid.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '60%', left: '64%', width: '22%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("guide"))}
+          onClick={() => handleAction(getImg("guide"), null, null, "guide")}
         />
 
         {/* Row 4 */}
@@ -163,13 +175,13 @@ const Hub = ({ setView }) => {
           src="/video/shadow_b.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '78%', left: '8%', width: '40%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("shadow_shop_menu"))}
+          onClick={() => handleAction(getImg("shadow_shop_menu"), null, null, "shadow_shop_menu")}
         />
         <img
           src="/video/admin.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '78%', left: '52%', width: '40%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("admin_panel"))}
+          onClick={() => handleAction(getImg("admin_panel"), null, null, "admin_panel")}
         />
       </div>
 

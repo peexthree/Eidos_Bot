@@ -71,6 +71,8 @@ const ItemModal = ({ isOpen, onClose, item }) => {
       console.error("Equip error:", err);
       revertOptimistic(context.prevEquipped, context.prevInventory);
       if (window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка при экипировке");
+          const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
+      if (uid) fetchProfile(uid);
     },
     onSettled: () => {
        const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
@@ -93,6 +95,8 @@ const ItemModal = ({ isOpen, onClose, item }) => {
       console.error("Unequip error:", err);
       revertOptimistic(context.prevEquipped, context.prevInventory);
       if (window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка при снятии");
+          const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
+      if (uid) fetchProfile(uid);
     },
     onSettled: () => {
        const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
@@ -115,6 +119,8 @@ const ItemModal = ({ isOpen, onClose, item }) => {
       console.error("Dismantle error:", err);
       revertOptimistic(context.prevEquipped, context.prevInventory);
       if (window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка при разборе");
+          const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
+      if (uid) fetchProfile(uid);
     },
     onSettled: () => {
        const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
