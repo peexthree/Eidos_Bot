@@ -1,1 +1,0 @@
-print("Code successfully updated and verified via playwright screens. The integration uses React Query for the network layer, correctly updates Zustand's store before hitting the endpoint, correctly hits bot.py, and overrides Telegram WebApp.close() to perform an exit sync. Everything complies with the requested rules.")
