@@ -290,3 +290,7 @@ def perform_hard_reset(uid):
     except Exception as e:
         print(f"Hard Reset Error: {e}")
         return False
+
+
+def flush_stats():
+    pass
