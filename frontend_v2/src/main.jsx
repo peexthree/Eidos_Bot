@@ -24,33 +24,6 @@ try {
   console.warn("TWA Init failed:", e);
 }
 
-// Переопределяем WebApp для локальной среды
-if (!window.Telegram?.WebApp?.initData) {
-  const mockUser = encodeURIComponent(JSON.stringify({
-    id: 123456789,
-    first_name: "DevUser",
-    last_name: "Mock",
-    username: "dev_mock",
-    language_code: "ru"
-  }));
-  const mockInitData = `query_id=mock123&user=${mockUser}&auth_date=${Math.floor(Date.now() / 1000)}&hash=devmock`;
-
-  if (!window.Telegram) window.Telegram = {};
-  window.Telegram.WebApp = {
-    ...WebApp,
-    initData: mockInitData,
-    initDataUnsafe: {
-      user: {
-        id: 123456789,
-        first_name: "DevUser",
-        last_name: "Mock",
-        username: "dev_mock",
-        language_code: "ru"
-      }
-    }
-  };
-}
-
 
 
 ReactDOM.createRoot(document.getElementById('root')).render(

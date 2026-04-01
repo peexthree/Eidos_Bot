@@ -65,43 +65,44 @@ def webhook():
     else:
         flask.abort(403)
 
-# Static Routes
-@app.route('/css/<path:path>', methods=['GET'])
-def send_css(path):
-    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/css')
-    return flask.send_from_directory(static_dir, path)
+
+# ==========================================
+# VITE REACT FRONTEND ROUTES (frontend_v2/dist)
+# ==========================================
+
+# Serve static assets from frontend_v2/dist
+@app.route('/assets/<path:path>', methods=['GET'])
+def send_vite_assets(path):
+    dist_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend_v2/dist/assets')
+    return flask.send_from_directory(dist_dir, path)
 
 @app.route('/IMG/<path:path>', methods=['GET'])
-def send_img(path):
-    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/IMG')
-    return flask.send_from_directory(static_dir, path)
+def send_vite_img(path):
+    # Try serving from frontend_v2/dist/IMG first, fallback to static/IMG
+    dist_img_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend_v2/dist/IMG')
+    static_img_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/IMG')
+    if os.path.exists(os.path.join(dist_img_dir, path)):
+        return flask.send_from_directory(dist_img_dir, path)
+    return flask.send_from_directory(static_img_dir, path)
 
 @app.route('/video/<path:path>', methods=['GET'])
-def send_video(path):
+def send_vite_video(path):
     static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/video')
     return flask.send_from_directory(static_dir, path)
 
-@app.route('/js/<path:path>', methods=['GET'])
-def send_js(path):
-    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/js')
-    return flask.send_from_directory(static_dir, path)
-
-@app.route('/assets/<path:path>', methods=['GET'])
-def send_assets(path):
-    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/assets')
-    return flask.send_from_directory(static_dir, path)
+@app.route('/inventory', methods=['GET'])
+def inventory_webapp():
+    # Serve the Vite React build index.html
+    dist_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend_v2/dist')
+    return flask.send_from_directory(dist_dir, 'index.html')
 
 
 @app.route("/", methods=["GET"])
 def index():
     return "Eidos Terminal Interface Operational", 200
 
-@app.route('/inventory', methods=['GET'])
-def inventory_webapp():
-    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-    return flask.send_from_directory(static_dir, 'inventory.html')
-
 # === PROXY ДЛЯ КАРТИНОК TELEGRAM ===
+
 _image_cache = {}
 @app.route('/api/image/<file_id>', methods=['GET'])
 def get_telegram_image(file_id):
@@ -125,11 +126,46 @@ def get_telegram_image(file_id):
 
 
 @app.route('/api/hub_data', methods=['GET'])
+@require_telegram_auth
 def hub_data_api():
+    uid_str = flask.request.args.get('uid')
+    if not uid_str:
+        return flask.jsonify({"error": "Missing uid"}), 400
+    try:
+        uid = int(uid_str)
+    except:
+        return flask.jsonify({"error": "Invalid uid"}), 400
+
+    u = db.get_user(uid)
+    if not u:
+        return flask.jsonify({"error": "User not found"}), 404
+
+    lvl = u.get("level", 1)
+    # Get items to check for keys like 'architect_eye' (Ключ Архитектора)
+    # Actually, we can check raw_equipped or full inventory.
+    # Let's just do a basic implementation based on level first, as asked:
+    # "Бэкенд должен отдавать список доступных локаций и их статус (заблокировано, карантин, доступно) в зависимости от уровня пользователя"
+
     hub_images = {}
     for key, file_id in getattr(config, 'MENU_IMAGES', {}).items():
         hub_images[key] = f"/api/image/{file_id}"
-    return flask.jsonify(hub_images)
+
+    status = {
+        "zero_layer_menu": "available",
+        "shop_menu": "available" if lvl >= 2 else "locked",
+        "diary_menu": "available",
+        "shadow_shop_menu": "available" if lvl >= 5 else "locked",
+        "leaderboard": "available",
+        "referral": "available",
+        "guide": "available",
+        "admin_panel": "locked" # Only admin, but let's say locked for now
+    }
+
+    if str(uid) in getattr(config, 'ADMIN_IDS', []):
+        status["admin_panel"] = "available"
+
+    return flask.jsonify({"images": hub_images, "status": status})
+
 
 @app.route('/api/action/synchron', methods=['POST'])
 @require_telegram_auth

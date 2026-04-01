@@ -48,9 +48,6 @@ def verify_init_data(init_data: str, token: str) -> dict | None:
 def require_telegram_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if os.environ.get("DEBUG_MODE") == "true":
-            return f(*args, **kwargs)
-
         import flask
         from modules.bot_instance import TOKEN
 

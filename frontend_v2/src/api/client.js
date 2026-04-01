@@ -18,8 +18,7 @@ export const eidosApi = axios.create({
 eidosApi.interceptors.request.use(
   (config) => {
     // Получаем строку initData из Telegram SDK.
-    // Если WebApp не инициализирован (в браузере вне Telegram),
-    // используется mock, заданный на этапе старта в main.jsx.
+
     const initData = WebApp.initData;
 
     if (initData) {
