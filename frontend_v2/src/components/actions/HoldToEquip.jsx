@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import WebApp from '@twa-dev/sdk';
 
-const HoldToEquip = ({ onEquip }) => {
+const HoldToEquip = ({ onEquip, text = "Экипировать", baseColor = "eidos-cyan", activeColor = "eidos-cyan" }) => {
   const [isHolding, setIsHolding] = useState(false);
   const controls = useAnimation();
   const holdTimer = useRef(null);
@@ -52,6 +52,9 @@ const HoldToEquip = ({ onEquip }) => {
     };
   }, []);
 
+  const hexColor = baseColor === "eidos-red" ? "#ff3333" : "#66FCF1";
+  const rgbaBase = baseColor === "eidos-red" ? "rgba(255, 51, 51," : "rgba(102, 252, 241,";
+
   return (
     <div className="relative w-full flex justify-center items-center">
       {/* Кнопка */}
@@ -61,21 +64,21 @@ const HoldToEquip = ({ onEquip }) => {
         onPointerLeave={cancelHold}
         onContextMenu={(e) => e.preventDefault()} // Отключаем контекстное меню на мобилках
         whileTap={{ scale: 0.95 }}
-        className={`relative z-10 px-8 py-4 bg-black/60 backdrop-blur-md border border-eidos-cyan/30 text-eidos-cyan font-orbitron uppercase tracking-widest text-lg overflow-hidden transition-colors ${
-          isHolding ? 'bg-eidos-cyan/10' : ''
+        className={`relative z-10 px-8 py-4 bg-black/60 backdrop-blur-md border text-${baseColor} font-orbitron uppercase tracking-widest text-lg overflow-hidden transition-colors border-${baseColor}/30 ${
+          isHolding ? `bg-${activeColor}/10` : ''
         }`}
         style={{
           clipPath: 'polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px)'
         }}
       >
-        <span className="relative z-10">Экипировать</span>
+        <span className="relative z-10">{text}</span>
 
         {/* Индикатор прогресса на фоне */}
         <motion.div
           initial={{ width: '0%' }}
           animate={{ width: isHolding ? '100%' : '0%' }}
           transition={{ duration: isHolding ? HOLD_DURATION / 1000 : 0.2, ease: 'linear' }}
-          className="absolute left-0 top-0 bottom-0 bg-eidos-cyan/20 z-0"
+          className={`absolute left-0 top-0 bottom-0 bg-${activeColor}/20 z-0`}
         />
       </motion.button>
 
@@ -86,19 +89,19 @@ const HoldToEquip = ({ onEquip }) => {
           <path
             d="M 15 5 L 165 5 L 175 15 L 175 65 L 165 75 L 15 75 L 5 65 L 5 15 Z"
             fill="none"
-            stroke="rgba(102, 252, 241, 0.1)"
+            stroke={`${rgbaBase} 0.1)`}
             strokeWidth="2"
           />
           {/* Анимированное кольцо прогресса */}
           <motion.path
             d="M 15 5 L 165 5 L 175 15 L 175 65 L 165 75 L 15 75 L 5 65 L 5 15 Z"
             fill="none"
-            stroke="#66FCF1"
+            stroke={hexColor}
             strokeWidth="2"
             initial={{ pathLength: 0 }}
             animate={controls}
             style={{
-              filter: 'drop-shadow(0 0 8px rgba(102, 252, 241, 0.8))'
+              filter: `drop-shadow(0 0 8px ${rgbaBase} 0.8))`
             }}
           />
         </svg>

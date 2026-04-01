@@ -56,6 +56,38 @@ function App() {
   const profile = useStore((state) => state.profile);
   const [currentView, setCurrentView] = useState('INTRO');
 
+
+  useEffect(() => {
+    const sendSyncSignal = () => {
+      let uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
+      if (uid) {
+        const url = `${import.meta.env.VITE_API_URL || '/api'}/twa/sync`;
+
+        // Use sendBeacon for reliable delivery during page unload
+        const data = JSON.stringify({ uid });
+        const blob = new Blob([data], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+      }
+    };
+
+    // Listen for page hide/unload to trigger sync
+    window.addEventListener('pagehide', sendSyncSignal);
+    window.addEventListener('beforeunload', sendSyncSignal);
+
+    // Override WebApp close to send signal before closing
+    if (window.Telegram?.WebApp) {
+      const originalClose = window.Telegram.WebApp.close.bind(window.Telegram.WebApp);
+      window.Telegram.WebApp.close = () => {
+        sendSyncSignal();
+        originalClose();
+      };
+    }
+
+    return () => {
+      window.removeEventListener('pagehide', sendSyncSignal);
+      window.removeEventListener('beforeunload', sendSyncSignal);
+    };
+  }, []);
   useEffect(() => {
     console.log("/// EIDOS: Starting initialization sequence...");
 
