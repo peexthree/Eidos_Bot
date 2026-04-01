@@ -29,7 +29,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
   useEffect(() => {
     if (!isOpen || !item) return;
 
-    const isRare = item.rarity === 'epic' || item.rarity === 'legendary' || item.rarity === 'Epic' || item.rarity === 'Legendary';
+    const isRare = item?.rarity === 'epic' || item?.rarity === 'legendary' || item?.rarity === 'Epic' || item?.rarity === 'Legendary';
     if (!isRare) return;
 
     const handleDeviceOrientation = (e) => {
@@ -46,9 +46,6 @@ const ItemModal = ({ isOpen, onClose, item }) => {
     window.addEventListener('deviceorientation', handleDeviceOrientation);
     return () => window.removeEventListener('deviceorientation', handleDeviceOrientation);
   }, [isOpen, item]);
-
-  if (!item) return null;
-
   // API mapping for unequip slot.
   const apiSlotMap = {
       'armor': 'body',
@@ -63,7 +60,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
     onMutate: async ({ itemId }) => {
       const prevEquipped = { ...equipped };
       const prevInventory = [...inventory];
-      const targetSlot = Object.keys(apiSlotMap).find(k => apiSlotMap[k] === item.type) || item.type;
+      const targetSlot = Object.keys(apiSlotMap).find(k => apiSlotMap[k] === item?.type) || item?.type;
       optimisticEquip(item, targetSlot);
       return { prevEquipped, prevInventory };
     },
@@ -112,7 +109,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
     onMutate: async () => {
       const prevEquipped = { ...equipped };
       const prevInventory = [...inventory];
-      optimisticDismantle(item.id);
+      optimisticDismantle(item?.id);
       return { prevEquipped, prevInventory };
     },
     onError: (err, variables, context) => {
@@ -131,7 +128,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
 
   const handleDismantle = () => {
     let uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
-    dismantleMutation.mutate({ uid, invId: item.id });
+    dismantleMutation.mutate({ uid, invId: item?.id });
   };
 
   const handleEquipToggle = (action) => {
@@ -156,6 +153,8 @@ const ItemModal = ({ isOpen, onClose, item }) => {
   };
 
 
+  if (!isOpen || !item) return null;
+
   const rarityColor = {
     common: 'text-white border-white/20',
     rare: 'text-blue-400 border-blue-400/30',
@@ -165,7 +164,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
     Rare: 'text-blue-400 border-blue-400/30',
     Epic: 'text-purple-400 border-purple-400/40',
     Legendary: 'text-orange-400 border-orange-400/50'
-  }[item.rarity || 'common'] || 'text-white';
+  }[item?.rarity || 'common'] || 'text-white';
 
   return (
     <AnimatePresence>
@@ -231,11 +230,11 @@ const ItemModal = ({ isOpen, onClose, item }) => {
                     </div>
                  </div>
 
-                 {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover z-10" />
+                 {item?.image_url ? (
+                    <img src={item?.image_url} alt={item?.name} className="w-full h-full object-cover z-10" />
                  ) : (
                     <div className="text-6xl z-10">
-                      {item.icon || '📦'}
+                      {item?.icon || '📦'}
                     </div>
                  )}
                  <div className={`absolute inset-0 opacity-20 bg-gradient-to-tr from-transparent to-${rarityColor.split('-')[1]} z-0`} />
@@ -244,17 +243,17 @@ const ItemModal = ({ isOpen, onClose, item }) => {
               {/* Информация */}
               <div className="text-center w-full">
                 <h2 className={`text-2xl font-orbitron tracking-widest uppercase mb-2 ${rarityColor.split(' ')[0]}`}>
-                  {item.name}
+                  {item?.name}
                 </h2>
                 <p className="text-sm font-share text-white/70 mb-4 px-4 w-full">
-                  {item.description || item.desc || "Описание отсутствует."}
+                  {item?.description || item?.desc || "Описание отсутствует."}
                 </p>
 
               </div>
 
               {/* Действия */}
               <div className="w-full flex flex-col items-center gap-4 mt-2 px-2">
-                {item.type !== 'Consumable' && item.type !== 'consumable' && item.type !== 'misc' && !isEquipped && (
+                {item?.type !== 'Consumable' && item?.type !== 'consumable' && item?.type !== 'misc' && !isEquipped && (
                   <HoldToEquip onEquip={() => handleEquipToggle('equip')} text="НАДЕТЬ" baseColor="eidos-cyan" activeColor="eidos-cyan" />
                 )}
                 {isEquipped && (
