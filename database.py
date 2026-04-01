@@ -862,121 +862,147 @@ def reset_daily_stats(uid):
             )
 
 
-def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
-    from config import EQUIPMENT_DB, CURSED_CHEST_DROPS, ITEMS_INFO
+def add_items(uid, item_list, cursor=None, specific_durability=None):
+    from config import EQUIPMENT_DB, CURSED_CHEST_DROPS, ITEMS_INFO, INVENTORY_LIMIT
     from psycopg2.extras import execute_values
     import cache_db
+    import random
+
+    # Filter out empty strings and strip
+    item_list = [i.strip() for i in item_list if i and i.strip()]
+    if not item_list:
+        return True
 
     success = False
 
-    def _add_logic(cur):
-        is_equipment = item_id in EQUIPMENT_DB
-        item_info = ITEMS_INFO.get(item_id, {})
-        max_stack = item_info.get("max_stack", 1) if not is_equipment else 1
-        if is_equipment:
-            cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
-            res = cur.fetchone()
-            count = (
-                (
-                    res[0]
-                    if isinstance(res, tuple)
-                    else res.get("count") or res.get("count(*)")
-                )
-                if res
-                else 0
-            )
-            from config import INVENTORY_LIMIT
-
-            if count + qty > int(INVENTORY_LIMIT or 20):
-                return False
-            if specific_durability:
-                durability = specific_durability
-            elif item_id in CURSED_CHEST_DROPS:
-                durability = 50
+    def _add_batch_logic(cur):
+        # 1. Get current inventory count
+        cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
+        res = cur.fetchone()
+        if not res:
+            current_count = 0
+        else:
+            if hasattr(res, "keys"):
+                current_count = res.get("count") or res.get("count(*)") or 0
+            elif isinstance(res, (list, tuple)):
+                current_count = res[0]
             else:
-                import random
+                current_count = 0
 
-                durability = random.randint(5, 10)
-            values = [(uid, item_id, 1, durability, None) for _ in range(qty)]
+        # 2. Group items to optimize
+        counts = {}
+        for itm in item_list:
+            counts[itm] = counts.get(itm, 0) + 1
+
+        equip_items = []
+        consumable_items = []
+        for iid, c in counts.items():
+            if iid in EQUIPMENT_DB:
+                equip_items.append((iid, c))
+            else:
+                consumable_items.append((iid, c))
+
+        total_slots_needed = sum(c for iid, c in equip_items)
+        consumable_updates = []
+        new_consumable_rows = []
+
+        if consumable_items:
+            relevant_ids = [ci[0] for ci in consumable_items]
+            cur.execute(
+                "SELECT item_id, id, quantity FROM inventory WHERE uid=%s AND item_id = ANY(%s) ORDER BY item_id, id",
+                (uid, relevant_ids),
+            )
+            existing_stacks = {}
+            for row in cur.fetchall():
+                if hasattr(row, "keys"):  # RealDictCursor
+                    iid, inv_id, q = row["item_id"], row["id"], row["quantity"]
+                else:
+                    iid, inv_id, q = row
+                if iid not in existing_stacks:
+                    existing_stacks[iid] = []
+                existing_stacks[iid].append({"id": inv_id, "quantity": q})
+
+            for item_id, qty in consumable_items:
+                item_info = ITEMS_INFO.get(item_id, {})
+                max_stack = item_info.get("max_stack", 1)
+                rem = qty
+
+                # Fill existing stacks
+                for stack in existing_stacks.get(item_id, []):
+                    space = max_stack - stack["quantity"]
+                    if space > 0:
+                        to_add = min(rem, space)
+                        stack["quantity"] += to_add
+                        consumable_updates.append((stack["quantity"], stack["id"]))
+                        rem -= to_add
+                    if rem <= 0:
+                        break
+
+                # Calculate new stacks
+                while rem > 0:
+                    stack_qty = min(rem, max_stack)
+                    new_consumable_rows.append((uid, item_id, stack_qty, 100, None))
+                    rem -= stack_qty
+                    total_slots_needed += 1
+
+        # 3. Check inventory limit
+        if current_count + total_slots_needed > int(INVENTORY_LIMIT or 20):
+            return False
+
+        # 4. Perform insertions and updates
+        if equip_items:
+            equip_rows = []
+            for item_id, c in equip_items:
+                for _ in range(c):
+                    dur = (
+                        specific_durability
+                        if specific_durability is not None
+                        else (
+                            50
+                            if item_id in CURSED_CHEST_DROPS
+                            else random.randint(5, 10)
+                        )
+                    )
+                    equip_rows.append((uid, item_id, 1, dur, None))
             execute_values(
                 cur,
-                """
-                INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
-                VALUES %s
-            """,
-                values,
+                "INSERT INTO inventory (uid, item_id, quantity, durability, custom_data) VALUES %s",
+                equip_rows,
             )
-            return True
-        else:
-            cur.execute(
-                "SELECT id, quantity FROM inventory WHERE uid=%s AND item_id=%s ORDER BY id",
-                (uid, item_id),
-            )
-            stacks = cur.fetchall()
-            remaining_qty = qty
-            for stack in stacks:
-                inv_id, current_qty = stack
-                if isinstance(stack, dict):
-                    inv_id = stack["id"]
-                    current_qty = stack["quantity"]
-                space_in_stack = max_stack - current_qty
-                if space_in_stack > 0:
-                    add_to_stack = min(remaining_qty, space_in_stack)
-                    cur.execute(
-                        "UPDATE inventory SET quantity = quantity + %s WHERE id = %s",
-                        (add_to_stack, inv_id),
-                    )
-                    remaining_qty -= add_to_stack
-                if remaining_qty <= 0:
-                    break
-            if remaining_qty > 0:
-                new_stacks_needed = (remaining_qty + max_stack - 1) // max_stack
-                cur.execute("SELECT COUNT(*) FROM inventory WHERE uid = %s", (uid,))
-                res = cur.fetchone()
-                count = (
-                    (
-                        res[0]
-                        if isinstance(res, tuple)
-                        else res.get("count") or res.get("count(*)")
-                    )
-                    if res
-                    else 0
-                )
-                from config import INVENTORY_LIMIT
 
-                if count + new_stacks_needed > int(INVENTORY_LIMIT or 20):
-                    return False
-                values = []
-                while remaining_qty > 0:
-                    stack_qty = min(remaining_qty, max_stack)
-                    values.append((uid, item_id, stack_qty, 100, None))
-                    remaining_qty -= stack_qty
-                execute_values(
-                    cur,
-                    """
-                    INSERT INTO inventory (uid, item_id, quantity, durability, custom_data)
-                    VALUES %s
-                """,
-                    values,
-                )
-            return True
+        if consumable_updates:
+            # Batch update for consumables filling stacks
+            execute_values(
+                cur,
+                "UPDATE inventory SET quantity = data.qty FROM (VALUES %s) AS data (qty, id) WHERE inventory.id = data.id",
+                consumable_updates,
+            )
+
+        if new_consumable_rows:
+            execute_values(
+                cur,
+                "INSERT INTO inventory (uid, item_id, quantity, durability, custom_data) VALUES %s",
+                new_consumable_rows,
+            )
+
+        return True
 
     if cursor:
-        success = _add_logic(cursor)
+        success = _add_batch_logic(cursor)
     else:
         with db_cursor() as cur:
             if cur:
-                success = _add_logic(cur)
+                success = _add_batch_logic(cur)
+
     if success:
         cache_db.clear_cache(uid)
     return success
-    with db_cursor() as cur:
-        if not cur:
-            return False
-        res = _add_logic(cur)
-        if res:
-            cache_db.clear_cache(uid)
-        return res
+
+
+def add_item(uid, item_id, qty=1, cursor=None, specific_durability=None):
+    return add_items(
+        uid, [item_id] * qty, cursor=cursor, specific_durability=specific_durability
+    )
 
 
 def get_inventory(uid, cursor=None):

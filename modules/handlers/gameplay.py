@@ -372,8 +372,7 @@ def raid_handler(call):
               res_items = cur.fetchone()
               if res_items and res_items['buffer_items']:
                   item_list = res_items['buffer_items'].split(',')
-                  for itm in item_list:
-                      if itm: db.add_item(uid, itm)
+                  db.add_items(uid, item_list, cursor=cur)
 
          with db.db_cursor(cursor_factory=db.RealDictCursor) as cur:
               cur.execute("SELECT * FROM raid_sessions WHERE uid=%s", (uid,))
