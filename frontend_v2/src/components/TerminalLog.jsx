@@ -8,7 +8,7 @@ const TerminalLog = () => {
   return (
     <div className="fixed top-4 left-4 right-4 z-[999999] pointer-events-none flex flex-col gap-2 font-share">
       <AnimatePresence>
-        {terminalLogs.map((log) => (
+        {terminalLogs?.map((log) => (
           <motion.div
             key={log.id}
             initial={{ opacity: 0, x: -20 }}

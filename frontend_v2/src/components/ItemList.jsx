@@ -13,7 +13,7 @@ const ItemList = ({ onItemClick }) => {
     { id: 'CONSUMABLES', label: 'РАСХОДНИКИ', icon: '/IMG/nav_tab-consum.svg' }
   ];
 
-  const filteredInventory = inventory.filter((item) => {
+  const filteredInventory = (inventory || []).filter((item) => {
     if (filter === 'ALL') return true;
 
     // According to config.py, types are usually 'equip' and 'consumable'
@@ -55,7 +55,7 @@ const ItemList = ({ onItemClick }) => {
 
       {/* Item List Scroll Area */}
       <div className="pr-2 space-y-2 relative z-10 w-full">
-        {filteredInventory.map((item) => (
+        {filteredInventory?.map((item) => (
           <motion.div
             key={item.id}
             layout
@@ -66,7 +66,7 @@ const ItemList = ({ onItemClick }) => {
             <ItemCard item={item} />
           </motion.div>
         ))}
-        {filteredInventory.length === 0 && (
+        {filteredInventory?.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center bg-black/40 border border-white/10 clip-hex">
             <span className="font-orbitron text-eidos-red text-xl mb-2">EMPTY</span>
             <span className="font-share text-xs text-white/50">NO ITEMS FOUND IN STORAGE</span>
