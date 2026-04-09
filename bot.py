@@ -52,15 +52,46 @@ import modules.handlers.pvp
 import modules.handlers.onboarding
 
 
+
 # Глобальный пул потоков для Webhook
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
 
+# In-memory блокировка для предотвращения Webhook Stampede
+active_users = set()
+active_users_lock = threading.Lock()
+
+
 def process_update_safe(update):
-    try:
-        bot.process_new_updates([update])
-    except Exception as e:
-        print(f"/// THREAD POOL ERROR: {e}")
-        traceback.print_exc()
+    uid = None
+    if update.message:
+        uid = update.message.from_user.id
+    elif update.callback_query:
+        uid = update.callback_query.from_user.id
+    elif update.inline_query:
+        uid = update.inline_query.from_user.id
+
+    if uid:
+        with active_users_lock:
+            if uid in active_users:
+                print(f"/// WEBHOOK STAMPEDE BLOCKED for UID: {uid}")
+                return
+            active_users.add(uid)
+
+        try:
+            bot.process_new_updates([update])
+        except Exception as e:
+            print(f"/// THREAD POOL ERROR: {e}")
+            traceback.print_exc()
+        finally:
+            with active_users_lock:
+                active_users.discard(uid)
+    else:
+        # Если UID не удалось извлечь (например, другие типы апдейтов)
+        try:
+            bot.process_new_updates([update])
+        except Exception as e:
+            print(f"/// THREAD POOL ERROR: {e}")
+            traceback.print_exc()
 
 # --- API ROUTES ---
 

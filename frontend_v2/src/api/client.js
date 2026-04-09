@@ -1,5 +1,4 @@
 import axios from 'axios';
-import WebApp from '@twa-dev/sdk';
 
 // ==========================================
 // EIDOS CORE V2 - Изолированный сетевой клиент
@@ -19,7 +18,7 @@ eidosApi.interceptors.request.use(
   (config) => {
     // Получаем строку initData из Telegram SDK.
 
-    const initData = WebApp.initData;
+    const initData = window.Telegram?.WebApp?.initData;
 
     if (initData) {
       config.headers['X-Telegram-Init-Data'] = initData;
