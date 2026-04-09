@@ -7,6 +7,7 @@ import useStore from './store/useStore';
 import Layout from './components/Layout';
 import IntroVideo from './components/IntroVideo';
 import Hub from './pages/Hub';
+import ShopModal from './components/ShopModal';
 import Inventory from './pages/Inventory';
 
 const queryClient = new QueryClient({

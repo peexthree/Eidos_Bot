@@ -4,6 +4,8 @@ import { eidosApi } from '../api/client';
 
 
 const Hub = ({ setView }) => {
+  const [showShop, setShowShop] = useState(false);
+  const ShopModal = require('../components/ShopModal').default;
   const twa = window.Telegram?.WebApp;
   const [hubData, setHubData] = useState({});
   const [hubStatus, setHubStatus] = useState({});
@@ -175,7 +177,7 @@ const Hub = ({ setView }) => {
           src="/video/shadow_b.png"
           className={btnHoverActiveStyle}
           style={{ position: 'absolute', top: '78%', left: '8%', width: '40%', cursor: 'pointer', zIndex: 10 }}
-          onClick={() => handleAction(getImg("shadow_shop_menu"), null, null, "shadow_shop_menu")}
+          onClick={() => handleAction(null, null, () => setShowShop(true), "shadow_shop_menu")}
         />
         <img
           src="/video/admin.png"
@@ -187,6 +189,10 @@ const Hub = ({ setView }) => {
 
       {/* Layer 2: Top Frame Overlay (Z-Index: 20) */}
       <img src="/video/frame.png" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', zIndex: 20, pointerEvents: 'none' }} />
+
+
+      {/* Shop Modal */}
+      {showShop && <ShopModal onClose={() => setShowShop(false)} />}
 
       {/* Image Modal (Z-index strictly highest) */}
       {modalImage && (
