@@ -7,6 +7,8 @@ import os
 import sys
 import time
 import threading
+import concurrent.futures
+
 import traceback
 import psycopg2
 import requests
@@ -49,6 +51,17 @@ import modules.handlers.items
 import modules.handlers.pvp
 import modules.handlers.onboarding
 
+
+# Глобальный пул потоков для Webhook
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
+
+def process_update_safe(update):
+    try:
+        bot.process_new_updates([update])
+    except Exception as e:
+        print(f"/// THREAD POOL ERROR: {e}")
+        traceback.print_exc()
+
 # --- API ROUTES ---
 
 @app.route('/health', methods=['GET'])
@@ -60,7 +73,7 @@ def webhook():
     if flask.request.headers.get('content-type') == 'application/json':
         json_string = flask.request.get_data().decode('utf-8')
         update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
+        executor.submit(process_update_safe, update)
         return '', 200
     else:
         flask.abort(403)
@@ -91,6 +104,8 @@ def send_vite_video(path):
     return flask.send_from_directory(static_dir, path)
 
 @app.route('/inventory', methods=['GET'])
+@app.route('/hub', methods=['GET'])
+@app.route('/shop', methods=['GET'])
 def inventory_webapp():
     # Serve the Vite React build index.html
     dist_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend_v2/dist')
@@ -383,17 +398,47 @@ def shop_api():
         it['owned'] = db.get_item_count(uid, it['id']) > 0 if uid else False
     return flask.jsonify({"items": items})
 
+
 @app.route('/api/shop/buy', methods=['POST'])
 @require_telegram_auth
-def shop_buy():
+def api_shop_buy():
     data = flask.request.json
-    uid, item_id = data.get('uid'), data.get('item_id')
-    u = db.get_user(uid)
-    cost = config.PRICES.get(item_id, 9999)
-    if u and u.get('biocoin', 0) >= cost:
-        db.update_user(uid, biocoin=u['biocoin'] - cost)
-        db.add_item(uid, item_id, 1)
-        return flask.jsonify({"success": True})
+    uid = data.get('uid')
+    item_id = data.get('item_id')
+
+    if not item_id or item_id not in config.ITEMS_INFO:
+        return flask.jsonify({"error": "Item not found"}), 400
+
+    price = config.ITEMS_INFO[item_id].get('price')
+    if not price:
+        shadow_items = get_shadow_shop_items()
+        shadow_item = next((i for i in shadow_items if i['id'] == item_id), None)
+        if shadow_item:
+            price = shadow_item.get('price')
+        if not price:
+            return flask.jsonify({"error": "Item not for sale"}), 400
+
+    stats = get_user_stats(uid)
+    if stats.get('coins', 0) < price:
+        return flask.jsonify({"error": "Insufficient BC"}), 400
+
+    db.update_user(uid, bc=stats.get('coins', 0) - price)
+    db.add_items(uid, [{'id': item_id, 'qty': 1}])
+    flush_stats(uid)
+    return flask.jsonify({"success": True})
+
+@app.route('/api/action/craft', methods=['POST'])
+@require_telegram_auth
+def api_action_craft():
+    data = flask.request.json
+    uid = data.get('uid')
+    item_ids = data.get('item_ids', [])
+
+    if not item_ids or len(item_ids) < 3:
+        return flask.jsonify({"error": "Not enough items to craft"}), 400
+
+    return flask.jsonify({"error": "Crafting algorithm requires server sync."}), 501
+
     return flask.jsonify({"success": False, "reason": "Insufficient biocoins"}), 400
 
 
