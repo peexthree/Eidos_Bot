@@ -9,6 +9,7 @@ const useStore = create((set, get) => ({
   currentView: 'HUB', // HUB, INVENTORY, RAID, SHOP, SOCIAL, PROFILE
   raidData: null,
   shopData: null,
+  terminalLogs: [],
 
   setCurrentView: (view) => set({ currentView: view }),
 

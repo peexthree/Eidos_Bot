@@ -4,7 +4,7 @@ import useStore from '../store/useStore';
 const ItemCard = ({ item }) => {
   const equipped = useStore((state) => state.equipped) || {};
 
-  const isEquipped = Object.values(equipped).some(val =>
+  const isEquipped = Object.values(equipped || {}).some(val =>
     val === item?.id || (val && typeof val === 'object' && val.item_id === item?.id)
   );
 
@@ -52,7 +52,7 @@ const ItemCard = ({ item }) => {
             )}
             {item?.stats && (
               <div className="font-share text-[10px] text-eidos-cyan flex space-x-2">
-                {Object.entries(item.stats).map(([k, v]) => (
+                {(item.stats ? Object.entries(item.stats) : []).map(([k, v]) => (
                   <span key={k}>+{v}{k.toUpperCase()}</span>
                 ))}
               </div>
