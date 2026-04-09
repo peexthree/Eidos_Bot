@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { eidosApi } from '../api/client';
-
+import ShopModal from '../components/ShopModal';
 
 const Hub = ({ setView }) => {
   const [showShop, setShowShop] = useState(false);
-  const ShopModal = require('../components/ShopModal').default;
   const twa = window.Telegram?.WebApp;
   const [hubData, setHubData] = useState({});
   const [hubStatus, setHubStatus] = useState({});

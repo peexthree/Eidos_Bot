@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
-import WebApp from '@twa-dev/sdk';
 
 const DragToDismantle = ({ onDismantle }) => {
   const y = useMotionValue(0);
@@ -18,18 +17,24 @@ const DragToDismantle = ({ onDismantle }) => {
 
     // Порог срабатывания: сдвиг больше 60px или быстрый свайп вниз
     if (offset > 60 || velocity > 500) {
-      WebApp.HapticFeedback.impactOccurred('heavy'); // Сильная вибрация при разборе
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+      }
       onDismantle();
     } else {
       // Возврат на место
-      WebApp.HapticFeedback.impactOccurred('light');
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+      }
     }
   };
 
   const handleDrag = () => {
     // Легкая вибрация при перетягивании
     if (y.get() > 30) {
-      WebApp.HapticFeedback.selectionChanged();
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.selectionChanged();
+      }
     }
   };
 
@@ -46,7 +51,7 @@ const DragToDismantle = ({ onDismantle }) => {
         <svg width="40" height="20" viewBox="0 0 40 20" className="text-red-500 fill-current">
           <path d="M 5 0 L 15 20 L 25 0 L 35 20 L 40 0 L 0 0 Z" />
         </svg>
-        <span className="text-[10px] font-share-tech text-red-500 uppercase tracking-widest mt-1">Разобрать</span>
+        <span className="text-[10px] font-share text-red-500 uppercase tracking-widest mt-1">Разобрать</span>
       </div>
 
       {/* Драгабельный элемент */}
@@ -59,7 +64,7 @@ const DragToDismantle = ({ onDismantle }) => {
         style={{ y, opacity, scale, background, borderColor }}
         className="w-full h-12 flex justify-center items-center cursor-grab active:cursor-grabbing border-b border-t z-10"
       >
-        <span className="text-sm font-rajdhani text-white/80 uppercase tracking-wider font-bold">
+        <span className="text-sm font-share text-white/80 uppercase tracking-wider font-bold">
           <span className="text-xs text-white/40 mr-2">▼</span>
           Свайп вниз для разбора
           <span className="text-xs text-white/40 ml-2">▼</span>

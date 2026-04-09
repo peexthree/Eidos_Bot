@@ -3,17 +3,14 @@ import { useMutation } from '@tanstack/react-query';
 import HoldToEquip from './actions/HoldToEquip';
 import DragToDismantle from './actions/DragToDismantle';
 import { motion, AnimatePresence } from 'framer-motion';
-import WebApp from '@twa-dev/sdk';
 import useStore from '../store/useStore';
 import { eidosApi } from '../api/client';
 
 const ItemModal = ({ isOpen, onClose, item }) => {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [isLoading, setIsLoading] = useState(false);
 
-  const profile = useStore((state) => state.profile);
-  const equipped = useStore((state) => state.equipped) || {};
-    const fetchProfile = useStore((state) => state.fetchProfile);
+    const equipped = useStore((state) => state.equipped) || {};
+  const fetchProfile = useStore((state) => state.fetchProfile);
   const optimisticEquip = useStore((state) => state.optimisticEquip);
   const optimisticUnequip = useStore((state) => state.optimisticUnequip);
   const optimisticDismantle = useStore((state) => state.optimisticDismantle);
@@ -29,28 +26,22 @@ const ItemModal = ({ isOpen, onClose, item }) => {
   useEffect(() => {
     if (!isOpen || !item) return;
 
-    const isRare = item?.rarity === 'epic' || item?.rarity === 'legendary' || item?.rarity === 'Epic' || item?.rarity === 'Legendary';
-    if (!isRare) return;
-
-    const handleDeviceOrientation = (e) => {
-      // Нормализуем значения гироскопа для плавного наклона
-      const x = e.gamma ? e.gamma / 45 : 0; // Наклон влево-вправо (-45 до 45)
-      const y = e.beta ? (e.beta - 45) / 45 : 0; // Наклон вперед-назад (0 до 90)
-
-      setTilt({
-        x: Math.max(-1, Math.min(1, x)) * 15, // Ограничиваем угол поворота 15 градусами
-        y: Math.max(-1, Math.min(1, y)) * 15
-      });
+    const handleMouseMove = (e) => {
+      const { clientX, clientY } = e;
+      const x = (window.innerWidth / 2 - clientX) / 20;
+      const y = (window.innerHeight / 2 - clientY) / 20;
+      setTilt({ x, y });
     };
 
-    window.addEventListener('deviceorientation', handleDeviceOrientation);
-    return () => window.removeEventListener('deviceorientation', handleDeviceOrientation);
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [isOpen, item]);
-  // API mapping for unequip slot.
+
+  // Mapping DB slots to API slots
   const apiSlotMap = {
-      'armor': 'body',
-      'chip': 'software',
-      'eidos_shard': 'artifact'
+     armor: 'body',
+     chip: 'software',
+     eidos_shard: 'artifact'
   };
 
   const equipMutation = useMutation({
