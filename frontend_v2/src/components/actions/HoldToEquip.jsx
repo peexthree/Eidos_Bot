@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
-import WebApp from '@twa-dev/sdk';
 
 const HoldToEquip = ({ onEquip, text = "Экипировать", baseColor = "eidos-cyan", activeColor = "eidos-cyan" }) => {
   const [isHolding, setIsHolding] = useState(false);
@@ -19,17 +18,23 @@ const HoldToEquip = ({ onEquip, text = "Экипировать", baseColor = "ei
     });
 
     // Легкая вибрация при начале
-    WebApp.HapticFeedback.impactOccurred('light');
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+    }
 
     // Периодическая вибрация во время удержания
     hapticTimer.current = setInterval(() => {
-      WebApp.HapticFeedback.selectionChanged();
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.selectionChanged();
+        }
     }, HAPTIC_INTERVAL);
 
     // Таймер окончания удержания
     holdTimer.current = setTimeout(() => {
       clearInterval(hapticTimer.current);
-      WebApp.HapticFeedback.impactOccurred('heavy'); // Сильная вибрация при успехе
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+      }
       onEquip();
       setIsHolding(false);
     }, HOLD_DURATION);
@@ -108,7 +113,7 @@ const HoldToEquip = ({ onEquip, text = "Экипировать", baseColor = "ei
       </div>
 
       {/* Текст-подсказка */}
-      <div className="absolute -bottom-6 text-xs text-white/40 font-share-tech uppercase tracking-widest">
+      <div className="absolute -bottom-6 text-xs text-white/40 font-share uppercase tracking-widest">
         Удерживайте
       </div>
     </div>

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import useStore from '../store/useStore';
 import ProfileHeader from '../components/ProfileHeader';
 import EquipDoll from '../components/EquipDoll';
 import ItemList from '../components/ItemList';
