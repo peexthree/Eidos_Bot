@@ -26,6 +26,7 @@ eidosApi.interceptors.request.use(
 
     // Для предотвращения кэширования AJAX-запросов (браузером на мобильных)
     config.params = { ...config.params, _t: new Date().getTime() };
+    config.metadata = { startTime: new Date() };
 
     return config;
   },
@@ -37,7 +38,15 @@ eidosApi.interceptors.request.use(
 // Глобальный перехватчик ответов
 eidosApi.interceptors.response.use(
   (response) => {
-    // Успешный ответ
+    if (response.config.metadata) {
+      const duration = new Date() - response.config.metadata.startTime;
+      if (duration > 800) {
+        import("../store/useStore").then(m => {
+          m.default.getState().setGlitch(true);
+          setTimeout(() => m.default.getState().setGlitch(false), 800);
+        });
+      }
+    }
     return response.data;
   },
   (error) => {

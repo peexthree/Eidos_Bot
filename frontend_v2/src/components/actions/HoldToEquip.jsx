@@ -6,12 +6,39 @@ const HoldToEquip = ({ onEquip, text = "Экипировать", baseColor = "ei
   const controls = useAnimation();
   const holdTimer = useRef(null);
   const hapticTimer = useRef(null);
+  const audioCtx = useRef(null);
+  const oscillator = useRef(null);
+  const gainNode = useRef(null);
 
   const HOLD_DURATION = 1500; // 1.5 секунды для экипировки
   const HAPTIC_INTERVAL = 150; // Интервал тактильной отдачи при удержании
 
   const startHold = () => {
     setIsHolding(true);
+
+    // Web Audio API: Acoustic Haptic Rising Sine Wave
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        audioCtx.current = new AudioContext();
+        oscillator.current = audioCtx.current.createOscillator();
+        gainNode.current = audioCtx.current.createGain();
+
+        oscillator.current.type = 'sine';
+        oscillator.current.frequency.setValueAtTime(100, audioCtx.current.currentTime);
+        oscillator.current.frequency.exponentialRampToValueAtTime(800, audioCtx.current.currentTime + (HOLD_DURATION / 1000));
+
+        gainNode.current.gain.setValueAtTime(0.01, audioCtx.current.currentTime);
+        gainNode.current.gain.linearRampToValueAtTime(0.3, audioCtx.current.currentTime + (HOLD_DURATION / 1000));
+
+        oscillator.current.connect(gainNode.current);
+        gainNode.current.connect(audioCtx.current.destination);
+
+        oscillator.current.start();
+      }
+    } catch (e) {
+      console.warn('AudioContext not supported');
+    }
     controls.start({
       pathLength: 1,
       transition: { duration: HOLD_DURATION / 1000, ease: 'linear' }
@@ -32,6 +59,12 @@ const HoldToEquip = ({ onEquip, text = "Экипировать", baseColor = "ei
     // Таймер окончания удержания
     holdTimer.current = setTimeout(() => {
       clearInterval(hapticTimer.current);
+      if (oscillator.current) {
+        try { oscillator.current.stop(); } catch (e) {}
+      }
+      if (audioCtx.current) {
+        try { audioCtx.current.close(); } catch (e) {}
+      }
       if (window.Telegram?.WebApp?.HapticFeedback) {
           window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
       }
@@ -43,6 +76,12 @@ const HoldToEquip = ({ onEquip, text = "Экипировать", baseColor = "ei
   const cancelHold = () => {
     if (isHolding) {
       setIsHolding(false);
+      if (oscillator.current) {
+        try { oscillator.current.stop(); } catch (e) {}
+      }
+      if (audioCtx.current) {
+        try { audioCtx.current.close(); } catch (e) {}
+      }
       controls.stop();
       controls.set({ pathLength: 0 });
       clearTimeout(holdTimer.current);

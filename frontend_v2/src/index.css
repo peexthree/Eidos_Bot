@@ -59,3 +59,16 @@ body {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
 }
+
+@keyframes chromaticAberration {
+  0% { text-shadow: 2px 0 0 red, -2px 0 0 blue; filter: hue-rotate(90deg); transform: translate(1px, 1px); }
+  25% { text-shadow: -2px 0 0 red, 2px 0 0 blue; filter: hue-rotate(180deg); transform: translate(-1px, -1px); }
+  50% { text-shadow: 2px 0 0 red, -2px 0 0 blue; filter: hue-rotate(270deg); transform: translate(-1px, 1px); }
+  75% { text-shadow: -2px 0 0 red, 2px 0 0 blue; filter: hue-rotate(360deg); transform: translate(1px, -1px); }
+  100% { text-shadow: 2px 0 0 red, -2px 0 0 blue; filter: hue-rotate(0deg); transform: translate(0, 0); }
+}
+
+.glitch-effect {
+  animation: chromaticAberration 0.2s linear infinite;
+  filter: contrast(1.2) brightness(1.1);
+}

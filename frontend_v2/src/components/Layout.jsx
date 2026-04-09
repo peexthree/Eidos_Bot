@@ -1,8 +1,11 @@
 import React from 'react';
 
+import useStore from '../store/useStore';
+
 export default function Layout({ children }) {
+  const glitch = useStore((state) => state.glitch);
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden overscroll-none bg-[var(--color-eidos-bg)] text-white relative">
+    <div className={`flex flex-col h-[100dvh] overflow-hidden overscroll-none bg-[var(--color-eidos-bg)] text-white relative ${glitch ? "glitch-effect" : ""}`}>
       {/*
         Фоновый эффект кибер-частиц (Nexus Grid).
         Используется абсолютное позиционирование с z-index: -1 и pointer-events: none,

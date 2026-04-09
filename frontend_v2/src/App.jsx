@@ -5,6 +5,7 @@ import useStore from './store/useStore';
 
 // Components
 import Layout from './components/Layout';
+import TerminalLog from './components/TerminalLog';
 import IntroVideo from './components/IntroVideo';
 import Hub from './pages/Hub';
 import ShopModal from './components/ShopModal';
@@ -178,6 +179,7 @@ function App() {
         <Layout>
           {renderView()}
         </Layout>
+        <TerminalLog />
       </ErrorBoundary>
     </QueryClientProvider>
   );
