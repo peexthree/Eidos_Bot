@@ -78,6 +78,16 @@ const useStore = create((set, get) => ({
     set({ equipped: prevEquipped, inventory: prevInventory });
   },
 
+  addTerminalLog: (msg) => {
+    const id = Date.now() + Math.random();
+    set((state) => ({ terminalLogs: [...state.terminalLogs, { id, msg }] }));
+    setTimeout(() => {
+      set((state) => ({ terminalLogs: state.terminalLogs.filter(log => log.id !== id) }));
+    }, 3000);
+  },
+
+  setGlitch: (val) => set({ glitch: val }),
+
   fetchRaidData: async (uid) => {
     try {
         const response = await axios.get('/hub_data', { params: { uid } });

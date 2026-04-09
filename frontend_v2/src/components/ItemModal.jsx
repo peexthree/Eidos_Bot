@@ -58,7 +58,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
     onError: (err, variables, context) => {
       console.error("Equip error:", err);
       revertOptimistic(context.prevEquipped, context.prevInventory);
-      if (window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка при экипировке");
+      import("../store/useStore").then(m => m.default.getState().addTerminalLog("Ошибка при экипировке"));
           const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
       if (uid) fetchProfile(uid);
     },
@@ -82,7 +82,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
     onError: (err, variables, context) => {
       console.error("Unequip error:", err);
       revertOptimistic(context.prevEquipped, context.prevInventory);
-      if (window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка при снятии");
+      import("../store/useStore").then(m => m.default.getState().addTerminalLog("Ошибка при снятии"));
           const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
       if (uid) fetchProfile(uid);
     },
@@ -106,7 +106,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
     onError: (err, variables, context) => {
       console.error("Dismantle error:", err);
       revertOptimistic(context.prevEquipped, context.prevInventory);
-      if (window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка при разборе");
+      import("../store/useStore").then(m => m.default.getState().addTerminalLog("Ошибка при разборе"));
           const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get('uid');
       if (uid) fetchProfile(uid);
     },

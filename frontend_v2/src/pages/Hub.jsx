@@ -1,3 +1,4 @@
+import useStore from '../store/useStore';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { eidosApi } from '../api/client';
@@ -55,15 +56,8 @@ const Hub = ({ setView }) => {
     if (tgImageUrl) {
         setModalImage(tgImageUrl);
     } else {
-        if (twa && twa.showPopup) {
-            twa.showPopup({
-                title: 'SYSTEM MODULE OFFLINE',
-                message: 'Модуль находится в разработке.',
-                buttons: [{type: 'close'}]
-            });
-        } else {
-            alert("MODULE OFFLINE");
-        }
+
+        useStore.getState().addTerminalLog("SYSTEM MODULE OFFLINE");
     }
   }
 
