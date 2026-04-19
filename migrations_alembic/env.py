@@ -1,3 +1,5 @@
+import urllib.parse
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -19,6 +21,35 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = None
+
+# Override sqlalchemy.url with environment variable if present
+db_url = os.environ.get("DATABASE_URL")
+if db_url:
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+    parsed = urllib.parse.urlparse(db_url)
+    if "supabase" in parsed.netloc:
+        query_params = urllib.parse.parse_qs(parsed.query)
+        if "pgbouncer" in query_params:
+            del query_params["pgbouncer"]
+        parsed = parsed._replace(query=urllib.parse.urlencode(query_params, doseq=True))
+        db_url = urllib.parse.urlunparse(parsed)
+
+    config.set_main_option("sqlalchemy.url", db_url)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
