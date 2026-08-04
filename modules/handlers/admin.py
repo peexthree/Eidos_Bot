@@ -11,6 +11,37 @@ import base64
 import os
 import zipfile
 from datetime import datetime
+import re
+import glob
+
+CYRILLIC_TO_LATIN = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+    'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+    'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts',
+    'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu',
+    'я': 'ya'
+}
+
+def slugify(text):
+    if not text:
+        return ""
+    text = text.lower()
+    clean_chars = []
+    for char in text:
+        if char.isalnum() or char in (' ', '_', '-'):
+            clean_chars.append(char)
+    cleaned = ''.join(clean_chars)
+    res = []
+    for char in cleaned:
+        if char in CYRILLIC_TO_LATIN:
+            res.append(CYRILLIC_TO_LATIN[char])
+        else:
+            res.append(char)
+    slug = ''.join(res)
+    slug = slug.replace('-', '_').replace(' ', '_')
+    while '__' in slug:
+        slug = slug.replace('__', '_')
+    return slug.strip('_')
 
 @bot.message_handler(commands=['export_assets'])
 def export_assets_command(m):
@@ -48,8 +79,146 @@ def export_assets_command(m):
         if file_id:
             assets[f"avatar_lvl_{lvl}"] = file_id
 
+    # Дополнительные изображения из конфига, не попавшие в списки
+    pattern = re.compile(r'AgAC[A-Za-z0-9_-]+')
+    for attr in dir(config):
+        val = getattr(config, attr)
+        if isinstance(val, str) and pattern.match(val):
+            if val not in assets.values():
+                assets[attr.lower()] = val
+
+    try:
+        bot.edit_message_text(
+            f"⏳ <b>Сбор из конфигурации завершен. Найдено объектов: {len(assets)}</b>\nСканирование базы данных...",
+            uid, status_msg.message_id, parse_mode="HTML"
+        )
+    except Exception:
+        pass
+
+    # 5. Сканирование Базы Данных
+    try:
+        tables = db.get_all_tables()
+    except Exception as ex:
+        print(f"/// EXPORT_ASSETS error getting tables: {ex}")
+        tables = []
+
+    with db.db_session() as conn:
+        for t in tables:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(f"SELECT * FROM {t}")
+                    colnames = [desc[0] for desc in cur.description]
+                    rows = cur.fetchall()
+                    for row in rows:
+                        row_dict = dict(zip(colnames, row))
+                        for col_name, val in row_dict.items():
+                            if val and isinstance(val, str):
+                                matches = pattern.findall(val)
+                                for m in matches:
+                                    if m not in assets.values():
+                                        if t == 'villains':
+                                            name = row_dict.get('name') or row_dict.get('id') or 'unknown'
+                                            asset_key = f"villain_{slugify(str(name))}"
+                                        elif 'item_id' in row_dict and row_dict['item_id']:
+                                            asset_key = str(row_dict['item_id'])
+                                        elif 'name' in row_dict and row_dict['name']:
+                                            asset_key = slugify(str(row_dict['name']))
+                                        elif 'id' in row_dict and row_dict['id']:
+                                            asset_key = f"{t}_{row_dict['id']}"
+                                        else:
+                                            asset_key = m
+                                        assets[asset_key] = m
+            except Exception as ex:
+                print(f"/// EXPORT_ASSETS db scan error on {t}: {ex}")
+
+    try:
+        bot.edit_message_text(
+            f"⏳ <b>Сканирование БД завершено. Всего объектов: {len(assets)}</b>\nСканирование файлов в data/...",
+            uid, status_msg.message_id, parse_mode="HTML"
+        )
+    except Exception:
+        pass
+
+    # 6. Сканирование villains.json в data/
+    import json
+    try:
+        villains_path = os.path.join("data", "villains.json")
+        if os.path.exists(villains_path):
+            with open(villains_path, "r", encoding="utf-8") as f:
+                v_data = json.load(f)
+                for villain in v_data.get("villains", []):
+                    name = villain.get("name")
+                    image = villain.get("image")
+                    if name and image:
+                        matches = pattern.findall(image)
+                        for m in matches:
+                            if m not in assets.values():
+                                asset_key = f"villain_{slugify(name)}"
+                                assets[asset_key] = m
+    except Exception as ex:
+         print(f"/// EXPORT_ASSETS data villains.json error: {ex}")
+
+    # 7. Сканирование всех JSON файлов в data/ на наличие любых file_id
+    for filename in ["content.json", "villains.json"]:
+        try:
+            filepath = os.path.join("data", filename)
+            if os.path.exists(filepath):
+                with open(filepath, "r", encoding="utf-8") as f:
+                    content_str = f.read()
+                    matches = pattern.findall(content_str)
+                    for m in matches:
+                        if m not in assets.values():
+                            assets[m] = m
+        except Exception as ex:
+             print(f"/// EXPORT_ASSETS raw scan error on {filename}: {ex}")
+
+    try:
+        bot.edit_message_text(
+            f"⏳ <b>Сканирование JSON файлов завершено. Всего объектов: {len(assets)}</b>\nСканирование исходного кода...",
+            uid, status_msg.message_id, parse_mode="HTML"
+        )
+    except Exception:
+        pass
+
+    # 8. Сканирование исходного кода (.py файлов)
+    for root_dir in ['modules', '.']:
+        for py_file in glob.glob(os.path.join(root_dir, '**', '*.py'), recursive=True):
+            if 'admin.py' in py_file or 'download_assets.py' in py_file:
+                continue
+            try:
+                with open(py_file, 'r', encoding='utf-8') as f:
+                    content_str = f.read()
+                    matches = pattern.findall(content_str)
+                    for m in matches:
+                        if m not in assets.values():
+                            # Попытка извлечь имя переменной из строки присваивания или ключа словаря
+                            lines = content_str.split('\n')
+                            assigned_key = None
+                            for line in lines:
+                                if m in line and ('=' in line or ':' in line):
+                                    sep = '=' if '=' in line else ':'
+                                    parts = line.split(sep)
+                                    left = parts[0].strip().strip('\'" :')
+                                    if left:
+                                        left_clean = re.sub(r'[^a-zA-Z0-9_]', '', left)
+                                        if left_clean:
+                                            assigned_key = left_clean
+                                            break
+                            if assigned_key:
+                                assets[assigned_key.lower()] = m
+                            else:
+                                assets[m] = m
+            except Exception:
+                pass
+
     total = len(assets)
-    bot.edit_message_text(f"⏳ <b>Сбор завершен!</b> Найдено объектов: {total}.\nНачинаю сопоставление через Telegram API...", uid, status_msg.message_id, parse_mode="HTML")
+    try:
+        bot.edit_message_text(
+            f"⏳ <b>Сканирование исходного кода завершено. Найдено уникальных объектов: {total}</b>\nНачинаю сопоставление через Telegram API...",
+            uid, status_msg.message_id, parse_mode="HTML"
+        )
+    except Exception:
+        pass
 
     mapping = {}
     processed = 0
@@ -79,7 +248,6 @@ def export_assets_command(m):
                 pass
 
     # Генерация JSON
-    import json
     json_data = json.dumps(mapping, indent=2, ensure_ascii=False)
 
     # Создаем виртуальный файл в памяти
