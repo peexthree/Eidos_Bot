@@ -12,6 +12,94 @@ import os
 import zipfile
 from datetime import datetime
 
+@bot.message_handler(commands=['export_assets'])
+def export_assets_command(m):
+    uid = int(m.from_user.id)
+    # Команда доступна только владельцу (ADMIN_ID)
+    if str(uid) != str(config.ADMIN_ID):
+        return
+
+    status_msg = bot.send_message(uid, "⏳ <b>Инициализация экспорта ресурсов...</b>\nСбор информации из конфигурационных файлов.", parse_mode="HTML")
+
+    # Сбор всех file_id из конфига
+    assets = {}
+
+    # 1. ITEM_IMAGES & SOFTWARE_IMAGES (уже объединены в ITEM_IMAGES в config.py)
+    item_images = getattr(config, "ITEM_IMAGES", {})
+    for item_id, file_id in item_images.items():
+        if file_id:
+            assets[str(item_id)] = file_id
+
+    # 2. MENU_IMAGES
+    menu_images = getattr(config, "MENU_IMAGES", {})
+    for menu_id, file_id in menu_images.items():
+        if file_id:
+            assets[f"menu_{menu_id}"] = file_id
+
+    # 3. RAID_EVENT_IMAGES
+    raid_images = getattr(config, "RAID_EVENT_IMAGES", {})
+    for raid_id, file_id in raid_images.items():
+        if file_id:
+            assets[f"raid_{raid_id}"] = file_id
+
+    # 4. USER_AVATARS
+    avatars = getattr(config, "USER_AVATARS", {})
+    for lvl, file_id in avatars.items():
+        if file_id:
+            assets[f"avatar_lvl_{lvl}"] = file_id
+
+    total = len(assets)
+    bot.edit_message_text(f"⏳ <b>Сбор завершен!</b> Найдено объектов: {total}.\nНачинаю сопоставление через Telegram API...", uid, status_msg.message_id, parse_mode="HTML")
+
+    mapping = {}
+    processed = 0
+    errors = 0
+
+    for asset_id, file_id in assets.items():
+        try:
+            file_info = bot.get_file(file_id)
+            if file_info and file_info.file_path:
+                mapping[asset_id] = file_info.file_path
+            else:
+                mapping[asset_id] = ""
+                errors += 1
+        except Exception as ex:
+            print(f"/// EXPORT_ASSETS ERROR for {asset_id} ({file_id}): {ex}")
+            mapping[asset_id] = ""
+            errors += 1
+
+        processed += 1
+        if processed % 15 == 0 or processed == total:
+            try:
+                bot.edit_message_text(
+                    f"⏳ <b>Обработка Telegram API...</b>\nПрогресс: {processed}/{total}\nОшибок: {errors}",
+                    uid, status_msg.message_id, parse_mode="HTML"
+                )
+            except Exception:
+                pass
+
+    # Генерация JSON
+    import json
+    json_data = json.dumps(mapping, indent=2, ensure_ascii=False)
+
+    # Создаем виртуальный файл в памяти
+    import io
+    bio = io.BytesIO(json_data.encode('utf-8'))
+    bio.name = "mapping.json"
+
+    bot.send_document(
+        uid,
+        bio,
+        caption=f"✅ <b>Экспорт успешно завершен!</b>\nВсего объектов: {total}\nУспешно получено путей: {total - errors}\nОшибок: {errors}",
+        parse_mode="HTML"
+    )
+
+    try:
+        bot.delete_message(uid, status_msg.message_id)
+    except Exception:
+        pass
+
+
 @bot.message_handler(commands=['admin'])
 def admin_command(m):
     uid = int(m.from_user.id)
