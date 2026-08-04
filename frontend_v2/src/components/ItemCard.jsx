@@ -1,5 +1,6 @@
 import React from 'react';
 import useStore from '../store/useStore';
+import ItemImage from './ItemImage';
 
 const ItemCard = ({ item }) => {
   const equipped = useStore((state) => state.equipped) || {};
@@ -29,11 +30,7 @@ const ItemCard = ({ item }) => {
       <div className="flex items-center flex-1 gap-3">
         {/* Item Image */}
         <div className="w-12 h-12 flex-shrink-0 bg-black/40 border border-white/20 clip-hex flex items-center justify-center overflow-hidden">
-           {item?.image_url ? (
-             <img src={item.image_url} alt={item?.name} className="w-full h-full object-cover" />
-           ) : (
-             <span className="font-share text-[20px]">{item?.icon || '📦'}</span>
-           )}
+           <ItemImage item={item} className="w-full h-full object-cover" />
         </div>
 
         <div className="flex flex-col flex-1">
