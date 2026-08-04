@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import ItemImage from './ItemImage';
 import HoldToEquip from './actions/HoldToEquip';
 import DragToDismantle from './actions/DragToDismantle';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -221,13 +222,7 @@ const ItemModal = ({ isOpen, onClose, item }) => {
                     </div>
                  </div>
 
-                 {item?.image_url ? (
-                    <img src={item?.image_url} alt={item?.name} className="w-full h-full object-cover z-10" />
-                 ) : (
-                    <div className="text-6xl z-10">
-                      {item?.icon || '📦'}
-                    </div>
-                 )}
+                 <ItemImage item={item} className="w-full h-full object-cover z-10" />
                  <div className={`absolute inset-0 opacity-20 bg-gradient-to-tr from-transparent to-${rarityColor.split('-')[1]} z-0`} />
               </div>
 
