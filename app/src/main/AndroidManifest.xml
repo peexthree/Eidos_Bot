@@ -29,9 +29,9 @@
             android:name=".ui.utils.EidosAlarmReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.eidos.ENERGY_RESTORED" />
-                <action android:name="com.example.eidos.DAILY_SYNC" />
-                <action android:name="com.example.eidos.NETWORK_INTRUSION" />
+                <action android:name="io.eidos.zerolayer.ENERGY_RESTORED" />
+                <action android:name="io.eidos.zerolayer.DAILY_SYNC" />
+                <action android:name="io.eidos.zerolayer.NETWORK_INTRUSION" />
             </intent-filter>
         </receiver>
     </application>

@@ -20,8 +20,8 @@
 }
 
 # Keep Data Models & Serializable Objects Intact (No Obfuscation of DB / Serialization Fields)
--keep class com.example.eidos.data.** { *; }
--keepclassmembers class com.example.eidos.data.** { *; }
+-keep class io.eidos.zerolayer.data.** { *; }
+-keepclassmembers class io.eidos.zerolayer.data.** { *; }
 
 # Room Database
 -keepclassmembers class androidx.room.RoomDatabase {

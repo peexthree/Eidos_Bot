@@ -4,3 +4,13 @@ __pycache__
 venv/
 node_modules/
 .venv/
+
+# Build & Studio artifacts
+.gradle/
+.kotlin/
+.aistudio/
+app/applet/*.py
+build/
+app/build/
+.idea/
+*.iml

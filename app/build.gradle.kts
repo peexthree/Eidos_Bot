@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.eidos"
+    namespace = "io.eidos.zerolayer"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.aistudio.eidos.jklm"
+        applicationId = "io.eidos.zerolayer"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -113,6 +113,14 @@ dependencies {
     // Coil
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
+
+    // Google Play Billing
+    implementation("com.android.billingclient:billing-ktx:7.0.0")
+
+    // Firebase BoM, Crashlytics & Analytics
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
+    implementation("com.google.firebase:firebase-analytics-ktx")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
