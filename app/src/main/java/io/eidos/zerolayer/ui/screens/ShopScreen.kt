@@ -18,8 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -425,13 +423,17 @@ fun ShopScreen(
                                     onClick = {
                                         telemetryManager.logPurchaseInitiated("neurolink_premium")
                                         if (activity != null) {
-                                            billingManager.launchBillingFlow(activity, "neurolink_premium") { token, sku ->
-                                                telemetryManager.logPurchaseSuccess(sku, token)
-                                                onBuy("neurolink_premium")
-                                            }
-                                        } else {
-                                            telemetryManager.logPurchaseSuccess("neurolink_premium", "simulated_token")
-                                            onBuy("neurolink_premium")
+                                            billingManager.launchBillingFlow(
+                                                activity = activity,
+                                                productId = "neurolink_premium",
+                                                onError = {},
+                                                onSuccess = { token, sku ->
+                                                    if (billingManager.validatePurchaseToken(token)) {
+                                                        telemetryManager.logPurchaseSuccess(sku, token)
+                                                        onBuy("neurolink_premium")
+                                                    }
+                                                }
+                                            )
                                         }
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = EidosNeon),
@@ -468,13 +470,17 @@ fun ShopScreen(
                                     onClick = {
                                         telemetryManager.logPurchaseInitiated("biocoin_pack_1000")
                                         if (activity != null) {
-                                            billingManager.launchBillingFlow(activity, "biocoin_pack_1000") { token, sku ->
-                                                telemetryManager.logPurchaseSuccess(sku, token)
-                                                onBuy("biocoin_pack_1000")
-                                            }
-                                        } else {
-                                            telemetryManager.logPurchaseSuccess("biocoin_pack_1000", "simulated_token")
-                                            onBuy("biocoin_pack_1000")
+                                            billingManager.launchBillingFlow(
+                                                activity = activity,
+                                                productId = "biocoin_pack_1000",
+                                                onError = {},
+                                                onSuccess = { token, sku ->
+                                                    if (billingManager.validatePurchaseToken(token)) {
+                                                        telemetryManager.logPurchaseSuccess(sku, token)
+                                                        onBuy("biocoin_pack_1000")
+                                                    }
+                                                }
+                                            )
                                         }
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
@@ -511,13 +517,17 @@ fun ShopScreen(
                                     onClick = {
                                         telemetryManager.logPurchaseInitiated("cargo_insurance")
                                         if (activity != null) {
-                                            billingManager.launchBillingFlow(activity, "cargo_insurance") { token, sku ->
-                                                telemetryManager.logPurchaseSuccess(sku, token)
-                                                onBuy("cargo_insurance")
-                                            }
-                                        } else {
-                                            telemetryManager.logPurchaseSuccess("cargo_insurance", "simulated_token")
-                                            onBuy("cargo_insurance")
+                                            billingManager.launchBillingFlow(
+                                                activity = activity,
+                                                productId = "cargo_insurance",
+                                                onError = {},
+                                                onSuccess = { token, sku ->
+                                                    if (billingManager.validatePurchaseToken(token)) {
+                                                        telemetryManager.logPurchaseSuccess(sku, token)
+                                                        onBuy("cargo_insurance")
+                                                    }
+                                                }
+                                            )
                                         }
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),

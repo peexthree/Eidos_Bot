@@ -101,8 +101,8 @@ object CodexRepository {
 
 Те, кто прошел горизонт событий Демона, вступают в преддверие Абсолюта — прямо к монолиту Центрального Ядра EIDOS.
             """.trim(),
-            isUnlocked = { player -> (player?.max_depth ?: 0) >= 4000 },
-            unlockConditionText = "Требуется: Глубина 4000м"
+            isUnlocked = { player -> (player?.max_depth ?: 0) >= 200 || (player?.level ?: 1) >= 15 },
+            unlockConditionText = "Требуется: Уровень 15 или Глубина 200м"
         ),
         StoryChapter(
             id = 6,
@@ -119,8 +119,8 @@ object CodexRepository {
 2. 👑 ЦИФРОВОЕ ВОЗНЕСЕНИЕ (Digital Ascension): Слияние с EIDOS-CORE. Стань новым бессмертным разумом Системы.
 3. 🌌 СИНГУЛЯРНОСТЬ БЕЗДНЫ (Abyssal Singularity 5000+): Прорыв барьера в бесконечную бездну с экстремальными аффиксами комнат и богоподобным дропом!
             """.trim(),
-            isUnlocked = { player -> (player?.max_depth ?: 0) >= 5000 },
-            unlockConditionText = "Требуется: Глубина 5000м (Ядро EIDOS-CORE)",
+            isUnlocked = { player -> (player?.max_depth ?: 0) >= 200 || (player?.level ?: 1) >= 15 },
+            unlockConditionText = "Требуется: Уровень 15 или Глубина 200м (Ядро EIDOS-CORE)",
             hasSingularityTerminal = true
         )
     )

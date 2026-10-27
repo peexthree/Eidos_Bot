@@ -1,6 +1,8 @@
 package io.eidos.zerolayer.data
 
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -108,7 +110,18 @@ interface EidosDao {
     fun getUnclaimedMessagesCountFlow(uid: Long): Flow<Int>
 }
 
-@Database(entities = [Player::class, InventoryItem::class, RaidSession::class, GameLog::class, VillainStatic::class, GameContent::class, Grave::class, BestiaryEntry::class, RadioMessageEntity::class], version = 10, exportSchema = false)
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE players ADD COLUMN overdriveCharge INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE players ADD COLUMN overchargeTier INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+@Database(
+    entities = [Player::class, InventoryItem::class, RaidSession::class, GameLog::class, VillainStatic::class, GameContent::class, Grave::class, BestiaryEntry::class, RadioMessageEntity::class],
+    version = 11,
+    exportSchema = false
+)
 abstract class EidosDatabase : RoomDatabase() {
     abstract fun dao(): EidosDao
 
@@ -123,7 +136,8 @@ abstract class EidosDatabase : RoomDatabase() {
                     EidosDatabase::class.java,
                     "eidos_database"
                 )
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_10_11)
+                .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 INSTANCE = instance
                 instance

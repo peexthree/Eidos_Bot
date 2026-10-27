@@ -1,6 +1,5 @@
 {
   "project_info": {
-
     "project_number": "1026861321754",
     "project_id": "ioeidoszerolayer",
     "storage_bucket": "ioeidoszerolayer.firebasestorage.app"
@@ -8,19 +7,15 @@
   "client": [
     {
       "client_info": {
-
         "mobilesdk_app_id": "1:1026861321754:android:8e518869162e1e7c728ba3",
-
         "android_client_info": {
           "package_name": "io.eidos.zerolayer"
         }
       },
       "oauth_client": [],
       "api_key": [
-        
-    
-          "current_key": "AIzaSyBa9Sg_p5ue3nDXMHHFtx8CRaL_MaAFync"
-
+        {
+          "current_key": "AIzaSyDummyKeyForLocalBuild00000000000"
         }
       ],
       "services": {

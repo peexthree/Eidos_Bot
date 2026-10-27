@@ -87,17 +87,25 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     val combatEventFlow: SharedFlow<CombatVisualEvent> = _combatEventFlow.asSharedFlow()
 
     fun getOverdriveCharge(uid: Long): Int = overdriveChargeMap.getOrDefault(uid, 0)
-    fun setOverdriveCharge(uid: Long, charge: Int) {
+    suspend fun setOverdriveCharge(uid: Long, charge: Int) {
         val clamped = charge.coerceIn(0, 100)
         overdriveChargeMap[uid] = clamped
         _overdriveChargeFlow.value = clamped
+        val player = dao.getPlayer(uid)
+        if (player != null && player.overdriveCharge != clamped) {
+            dao.updatePlayer(player.copy(overdriveCharge = clamped))
+        }
     }
 
     fun getOverchargeTier(uid: Long): Int = overchargeTierMap.getOrDefault(uid, 0)
-    fun setOverchargeTier(uid: Long, tier: Int) {
+    suspend fun setOverchargeTier(uid: Long, tier: Int) {
         val clamped = tier.coerceIn(0, 3)
         overchargeTierMap[uid] = clamped
         _overchargeTierFlow.value = clamped
+        val player = dao.getPlayer(uid)
+        if (player != null && player.overchargeTier != clamped) {
+            dao.updatePlayer(player.copy(overchargeTier = clamped))
+        }
     }
 
     suspend fun boostOvercharge(uid: Long): Int = dbMutex.withLock {
@@ -1301,7 +1309,20 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     fun getPlayer(uid: Long): Flow<Player?> = dao.getPlayerFlow(uid)
     
-    suspend fun getPlayerSync(uid: Long) = dao.getPlayer(uid)
+    suspend fun getPlayerSync(uid: Long): Player? {
+        val player = dao.getPlayer(uid)
+        if (player != null) {
+            if (!overdriveChargeMap.containsKey(uid)) {
+                overdriveChargeMap[uid] = player.overdriveCharge
+                _overdriveChargeFlow.value = player.overdriveCharge
+            }
+            if (!overchargeTierMap.containsKey(uid)) {
+                overchargeTierMap[uid] = player.overchargeTier
+                _overchargeTierFlow.value = player.overchargeTier
+            }
+        }
+        return player
+    }
 
     suspend fun savePlayer(player: Player) = dao.insertPlayer(player)
 

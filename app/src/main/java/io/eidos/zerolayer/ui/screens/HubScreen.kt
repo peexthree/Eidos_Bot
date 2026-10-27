@@ -811,7 +811,7 @@ fun HubScreen(
                                 fontFamily = FontFamily.Monospace
                             )
                         }
-                        Divider(
+                        HorizontalDivider(
                             color = Color.Gray.copy(alpha = 0.2f),
                             modifier = Modifier.padding(vertical = 8.dp)
                         )

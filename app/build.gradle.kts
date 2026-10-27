@@ -106,6 +106,9 @@ dependencies {
     
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
+
+    // Security & EncryptedSharedPreferences
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     
     // Biometrics
     implementation("androidx.biometric:biometric:1.1.0")
