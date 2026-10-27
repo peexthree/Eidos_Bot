@@ -2,6 +2,9 @@ package io.eidos.zerolayer.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 data class AuthSession(
     val isLoggedIn: Boolean,
@@ -15,7 +18,21 @@ data class AuthSession(
 
 class EidosAuthStore private constructor(context: Context) {
 
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = try {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (e: Exception) {
+        Log.e("EidosAuthStore", "Failed to initialize EncryptedSharedPreferences, fallback to standard: ${e.message}")
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
 
     fun getSession(): AuthSession {
         val isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
@@ -65,7 +82,7 @@ class EidosAuthStore private constructor(context: Context) {
     }
 
     companion object {
-        private const val PREFS_NAME = "eidos_auth_session_prefs"
+        private const val PREFS_NAME = "eidos_auth_session_encrypted_prefs"
         private const val KEY_IS_LOGGED_IN = "key_is_logged_in"
         private const val KEY_IS_ANONYMOUS = "key_is_anonymous"
         private const val KEY_USERNAME = "key_username"

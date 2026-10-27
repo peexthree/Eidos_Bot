@@ -1,4 +1,4 @@
-__pycache__
+__pycache__/
 .env
 .DS_Store
 venv/
@@ -9,8 +9,18 @@ node_modules/
 .gradle/
 .kotlin/
 .aistudio/
-app/applet/*.py
 build/
 app/build/
 .idea/
 *.iml
+local.properties
+*.keystore
+*.jks
+
+# Temp scripts
+patch_*.py
+fix_*.py
+parse_data*.py
+update_*.py
+replace_*.py
+app/applet/*.py

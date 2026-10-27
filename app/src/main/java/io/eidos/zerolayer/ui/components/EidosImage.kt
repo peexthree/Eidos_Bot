@@ -98,11 +98,8 @@ fun resolveDrawableResourceId(context: Context, resName: String?): Int {
     if (safeName.isBlank()) return 0
 
     return drawableCache.getOrPut(safeName) {
-        val cleanName = safeName.lowercase()
-            .removeSuffix(".jpg")
-            .removeSuffix(".jpeg")
-            .removeSuffix(".png")
-            .removeSuffix(".webp")
+        val nameWithoutExt = safeName.substringBeforeLast(".")
+        val cleanName = nameWithoutExt.lowercase()
             .replace(" ", "_")
             .replace("-", "_")
             .replace("а", "a").replace("б", "b").replace("в", "v")

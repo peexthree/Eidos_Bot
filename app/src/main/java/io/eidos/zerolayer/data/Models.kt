@@ -107,6 +107,8 @@ data class Player(
     val anomalyBuffExpiry: Long = 0L,
     val lastHardGlitchTimestamp: Long = 0L,
     val glitchEncounterCounter: Int = 0,
+    val overdriveCharge: Int = 0,
+    val overchargeTier: Int = 0,
     val state_version: Long = 1,
     val updated_at: Long = System.currentTimeMillis()
 )
