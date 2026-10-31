@@ -28,8 +28,8 @@ object TimeAntiCheat {
     private const val KEY_LAST_ELAPSED_REALTIME = "last_elapsed_realtime"
     private const val KEY_LAST_BOOT_COUNT = "last_boot_count"
 
-    private const val MAX_SUSPICIOUS_FORWARD_JUMP_MS = 120_000L // 2 minutes in same boot
-    private const val MAX_REBOOT_UNTRUSTED_FORWARD_GAP_MS = 24 * 3600 * 1000L // 24 hours max gap after reboot without server verification
+    const val MAX_SUSPICIOUS_FORWARD_JUMP_MS = 120_000L // 2 minutes in same boot
+    const val MAX_REBOOT_UNTRUSTED_FORWARD_GAP_MS = 24 * 3600 * 1000L // 24 hours max gap after reboot without server verification
 
     data class ValidationResult(
         val isValid: Boolean,
@@ -39,6 +39,106 @@ object TimeAntiCheat {
         val isRebootDetected: Boolean = false,
         val message: String? = null
     )
+
+    /**
+     * Pure validation logic decoupled from Android Context / SharedPreferences.
+     */
+    fun evaluateTimestampIntegrity(
+        currentWallTime: Long,
+        currentElapsedRealtime: Long,
+        currentBootCount: Int,
+        lastKnownWallTime: Long,
+        lastElapsedRealtime: Long,
+        lastBootCount: Int
+    ): ValidationResult {
+        // Initial setup
+        if (lastKnownWallTime == 0L || lastElapsedRealtime == 0L) {
+            return ValidationResult(
+                isValid = true,
+                sanitizedCurrentTime = currentWallTime,
+                isTimeReversed = false,
+                isSuspiciousForwardJump = false
+            )
+        }
+
+        val isReboot = (currentElapsedRealtime < lastElapsedRealtime) ||
+                (currentBootCount != -1 && lastBootCount != -1 && currentBootCount != lastBootCount)
+
+        // Case 1: Device Rebooted
+        if (isReboot) {
+            val wallDelta = currentWallTime - lastKnownWallTime
+
+            if (wallDelta < 0) {
+                // System clock was rewound before/during reboot
+                val sanitized = lastKnownWallTime + currentElapsedRealtime
+                return ValidationResult(
+                    isValid = false,
+                    sanitizedCurrentTime = sanitized,
+                    isTimeReversed = true,
+                    isSuspiciousForwardJump = false,
+                    isRebootDetected = true,
+                    message = "⚠️ [ХРОНО-ЗАЩИТА]: Обнаружен откат времени после перезагрузки! Время скорректировано."
+                )
+            } else if (wallDelta > MAX_REBOOT_UNTRUSTED_FORWARD_GAP_MS) {
+                // System clock jumped forward suspiciously across reboot
+                val sanitized = lastKnownWallTime + MAX_REBOOT_UNTRUSTED_FORWARD_GAP_MS
+                return ValidationResult(
+                    isValid = false,
+                    sanitizedCurrentTime = sanitized,
+                    isTimeReversed = false,
+                    isSuspiciousForwardJump = true,
+                    isRebootDetected = true,
+                    message = "⚠️ [ХРОНО-ЗАЩИТА]: Пересказ времени после перезагрузки превышает лимит offline! Синхронизируйтесь с сетью."
+                )
+            } else {
+                // Reasonable wallDelta post-reboot
+                return ValidationResult(
+                    isValid = true,
+                    sanitizedCurrentTime = currentWallTime,
+                    isTimeReversed = false,
+                    isSuspiciousForwardJump = false,
+                    isRebootDetected = true
+                )
+            }
+        }
+
+        // Case 2: Same Boot Session - Backward Time Travel
+        if (currentWallTime < lastKnownWallTime) {
+            val elapsedDelta = (currentElapsedRealtime - lastElapsedRealtime).coerceAtLeast(0L)
+            val sanitized = lastKnownWallTime + elapsedDelta
+
+            return ValidationResult(
+                isValid = false,
+                sanitizedCurrentTime = sanitized,
+                isTimeReversed = true,
+                isSuspiciousForwardJump = false
+            )
+        }
+
+        // Case 3: Same Boot Session - Forward Time Jump
+        val wallDelta = currentWallTime - lastKnownWallTime
+        val elapsedDelta = currentElapsedRealtime - lastElapsedRealtime
+        val discrepancy = wallDelta - elapsedDelta
+
+        if (discrepancy > MAX_SUSPICIOUS_FORWARD_JUMP_MS) {
+            val sanitized = lastKnownWallTime + elapsedDelta
+
+            return ValidationResult(
+                isValid = false,
+                sanitizedCurrentTime = sanitized,
+                isTimeReversed = false,
+                isSuspiciousForwardJump = true,
+                message = "⚠️ [ХРОНО-ЗАЩИТА]: Обнаружена перемотка времени вперед! Таймеры скорректированы."
+            )
+        }
+
+        return ValidationResult(
+            isValid = true,
+            sanitizedCurrentTime = currentWallTime,
+            isTimeReversed = false,
+            isSuspiciousForwardJump = false
+        )
+    }
 
     /**
      * Validates and returns a secure, tamper-resistant timestamp.
@@ -58,138 +158,23 @@ object TimeAntiCheat {
         val lastElapsedRealtime = prefs.getLong(KEY_LAST_ELAPSED_REALTIME, 0L)
         val lastBootCount = prefs.getInt(KEY_LAST_BOOT_COUNT, -1)
 
-        // Initial setup
-        if (lastKnownWallTime == 0L || lastElapsedRealtime == 0L) {
-            prefs.edit()
-                .putLong(KEY_LAST_KNOWN_WALL_TIME, currentWallTime)
-                .putLong(KEY_LAST_ELAPSED_REALTIME, currentElapsedRealtime)
-                .putInt(KEY_LAST_BOOT_COUNT, currentBootCount)
-                .apply()
-            return ValidationResult(
-                isValid = true,
-                sanitizedCurrentTime = currentWallTime,
-                isTimeReversed = false,
-                isSuspiciousForwardJump = false
-            )
-        }
+        val result = evaluateTimestampIntegrity(
+            currentWallTime = currentWallTime,
+            currentElapsedRealtime = currentElapsedRealtime,
+            currentBootCount = currentBootCount,
+            lastKnownWallTime = lastKnownWallTime,
+            lastElapsedRealtime = lastElapsedRealtime,
+            lastBootCount = lastBootCount
+        )
 
-        val isReboot = (currentElapsedRealtime < lastElapsedRealtime) ||
-                (currentBootCount != -1 && lastBootCount != -1 && currentBootCount != lastBootCount)
-
-        // Case 1: Device Rebooted
-        if (isReboot) {
-            Log.i("TimeAntiCheat", "Device reboot detected (Elapsed: $currentElapsedRealtime < $lastElapsedRealtime, BootCount: $currentBootCount vs $lastBootCount)")
-            val wallDelta = currentWallTime - lastKnownWallTime
-
-            if (wallDelta < 0) {
-                // System clock was rewound before/during reboot
-                val sanitized = lastKnownWallTime + currentElapsedRealtime
-                prefs.edit()
-                    .putLong(KEY_LAST_KNOWN_WALL_TIME, sanitized)
-                    .putLong(KEY_LAST_ELAPSED_REALTIME, currentElapsedRealtime)
-                    .putInt(KEY_LAST_BOOT_COUNT, currentBootCount)
-                    .apply()
-
-                return ValidationResult(
-                    isValid = false,
-                    sanitizedCurrentTime = sanitized,
-                    isTimeReversed = true,
-                    isSuspiciousForwardJump = false,
-                    isRebootDetected = true,
-                    message = "⚠️ [ХРОНО-ЗАЩИТА]: Обнаружен откат времени после перезагрузки! Время скорректировано."
-                )
-            } else if (wallDelta > MAX_REBOOT_UNTRUSTED_FORWARD_GAP_MS) {
-                // System clock jumped forward suspiciously across reboot
-                val sanitized = lastKnownWallTime + MAX_REBOOT_UNTRUSTED_FORWARD_GAP_MS
-                prefs.edit()
-                    .putLong(KEY_LAST_KNOWN_WALL_TIME, sanitized)
-                    .putLong(KEY_LAST_ELAPSED_REALTIME, currentElapsedRealtime)
-                    .putInt(KEY_LAST_BOOT_COUNT, currentBootCount)
-                    .apply()
-
-                return ValidationResult(
-                    isValid = false,
-                    sanitizedCurrentTime = sanitized,
-                    isTimeReversed = false,
-                    isSuspiciousForwardJump = true,
-                    isRebootDetected = true,
-                    message = "⚠️ [ХРОНО-ЗАЩИТА]: Пересказ времени после перезагрузки превышает лимит offline! Синхронизируйтесь с сетью."
-                )
-            } else {
-                // Reasonable wallDelta post-reboot
-                prefs.edit()
-                    .putLong(KEY_LAST_KNOWN_WALL_TIME, currentWallTime)
-                    .putLong(KEY_LAST_ELAPSED_REALTIME, currentElapsedRealtime)
-                    .putInt(KEY_LAST_BOOT_COUNT, currentBootCount)
-                    .apply()
-
-                return ValidationResult(
-                    isValid = true,
-                    sanitizedCurrentTime = currentWallTime,
-                    isTimeReversed = false,
-                    isSuspiciousForwardJump = false,
-                    isRebootDetected = true
-                )
-            }
-        }
-
-        // Case 2: Same Boot Session - Backward Time Travel
-        if (currentWallTime < lastKnownWallTime) {
-            val delta = lastKnownWallTime - currentWallTime
-            Log.w("TimeAntiCheat", "Detected backward clock rewind! Delta: ${delta}ms")
-
-            val elapsedDelta = (currentElapsedRealtime - lastElapsedRealtime).coerceAtLeast(0L)
-            val sanitized = lastKnownWallTime + elapsedDelta
-
-            prefs.edit()
-                .putLong(KEY_LAST_KNOWN_WALL_TIME, sanitized)
-                .putLong(KEY_LAST_ELAPSED_REALTIME, currentElapsedRealtime)
-                .apply()
-
-            return ValidationResult(
-                isValid = false,
-                sanitizedCurrentTime = sanitized,
-                isTimeReversed = true,
-                isSuspiciousForwardJump = false
-            )
-        }
-
-        // Case 3: Same Boot Session - Forward Time Jump
-        val wallDelta = currentWallTime - lastKnownWallTime
-        val elapsedDelta = currentElapsedRealtime - lastElapsedRealtime
-        val discrepancy = wallDelta - elapsedDelta
-
-        if (discrepancy > MAX_SUSPICIOUS_FORWARD_JUMP_MS) {
-            Log.w("TimeAntiCheat", "Suspicious forward clock skip! Discrepancy: ${discrepancy}ms")
-            val sanitized = lastKnownWallTime + elapsedDelta
-
-            prefs.edit()
-                .putLong(KEY_LAST_KNOWN_WALL_TIME, sanitized)
-                .putLong(KEY_LAST_ELAPSED_REALTIME, currentElapsedRealtime)
-                .apply()
-
-            return ValidationResult(
-                isValid = false,
-                sanitizedCurrentTime = sanitized,
-                isTimeReversed = false,
-                isSuspiciousForwardJump = true,
-                message = "⚠️ [ХРОНО-ЗАЩИТА]: Обнаружена перемотка времени вперед! Таймеры скорректированы."
-            )
-        }
-
-        // Update persistent state
+        // Persist evaluated/sanitized state
         prefs.edit()
-            .putLong(KEY_LAST_KNOWN_WALL_TIME, currentWallTime)
+            .putLong(KEY_LAST_KNOWN_WALL_TIME, result.sanitizedCurrentTime)
             .putLong(KEY_LAST_ELAPSED_REALTIME, currentElapsedRealtime)
             .putInt(KEY_LAST_BOOT_COUNT, currentBootCount)
             .apply()
 
-        return ValidationResult(
-            isValid = true,
-            sanitizedCurrentTime = currentWallTime,
-            isTimeReversed = false,
-            isSuspiciousForwardJump = false
-        )
+        return result
     }
 
     /**

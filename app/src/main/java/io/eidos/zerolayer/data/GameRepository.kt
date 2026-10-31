@@ -19,37 +19,6 @@ import java.text.SimpleDateFormat
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-object ShadowBrokerPrices {
-    fun getXpPrice(meta: GameRepository.ItemMetadata): Long {
-        val r = meta.rarity.lowercase()
-        val name = meta.name
-        val isCursedOrRelic = r in listOf("cursed", "relic") || name.contains("💀") || name.contains("👁") || name.contains("🔴") || meta.type == "cursed"
-        val isLegendary = r == "legendary" || name.contains("🟠")
-        val isEpicOrChip = r == "epic" || meta.type == "chip"
-
-        return when {
-            isCursedOrRelic -> 50000L
-            isLegendary -> 20000L
-            isEpicOrChip -> 8000L
-            else -> 3000L
-        }
-    }
-
-    fun getBcPrice(meta: GameRepository.ItemMetadata): Long {
-        val r = meta.rarity.lowercase()
-        val name = meta.name
-        val isCursedOrRelic = r in listOf("cursed", "relic") || name.contains("💀") || name.contains("👁") || name.contains("🔴") || meta.type == "cursed"
-        val isLegendary = r == "legendary" || name.contains("🟠")
-        val isEpicOrChip = r == "epic" || meta.type == "chip"
-
-        return when {
-            isCursedOrRelic -> 25000L
-            isLegendary -> 10000L
-            isEpicOrChip -> 4000L
-            else -> 1500L
-        }
-    }
-}
 
 class GameRepository(private val context: Context, private val originalDao: EidosDao) {
 
@@ -223,35 +192,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    data class ItemMetadata(
-        val id: String,
-        val name: String,
-        val type: String, // weapon, armor, head, chip, consumable, material
-        val rarity: String, // common, uncommon, rare, epic, legendary, relic, cursed
-        val icon: String = "❓",
-        val multiplier: Float = 1.0f,
-        val bonusAttack: Int = 0,
-        val bonusDefense: Int = 0,
-        val bonusLuck: Int = 0,
-        val hpRestore: Int = 0,
-        val energyRestore: Int = 0,
-        val price: Int = 100,
-        val description: String = "",
-        val reqLevel: Int = 1
-        )
-
-    
-    @kotlinx.serialization.Serializable
-    data class ItemJson(
-        val name: String = "Предмет",
-        val slot: String = "",
-        val type: String = "",
-        val atk: Int = 0,
-        val def: Int = 0,
-        val luck: Int = 0,
-        val price: Int = 0,
-        val desc: String = ""
-    )
+    typealias ItemMetadata = io.eidos.zerolayer.data.ItemMetadata
+    typealias ItemJson = io.eidos.zerolayer.data.ItemJson
 
     private val itemsMetadata: List<ItemMetadata> by lazy {
         try {
@@ -947,30 +889,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    data class ForgeRecipeDefinition(
-        val targetId: String,
-        val shardCost: Int,
-        val creditCost: Long,
-        val additionalIngredients: Map<String, Int> = emptyMap()
-    )
-
-    val forgeRecipes: List<ForgeRecipeDefinition> = listOf(
-        ForgeRecipeDefinition("reality_silencer", shardCost = 10, creditCost = 2500L, additionalIngredients = mapOf("boss_core" to 1)),
-        ForgeRecipeDefinition("death_mask", shardCost = 6, creditCost = 1500L, additionalIngredients = mapOf("data_spike" to 1)),
-        ForgeRecipeDefinition("scavenger_mask", shardCost = 4, creditCost = 800L, additionalIngredients = mapOf("master_key" to 2)),
-        ForgeRecipeDefinition("nomad_goggles", shardCost = 5, creditCost = 1000L, additionalIngredients = mapOf("compass" to 1)),
-        ForgeRecipeDefinition("karma_inversion", shardCost = 8, creditCost = 2000L, additionalIngredients = mapOf("abyssal_key" to 1)),
-        ForgeRecipeDefinition("holo_poverty", shardCost = 6, creditCost = 1200L, additionalIngredients = emptyMap()),
-        ForgeRecipeDefinition("aegis", shardCost = 5, creditCost = 1000L, additionalIngredients = mapOf("battery" to 1)),
-        ForgeRecipeDefinition("medkit_small", shardCost = 15, creditCost = 100L),
-        ForgeRecipeDefinition("battery", shardCost = 15, creditCost = 100L),
-        ForgeRecipeDefinition("rusty_knife", shardCost = 30, creditCost = 250L),
-        ForgeRecipeDefinition("crowbar", shardCost = 50, creditCost = 500L),
-        ForgeRecipeDefinition("hoodie", shardCost = 40, creditCost = 400L),
-        ForgeRecipeDefinition("master_key", shardCost = 20, creditCost = 200L),
-        ForgeRecipeDefinition("data_spike", shardCost = 25, creditCost = 300L),
-        ForgeRecipeDefinition("compass", shardCost = 25, creditCost = 300L)
-    )
+    typealias ForgeRecipeDefinition = io.eidos.zerolayer.data.ForgeRecipeDefinition
+    val forgeRecipes: List<ForgeRecipeDefinition> = ForgeRecipes.DEFAULT_RECIPES
 
     suspend fun craftItem(uid: Long, targetId: String) {
         val meta = getItemMetadata(targetId) ?: return
@@ -4114,38 +4034,4 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 }
 
-// --- STRUCTURE FOR ZERO LAYER ECONOMY ---
-object ZeroLayerEconomy {
-    const val SAFE_EXTRACTION_TAX_PERCENT = 8 // 8% Extraction tax rate
-    const val REPAIR_BASE_PER_DURABILITY = 2L  // 2 BC per 1% lost durability
-
-    fun calculateRepairFee(missingDurability: Float, rarity: String): Long {
-        if (missingDurability <= 0.05f) return 0L
-        val rarityMultiplier = when (rarity.lowercase()) {
-            "uncommon" -> 1.3f
-            "rare" -> 1.8f
-            "epic" -> 2.5f
-            "legendary" -> 4.0f
-            "cursed" -> 6.0f
-            else -> 1.0f
-        }
-        return (missingDurability * REPAIR_BASE_PER_DURABILITY * rarityMultiplier).toLong().coerceAtLeast(1L)
-    }
-
-    fun calculateExtractionTax(bufferCoins: Long): Long {
-        return (bufferCoins * (SAFE_EXTRACTION_TAX_PERCENT / 100.0)).toLong()
-    }
-
-    fun calculateRerollCost(rarity: String): Pair<Long, Int> {
-        val bcCost = when (rarity.lowercase()) {
-            "rare" -> 250L
-            "epic" -> 500L
-            "legendary" -> 1000L
-            "cursed" -> 2000L
-            else -> 100L
-        }
-        val shardCost = if (rarity.lowercase() in listOf("legendary", "cursed")) 2 else 1
-        return Pair(bcCost, shardCost)
-    }
-}
 
