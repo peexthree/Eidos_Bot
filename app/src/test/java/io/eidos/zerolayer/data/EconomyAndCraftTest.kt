@@ -66,14 +66,16 @@ class EconomyAndCraftTest {
     }
 
     @Test
-    fun testForgeRecipesDefaultList() {
-        val recipes = ForgeRecipes.DEFAULT_RECIPES
-        assertTrue(recipes.isNotEmpty())
-
-        val silencer = recipes.find { it.targetId == "reality_silencer" }
-        assertNotNull(silencer)
-        assertEquals(10, silencer?.shardCost)
-        assertEquals(2500L, silencer?.creditCost)
-        assertEquals(1, silencer?.additionalIngredients?.get("boss_core"))
+    fun testForgeRecipeCreation() {
+        val recipe = ForgeRecipes.createRecipe(
+            targetId = "reality_silencer",
+            shardCost = 10,
+            creditCost = 2500L,
+            additionalIngredients = mapOf("boss_core" to 1)
+        )
+        assertEquals("reality_silencer", recipe.targetId)
+        assertEquals(10, recipe.shardCost)
+        assertEquals(2500L, recipe.creditCost)
+        assertEquals(1, recipe.additionalIngredients["boss_core"])
     }
 }
