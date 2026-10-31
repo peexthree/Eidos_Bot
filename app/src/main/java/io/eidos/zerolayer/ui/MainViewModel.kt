@@ -47,7 +47,7 @@ class MainViewModel(
         var uuid = prefs.getString("device_uuid", null)
         if (uuid.isNullOrBlank()) {
             uuid = java.util.UUID.randomUUID().toString()
-            prefs.edit().putString("device_uuid", uuid).commit()
+            prefs.edit().putString("device_uuid", uuid).apply()
         }
         uuid
     }
