@@ -17,7 +17,10 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +37,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
+import io.eidos.zerolayer.data.AssetIconsMapping
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.ZzzElectricCyan
@@ -42,6 +50,24 @@ import java.util.concurrent.ConcurrentHashMap
 
 private val drawableCache = ConcurrentHashMap<String, Int>()
 private val bitmapCache = ConcurrentHashMap<Int, ImageBitmap>()
+
+/**
+ * Singleton Coil ImageLoader configured with SvgDecoder for rendering assets/icons/*.svg.
+ */
+object EidosSvgImageLoader {
+    @Volatile
+    private var loader: ImageLoader? = null
+
+    fun get(context: Context): ImageLoader {
+        return loader ?: synchronized(this) {
+            loader ?: ImageLoader.Builder(context.applicationContext)
+                .components {
+                    add(SvgDecoder.Factory())
+                }
+                .build().also { loader = it }
+        }
+    }
+}
 
 /**
  * Safely decodes a drawable resource ID into an ImageBitmap using runCatching.
@@ -230,15 +256,18 @@ fun EidosImage(
         safeName.lowercase().removeSuffix(".jpg").removeSuffix(".png").replace(" ", "_")
     }
 
+    val boxModifier = modifier
+        .background(EidosGlass)
+        .then(
+            if (borderWidth > 0.dp && borderColor != Color.Transparent) {
+                Modifier.border(borderWidth, borderColor, CutCornerShape(4.dp))
+            } else Modifier
+        )
+
     if (loadedBitmap != null) {
+        // Direct Bitmap or VectorDrawable from res/drawable
         Box(
-            modifier = modifier
-                .background(EidosGlass)
-                .then(
-                    if (borderWidth > 0.dp && borderColor != Color.Transparent) {
-                        Modifier.border(borderWidth, borderColor, CutCornerShape(4.dp))
-                    } else Modifier
-                ),
+            modifier = boxModifier,
             contentAlignment = Alignment.Center
         ) {
             Image(
@@ -251,10 +280,64 @@ fun EidosImage(
             )
         }
     } else {
-        ProceduralCyberpunkArtwork(
-            imageName = cleanName,
-            modifier = modifier,
-            borderColor = borderColor
+        // Variant A: Load SVG from assets/icons/*.svg via Coil
+        val assetSvgUrl = remember(safeName) { AssetIconsMapping.getAssetIconUrl(safeName) }
+        val imageLoader = remember(context) { EidosSvgImageLoader.get(context) }
+        var isSvgError by remember(safeName) { mutableStateOf(false) }
+
+        if (!isSvgError && assetSvgUrl.isNotBlank()) {
+            Box(
+                modifier = boxModifier,
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(assetSvgUrl)
+                        .crossfade(true)
+                        .build(),
+                    imageLoader = imageLoader,
+                    contentDescription = contentDescription ?: safeName,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(if (contentScale == ContentScale.Crop || borderWidth == 0.dp) 0.dp else 2.dp),
+                    contentScale = contentScale,
+                    onError = {
+                        isSvgError = true
+                    }
+                )
+            }
+        } else {
+            ProceduralCyberpunkArtwork(
+                imageName = cleanName,
+                modifier = modifier,
+                borderColor = borderColor
+            )
+        }
+    }
+}
+
+@Composable
+fun ProceduralCyberpunkArtwork(
+    imageName: String,
+    modifier: Modifier = Modifier,
+    borderColor: Color = EidosCyan
+) {
+    val cleanName = remember(imageName) { imageName.lowercase().replace(" ", "_") }
+    val glyph = remember(cleanName) { getFallbackGlyph(cleanName, null) }
+
+    Box(
+        modifier = modifier
+            .background(ZzzDarkSurface)
+            .border(1.dp, borderColor.copy(alpha = 0.5f), CutCornerShape(4.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = glyph,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace,
+            color = ZzzElectricCyan,
+            textAlign = TextAlign.Center
         )
     }
 }
