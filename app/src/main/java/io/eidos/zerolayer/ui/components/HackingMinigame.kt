@@ -270,15 +270,13 @@ fun LoreRiddleDialog(
     val context = LocalContext.current
     val audio = remember { EidosAudioManager.getInstance(context) }
     val currentRiddle = remember {
-        val pool = LORE_RIDDLES + io.eidos.zerolayer.domain.raid.RaidLoreEngine.RIDDLES.map { r ->
-            LoreRiddle(
-                question = r.question,
-                options = r.options,
-                correctIndex = r.correctIndex,
-                explanation = "Канонический ответ: ${r.answer}"
-            )
-        }
-        pool.random()
+        val r = io.eidos.zerolayer.domain.raid.RaidLoreEngine.getRandomRiddle()
+        LoreRiddle(
+            question = r.question,
+            options = r.options,
+            correctIndex = r.correctIndex,
+            explanation = "Канонический ответ: ${r.answer}"
+        )
     }
     var selectedOption by remember { mutableStateOf<Int?>(null) }
     var isFinished by remember { mutableStateOf(false) }

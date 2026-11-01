@@ -474,7 +474,7 @@ class MainViewModel(
             haptics.lootLegendary()
             audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
         } else {
-            haptics.errorGlitch()
+            haptics.glitchPulse()
             audio.playSound(EidosAudioManager.SoundType.ERROR_GLITCH)
         }
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
