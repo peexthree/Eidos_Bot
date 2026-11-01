@@ -1,6 +1,11 @@
 package io.eidos.zerolayer.data
 
-typealias ForgeRecipeDefinition = GameRepository.ForgeRecipeDefinition
+data class ForgeRecipeDefinition(
+    val targetId: String,
+    val shardCost: Int,
+    val creditCost: Long,
+    val additionalIngredients: Map<String, Int> = emptyMap()
+)
 
 object ForgeRecipes {
     fun createRecipe(
@@ -9,6 +14,6 @@ object ForgeRecipes {
         creditCost: Long,
         additionalIngredients: Map<String, Int> = emptyMap()
     ): ForgeRecipeDefinition {
-        return GameRepository.ForgeRecipeDefinition(targetId, shardCost, creditCost, additionalIngredients)
+        return ForgeRecipeDefinition(targetId, shardCost, creditCost, additionalIngredients)
     }
 }
