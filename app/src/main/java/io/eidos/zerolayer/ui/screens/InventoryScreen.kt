@@ -47,6 +47,7 @@ import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.cyberHudBorder
+import io.eidos.zerolayer.ui.components.EidosStatBar
 
 import io.eidos.zerolayer.data.RaidSession
 
@@ -754,9 +755,38 @@ fun ProfileSection(player: Player?) {
 
             Spacer(modifier = Modifier.height(6.dp))
 
+            // Operator Stat Bars
+            val curHp = player?.hp ?: 100
+            val maxHp = maxOf(1, player?.max_hp ?: 100)
+            val curEnergy = player?.energy ?: 100
+            val maxEnergy = maxOf(1, player?.max_energy ?: 100)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                EidosStatBar(
+                    label = "HP ОПЕРАТОРА",
+                    value = curHp,
+                    maxValue = maxHp,
+                    color = if (curHp < maxHp * 0.3) EidosRed else EidosNeon,
+                    modifier = Modifier.weight(1f)
+                )
+                EidosStatBar(
+                    label = "ЭНЕРГИЯ EP",
+                    value = curEnergy,
+                    maxValue = maxEnergy,
+                    color = EidosCyan,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     val bcPainter = runCatching { painterResource(id = R.drawable.ic_biocoin) }.getOrNull()
@@ -779,47 +809,21 @@ fun ProfileSection(player: Player?) {
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val hpPainter = runCatching { painterResource(id = R.drawable.ic_stat_hp) }.getOrNull()
-                    if (hpPainter != null) {
-                        Image(
-                            painter = hpPainter,
-                            contentDescription = "HP",
-                            modifier = Modifier.size(14.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        Text("❤️", fontSize = 11.sp)
-                    }
-                    Text(
-                        "${player?.hp ?: 100} HP",
-                        color = EidosRed,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
+                Text(
+                    "ФРАКЦИЯ: ${player?.faction ?: "НЕОФИТ"}",
+                    color = EidosCyan,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
 
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val xpPainter = runCatching { painterResource(id = R.drawable.ic_neural_exp) }.getOrNull()
-                    if (xpPainter != null) {
-                        Image(
-                            painter = xpPainter,
-                            contentDescription = "XP",
-                            modifier = Modifier.size(14.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        Text("⚡", fontSize = 11.sp)
-                    }
-                    Text(
-                        "${player?.xp ?: 0} XP",
-                        color = EidosNeon,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
+                Text(
+                    "XP: ${player?.xp ?: 0}",
+                    color = EidosNeon,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
     }
