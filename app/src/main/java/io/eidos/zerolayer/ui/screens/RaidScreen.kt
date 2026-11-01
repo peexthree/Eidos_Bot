@@ -56,6 +56,7 @@ import io.eidos.zerolayer.ui.theme.EidosGold
 import io.eidos.zerolayer.ui.theme.EidosPurple
 import io.eidos.zerolayer.ui.theme.EidosOrange
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
+import io.eidos.zerolayer.ui.components.EidosStatBar
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.CyberParticleOverlay
 import io.eidos.zerolayer.ui.components.ParticlePreset
@@ -858,18 +859,39 @@ fun EventCard(
                         .replace("🌌", "").replace("🌀", "").trim()
                 }
 
-                EidosImage(
-                    resName = enemyImageName,
-                    fallbackIcon = Icons.Default.Warning,
-                    borderColor = EidosRed,
+                Box(
                     modifier = Modifier
-                        .size(96.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                )
+                        .size(130.dp)
+                        .clip(androidx.compose.foundation.shape.CutCornerShape(8.dp))
+                        .background(Color(0xFF14080B))
+                        .border(1.5.dp, EidosRed, androidx.compose.foundation.shape.CutCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EidosImage(
+                        resName = enemyImageName,
+                        fallbackIcon = Icons.Default.Warning,
+                        borderColor = Color.Transparent,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Enemy Stats Chips
+                // Enemy HP Bar with high visibility
+                val maxEnemyHp = maxOf(1, villain.hp)
+                val currentEnemyHpClamped = enemyHp.coerceIn(0, maxEnemyHp)
+                AnimatedCyberProgressBar(
+                    progress = (currentEnemyHpClamped.toFloat() / maxEnemyHp.toFloat()).coerceIn(0f, 1f),
+                    color = EidosRed,
+                    label = "СИГНАЛ ВРАГА // ЖИВУЧЕСТЬ",
+                    valueText = "$currentEnemyHpClamped / $maxEnemyHp HP (${(currentEnemyHpClamped * 100 / maxEnemyHp)}%)",
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Tactical Combat Matrix Chips
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -877,42 +899,33 @@ fun EventCard(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                            .background(Color(0xFF1F080C))
-                            .border(1.dp, EidosRed.copy(alpha = 0.4f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                            .padding(vertical = 4.dp, horizontal = 6.dp),
+                            .clip(androidx.compose.foundation.shape.CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp))
+                            .background(Color(0xFF22080E))
+                            .border(1.dp, EidosRed.copy(alpha = 0.5f), androidx.compose.foundation.shape.CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp))
+                            .padding(vertical = 6.dp, horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("ЦЕЛЬ", color = EidosRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                            Text("ATK: ${villain.atk} | DEF: ${villain.def}", color = Color.White, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                            Text("УГРОЗА: ${villain.name.take(14)}", color = EidosRed, fontSize = 9.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                            Text("⚔️ ${villain.atk} ATK  |  🛡️ ${villain.def} DEF", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         }
                     }
 
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                            .background(Color(0xFF09161B))
-                            .border(1.dp, EidosCyan.copy(alpha = 0.4f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                            .padding(vertical = 4.dp, horizontal = 6.dp),
+                            .clip(androidx.compose.foundation.shape.CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp))
+                            .background(Color(0xFF071922))
+                            .border(1.dp, EidosCyan.copy(alpha = 0.5f), androidx.compose.foundation.shape.CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp))
+                            .padding(vertical = 6.dp, horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("ОПЕРАТОР", color = EidosCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                            Text("ATK: ${player?.attack ?: 0} | DEF: ${player?.defense ?: 0}", color = Color.White, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                            Text("ОПЕРАТОР: ${player?.username ?: "НЕОФИТ"}", color = EidosCyan, fontSize = 9.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                            Text("⚔️ ${player?.attack ?: 10} ATK  |  🛡️ ${player?.defense ?: 5} DEF", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                AnimatedCyberProgressBar(
-                    progress = (enemyHp.toFloat() / villain.hp.toFloat()).coerceIn(0f, 1f),
-                    color = EidosRed,
-                    label = "СИГНАЛ ВРАГА",
-                    valueText = "$enemyHp / ${villain.hp}",
-                    modifier = Modifier.fillMaxWidth()
-                )
 
                 Spacer(modifier = Modifier.height(8.dp))
                 // Enemy Description and Threat Dossier
@@ -1093,13 +1106,42 @@ fun RaidControls(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // OVERDRIVE COMBAT ULTIMATE BUTTON
+        // OVERDRIVE COMBAT ULTIMATE BUTTON & OPERATOR STATUS
         if (isCombat) {
+            // Operator Live Combat Telemetry
+            val curHp = player?.hp ?: 100
+            val maxHp = maxOf(1, player?.max_hp ?: 100)
+            val curEnergy = player?.energy ?: 0
+            val maxEnergy = maxOf(1, player?.max_energy ?: 100)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(androidx.compose.foundation.shape.CutCornerShape(6.dp))
+                    .background(Color(0xFF091219).copy(alpha = 0.9f))
+                    .border(1.dp, EidosCyan.copy(alpha = 0.35f), androidx.compose.foundation.shape.CutCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                EidosStatBar(
+                    label = "ЗДОРОВЬЕ ОПЕРАТОРА (HP)",
+                    value = curHp,
+                    maxValue = maxHp,
+                    color = if (curHp < maxHp * 0.3) EidosRed else EidosNeon
+                )
+                EidosStatBar(
+                    label = "НЕЙРО-ЭНЕРГИЯ (EP)",
+                    value = curEnergy,
+                    maxValue = maxEnergy,
+                    color = EidosCyan
+                )
+            }
+
             val isOverdriveReady = overdriveCharge >= 100
             AnimatedCyberProgressBar(
                 progress = (overdriveCharge / 100f).coerceIn(0f, 1f),
                 color = if (isOverdriveReady) EidosPurple else EidosCyan,
-                label = if (isOverdriveReady) "⚡ ЯДРО ЗАРЯЖЕНО НА 100%" else "ЗАРЯД ОВЕРДРАЙВА",
+                label = if (isOverdriveReady) "⚡ ЯДРО ЗАРЯЖЕНО НА 100% [ГОТОВО]" else "ЗАРЯД ОВЕРДРАЙВА (ЯДРО)",
                 valueText = "$overdriveCharge%",
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1113,14 +1155,14 @@ fun RaidControls(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B0066)),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, EidosPurple),
+                        .height(54.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0080)),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD700)),
                     shape = androidx.compose.foundation.shape.CutCornerShape(8.dp)
                 ) {
                     Text(
                         "⚡ СБРОС ЯДРА (OVERDRIVE) [250% КРИТ // СТАН]",
-                        color = Color.Yellow,
+                        color = Color(0xFFFFE600),
                         fontWeight = FontWeight.Black,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
@@ -1143,7 +1185,7 @@ fun RaidControls(
             // TACTICAL 2x2 COMBAT MATRIX (HIGH-EFFICIENCY COMBAT)
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // ROW 1: ATTACK + DEFEND
                 Row(
@@ -1157,14 +1199,16 @@ fun RaidControls(
                             audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
                             onNextStep()
                         },
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14)),
-                        border = androidx.compose.foundation.BorderStroke(2.dp, EidosRed),
-                        shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosRed),
+                        shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 6.dp, bottomEnd = 8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("⚔️ АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                            Text("УДАР (${player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                            Text("⚔️ АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                            Text("УДАР (${player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
 
@@ -1175,14 +1219,16 @@ fun RaidControls(
                             audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                             onDefend()
                         },
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818)),
-                        border = androidx.compose.foundation.BorderStroke(2.dp, EidosNeon),
-                        shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosNeon),
+                        shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 6.dp, bottomEnd = 8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🛡 ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                            Text("БЛОК 50% // +2 EP", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                            Text("🛡 ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                            Text("БЛОК 50% // +2 EP", color = Color.White.copy(alpha = 0.9f), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
@@ -1199,28 +1245,30 @@ fun RaidControls(
                             audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
                             onUseAbility()
                         },
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38) else Color(0xFF2B1408)
                         ),
                         border = androidx.compose.foundation.BorderStroke(
-                            2.dp,
+                            1.5.dp,
                             if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80)
                         ),
-                        shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                        shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 6.dp, bottomEnd = 8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 if (hasAbilityEnergy) "⚡ НАВЫК [5 EP]" else "⚡ НАВЫК [-5 HP]",
                                 color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80),
                                 fontWeight = FontWeight.Black,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
                                 factionAbilityTitle,
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 8.sp,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 8.5.sp,
                                 fontFamily = FontFamily.Monospace,
                                 maxLines = 1
                             )
@@ -1234,14 +1282,16 @@ fun RaidControls(
                             audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                             onFlee()
                         },
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906)),
                         border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosOrange),
-                        shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                        shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 6.dp, bottomEnd = 8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🏃 ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                            Text("ШАНС 75%", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                            Text("🏃 ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                            Text("ШАНС 75%", color = Color.White.copy(alpha = 0.9f), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
