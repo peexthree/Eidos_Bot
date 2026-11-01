@@ -2162,7 +2162,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val villainsStatic = io.eidos.zerolayer.data.GameData.VILLAINS
         val depthDiffMult = io.eidos.zerolayer.domain.combat.CombatEngine.getDepthDifficultyMultiplier(session.depth)
         val depthRewardMult = io.eidos.zerolayer.domain.combat.CombatEngine.getDepthRewardMultiplier(session.depth)
-        val villain = villainsStatic.find { it.name == session.current_enemy_id } ?: io.eidos.zerolayer.data.GameVillainData(
+        val villain = villainsStatic.find { it.name == session.current_enemy_id }
+            ?: villainsStatic.find {
+                val clean1 = it.name.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                val clean2 = (session.current_enemy_id ?: "").replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                clean1.isNotEmpty() && clean2.isNotEmpty() && (clean1.contains(clean2) || clean2.contains(clean1))
+            } ?: io.eidos.zerolayer.data.GameVillainData(
             id = 9999,
             name = session.current_enemy_id ?: "Неизвестный Сбой",
             level = (session.depth / 50) + 1,
@@ -2926,113 +2931,119 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val session = dao.getRaidSession(uid) ?: return
         val enemyId = session.current_enemy_id ?: return
 
-        if (player.energy < 15) {
-            log(uid, "❌ Недостаточно энергии для использования активной способности. Требуется 15 энергии.", "error")
-            return
+        // Tactical ability energy cost: 5 EP (or emergency health drain if low EP)
+        val hasEnergy = player.energy >= 5
+        var workingPlayer = player
+        if (hasEnergy) {
+            val newEnergy = maxOf(0, player.energy - 5)
+            workingPlayer = player.copy(energy = newEnergy)
+            dao.updatePlayer(workingPlayer)
+            if (newEnergy < player.max_energy) {
+                val recoveryDelayMs = (player.max_energy - newEnergy).toLong() * 5 * 60 * 1000L
+                io.eidos.zerolayer.ui.utils.EnergyRecoveryWorker.schedule(context, recoveryDelayMs)
+            }
+        } else {
+            // Emergency overload: drains 5 HP when energy is exhausted
+            val hpDrain = minOf(workingPlayer.hp - 1, 5)
+            if (hpDrain > 0) {
+                workingPlayer = workingPlayer.copy(hp = workingPlayer.hp - hpDrain)
+                dao.updatePlayer(workingPlayer)
+                log(uid, "⚡ [АВАРИЙНЫЙ СБРОС]: Энергия на нуле! Потреблено -$hpDrain HP для экстренного выстрела ядра!", "error")
+            }
         }
 
-        // Deduct 15 energy
-        val newEnergy = maxOf(0, player.energy - 15)
-        val updatedPlayer = player.copy(energy = newEnergy)
-        dao.updatePlayer(updatedPlayer)
-        if (newEnergy < player.max_energy) {
-            val recoveryDelayMs = (player.max_energy - newEnergy).toLong() * 5 * 60 * 1000L
-            io.eidos.zerolayer.ui.utils.EnergyRecoveryWorker.schedule(context, recoveryDelayMs)
-        }
+        val villainsStatic = GameData.VILLAINS
+        val villain = villainsStatic.find { it.name == enemyId }
+            ?: villainsStatic.find {
+                val clean1 = it.name.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                val clean2 = enemyId.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                clean1.isNotEmpty() && clean2.isNotEmpty() && (clean1.contains(clean2) || clean2.contains(clean1))
+            }
+            ?: GameVillainData(
+                id = 9999,
+                name = enemyId,
+                level = (session.depth / 50) + 1,
+                hp = maxOf(10, session.current_enemy_hp),
+                atk = 20,
+                def = 5,
+                xp = 60L + session.depth,
+                coin = 40L + (session.depth / 2),
+                description = "Враг Нулевого Слоя",
+                image = "monster_1"
+            )
 
-        val villain = GameData.VILLAINS.find { it.name == enemyId } ?: return
+        val activeStats = getActiveStats(uid)
+        val baseAtk = maxOf(12, activeStats.attack)
 
-        // Calculate custom effect based on faction
+        var extraDamage = 0
+        var lootedCoins = 0
+        var healSignal = 0
+        var abilityLog = ""
+
         when (player.faction) {
             "МАТЕРИЯ" -> {
-                val extraDamage = (player.attack * 1.5).toInt()
-                val lootedCoins = (15..45).random()
-                val newEnemyHp = maxOf(0, session.current_enemy_hp - extraDamage)
-                val updatedSession = session.copy(
-                    current_enemy_hp = newEnemyHp,
-                    buffer_coins = session.buffer_coins + lootedCoins
-                )
-                dao.insertRaidSession(updatedSession)
-                log(uid, "⚡ [АКТИВАЦИЯ СПОСОБНОСТИ: ЗОЛОТОЙ ИМПУЛЬС] Нанесено $extraDamage урона. Дренировано +$lootedCoins BC у цели!", "combat")
-                
-                if (newEnemyHp <= 0) {
-                    log(uid, "УСПЕХ: Цель ${villain.name} нейтрализована активной способностью.", "loot")
-                    val updatedSessionDefeated = updatedSession.copy(
-                        current_enemy_id = null,
-                        current_enemy_hp = 0,
-                        buffer_xp = updatedSession.buffer_xp + villain.xp,
-                        kills = updatedSession.kills + 1,
-                        combat_turn = 0,
-                        damage_buffer = 0
-                    )
-                    dao.insertRaidSession(updatedSessionDefeated)
-                }
+                extraDamage = (baseAtk * 2.2f).toInt()
+                lootedCoins = (20..55).random()
+                abilityLog = "⚡ [ЗОЛОТОЙ ИМПУЛЬС // МАТЕРИЯ]: Нанесено $extraDamage урона! Дренировано +$lootedCoins BC из ядра цели!"
             }
             "РАЗУМ" -> {
-                val healAmount = 25
-                val shieldDamage = (player.attack * 0.8).toInt()
-                val newSignal = minOf(100, session.signal + healAmount)
-                val newEnemyHp = maxOf(0, session.current_enemy_hp - shieldDamage)
-                val updatedSession = session.copy(
-                    signal = newSignal,
-                    current_enemy_hp = newEnemyHp
-                )
-                dao.insertRaidSession(updatedSession)
-                log(uid, "⚡ [АКТИВАЦИЯ СПОСОБНОСТИ: НЕЙРО-ЩИТ] Целостность сигнала восстановлена на +$healAmount%. Нанесено $shieldDamage урона врагу.", "combat")
-                
-                if (newEnemyHp <= 0) {
-                    log(uid, "УСПЕХ: Цель ${villain.name} нейтрализована активной способностью.", "loot")
-                    val updatedSessionDefeated = updatedSession.copy(
-                        current_enemy_id = null,
-                        current_enemy_hp = 0,
-                        buffer_xp = updatedSession.buffer_xp + villain.xp,
-                        kills = updatedSession.kills + 1,
-                        combat_turn = 0,
-                        damage_buffer = 0
-                    )
-                    dao.insertRaidSession(updatedSessionDefeated)
-                }
+                extraDamage = (baseAtk * 1.6f).toInt()
+                healSignal = 25
+                abilityLog = "⚡ [НЕЙРО-ЩИТ // РАЗУМ]: Нанесено $extraDamage урона! Целостность Сигнала восстановлена на +$healSignal%!"
             }
-            "ТЕХНО" -> {
-                val criticalDamage = (player.attack * 2.8).toInt()
-                val newEnemyHp = maxOf(0, session.current_enemy_hp - criticalDamage)
-                val updatedSession = session.copy(current_enemy_hp = newEnemyHp)
-                dao.insertRaidSession(updatedSession)
-                log(uid, "⚡ [АКТИВАЦИЯ СПОСОБНОСТИ: КВАНТОВЫЙ ВЗРЫВ] Протоколы взлома перегружены! Критический удар: $criticalDamage урона!", "combat")
-                
-                if (newEnemyHp <= 0) {
-                    log(uid, "УСПЕХ: Цель ${villain.name} нейтрализована активной способностью.", "loot")
-                    val updatedSessionDefeated = updatedSession.copy(
-                        current_enemy_id = null,
-                        current_enemy_hp = 0,
-                        buffer_xp = updatedSession.buffer_xp + villain.xp,
-                        kills = updatedSession.kills + 1,
-                        combat_turn = 0,
-                        damage_buffer = 0
-                    )
-                    dao.insertRaidSession(updatedSessionDefeated)
-                }
+            "ТЕХНО", "Технократы" -> {
+                extraDamage = (baseAtk * 2.8f).toInt()
+                abilityLog = "⚡ [КВАНТОВЫЙ ВЗРЫВ // ТЕХНО]: Критический импульс взлома шины! Нанесено $extraDamage урона цели!"
+            }
+            "АРХИТЕКТОРЫ" -> {
+                extraDamage = (baseAtk * 3.2f).toInt()
+                abilityLog = "⚡ [ПРОТОКОЛ АРХИТЕКТОРОВ]: Удаление структуры цели из реестра! Нанесено $extraDamage урона!"
             }
             else -> {
-                val absoluteDamage = (player.attack * 3.5).toInt()
-                val newEnemyHp = maxOf(0, session.current_enemy_hp - absoluteDamage)
-                val updatedSession = session.copy(current_enemy_hp = newEnemyHp)
-                dao.insertRaidSession(updatedSession)
-                log(uid, "⚡ [ПРОТОКОЛ АРХИТЕКТОРОВ: УДАЛЕНИЕ ОБЪЕКТА] Стирание кода цели! Нанесено $absoluteDamage урона!", "combat")
-                
-                if (newEnemyHp <= 0) {
-                    log(uid, "УСПЕХ: Цель ${villain.name} нейтрализована активной способностью.", "loot")
-                    val updatedSessionDefeated = updatedSession.copy(
-                        current_enemy_id = null,
-                        current_enemy_hp = 0,
-                        buffer_xp = updatedSession.buffer_xp + villain.xp,
-                        kills = updatedSession.kills + 1,
-                        combat_turn = 0,
-                        damage_buffer = 0
-                    )
-                    dao.insertRaidSession(updatedSessionDefeated)
-                }
+                extraDamage = (baseAtk * 2.0f).toInt()
+                abilityLog = "⚡ [ТАКТИЧЕСКИЙ СПЕЦУДАР]: Прорыв защиты цели на $extraDamage урона!"
             }
+        }
+
+        // Trigger visual hit event
+        _combatEventFlow.tryEmit(CombatVisualEvent(
+            damage = extraDamage,
+            isCrit = true,
+            isOverdrive = false,
+            isDodge = false,
+            isPlayerHit = false
+        ))
+
+        // Gain overdrive charge
+        val curCharge = getOverdriveCharge(uid)
+        setOverdriveCharge(uid, curCharge + 35)
+
+        val newEnemyHp = maxOf(0, session.current_enemy_hp - extraDamage)
+        val newSig = minOf(100, session.signal + healSignal)
+        log(uid, abilityLog, "combat")
+
+        if (newEnemyHp <= 0) {
+            log(uid, "🏆 [ЦЕЛЬ УНИЧТОЖЕНА]: ${villain.name} стерт тактической способностью!", "loot")
+            recordEnemyKill(villain.name)
+            val updatedSessionDefeated = session.copy(
+                current_enemy_id = null,
+                current_enemy_hp = 0,
+                signal = newSig,
+                buffer_xp = session.buffer_xp + villain.xp,
+                buffer_coins = session.buffer_coins + villain.coin + lootedCoins,
+                kills = session.kills + 1,
+                combat_turn = 0,
+                damage_buffer = 0
+            )
+            dao.insertRaidSession(updatedSessionDefeated)
+        } else {
+            val updatedSession = session.copy(
+                current_enemy_hp = newEnemyHp,
+                signal = newSig,
+                buffer_coins = session.buffer_coins + lootedCoins,
+                combat_turn = session.combat_turn + 1
+            )
+            dao.insertRaidSession(updatedSession)
         }
     }
 

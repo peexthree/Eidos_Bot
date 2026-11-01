@@ -114,19 +114,19 @@ private fun extractMonsterIndex(cleanName: String): Int {
         cleanName.contains("бомба") || cleanName.contains("bomb") -> 4
         cleanName.contains("майнер") || cleanName.contains("miner") -> 5
         cleanName.contains("гидра") || cleanName.contains("hydra") -> 6
-        cleanName.contains("сбой") || cleanName.contains("error") -> 7
-        cleanName.contains("ассасин") || cleanName.contains("assassin") -> 8
-        cleanName.contains("доминатор") || cleanName.contains("dominator") -> 9
-        cleanName.contains("стиратель") || cleanName.contains("eraser") || cleanName.contains("stirat") -> 10
-        cleanName.contains("нейро_призрак") || cleanName.contains("призрак") || cleanName.contains("phantom") || cleanName.contains("ghost") -> 11
-        cleanName.contains("лич") || cleanName.contains("lich") -> 12
-        cleanName.contains("архитектор") || cleanName.contains("architect") -> 13
-        cleanName.contains("пожиратель") || cleanName.contains("devourer") -> 14
-        cleanName.contains("страж") || cleanName.contains("guardian") -> 15
-        cleanName.contains("синтез") || cleanName.contains("synthesis") -> 16
-        cleanName.contains("машина") || cleanName.contains("machine") || cleanName.contains("deus") -> 17
-        cleanName.contains("странник") || cleanName.contains("nomad") -> 18
-        cleanName.contains("энтропия") || cleanName.contains("entropy") -> 19
+        cleanName.contains("доминатор") || cleanName.contains("dominator") -> 7
+        cleanName.contains("стиратель") || cleanName.contains("eraser") || cleanName.contains("stirat") -> 8
+        cleanName.contains("нейро_призрак") || cleanName.contains("нейропризрак") || cleanName.contains("призрак") -> 9
+        cleanName.contains("кибер_лич") || cleanName.contains("лич") || cleanName.contains("lich") -> 10
+        cleanName.contains("архитектор") || cleanName.contains("architect") -> 11
+        cleanName.contains("пожиратель") || cleanName.contains("devourer") -> 12
+        cleanName.contains("страж_ядра") || cleanName.contains("страж") || cleanName.contains("guardian") -> 13
+        cleanName.contains("синтез") || cleanName.contains("омни_синтез") || cleanName.contains("synthesis") -> 14
+        cleanName.contains("бог_машины") || cleanName.contains("машина") || cleanName.contains("machine") || cleanName.contains("deus") -> 15
+        cleanName.contains("странник") || cleanName.contains("пустотный") || cleanName.contains("nomad") -> 16
+        cleanName.contains("сбой") || cleanName.contains("фатальный") || cleanName.contains("error") -> 17
+        cleanName.contains("энтропия") || cleanName.contains("entropy") -> 18
+        cleanName.contains("ассасин") || cleanName.contains("даркнет") || cleanName.contains("assassin") -> 19
         else -> abs(cleanName.hashCode() % 19) + 1
     }
 }

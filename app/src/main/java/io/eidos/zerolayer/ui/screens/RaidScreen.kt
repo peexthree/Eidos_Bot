@@ -332,14 +332,16 @@ fun RaidScreen(
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
-                    // EVA-09 Assistant Guidance Banner
-                    io.eidos.zerolayer.ui.components.ZzzHazardBanner(
-                        title = "🌐 ГОЛОС EIDOS // СЕКТОР БЕЗДНЫ",
-                        message = "Обнаружен шлюз в Бездну! Нажимай «СДЕЛАЙТЕ ШАГ В БЕЗДНУ» для сканирования секторов, поиска контейнеров и уничтожения вирусов. Если твой Сигнал критически слаб — немедленно задействуй «ЭВАКУАЦИЮ», чтобы сохранить весь добытый код и лут!",
-                        borderColor = EidosRed,
-                        icon = "🚨",
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    // EVA-09 Assistant Guidance Banner (Hidden in combat for optimal combat HUD)
+                    if (session?.current_enemy_id == null) {
+                        io.eidos.zerolayer.ui.components.ZzzHazardBanner(
+                            title = "🌐 ГОЛОС EIDOS // СЕКТОР БЕЗДНЫ",
+                            message = "Обнаружен шлюз в Бездну! Нажимай «СДЕЛАЙТЕ ШАГ В БЕЗДНУ» для сканирования секторов, поиска контейнеров и уничтожения вирусов. Если твой Сигнал критически слаб — немедленно задействуй «ЭВАКУАЦИЮ», чтобы сохранить весь добытый код и лут!",
+                            borderColor = EidosRed,
+                            icon = "🚨",
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
 
                     // HUD
                     RaidHUD(
@@ -420,6 +422,7 @@ fun RaidScreen(
                     if (!isEvacuatingHold) {
                         RaidControls(
                             session = session,
+                            player = player,
                             anomalyData = anomalyData,
                             overdriveCharge = overdriveCharge,
                             overchargeTier = overchargeTier,
@@ -743,7 +746,29 @@ fun EventCard(
     val eventType = session?.next_event_type ?: "INITIALIZING"
     val enemyId = session?.current_enemy_id
     val enemyHp = session?.current_enemy_hp ?: 0
-    val villain = io.eidos.zerolayer.data.GameData.VILLAINS.find { it.name == enemyId }
+    val villain = remember(enemyId) {
+        if (enemyId == null) null
+        else {
+            io.eidos.zerolayer.data.GameData.VILLAINS.find { it.name == enemyId }
+                ?: io.eidos.zerolayer.data.GameData.VILLAINS.find {
+                    val clean1 = it.name.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                    val clean2 = enemyId.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                    clean1.isNotEmpty() && clean2.isNotEmpty() && (clean1.contains(clean2) || clean2.contains(clean1))
+                }
+                ?: io.eidos.zerolayer.data.GameVillainData(
+                    id = 9999,
+                    name = enemyId,
+                    level = ((session?.depth ?: 0) / 50) + 1,
+                    hp = maxOf(10, enemyHp),
+                    atk = 18,
+                    def = 5,
+                    xp = 50,
+                    coin = 30,
+                    description = "Искаженный фантом, затерянный в коде Нулевого Слоя.",
+                    image = "monster_1"
+                )
+        }
+    }
 
     val isAnomaly = session?.current_anomaly_id != null
 
@@ -1023,6 +1048,7 @@ fun EventCard(
 @Composable
 fun RaidControls(
     session: RaidSession?,
+    player: Player? = null,
     anomalyData: io.eidos.zerolayer.data.GameRepository.AnomalyEvent?,
     overdriveCharge: Int = 0,
     overchargeTier: Int = 0,
@@ -1083,62 +1109,89 @@ fun RaidControls(
                 }
             }
 
-            // TACTICAL 3-ACTION COMBAT MATRIX (ZZZ STYLE)
+            // TACTICAL 3-ACTION COMBAT MATRIX (HIGH-IMPACT ZZZ STYLE)
+            val playerEnergy = player?.energy ?: 0
+            val hasAbilityEnergy = playerEnergy >= 5
+            val factionAbilityTitle = when (player?.faction) {
+                "МАТЕРИЯ" -> "ЗОЛОТОЙ ИМПУЛЬС"
+                "РАЗУМ" -> "НЕЙРО-ЩИТ"
+                "ТЕХНО", "Технократы" -> "КВАНТОВЫЙ ВЗРЫВ"
+                "АРХИТЕКТОРЫ" -> "ПРОТОКОЛ УДАЛЕНИЯ"
+                else -> "СПЕЦУДАР ЯДРА"
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 1. ATTACK
+                // 1. ATTACK BUTTON
                 Button(
                     onClick = {
                         haptics.criticalHit()
                         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
                         onNextStep()
                     },
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF280B11)),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosRed),
+                    modifier = Modifier.weight(1.1f).height(54.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14)),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, EidosRed),
                     shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("⚔️ АТАКА", color = EidosRed, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("УДАР", color = Color.White.copy(alpha = 0.8f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        Text("⚔️ АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text("УДАР (${player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
 
-                // 2. USE ABILITY
+                // 2. USE ABILITY BUTTON
                 Button(
                     onClick = {
                         haptics.criticalHit()
                         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
                         onUseAbility()
                     },
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF07212B)),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosCyan),
+                    modifier = Modifier.weight(1.1f).height(54.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38) else Color(0xFF2B1408)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        2.dp,
+                        if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80)
+                    ),
                     shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("⚡ НАВЫК", color = EidosCyan, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("СПЕЦУДАР", color = Color.White.copy(alpha = 0.8f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        Text(
+                            if (hasAbilityEnergy) "⚡ НАВЫК [5 EP]" else "⚡ НАВЫК [-5 HP]",
+                            color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            factionAbilityTitle,
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1
+                        )
                     }
                 }
 
-                // 3. FLEE / RETREAT
+                // 3. FLEE / RETREAT BUTTON
                 Button(
                     onClick = {
                         haptics.step()
                         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                         onFlee()
                     },
-                    modifier = Modifier.weight(1f).height(52.dp),
+                    modifier = Modifier.weight(0.9f).height(54.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906)),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosOrange),
                     shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🏃 УБЕЖАТЬ", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("ОТХОД 75%", color = Color.White.copy(alpha = 0.8f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        Text("🏃 ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text("ШАНС 75%", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             }

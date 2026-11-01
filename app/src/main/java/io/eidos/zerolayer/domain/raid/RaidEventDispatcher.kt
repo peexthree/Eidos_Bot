@@ -286,8 +286,12 @@ object RaidEventDispatcher {
             )
         }
 
-        val villains = io.eidos.zerolayer.data.GameData.VILLAINS.filter { it.level == depthLevel }
-        val villain = villains.randomOrNull() ?: io.eidos.zerolayer.data.GameData.VILLAINS.first()
+        val candidates = io.eidos.zerolayer.data.GameData.VILLAINS.filter { it.level <= maxOf(1, depthLevel) }
+        val villain = if (candidates.isNotEmpty()) {
+            candidates.takeLast(3).random()
+        } else {
+            io.eidos.zerolayer.data.GameData.VILLAINS.first()
+        }
         val baseHp = villain.hp + (depth * 2)
         val hp = (baseHp * depthMultiplier).toInt()
 
