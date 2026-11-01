@@ -38,6 +38,9 @@ import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.TerminalTutorialDialog
 import io.eidos.zerolayer.ui.components.RelicShowcaseDialog
+import io.eidos.zerolayer.ui.theme.ZzzDesignSystem
+import io.eidos.zerolayer.ui.components.zzz.ZzzHeaderBadge
+import io.eidos.zerolayer.ui.components.zzz.ZzzSegmentedGauge
 import io.eidos.zerolayer.ui.components.ShadowBrokerCountdownBadge
 import io.eidos.zerolayer.ui.components.premiumCyberClickable
 import io.eidos.zerolayer.ui.components.EarthRelic
@@ -642,7 +645,12 @@ fun HubScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 3x3 Grid Menu (9 Cyber Frame Buttons)
+                // 3x3 Grid Menu (9 Cyber Frame Buttons) with ZZZ Kinetic Header
+                ZzzHeaderBadge(
+                    title = "ТАКТИЧЕСКИЕ ОПЕРАЦИИ",
+                    codeTag = "GRID-OPS",
+                    accentColor = ZzzDesignSystem.VoltYellow
+                )
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -653,23 +661,23 @@ fun HubScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CyberGridMenuItem(
-                            title = "ПОГРУЖЕНИЕВ РЕЙД",
-                            emojiIcon = "🌀",
-                            borderColor = ZzzElectricCyan,
+                            title = "РЕЙД // ВЫЛАЗКА",
+                            emojiIcon = "◈",
+                            borderColor = ZzzDesignSystem.SignalCyan,
                             onClick = onNavigateToRaid,
                             modifier = Modifier.weight(1f)
                         )
                         CyberGridMenuItem(
-                            title = "ИНВЕНТАРЬ И СНАРЯЖЕНИЕ",
-                            emojiIcon = "🃏",
-                            borderColor = ZzzAcidYellow,
+                            title = "ИНВЕНТАРЬ И СЛОТЫ",
+                            emojiIcon = "▨",
+                            borderColor = ZzzDesignSystem.VoltYellow,
                             onClick = onNavigateToInventory,
                             modifier = Modifier.weight(1f)
                         )
                         CyberGridMenuItem(
                             title = "КУЗНИЦА И СИНТЕЗ",
-                            emojiIcon = "⚒️",
-                            borderColor = ZzzHotMagenta,
+                            emojiIcon = "⚡",
+                            borderColor = ZzzDesignSystem.QuantumPurple,
                             onClick = onNavigateToForge,
                             modifier = Modifier.weight(1f)
                         )
