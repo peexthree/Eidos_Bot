@@ -141,7 +141,8 @@ object AchievementRegistry {
             icon = "☘️",
             title = "ПРИВЫЧКА",
             description = "3 дня подряд",
-            xpReward = 50L,
+            xpReward = 15L,
+            coinReward = 150L,
             target = 3L,
             getProgress = { p, _ -> p.streak.toLong() },
             isMet = { p, _ -> p.streak >= 3 }
@@ -152,7 +153,8 @@ object AchievementRegistry {
             icon = "🔥",
             title = "НЕДЕЛЯ В АДУ",
             description = "7 дней подряд",
-            xpReward = 200L,
+            xpReward = 35L,
+            coinReward = 400L,
             target = 7L,
             getProgress = { p, _ -> p.streak.toLong() },
             isMet = { p, _ -> p.streak >= 7 }
@@ -163,7 +165,8 @@ object AchievementRegistry {
             icon = "🌙",
             title = "ПОЛНЫЙ ЦИКЛ",
             description = "14 дней",
-            xpReward = 400L,
+            xpReward = 70L,
+            coinReward = 800L,
             target = 14L,
             getProgress = { p, _ -> p.streak.toLong() },
             isMet = { p, _ -> p.streak >= 14 }
@@ -174,7 +177,8 @@ object AchievementRegistry {
             icon = "🧘",
             title = "ВНЕ ВРЕМЕНИ",
             description = "30 дней",
-            xpReward = 1000L,
+            xpReward = 150L,
+            coinReward = 2000L,
             target = 30L,
             getProgress = { p, _ -> p.streak.toLong() },
             isMet = { p, _ -> p.streak >= 30 }
@@ -185,7 +189,8 @@ object AchievementRegistry {
             icon = "♾️",
             title = "СИСТЕМНЫЙ МОНАХ",
             description = "100 дней",
-            xpReward = 3000L,
+            xpReward = 300L,
+            coinReward = 10000L,
             target = 100L,
             getProgress = { p, _ -> p.streak.toLong() },
             isMet = { p, _ -> p.streak >= 100 }
@@ -198,7 +203,8 @@ object AchievementRegistry {
             icon = "🤑",
             title = "БОГАЧ 1000",
             description = "1000 биокоинов",
-            xpReward = 200L,
+            xpReward = 25L,
+            coinReward = 200L,
             target = 1000L,
             getProgress = { p, _ -> p.biocoin },
             isMet = { p, _ -> p.biocoin >= 1000L }
@@ -209,7 +215,8 @@ object AchievementRegistry {
             icon = "💸",
             title = "ПЕРВЫЙ КУШ",
             description = "1000 XP",
-            xpReward = 100L,
+            xpReward = 30L,
+            coinReward = 300L,
             target = 1000L,
             getProgress = { p, _ -> p.xp },
             isMet = { p, _ -> p.xp >= 1000L }
@@ -220,7 +227,8 @@ object AchievementRegistry {
             icon = "💰",
             title = "БОГАЧ",
             description = "10k XP",
-            xpReward = 1000L,
+            xpReward = 100L,
+            coinReward = 1500L,
             target = 10000L,
             getProgress = { p, _ -> p.xp },
             isMet = { p, _ -> p.xp >= 10000L }
@@ -231,7 +239,8 @@ object AchievementRegistry {
             icon = "🏦",
             title = "КОРПОРАЦИЯ Я",
             description = "50k XP",
-            xpReward = 5000L,
+            xpReward = 250L,
+            coinReward = 5000L,
             target = 50000L,
             getProgress = { p, _ -> p.xp },
             isMet = { p, _ -> p.xp >= 50000L }
@@ -242,7 +251,8 @@ object AchievementRegistry {
             icon = "👾",
             title = "ТОП-1 СЕТИ",
             description = "100k XP",
-            xpReward = 10000L,
+            xpReward = 500L,
+            coinReward = 15000L,
             target = 100000L,
             getProgress = { p, _ -> p.xp },
             isMet = { p, _ -> p.xp >= 100000L }
@@ -255,7 +265,8 @@ object AchievementRegistry {
             icon = "🩸",
             title = "ПЕРВАЯ КРОВЬ",
             description = "Первое убийство",
-            xpReward = 100L,
+            xpReward = 15L,
+            coinReward = 100L,
             target = 1L,
             getProgress = { p, _ -> p.kills.toLong() },
             isMet = { p, _ -> p.kills >= 1 }
@@ -266,7 +277,8 @@ object AchievementRegistry {
             icon = "👣",
             title = "ПЕРВЫЕ ШАГИ",
             description = "10 глубины",
-            xpReward = 100L,
+            xpReward = 15L,
+            coinReward = 100L,
             target = 10L,
             getProgress = { p, _ -> p.max_depth.toLong() },
             isMet = { p, _ -> p.max_depth >= 10 }
@@ -277,7 +289,8 @@ object AchievementRegistry {
             icon = "⚓️",
             title = "СТАЛКЕР",
             description = "50 глубины",
-            xpReward = 500L,
+            xpReward = 30L,
+            coinReward = 250L,
             target = 50L,
             getProgress = { p, _ -> p.max_depth.toLong() },
             isMet = { p, _ -> p.max_depth >= 50 }
@@ -288,7 +301,8 @@ object AchievementRegistry {
             icon = "🕳",
             title = "ТЬМА",
             description = "100 глубины",
-            xpReward = 2000L,
+            xpReward = 60L,
+            coinReward = 500L,
             target = 100L,
             getProgress = { p, _ -> p.max_depth.toLong() },
             isMet = { p, _ -> p.max_depth >= 100 }
@@ -299,7 +313,8 @@ object AchievementRegistry {
             icon = "🐉",
             title = "ПРОБУЖДЕННЫЙ",
             description = "200+ глубины",
-            xpReward = 5000L,
+            xpReward = 120L,
+            coinReward = 1200L,
             target = 200L,
             getProgress = { p, _ -> p.max_depth.toLong() },
             isMet = { p, _ -> p.max_depth >= 200 }
@@ -310,7 +325,8 @@ object AchievementRegistry {
             icon = "🔫",
             title = "ВЕТЕРАН",
             description = "10 рейдов",
-            xpReward = 400L,
+            xpReward = 50L,
+            coinReward = 500L,
             target = 10L,
             getProgress = { p, _ -> p.raids_done.toLong() },
             isMet = { p, _ -> p.raids_done >= 10 }
@@ -321,7 +337,8 @@ object AchievementRegistry {
             icon = "⚔️",
             title = "БЕЗУПРЕЧНЫЙ",
             description = "Рейд без потерь",
-            xpReward = 1500L,
+            xpReward = 100L,
+            coinReward = 1500L,
             target = 1L,
             getProgress = { p, _ -> p.perfect_raids.toLong() },
             isMet = { p, _ -> p.perfect_raids >= 1 }
@@ -334,7 +351,8 @@ object AchievementRegistry {
             icon = "🤝",
             title = "ВЕРБОВЩИК",
             description = "1 реферал",
-            xpReward = 150L,
+            xpReward = 25L,
+            coinReward = 250L,
             target = 1L,
             getProgress = { _, s -> s.referrals.toLong() },
             isMet = { _, s -> s.referrals >= 1 }
@@ -345,7 +363,8 @@ object AchievementRegistry {
             icon = "📢",
             title = "ПРОПОВЕДНИК",
             description = "10 рефералов",
-            xpReward = 2000L,
+            xpReward = 100L,
+            coinReward = 2000L,
             target = 10L,
             getProgress = { _, s -> s.referrals.toLong() },
             isMet = { _, s -> s.referrals >= 10 }
@@ -356,7 +375,8 @@ object AchievementRegistry {
             icon = "🕸",
             title = "УЗЕЛ",
             description = "50 рефералов",
-            xpReward = 8000L,
+            xpReward = 250L,
+            coinReward = 8000L,
             target = 50L,
             getProgress = { _, s -> s.referrals.toLong() },
             isMet = { _, s -> s.referrals >= 50 }
@@ -367,7 +387,8 @@ object AchievementRegistry {
             icon = "🌐",
             title = "НЕЙРОСЕТЬ",
             description = "100 рефералов",
-            xpReward = 15000L,
+            xpReward = 500L,
+            coinReward = 20000L,
             target = 100L,
             getProgress = { _, s -> s.referrals.toLong() },
             isMet = { _, s -> s.referrals >= 100 }
@@ -380,7 +401,8 @@ object AchievementRegistry {
             icon = "📖",
             title = "УЧЕНИК",
             description = "10 синхронов",
-            xpReward = 200L,
+            xpReward = 30L,
+            coinReward = 300L,
             target = 10L,
             getProgress = { _, s -> s.syncrons.toLong() },
             isMet = { _, s -> s.syncrons >= 10 }
@@ -391,7 +413,8 @@ object AchievementRegistry {
             icon = "🧩",
             title = "АНАЛИТИК",
             description = "25 синхронов",
-            xpReward = 700L,
+            xpReward = 60L,
+            coinReward = 750L,
             target = 25L,
             getProgress = { _, s -> s.syncrons.toLong() },
             isMet = { _, s -> s.syncrons >= 25 }
@@ -402,7 +425,8 @@ object AchievementRegistry {
             icon = "🧠",
             title = "ПРОРОК КОДА",
             description = "50+ синхронов",
-            xpReward = 2500L,
+            xpReward = 150L,
+            coinReward = 2500L,
             target = 50L,
             getProgress = { _, s -> s.syncrons.toLong() },
             isMet = { _, s -> s.syncrons >= 50 }
@@ -413,7 +437,8 @@ object AchievementRegistry {
             icon = "🎯",
             title = "ТОЧНО В ЦЕЛЬ",
             description = "Викторина выиграна",
-            xpReward = 500L,
+            xpReward = 35L,
+            coinReward = 350L,
             target = 1L,
             getProgress = { _, s -> s.quizzesWon.toLong() },
             isMet = { _, s -> s.quizzesWon >= 1 }
@@ -426,7 +451,8 @@ object AchievementRegistry {
             icon = "🛒",
             title = "ПОТРЕБИТЕЛЬ",
             description = "Первая покупка",
-            xpReward = 50L,
+            xpReward = 15L,
+            coinReward = 100L,
             target = 1L,
             getProgress = { _, s -> s.purchases.toLong() },
             isMet = { _, s -> s.purchases >= 1 }
@@ -437,7 +463,8 @@ object AchievementRegistry {
             icon = "💼",
             title = "АКТИВНЫЙ КЛИЕНТ",
             description = "10 покупок",
-            xpReward = 300L,
+            xpReward = 50L,
+            coinReward = 500L,
             target = 10L,
             getProgress = { _, s -> s.purchases.toLong() },
             isMet = { _, s -> s.purchases >= 10 }
@@ -448,7 +475,8 @@ object AchievementRegistry {
             icon = "🏗",
             title = "ИНВЕСТОР",
             description = "100 покупок",
-            xpReward = 3000L,
+            xpReward = 200L,
+            coinReward = 4000L,
             target = 100L,
             getProgress = { _, s -> s.purchases.toLong() },
             isMet = { _, s -> s.purchases >= 100 }
@@ -461,7 +489,8 @@ object AchievementRegistry {
             icon = "💬",
             title = "ПЕРВЫЙ СИГНАЛ",
             description = "Первое сообщение",
-            xpReward = 100L,
+            xpReward = 10L,
+            coinReward = 50L,
             target = 1L,
             getProgress = { _, s -> s.messagesSent.toLong() },
             isMet = { _, s -> s.messagesSent >= 1 }
@@ -472,7 +501,8 @@ object AchievementRegistry {
             icon = "📡",
             title = "РЕЗОНАТОР",
             description = "100 сообщений",
-            xpReward = 600L,
+            xpReward = 50L,
+            coinReward = 600L,
             target = 100L,
             getProgress = { _, s -> s.messagesSent.toLong() },
             isMet = { _, s -> s.messagesSent >= 100 }
@@ -483,7 +513,8 @@ object AchievementRegistry {
             icon = "❤️",
             title = "ЛЮБИМЧИК СЕТИ",
             description = "100 лайков",
-            xpReward = 700L,
+            xpReward = 60L,
+            coinReward = 750L,
             target = 100L,
             getProgress = { _, s -> s.likesReceived.toLong() },
             isMet = { _, s -> s.likesReceived >= 100 }
@@ -496,7 +527,8 @@ object AchievementRegistry {
             icon = "🌀",
             title = "НУЛЕВОЙ",
             description = "Скрытый вход в Нулевой Слой",
-            xpReward = 2000L,
+            xpReward = 100L,
+            coinReward = 2000L,
             target = 1L,
             getProgress = { _, s -> if (s.zeroLayerEntered) 1L else 0L },
             isMet = { _, s -> s.zeroLayerEntered }
@@ -507,7 +539,8 @@ object AchievementRegistry {
             icon = "⚠️",
             title = "ГЛИТЧ",
             description = "Баг стал фичей",
-            xpReward = 1000L,
+            xpReward = 80L,
+            coinReward = 1000L,
             target = 1L,
             getProgress = { _, s -> if (s.glitchTriggered) 1L else 0L },
             isMet = { _, s -> s.glitchTriggered }
@@ -518,7 +551,8 @@ object AchievementRegistry {
             icon = "👁",
             title = "ВЗГЛЯД ТВОРЦА",
             description = "След dev в коде",
-            xpReward = 5000L,
+            xpReward = 200L,
+            coinReward = 5000L,
             target = 1L,
             getProgress = { _, s -> if (s.creatorGazeFound) 1L else 0L },
             isMet = { _, s -> s.creatorGazeFound }
@@ -529,7 +563,8 @@ object AchievementRegistry {
             icon = "🌒",
             title = "НОЧНОЙ ОПЕРАТОР",
             description = "Вход после 3:00",
-            xpReward = 300L,
+            xpReward = 40L,
+            coinReward = 300L,
             target = 1L,
             getProgress = { _, s -> if (s.nightOperatorUnlocked) 1L else 0L },
             isMet = { _, s -> s.nightOperatorUnlocked }
@@ -540,7 +575,8 @@ object AchievementRegistry {
             icon = "🔮",
             title = "ПРИЗВАННЫЙ ХАОСОМ",
             description = "1000 кликов",
-            xpReward = 700L,
+            xpReward = 70L,
+            coinReward = 777L,
             target = 1000L,
             getProgress = { _, s -> s.totalClicks },
             isMet = { _, s -> s.totalClicks >= 1000L }

@@ -244,7 +244,26 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     jsonItem.name.contains("💀") || jsonItem.slot == "cursed" -> "cursed"
                     else -> "common"
                 }
-                val calculatedReqLevel = 1
+                val calculatedReqLevel = when (rarity) {
+                    "common" -> 1
+                    "uncommon" -> 2
+                    "rare" -> 4
+                    "epic" -> 8
+                    "legendary" -> 15
+                    "relic" -> 20
+                    "cursed" -> 25
+                    else -> 1
+                }
+                val finalPrice = if (jsonItem.price > 0) jsonItem.price else when (rarity) {
+                    "common" -> 100
+                    "uncommon" -> 350
+                    "rare" -> 1200
+                    "epic" -> 3500
+                    "legendary" -> 10000
+                    "relic" -> 25000
+                    "cursed" -> 50000
+                    else -> 150
+                }
 
                 ItemMetadata(
                     id = id,
@@ -258,7 +277,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     bonusLuck = jsonItem.luck,
                     hpRestore = if (jsonItem.desc.contains("Восстанавливает")) 50 else 0,
                     energyRestore = if (jsonItem.desc.contains("энергии")) 50 else 0,
-                    price = jsonItem.price,
+                    price = finalPrice,
                     description = jsonItem.desc,
                     reqLevel = calculatedReqLevel
                 )
@@ -1110,7 +1129,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val player = dao.getPlayer(uid) ?: return
         
         if (player.biocoin < meta.price) {
-            log(uid, "Недостаточно кредитов для покупки ${meta.name}.", "error")
+            log(uid, "Недостаточно кредитов для покупки ${meta.name}. Требуется: ${meta.price} BC.", "error")
+            return
+        }
+        if (player.level < meta.reqLevel) {
+            log(uid, "Требуется уровень Ядра ${meta.reqLevel} для приобретения ${meta.name} (Ваш уровень: ${player.level}).", "error")
             return
         }
 

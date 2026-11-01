@@ -629,7 +629,19 @@ fun ShopScreen(
                                             )
                                         }
                                     }
-                                    Text("${item.price} BC", color = amberColor, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("${item.price} BC", color = amberColor, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                        if (item.reqLevel > 1) {
+                                            val hasLevel = (player?.level ?: 1) >= item.reqLevel
+                                            Text(
+                                                " [УР ${item.reqLevel}]",
+                                                color = if (hasLevel) EidosCyan else Color(0xFFFF5252),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -644,18 +656,27 @@ fun ShopScreen(
                                 ) {
                                     Text("🔍 Нажмите для подробностей / осмотра", color = EidosCyan, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
 
+                                    val canAfford = (player?.biocoin ?: 0) >= item.price
+                                    val meetsLevel = (player?.level ?: 1) >= item.reqLevel
+                                    val canBuy = canAfford && meetsLevel
+
                                     Button(
                                         onClick = { onBuy(item.id) },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = amberColor.copy(alpha = 0.25f),
+                                            containerColor = if (canBuy) amberColor.copy(alpha = 0.25f) else Color.DarkGray.copy(alpha = 0.15f),
                                             disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
                                         ),
-                                        enabled = (player?.biocoin ?: 0) >= item.price,
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if ((player?.biocoin ?: 0) >= item.price) amberColor else Color.DarkGray),
+                                        enabled = canBuy,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (canBuy) amberColor else Color.DarkGray),
                                         shape = CutCornerShape(4.dp),
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                                     ) {
-                                        Text(" КУПИТЬ ", color = if ((player?.biocoin ?: 0) >= item.price) amberColor else Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                        val btnText = when {
+                                            !meetsLevel -> "УР ${item.reqLevel}"
+                                            !canAfford -> "НЕ ХВАТАЕТ"
+                                            else -> " КУПИТЬ "
+                                        }
+                                        Text(btnText, color = if (canBuy) amberColor else Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                                     }
                                 }
                             }

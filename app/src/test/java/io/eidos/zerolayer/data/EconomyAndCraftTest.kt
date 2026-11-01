@@ -78,4 +78,12 @@ class EconomyAndCraftTest {
         assertEquals(2500L, recipe.creditCost)
         assertEquals(1, recipe.additionalIngredients["boss_core"])
     }
+
+    @Test
+    fun testAchievementXpPacing() {
+        // Pacing protection: No achievement should award more than 500 XP to prevent instant level skipping
+        for (def in AchievementRegistry.ALL_DEFINITIONS) {
+            assertTrue("Achievement ${def.id} gives too much XP: ${def.xpReward}", def.xpReward <= 500L)
+        }
+    }
 }
