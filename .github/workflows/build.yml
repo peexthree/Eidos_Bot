@@ -31,7 +31,8 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build Debug APK
-      run: ./gradlew assembleDebug --stacktrace --no-daemon
+      run: |
+        ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee build_gradle.log
 
     - name: Upload APK Artifact
       if: success()
@@ -40,10 +41,9 @@ jobs:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
 
-    - name: Upload Build Reports on Failure
+    - name: Upload Build Log on Failure
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: build-reports
-        path: |
-          app/build/reports/
+        name: build-failure-log
+        path: build_gradle.log

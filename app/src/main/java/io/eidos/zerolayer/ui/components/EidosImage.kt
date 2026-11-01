@@ -315,29 +315,3 @@ fun EidosImage(
         }
     }
 }
-
-@Composable
-fun ProceduralCyberpunkArtwork(
-    imageName: String,
-    modifier: Modifier = Modifier,
-    borderColor: Color = EidosCyan
-) {
-    val cleanName = remember(imageName) { imageName.lowercase().replace(" ", "_") }
-    val glyph = remember(cleanName) { getFallbackGlyph(cleanName, null) }
-
-    Box(
-        modifier = modifier
-            .background(ZzzDarkSurface)
-            .border(1.dp, borderColor.copy(alpha = 0.5f), CutCornerShape(4.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = glyph,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            color = ZzzElectricCyan,
-            textAlign = TextAlign.Center
-        )
-    }
-}
