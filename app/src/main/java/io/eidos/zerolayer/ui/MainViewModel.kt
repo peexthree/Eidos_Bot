@@ -12,6 +12,7 @@ import io.eidos.zerolayer.ui.utils.EidosNotificationManager
 import io.eidos.zerolayer.ui.utils.HapticFeedbackManager
 import io.eidos.zerolayer.ui.utils.EidosAlarmScheduler
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class MainViewModel(
     application: Application,
     private val savedStateHandle: androidx.lifecycle.SavedStateHandle

@@ -530,7 +530,7 @@ fun InventoryScreen(
                             )
                         }
                         LinearProgressIndicator(
-                            progress = item.durability.toFloat() / 100f,
+                            progress = { item.durability.toFloat() / 100f },
                             color = if (item.durability < 30) EidosRed else EidosCyan,
                             trackColor = Color(0xFF1E2E3E),
                             modifier = Modifier

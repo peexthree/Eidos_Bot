@@ -20,6 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 class GameRepository(private val context: Context, private val originalDao: EidosDao) {
 
     private val dao = object : EidosDao by originalDao {

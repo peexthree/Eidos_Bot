@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -509,7 +510,7 @@ fun HubScreen(
                                 )
                             }
                         }
-                        Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Open Meta Tree", tint = Color.Yellow)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Open Meta Tree", tint = Color.Yellow)
                     }
                 }
 
@@ -1062,7 +1063,7 @@ fun HubScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     LinearProgressIndicator(
-                        progress = bossHp.toFloat() / 1000000000f,
+                        progress = { bossHp.toFloat() / 1000000000f },
                         color = EidosRed,
                         trackColor = Color.DarkGray,
                         modifier = Modifier.fillMaxWidth().height(8.dp)
