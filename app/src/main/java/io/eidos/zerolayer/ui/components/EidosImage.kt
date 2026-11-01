@@ -52,7 +52,7 @@ private val drawableCache = ConcurrentHashMap<String, Int>()
 private val bitmapCache = ConcurrentHashMap<Int, ImageBitmap>()
 
 /**
- * Singleton Coil ImageLoader configured with SvgDecoder for rendering assets/icons/*.svg.
+ * Singleton Coil ImageLoader configured with SvgDecoder for rendering SVG icons from assets.
  */
 object EidosSvgImageLoader {
     @Volatile
@@ -280,7 +280,7 @@ fun EidosImage(
             )
         }
     } else {
-        // Variant A: Load SVG from assets/icons/*.svg via Coil
+        // Variant A: Load SVG from assets icons via Coil
         val assetSvgUrl = remember(safeName) { AssetIconsMapping.getAssetIconUrl(safeName) }
         val imageLoader = remember(context) { EidosSvgImageLoader.get(context) }
         var isSvgError by remember(safeName) { mutableStateOf(false) }
