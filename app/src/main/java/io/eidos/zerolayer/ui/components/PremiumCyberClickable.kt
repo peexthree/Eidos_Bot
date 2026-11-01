@@ -56,7 +56,7 @@ fun Modifier.premiumCyberClickable(
                 haptic.performHapticFeedback(hapticType)
                 if (playAudioClick) {
                     try {
-                        EidosAudioManager.getInstance(context).playSound(EidosAudioManager.SoundType.CLICK)
+                        EidosAudioManager.getInstance(context).playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                     } catch (_: Throwable) {}
                 }
                 onClick()
