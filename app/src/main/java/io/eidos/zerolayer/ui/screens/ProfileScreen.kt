@@ -48,6 +48,7 @@ import io.eidos.zerolayer.data.Achievement
 import io.eidos.zerolayer.data.AchievementRegistry
 import io.eidos.zerolayer.data.AchievementStorage
 import io.eidos.zerolayer.data.AchievementItem
+import io.eidos.zerolayer.data.PlayerProgressManager
 import androidx.compose.foundation.horizontalScroll
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
@@ -403,7 +404,7 @@ fun ProfileScreen(
                                 Text("ФРАКЦИЯ: ${player?.faction ?: "НЕТ"}", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                             }
 
-                            // Avatar Gallery Pill button on bottom-right of image
+                            // Avatar Dossier Pill button on bottom-right of image
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
@@ -411,7 +412,7 @@ fun ProfileScreen(
                                     .background(Color.Black.copy(alpha = 0.85f), CutCornerShape(4.dp))
                                     .border(1.dp, EidosCyan.copy(alpha = 0.7f), CutCornerShape(4.dp))
                                     .clickable {
-                                        inspectedAvatarLvl = currentDisplayLevel
+                                        inspectedAvatarLvl = actualLevel.coerceIn(1, 31)
                                         showAvatarInspector = true
                                     }
                                     .padding(horizontal = 8.dp, vertical = 5.dp)
@@ -420,9 +421,9 @@ fun ProfileScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text("🔍", fontSize = 10.sp)
+                                    Text("🧬", fontSize = 10.sp)
                                     Text(
-                                        "ГАЛЕРЕЯ (1-31)",
+                                        "ДОСЬЕ ЭВОЛЮЦИИ",
                                         color = EidosCyan,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
@@ -1347,6 +1348,10 @@ fun ProfileScreen(
         }
 
         if (showAvatarInspector) {
+            val isUnlocked = inspectedAvatarLvl <= actualLevel
+            val isCurrent = inspectedAvatarLvl == actualLevel
+            val stageInfo = io.eidos.zerolayer.data.PlayerProgressManager.getLevelInfo(inspectedAvatarLvl)
+
             Dialog(
                 onDismissRequest = { showAvatarInspector = false },
                 properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -1354,16 +1359,16 @@ fun ProfileScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.88f))
+                        .background(Color.Black.copy(alpha = 0.92f))
                         .clickable { showAvatarInspector = false },
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.92f)
+                            .fillMaxWidth(0.94f)
                             .clip(CutCornerShape(12.dp))
                             .background(Color(0xFF090D1A))
-                            .border(1.5.dp, EidosCyan, CutCornerShape(12.dp))
+                            .border(1.5.dp, if (isUnlocked) EidosCyan else Color(0xFFFF5252).copy(alpha = 0.7f), CutCornerShape(12.dp))
                             .clickable(enabled = false) {}
                             .padding(16.dp)
                     ) {
@@ -1379,16 +1384,16 @@ fun ProfileScreen(
                             ) {
                                 Column {
                                     Text(
-                                        "🧬 ГОЛОГРАММА АВАТАРА",
-                                        color = EidosCyan,
+                                        "🧬 ДОСЬЕ НЕЙРО-ЭВОЛЮЦИИ",
+                                        color = if (isUnlocked) EidosCyan else Color(0xFFFF5252),
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Black,
                                         fontFamily = FontFamily.Monospace
                                     )
                                     Text(
-                                        "НЕЙРО-ПРОЕКЦИЯ ОПЕРАТОРА // 1-31",
+                                        "ХРОНИКА БИОМЕХАНИЧЕСКИХ ТРАНСФОРМАЦИЙ ОПЕРАТОРА",
                                         color = Color.Gray,
-                                        fontSize = 10.sp,
+                                        fontSize = 9.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
                                 }
@@ -1406,54 +1411,90 @@ fun ProfileScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Large Holographic Avatar Frame
+                            // Avatar Viewport (Revealed if unlocked, Classified & Hidden if not)
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(260.dp)
+                                    .height(230.dp)
                                     .clip(CutCornerShape(8.dp))
                                     .border(
                                         1.5.dp,
-                                        if (inspectedAvatarLvl <= actualLevel) EidosCyan else Color(0xFFFF5252).copy(alpha = 0.6f),
+                                        if (isCurrent) EidosNeon else if (isUnlocked) EidosCyan else Color(0xFFFF5252).copy(alpha = 0.6f),
                                         CutCornerShape(8.dp)
                                     )
                                     .background(Color.Black)
                             ) {
-                                EidosImage(
-                                    resName = "lvl_$inspectedAvatarLvl",
-                                    borderColor = Color.Transparent,
-                                    borderWidth = 0.dp,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                if (isUnlocked) {
+                                    // Player has reached this level: Display the evolved artwork!
+                                    EidosImage(
+                                        resName = "lvl_$inspectedAvatarLvl",
+                                        borderColor = Color.Transparent,
+                                        borderWidth = 0.dp,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
 
-                                // Cyber scanline gradient
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    Color.Transparent,
-                                                    Color.Black.copy(alpha = 0.85f)
+                                    // Cyber scanline gradient
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    colors = listOf(
+                                                        Color.Transparent,
+                                                        Color.Transparent,
+                                                        Color.Black.copy(alpha = 0.85f)
+                                                    )
                                                 )
                                             )
-                                        )
-                                )
+                                    )
+                                } else {
+                                    // Future level: Player CANNOT see it yet! Redacted / Classified view.
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color(0xFF070A12)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CyberGridOverlay(modifier = Modifier.fillMaxSize())
 
-                                // Level badge (top-left)
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(16.dp)
+                                        ) {
+                                            Text("🔒", fontSize = 38.sp)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                "СТАДИЯ НЕ ДОСТИГНУТА",
+                                                color = Color(0xFFFF5252),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Black,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                "Облик следующей формы эволюции засекречен.\nДостигните Уровня $inspectedAvatarLvl для дешифровки нейро-матрицы.",
+                                                color = Color.LightGray,
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Stage badge (top-left)
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopStart)
                                         .padding(10.dp)
-                                        .background(Color.Black.copy(alpha = 0.8f), CutCornerShape(4.dp))
-                                        .border(1.dp, EidosCyan, CutCornerShape(4.dp))
+                                        .background(Color.Black.copy(alpha = 0.85f), CutCornerShape(4.dp))
+                                        .border(1.dp, if (isUnlocked) EidosCyan else Color(0xFFFF5252), CutCornerShape(4.dp))
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Text(
-                                        "УРОВЕНЬ $inspectedAvatarLvl / 31",
-                                        color = EidosCyan,
+                                        "СТАДИЯ $inspectedAvatarLvl / 31",
+                                        color = if (isUnlocked) EidosCyan else Color(0xFFFF5252),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace
@@ -1465,17 +1506,25 @@ fun ProfileScreen(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .padding(10.dp)
-                                        .background(Color.Black.copy(alpha = 0.8f), CutCornerShape(4.dp))
+                                        .background(Color.Black.copy(alpha = 0.85f), CutCornerShape(4.dp))
                                         .border(
                                             1.dp,
-                                            if (inspectedAvatarLvl <= actualLevel) EidosNeon else Color(0xFFFF5252),
+                                            if (isCurrent) EidosNeon else if (isUnlocked) EidosCyan else Color(0xFFFF5252),
                                             CutCornerShape(4.dp)
                                         )
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Text(
-                                        if (inspectedAvatarLvl <= actualLevel) "🟢 ДОСТУПЕН" else "🔒 НУЖЕН LVL $inspectedAvatarLvl",
-                                        color = if (inspectedAvatarLvl <= actualLevel) EidosNeon else Color(0xFFFF5252),
+                                        when {
+                                            isCurrent -> "✨ ТЕКУЩИЙ ОБЛИК"
+                                            isUnlocked -> "📜 ПРОЙДЕННАЯ СТАДИЯ"
+                                            else -> "🔒 ЗАСЕКРЕЧЕНО"
+                                        },
+                                        color = when {
+                                            isCurrent -> EidosNeon
+                                            isUnlocked -> EidosCyan
+                                            else -> Color(0xFFFF5252)
+                                        },
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace
@@ -1483,7 +1532,76 @@ fun ProfileScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Dossier Details Card
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFF0F1424),
+                                shape = CutCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isUnlocked) EidosCyan.copy(alpha = 0.4f) else Color(0xFFFF5252).copy(alpha = 0.3f)
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    if (isUnlocked) {
+                                        Text(
+                                            "${stageInfo.icon} ${stageInfo.rankTitle} // ${stageInfo.stageTitle}",
+                                            color = if (isCurrent) EidosNeon else Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 13.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            stageInfo.sloganText,
+                                            color = Color.LightGray,
+                                            fontSize = 11.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            "⚡ СПОСОБНОСТЬ: ${stageInfo.perkTitle} — ${stageInfo.perkDescription}",
+                                            color = Color(0xFFFFB300),
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            "БОНУСЫ ЯДРА: +${stageInfo.bonusHp} HP  •  +${stageInfo.bonusAtk} ATK  •  +${stageInfo.bonusDef} DEF",
+                                            color = EidosCyan,
+                                            fontSize = 9.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    } else {
+                                        Text(
+                                            "🔒 СТАДИЯ $inspectedAvatarLvl // [ДАННЫЕ ЗАСЕКРЕЧЕНЫ]",
+                                            color = Color(0xFFFF5252),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 13.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            "Биомеханическая форма еще не синтезирована. Каждая следующая фаза превосходит предыдущую по боевой мощи и кибер-адаптации.",
+                                            color = Color.Gray,
+                                            fontSize = 11.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            "ТРЕБУЕТСЯ ОПЫТА: ${stageInfo.requiredXp} XP (Осталось: ${(stageInfo.requiredXp - currentXp).coerceAtLeast(0)} XP)",
+                                            color = Color(0xFFFFB300),
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             // Prev / Next Navigation Row
                             Row(
@@ -1506,11 +1624,11 @@ fun ProfileScreen(
                                         .clickable(enabled = inspectedAvatarLvl > 1) {
                                             if (inspectedAvatarLvl > 1) inspectedAvatarLvl--
                                         }
-                                        .padding(vertical = 10.dp),
+                                        .padding(vertical = 8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "◀ НАЗАД",
+                                        "◀ СТАДИЯ ${inspectedAvatarLvl - 1}",
                                         color = if (inspectedAvatarLvl > 1) EidosCyan else Color.Gray,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
@@ -1518,7 +1636,7 @@ fun ProfileScreen(
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
 
                                 Box(
                                     modifier = Modifier
@@ -1535,11 +1653,11 @@ fun ProfileScreen(
                                         .clickable(enabled = inspectedAvatarLvl < 31) {
                                             if (inspectedAvatarLvl < 31) inspectedAvatarLvl++
                                         }
-                                        .padding(vertical = 10.dp),
+                                        .padding(vertical = 8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "ВПЕРЕД ▶",
+                                        "СТАДИЯ ${inspectedAvatarLvl + 1} ▶",
                                         color = if (inspectedAvatarLvl < 31) EidosCyan else Color.Gray,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
@@ -1550,9 +1668,9 @@ fun ProfileScreen(
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // Horizontal strip of all 31 levels
+                            // Horizontal strip of all 31 stages
                             Text(
-                                "БЫСТРЫЙ ВЫБОР УРОВНЯ (1 - 31):",
+                                "ХРОНИКА ЭВОЛЮЦИИ (1 - 31):",
                                 color = Color.Gray,
                                 fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -1564,28 +1682,34 @@ fun ProfileScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
                                 (1..31).forEach { lvl ->
-                                    val isCurrent = lvl == inspectedAvatarLvl
-                                    val isUnlocked = lvl <= actualLevel
+                                    val isLvlInspected = lvl == inspectedAvatarLvl
+                                    val isLvlUnlocked = lvl <= actualLevel
+                                    val isLvlActive = lvl == actualLevel
+
                                     Box(
                                         modifier = Modifier
-                                            .size(34.dp)
+                                            .size(32.dp)
                                             .background(
                                                 when {
-                                                    isCurrent -> EidosCyan
-                                                    isUnlocked -> EidosCyan.copy(alpha = 0.2f)
-                                                    else -> Color.Black.copy(alpha = 0.5f)
+                                                    isLvlInspected && isLvlUnlocked -> EidosCyan
+                                                    isLvlInspected -> Color(0xFFFF5252).copy(alpha = 0.4f)
+                                                    isLvlActive -> EidosNeon.copy(alpha = 0.35f)
+                                                    isLvlUnlocked -> EidosCyan.copy(alpha = 0.15f)
+                                                    else -> Color.Black.copy(alpha = 0.6f)
                                                 },
                                                 CutCornerShape(4.dp)
                                             )
                                             .border(
                                                 1.dp,
                                                 when {
-                                                    isCurrent -> Color.White
-                                                    isUnlocked -> EidosCyan
-                                                    else -> Color.DarkGray
+                                                    isLvlInspected && isLvlUnlocked -> Color.White
+                                                    isLvlInspected -> Color(0xFFFF5252)
+                                                    isLvlActive -> EidosNeon
+                                                    isLvlUnlocked -> EidosCyan.copy(alpha = 0.6f)
+                                                    else -> Color.DarkGray.copy(alpha = 0.5f)
                                                 },
                                                 CutCornerShape(4.dp)
                                             )
@@ -1595,13 +1719,14 @@ fun ProfileScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = "$lvl",
+                                            text = if (isLvlUnlocked) "$lvl" else "🔒",
                                             color = when {
-                                                isCurrent -> Color.Black
-                                                isUnlocked -> Color.White
+                                                isLvlInspected && isLvlUnlocked -> Color.Black
+                                                isLvlActive -> EidosNeon
+                                                isLvlUnlocked -> Color.White
                                                 else -> Color.Gray
                                             },
-                                            fontSize = 11.sp,
+                                            fontSize = if (isLvlUnlocked) 11.sp else 9.sp,
                                             fontWeight = FontWeight.Bold,
                                             fontFamily = FontFamily.Monospace
                                         )
@@ -1609,31 +1734,37 @@ fun ProfileScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                            // Action button: Apply for preview or current profile
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            // Evolutionary rule notification (no downgrades / active avatar is immutable)
+                            Text(
+                                "ℹ️ Кибер-эволюция необратима: ваш активный аватар навсегда закреплен за наивысшей достигнутой ступенью (Уровень $actualLevel). Пройденные стадии сохранены в досье.",
+                                color = Color.Gray,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Close button
+                            Button(
+                                onClick = {
+                                    showAvatarInspector = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Button(
-                                    onClick = {
-                                        currentDisplayLevel = inspectedAvatarLvl
-                                        showAvatarInspector = false
-                                        audioManager.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.CLICK)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
-                                    shape = CutCornerShape(6.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        "👁 ПРИМЕНИТЬ ДЛЯ ОБЗОРА",
-                                        color = Color.Black,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 11.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
+                                Text(
+                                    "ЗАКРЫТЬ ДОСЬЕ",
+                                    color = EidosCyan,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
                             }
                         }
                     }
