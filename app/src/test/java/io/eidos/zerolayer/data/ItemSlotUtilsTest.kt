@@ -1,5 +1,7 @@
 package io.eidos.zerolayer.data
 
+import io.eidos.zerolayer.data.GameRepository.ItemMetadata
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
