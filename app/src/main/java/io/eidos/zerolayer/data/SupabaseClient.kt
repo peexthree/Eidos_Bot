@@ -132,8 +132,21 @@ object SupabaseClientManager {
     val baseUrl: String = BuildConfig.SUPABASE_URL.trimEnd('/')
     val apiKey: String = BuildConfig.SUPABASE_ANON_KEY
 
+    var cachedPlayerUuid: String? = null
+
+
+
     private val httpClient = OkHttpClient.Builder().build()
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    private val json = Json {
+
+        ignoreUnknownKeys = true
+
+        encodeDefaults = true
+
+        explicitNulls = false
+
+    }
 
     fun isConfigured(): Boolean = baseUrl.isNotBlank() && apiKey.isNotBlank()
 
@@ -394,7 +407,16 @@ object SupabaseClientManager {
                 if (response.isSuccessful) {
                     val respStr = response.body?.string() ?: ""
                     val list = json.decodeFromString<List<SupabasePlayer>>(respStr)
-                    return@withContext list.firstOrNull() ?: supabasePlayer
+
+                    val synced = list.firstOrNull() ?: supabasePlayer
+
+                    if (synced.id != null) {
+
+                        cachedPlayerUuid = synced.id
+
+                    }
+
+                    return@withContext synced
                 } else {
                     Log.e("SUPABASE", "syncPlayer HTTP Error: ${response.code} ${response.message}")
                 }
@@ -423,7 +445,16 @@ object SupabaseClientManager {
                 if (response.isSuccessful) {
                     val respStr = response.body?.string() ?: ""
                     val list = json.decodeFromString<List<SupabasePlayer>>(respStr)
-                    return@withContext list.firstOrNull()
+
+                    val player = list.firstOrNull()
+
+                    if (player?.id != null) {
+
+                        cachedPlayerUuid = player.id
+
+                    }
+
+                    return@withContext player
                 }
             }
         } catch (e: Exception) {
@@ -436,10 +467,22 @@ object SupabaseClientManager {
      * Sync inventory items to `app_inventory`.
      */
     suspend fun syncInventory(playerId: String, items: List<SupabaseInventoryItem>): Boolean = withContext(Dispatchers.IO) {
+
         if (!isConfigured()) return@withContext false
+
+        val validPlayerId = if (playerId.length == 36 && playerId.contains("-")) playerId else cachedPlayerUuid
+
+        if (validPlayerId.isNullOrBlank()) {
+
+            Log.w("SUPABASE", "syncInventory skipped: no valid UUID for player ($playerId)")
+
+            return@withContext false
+
+        }
+
         try {
             // Delete existing for player and insert current list
-            val deleteUrl = "$baseUrl/rest/v1/app_inventory?player_id=eq.$playerId"
+            val deleteUrl = "$baseUrl/rest/v1/app_inventory?player_id=eq.$validPlayerId"
             val deleteRequest = Request.Builder()
                 .url(deleteUrl)
                 .addHeader("apikey", apiKey)
@@ -450,7 +493,9 @@ object SupabaseClientManager {
 
             if (items.isNotEmpty()) {
                 val insertUrl = "$baseUrl/rest/v1/app_inventory"
-                val bodyJson = json.encodeToString(items)
+                val safeItems = items.map { it.copy(playerId = validPlayerId) }
+
+                val bodyJson = json.encodeToString(safeItems)
                 val insertRequest = Request.Builder()
                     .url(insertUrl)
                     .addHeader("apikey", apiKey)
@@ -528,9 +573,14 @@ object SupabaseClientManager {
      */
     suspend fun addRaidLog(playerId: String, logText: String): Boolean = withContext(Dispatchers.IO) {
         if (!isConfigured()) return@withContext false
+        val validPlayerId = if (playerId.length == 36 && playerId.contains("-")) playerId else cachedPlayerUuid
+        if (validPlayerId.isNullOrBlank()) {
+            Log.w("SUPABASE", "addRaidLog skipped: no valid UUID for player ($playerId)")
+            return@withContext false
+        }
         try {
             val url = "$baseUrl/rest/v1/app_raid_logs"
-            val logItem = SupabaseRaidLog(playerId = playerId, logText = logText)
+            val logItem = SupabaseRaidLog(playerId = validPlayerId, logText = logText)
             val bodyJson = json.encodeToString(logItem)
             val request = Request.Builder()
                 .url(url)

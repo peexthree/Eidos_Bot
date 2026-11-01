@@ -362,27 +362,37 @@ class MainViewModel(
             // 1. Fetch remote player from app_players
             val remotePlayer = SupabaseClientManager.fetchPlayerByDeviceId(deviceUuid)
             if (remotePlayer != null) {
+                if (remotePlayer.id != null) {
+                    SupabaseClientManager.cachedPlayerUuid = remotePlayer.id
+                }
                 if (remotePlayer.stateVersion > localPlayer.state_version) {
                     // Conflict: Remote has a newer version
                     syncConflict.value = SyncConflict(localPlayer, remotePlayer)
                     repository.log(localPlayer.uid, "⚠ Обнаружен конфликт синхронизации! Облачное сохранение (версия ${remotePlayer.stateVersion}) новее локального (версия ${localPlayer.state_version}).", "error")
                     return@launch
-                } else if (localPlayer.state_version > remotePlayer.stateVersion) {
-                    // Local is newer: Push local changes to Supabase
+                } else {
+                    // Local is newer or equal: push local changes to Supabase cloud
+                    val targetVersion = maxOf(localPlayer.state_version, remotePlayer.stateVersion)
                     val sp = SupabasePlayer(
+                        id = remotePlayer.id,
                         deviceId = deviceUuid,
-                        username = localPlayer.username ?: "Оператор ${deviceUuid.take(8).uppercase()}",
+                        username = localPlayer.username ?: remotePlayer.username,
                         level = localPlayer.level,
                         exp = localPlayer.xp,
                         biocoins = localPlayer.biocoin,
                         hp = localPlayer.hp,
                         energy = localPlayer.energy,
                         rank = localPlayer.path,
-                        stateVersion = localPlayer.state_version
+                        maxDepth = localPlayer.max_depth,
+                        defense_program_1 = localPlayer.defense_program_1,
+                        defense_program_2 = localPlayer.defense_program_2,
+                        defense_program_3 = localPlayer.defense_program_3,
+                        stateVersion = targetVersion
                     )
                     val synced = SupabaseClientManager.syncPlayer(sp)
-                    val targetUuid = synced?.id ?: remotePlayer.id
+                    val targetUuid = synced?.id ?: remotePlayer.id ?: SupabaseClientManager.cachedPlayerUuid
                     if (targetUuid != null) {
+                        SupabaseClientManager.cachedPlayerUuid = targetUuid
                         val currentInv = repository.getInventory(_uid.value).first()
                         val supabaseInvList = currentInv.map { item ->
                             SupabaseInventoryItem(
@@ -394,16 +404,6 @@ class MainViewModel(
                         }
                         SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
                     }
-                } else {
-                    // Equal: keep synced
-                    repository.savePlayer(localPlayer.copy(
-                        username = remotePlayer.username,
-                        level = remotePlayer.level,
-                        xp = remotePlayer.exp,
-                        biocoin = remotePlayer.biocoins,
-                        hp = remotePlayer.hp,
-                        energy = remotePlayer.energy
-                    ))
                 }
             } else {
                 // Upsert local player to Supabase app_players
@@ -416,11 +416,16 @@ class MainViewModel(
                     hp = localPlayer.hp,
                     energy = localPlayer.energy,
                     rank = localPlayer.path,
+                    maxDepth = localPlayer.max_depth,
+                    defense_program_1 = localPlayer.defense_program_1,
+                    defense_program_2 = localPlayer.defense_program_2,
+                    defense_program_3 = localPlayer.defense_program_3,
                     stateVersion = localPlayer.state_version
                 )
                 val synced = SupabaseClientManager.syncPlayer(sp)
-                val targetUuid = synced?.id
+                val targetUuid = synced?.id ?: SupabaseClientManager.cachedPlayerUuid
                 if (targetUuid != null) {
+                    SupabaseClientManager.cachedPlayerUuid = targetUuid
                     val currentInv = repository.getInventory(_uid.value).first()
                     val supabaseInvList = currentInv.map { item ->
                         SupabaseInventoryItem(
@@ -431,7 +436,7 @@ class MainViewModel(
                         )
                     }
                     SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
-                    repository.log(localPlayer.uid, "🌐 [СИНХРОНИЗАЦИЯ]: Профиль оператора '${synced.username}' успешно зарегистрирован в базе данных EIDOS Cloud.", "info")
+                    repository.log(localPlayer.uid, "🌐 [СИНХРОНИЗАЦИЯ]: Профиль оператора '${synced?.username ?: localPlayer.username}' успешно зарегистрирован в базе данных EIDOS Cloud.", "info")
                 }
             }
         }
@@ -542,6 +547,7 @@ class MainViewModel(
     fun buyShadowBrokerItem(itemId: String, useBioCoins: Boolean = false) {
         viewModelScope.launch {
             repository.buyShadowBrokerItem(_uid.value, itemId, useBioCoins)
+            syncWithSupabase()
         }
     }
 
@@ -601,6 +607,7 @@ class MainViewModel(
         viewModelScope.launch {
             repository.buyItem(_uid.value, itemId)
             trackPurchase()
+            syncWithSupabase()
         }
     }
 
@@ -622,16 +629,19 @@ class MainViewModel(
 
     fun getAnomalyData(id: String?) = id?.let { repository.getAnomaly(it) }
     fun getAllItemsMetadata() = repository.getAllItemsMetadata()
+    fun getPlayerDirect(): Player? = kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { repository.getPlayerSync(_uid.value) }
 
     fun equip(item: InventoryItem) {
         viewModelScope.launch {
             repository.equipItem(_uid.value, item)
+            syncWithSupabase()
         }
     }
 
     fun unequip(item: InventoryItem) {
         viewModelScope.launch {
             repository.unequipItem(_uid.value, item)
+            syncWithSupabase()
         }
     }
 
@@ -689,6 +699,7 @@ class MainViewModel(
                     showAchievement("НОВЫЙ ГОРИЗОНТ", "Ваше Ядро эволюционировало. Вы стали сильнее.", xp = 500, coins = 1000)
                 }
                 showToast("📡 ЭВАКУАЦИЯ ЗАВЕРШЕНА: +$coins BC", CyberToastType.SUCCESS)
+                syncWithSupabase()
             }
         }
     }
@@ -997,10 +1008,10 @@ class MainViewModel(
                     max_hp = 100
                 ))
 
-                // Clear current inventory first to prevent duplication
+                // Preserve existing items, only insert starter kit if inventory is completely empty
                 val dao = database.dao()
-                dao.clearInventory(_uid.value)
-
+                val existingInv = dao.getInventorySync(_uid.value)
+                if (existingInv.isEmpty()) {
                 // Insert starter kit items depending on selected faction
                 when (faction) {
                     "МАТЕРИЯ" -> {
@@ -1027,6 +1038,7 @@ class MainViewModel(
                         dao.insertInventoryItem(InventoryItem(uid = _uid.value, item_id = "neural_stimulator", quantity = 2))
                         dao.insertInventoryItem(InventoryItem(uid = _uid.value, item_id = "abyssal_key", quantity = 2))
                     }
+                }
                 }
 
                 repository.log(_uid.value, "Neural link established. Operator nickname is now: $nickname. Selected faction: $faction.", "info")
@@ -1166,12 +1178,17 @@ class MainViewModel(
             if (currentP != null) {
                 val newXp = currentP.xp + achievement.xpReward
                 val newCoins = currentP.biocoin + achievement.coinReward
-                val (updatedP, didLevelUp) = currentP.copy(xp = newXp, biocoin = newCoins).checkAndApplyLevelUp()
+                val (updatedP, didLevelUp) = currentP.copy(
+                    xp = newXp,
+                    biocoin = newCoins,
+                    state_version = currentP.state_version + 1
+                ).checkAndApplyLevelUp()
                 repository.savePlayer(updatedP)
                 if (didLevelUp) {
                     repository.handleLevelUpRewards(_uid.value, currentP.level, updatedP.level)
                     showToast("🎉 УРОВЕНЬ ПОВЫШЕН: ${updatedP.level}!", CyberToastType.SUCCESS)
                 }
+                syncWithSupabase()
             }
         }
         
@@ -1311,7 +1328,11 @@ class MainViewModel(
             val targetLevel = if (currentLvl >= 31) 1 else currentLvl + 1
             val targetXp = PlayerProgressManager.getLevelInfo(targetLevel).requiredXp
             if (currentP != null) {
-                val updated = currentP.copy(xp = targetXp, level = targetLevel)
+                val updated = currentP.copy(
+                    xp = targetXp,
+                    level = targetLevel,
+                    state_version = currentP.state_version + 1
+                )
                 repository.savePlayer(updated)
             }
             _levelUpEvent.value = LevelUpEvent(
@@ -1321,6 +1342,7 @@ class MainViewModel(
             )
             haptics.lootLegendary()
             audio.playSound(EidosAudioManager.SoundType.LEVEL_UP)
+            syncWithSupabase()
         }
     }
 }

@@ -8,7 +8,11 @@ import org.junit.Test
 
 class SupabaseDtoTest {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        explicitNulls = false
+    }
 
     @Test
     fun testAuthResponseSuccessDeserialization() {
@@ -134,5 +138,27 @@ class SupabaseDtoTest {
         assertEquals(player.rank, decoded.rank)
         assertEquals(player.stateVersion, decoded.stateVersion)
         assertEquals(player.updatedAt, decoded.updatedAt)
+    }
+
+    @Test
+    fun testSupabasePlayerOmitsNullId() {
+        val player = SupabasePlayer(
+            deviceId = "dev_999",
+            username = "Ghost_99"
+        )
+        val raw = json.encodeToString(SupabasePlayer.serializer(), player)
+        assertTrue(!raw.contains("\"id\":null"))
+        assertTrue(!raw.contains("\"id\":"))
+    }
+
+    @Test
+    fun testSupabaseInventoryItemOmitsNullId() {
+        val item = SupabaseInventoryItem(
+            playerId = "player-uuid-1",
+            itemId = "cyber_katana"
+        )
+        val raw = json.encodeToString(SupabaseInventoryItem.serializer(), item)
+        assertTrue(!raw.contains("\"id\":null"))
+        assertTrue(!raw.contains("\"id\":"))
     }
 }

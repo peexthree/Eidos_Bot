@@ -214,7 +214,8 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
             ) {
                 composable<Splash> {
                     SplashScreen(onFinish = { 
-                        val dest = if (player == null || player?.faction == "NONE") Onboarding else Hub
+                        val currentP = mainViewModel.getPlayerDirect() ?: player
+                        val dest = if (currentP == null || currentP.faction == "NONE") Onboarding else Hub
                         navController.navigate(dest) { popUpTo(Splash) { inclusive = true } }
                     })
                 }
@@ -301,6 +302,10 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         allItemsMetadata = mainViewModel.getAllItemsMetadata(),
                         activeRaidSession = raidSession,
                         onReturnToRaid = { navController.navigate(Raid) { launchSingleTop = true } },
+                        onEvacuateRaid = {
+                            mainViewModel.endRaidWithSafeExtraction()
+                            navController.navigate(Hub) { popUpTo(Raid) { inclusive = true } }
+                        },
                         onEquip = { mainViewModel.equip(it) },
                         onUnequip = { mainViewModel.unequip(it) },
                         onUseConsumable = { mainViewModel.useConsumable(it) },

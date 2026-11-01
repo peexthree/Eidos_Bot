@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,6 +58,7 @@ fun InventoryScreen(
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     activeRaidSession: RaidSession? = null,
     onReturnToRaid: (() -> Unit)? = null,
+    onEvacuateRaid: (() -> Unit)? = null,
     onEquip: (InventoryItem) -> Unit,
     onUnequip: (InventoryItem) -> Unit,
     onUseConsumable: (InventoryItem) -> Unit,
@@ -170,6 +173,101 @@ fun InventoryScreen(
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
+                        }
+                    }
+                }
+
+                // Raid Buffer Section: Shows loot gathered during active dive awaiting extraction
+                if (activeRaidSession != null) {
+                    val bufferItems = remember(activeRaidSession.buffer_items) {
+                        activeRaidSession.buffer_items.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                    }
+                    val bufferCoins = activeRaidSession.buffer_coins
+                    val bufferXp = activeRaidSession.buffer_xp
+
+                    if (bufferItems.isNotEmpty() || bufferCoins > 0L) {
+                        Surface(
+                            color = Color(0xFF140D1E),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EidosPurple),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 10.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("🎒", fontSize = 14.sp)
+                                        Column {
+                                            Text(
+                                                "ПОЛЕВОЙ БУФЕР // НАГРАДЫ РЕЙДА",
+                                                color = EidosPurple,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Black,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                            Text(
+                                                "ТРОФЕИ: ${bufferItems.size} шт. | +$bufferCoins BC | +$bufferXp XP",
+                                                color = Color(0xFFB39DDB),
+                                                fontSize = 8.5.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                    if (onEvacuateRaid != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(EidosNeon)
+                                                .cyberClickable { onEvacuateRaid() }
+                                                .padding(horizontal = 8.dp, vertical = 5.dp)
+                                        ) {
+                                            Text(
+                                                "ЭВАКУАЦИЯ",
+                                                color = Color.Black,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (bufferItems.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        items(bufferItems) { rawItemId ->
+                                            val meta = allItemsMetadata.find { it.id == rawItemId }
+                                            val rarity = meta?.rarity ?: getItemRarity(rawItemId)
+                                            val itemColor = when (rarity) {
+                                                "cursed", "relic" -> EidosRed
+                                                "legendary" -> EidosOrange
+                                                "epic" -> EidosPurple
+                                                "rare" -> EidosCyan
+                                                "uncommon" -> EidosNeon
+                                                else -> Color(0xFF546E7A)
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(44.dp)
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(Color(0xFF090B10))
+                                                    .border(1.dp, itemColor, RoundedCornerShape(4.dp))
+                                                    .padding(2.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                EidosImage(resName = rawItemId, borderColor = itemColor, modifier = Modifier.size(26.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -1028,7 +1028,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 log(uid, "❌ [ТЕНЕВОЙ БРОКЕР]: Недостаточно BioCoin для сделки! Требуется: $bcCost BC (У вас: ${player.biocoin} BC).", "error")
                 return
             }
-            dao.updatePlayer(player.copy(biocoin = player.biocoin - bcCost))
+            dao.updatePlayer(player.copy(biocoin = player.biocoin - bcCost, state_version = player.state_version + 1))
             addInventory(uid, itemId, 1)
             log(uid, "📦 [ТЕНЕВОЙ БРОКЕР]: Приобретен артефакт ${meta.name} за $bcCost BC!", "success")
         } else {
@@ -1150,7 +1150,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             }
         }
         
-        dao.updatePlayer(player.copy(biocoin = player.biocoin - meta.price))
+        dao.updatePlayer(player.copy(biocoin = player.biocoin - meta.price, state_version = player.state_version + 1))
         val existing = dao.getInventoryFlow(uid).first().find { it.item_id == itemId }
         if (existing != null && (meta.type == "consumable" || meta.type == "material")) {
             dao.updateInventoryItem(existing.copy(quantity = existing.quantity + 1))
@@ -1507,12 +1507,15 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
 
         dao.updateInventoryItem(item.copy(is_equipped = true, slot = targetSlot))
+        dao.updatePlayer(player.copy(state_version = player.state_version + 1))
         log(uid, "Надето: ${meta?.name ?: item.item_id} в слот $targetSlot (Lvl $reqLevel).", "info")
         capPlayerHp(uid)
     }
 
     suspend fun unequipItem(uid: Long, item: InventoryItem) {
+        val player = dao.getPlayer(uid)
         dao.updateInventoryItem(item.copy(is_equipped = false, slot = null))
+        if (player != null) dao.updatePlayer(player.copy(state_version = player.state_version + 1))
         log(uid, "Предмет снят.", "info")
         capPlayerHp(uid)
     }
@@ -2776,7 +2779,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             xp = player.xp + calculatedXp,
             biocoin = currentBiocoin + finalCoins,
             max_depth = maxOf(player.max_depth, session.depth),
-            raids_done = player.raids_done + 1
+            raids_done = player.raids_done + 1,
+            state_version = player.state_version + 1
         )
         val (updatedPlayer, leveledUp) = tempPlayer.checkAndApplyLevelUp()
         dao.updatePlayer(updatedPlayer)
@@ -3623,7 +3627,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             xp = player.xp + calculatedXp,
             biocoin = player.biocoin + finalCoins,
             max_depth = maxOf(player.max_depth, session.depth),
-            raids_done = player.raids_done + 1
+            raids_done = player.raids_done + 1,
+            state_version = player.state_version + 1
         )
         val (updatedPlayer, leveledUp) = tempPlayer.checkAndApplyLevelUp()
         dao.updatePlayer(updatedPlayer)
@@ -4261,7 +4266,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun pushPlayerToSupabase(uid: Long, customDeviceId: String? = null, customUsername: String? = null): Boolean {
         val p = dao.getPlayer(uid) ?: return false
         val session = authStore.getSession()
-        val deviceId = customDeviceId ?: session.userId ?: "device_$uid"
+        val deviceId = customDeviceId ?: session.userId ?: io.eidos.zerolayer.domain.anti_cheat.DeviceIdentity.getOrCreateDeviceId(context)
         val username = customUsername ?: session.username ?: p.username ?: "Operator_$uid"
 
         val sp = SupabasePlayer(
@@ -4281,6 +4286,19 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         )
         val res = SupabaseClientManager.syncPlayer(sp)
         if (res != null) {
+            val targetUuid = res.id ?: SupabaseClientManager.cachedPlayerUuid
+            if (targetUuid != null) {
+                val currentInv = dao.getInventorySync(uid)
+                val supabaseInvList = currentInv.map {
+                    SupabaseInventoryItem(
+                        playerId = targetUuid,
+                        itemId = it.item_id,
+                        quantity = it.quantity,
+                        isEquipped = it.is_equipped
+                    )
+                }
+                SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
+            }
             authStore.updateLastSync()
             return true
         }
