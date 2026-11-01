@@ -19,10 +19,13 @@ jobs:
         java-version: '21'
         cache: 'gradle'
 
-    - name: Accept Licenses & Ensure Android SDK 35
+    - name: Accept Licenses & Install Android SDK 35
       run: |
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" "build-tools;35.0.0" || true
+        echo "Accepting licenses..."
+        yes | sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        echo "Installing Android SDK 35 and Build Tools..."
+        sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        sudo chown -R runner:docker $ANDROID_HOME
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -31,7 +34,16 @@ jobs:
       run: ./gradlew assembleDebug --stacktrace --no-daemon
 
     - name: Upload APK Artifact
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Upload Build Reports on Failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-reports
+        path: |
+          app/build/reports/
