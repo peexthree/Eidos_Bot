@@ -47,10 +47,10 @@ class EconomyAndCraftTest {
 
     @Test
     fun testShadowBrokerPricing() {
-        val commonItem = ItemMetadata(id = "knife", name = "Нож", type = "weapon", rarity = "common")
-        val epicChip = ItemMetadata(id = "chip_v1", name = "Чип", type = "chip", rarity = "epic")
-        val legendaryGun = ItemMetadata(id = "plasma", name = "Плазма 🟠", type = "weapon", rarity = "legendary")
-        val cursedRelic = ItemMetadata(id = "skull", name = "Череп 💀", type = "cursed", rarity = "cursed")
+        val commonItem = GameRepository.ItemMetadata(id = "knife", name = "Нож", type = "weapon", rarity = "common")
+        val epicChip = GameRepository.ItemMetadata(id = "chip_v1", name = "Чип", type = "chip", rarity = "epic")
+        val legendaryGun = GameRepository.ItemMetadata(id = "plasma", name = "Плазма 🟠", type = "weapon", rarity = "legendary")
+        val cursedRelic = GameRepository.ItemMetadata(id = "skull", name = "Череп 💀", type = "cursed", rarity = "cursed")
 
         // XP Prices
         assertEquals(3000L, ShadowBrokerPrices.getXpPrice(commonItem))
@@ -67,7 +67,7 @@ class EconomyAndCraftTest {
 
     @Test
     fun testForgeRecipeCreation() {
-        val recipe = ForgeRecipes.createRecipe(
+        val recipe = GameRepository.ForgeRecipeDefinition(
             targetId = "reality_silencer",
             shardCost = 10,
             creditCost = 2500L,

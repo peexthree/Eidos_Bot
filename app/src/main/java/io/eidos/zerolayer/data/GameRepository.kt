@@ -194,6 +194,35 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
 
 
+    data class ItemMetadata(
+        val id: String,
+        val name: String,
+        val type: String, // weapon, armor, head, chip, consumable, material
+        val rarity: String, // common, uncommon, rare, epic, legendary, relic, cursed
+        val icon: String = "❓",
+        val multiplier: Float = 1.0f,
+        val bonusAttack: Int = 0,
+        val bonusDefense: Int = 0,
+        val bonusLuck: Int = 0,
+        val hpRestore: Int = 0,
+        val energyRestore: Int = 0,
+        val price: Int = 100,
+        val description: String = "",
+        val reqLevel: Int = 1
+    )
+
+    @kotlinx.serialization.Serializable
+    data class ItemJson(
+        val name: String = "Предмет",
+        val slot: String = "",
+        val type: String = "",
+        val atk: Int = 0,
+        val def: Int = 0,
+        val luck: Int = 0,
+        val price: Int = 0,
+        val desc: String = ""
+    )
+
     private val itemsMetadata: List<ItemMetadata> by lazy {
         try {
             val itemsMap = context.assets.open("items.json").use { stream ->
@@ -889,6 +918,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
 
+
+    data class ForgeRecipeDefinition(
+        val targetId: String,
+        val shardCost: Int,
+        val creditCost: Long,
+        val additionalIngredients: Map<String, Int> = emptyMap()
+    )
 
     val forgeRecipes: List<ForgeRecipeDefinition> = listOf(
         ForgeRecipeDefinition("reality_silencer", shardCost = 10, creditCost = 2500L, additionalIngredients = mapOf("boss_core" to 1)),
