@@ -1596,102 +1596,101 @@ fun CyberHubHeader(
     player: io.eidos.zerolayer.data.Player?,
     onProfileClick: () -> Unit
 ) {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-            .border(1.dp, Color(0xFF1E3A34), CutCornerShape(8.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1215).copy(alpha = 0.95f)),
-        shape = CutCornerShape(8.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        color = Color(0xFF070D14).copy(alpha = 0.95f),
+        shape = CutCornerShape(topStart = 8.dp, bottomEnd = 10.dp),
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, EidosCyan.copy(alpha = 0.45f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. УРОВЕНЬ
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "УРОВЕНЬ",
-                    color = Color.Gray,
-                    fontSize = 8.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(2.dp))
+            // 1. УРОВЕНЬ & АВАТАР ПРОФИЛЯ
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.clickable { onProfileClick() }
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(36.dp)
                         .background(Color(0xFF0F2B26), CutCornerShape(6.dp))
-                        .border(1.5.dp, EidosCyan, CutCornerShape(6.dp))
-                        .clickable { onProfileClick() },
+                        .border(1.5.dp, EidosCyan, CutCornerShape(6.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "${player?.level ?: 48}",
-                        color = Color.White,
-                        fontSize = 13.sp,
+                        text = "${player?.level ?: 1}",
+                        color = EidosCyan,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                Column {
+                    Text(
+                        text = player?.username ?: "ОПЕРАТОР",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "УР ${player?.level ?: 1} // ${player?.faction ?: "НЕОФИТ"}",
+                        color = Color(0xFF64748B),
+                        fontSize = 8.5.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
-            // 2. СИГНАЛ (ОЗ)
+            // 2. СИГНАЛ (HP)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "СИГНАЛ (ОЗ)",
-                    color = Color.Gray,
+                    text = "СИГНАЛ",
+                    color = Color(0xFF64748B),
                     fontSize = 8.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("❤️", fontSize = 11.sp)
+                    Text("❤️", fontSize = 10.sp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = "${player?.hp ?: 1240}/${player?.max_hp ?: 1500}",
-                        color = Color.White,
-                        fontSize = 10.sp,
+                        text = "${player?.hp ?: 100}",
+                        color = if ((player?.hp ?: 100) < 30) EidosRed else Color.White,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
-            // 3. ОПЫТ
+            // 3. ЭНЕРГИЯ (EP)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "ОПЫТ",
-                    color = Color.Gray,
+                    text = "ЭНЕРГИЯ",
+                    color = Color(0xFF64748B),
                     fontSize = 8.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .background(EidosCyan, RoundedCornerShape(2.dp))
-                            .padding(horizontal = 3.dp, vertical = 1.dp)
-                    ) {
-                        Text(
-                            text = "XP",
-                            color = Color.Black,
-                            fontSize = 7.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
+                    Text("⚡", fontSize = 10.sp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = "${player?.xp ?: 28600}/35k",
-                        color = Color.White,
-                        fontSize = 9.sp,
+                        text = "${player?.energy ?: 100}",
+                        color = EidosCyan,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
@@ -1701,43 +1700,43 @@ fun CyberHubHeader(
             // 4. БИОКОИНЫ
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "БИОКОИНЫ",
-                    color = Color.Gray,
+                    text = "БАЛАНС",
+                    color = Color(0xFF64748B),
                     fontSize = 8.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🪙", fontSize = 11.sp)
+                    Text("🪙", fontSize = 10.sp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = "${player?.biocoin ?: 18950}",
-                        color = Color(0xFFFFD700),
-                        fontSize = 10.sp,
+                        text = "${player?.biocoin ?: 0}",
+                        color = EidosGold,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
-            // 5. СЕРИЯ
+            // 5. СТРИК
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "СЕРИЯ",
-                    color = Color.Gray,
+                    color = Color(0xFF64748B),
                     fontSize = 8.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🔥", fontSize = 11.sp)
+                    Text("🔥", fontSize = 10.sp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = "${player?.streak ?: 24} ДНЯ",
-                        color = Color(0xFFFF5722),
-                        fontSize = 10.sp,
+                        text = "${player?.streak ?: 1}Д",
+                        color = EidosOrange,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
