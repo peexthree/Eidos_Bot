@@ -27,7 +27,17 @@ class EidosBillingManager(
     private var onPurchaseSuccessCallback: ((purchaseToken: String, productId: String) -> Unit)? = null
     private var onPurchaseErrorCallback: ((errorMessage: String) -> Unit)? = null
 
-    private val consumedTokens: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val consumedTokensPrefs by lazy {
+        context.getSharedPreferences("eidos_consumed_tokens", android.content.Context.MODE_PRIVATE)
+    }
+
+    private val consumedTokens: MutableSet<String> = ConcurrentHashMap.newKeySet<String>().apply {
+        try {
+            val saved = context.getSharedPreferences("eidos_consumed_tokens", android.content.Context.MODE_PRIVATE)
+                .getStringSet("tokens", emptySet()) ?: emptySet()
+            addAll(saved)
+        } catch (_: Throwable) {}
+    }
 
     private val billingClient: BillingClient by lazy {
         BillingClient.newBuilder(context)
@@ -203,11 +213,17 @@ class EidosBillingManager(
         if (token.startsWith("simulated_token")) {
             return BuildConfig.DEBUG && ALLOW_MOCK_BILLING
         }
-        return token.length >= 10
+        // High-entropy token verification (Google Play purchase tokens are long base64 strings)
+        return token.length >= 20 && !token.contains(" ")
     }
 
     fun markTokenConsumed(token: String) {
         consumedTokens.add(token)
+        try {
+            val set = HashSet(consumedTokensPrefs.getStringSet("tokens", emptySet()) ?: emptySet())
+            set.add(token)
+            consumedTokensPrefs.edit().putStringSet("tokens", set).apply()
+        } catch (_: Throwable) {}
     }
 
     fun destroy() {

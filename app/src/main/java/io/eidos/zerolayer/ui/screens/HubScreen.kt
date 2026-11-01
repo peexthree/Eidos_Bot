@@ -38,6 +38,8 @@ import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.TerminalTutorialDialog
 import io.eidos.zerolayer.ui.components.RelicShowcaseDialog
+import io.eidos.zerolayer.ui.components.ShadowBrokerCountdownBadge
+import io.eidos.zerolayer.ui.components.premiumCyberClickable
 import io.eidos.zerolayer.ui.components.EarthRelic
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.cyber3DTilt
@@ -88,11 +90,13 @@ fun HubScreen(
     var showRelicShowcaseDialog by remember { mutableStateOf(false) }
     var activeRelic by remember { mutableStateOf<EarthRelic?>(null) }
 
-    var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
+    var isBrokerActive by remember {
+        mutableStateOf(ShadowBrokerManager.isBrokerActive(System.currentTimeMillis()) || (player?.is_admin == true))
+    }
+    LaunchedEffect(player?.is_admin) {
         while (true) {
-            kotlinx.coroutines.delay(1000)
-            currentTimeMillis = System.currentTimeMillis()
+            isBrokerActive = ShadowBrokerManager.isBrokerActive(System.currentTimeMillis()) || (player?.is_admin == true)
+            kotlinx.coroutines.delay(30000)
         }
     }
 
@@ -116,9 +120,7 @@ fun HubScreen(
         }
     }
 
-    val isBrokerActive = ShadowBrokerManager.isBrokerActive(currentTimeMillis) || (player?.is_admin == true)
-    val brokerTimeMs = ShadowBrokerManager.getTimeRemainingMs(currentTimeMillis)
-    val brokerTimeStr = ShadowBrokerManager.formatTime(brokerTimeMs)
+    // isBrokerActive is updated every 30s to avoid full-screen 1000ms recompositions
 
     // World Boss local state
     var bossHp by remember { mutableStateOf(984124510L) }
@@ -274,8 +276,9 @@ fun HubScreen(
                     Card(
                         modifier = Modifier
                             .weight(1f)
+                            .cyber3DTilt(maxTiltDegrees = 7f)
                             .border(1.dp, Color.Yellow, CutCornerShape(8.dp))
-                            .clickable { showRelicShowcaseDialog = true },
+                            .premiumCyberClickable { showRelicShowcaseDialog = true },
                         colors = CardDefaults.cardColors(containerColor = EidosGlass),
                         shape = CutCornerShape(8.dp)
                     ) {
@@ -1286,22 +1289,10 @@ fun HubScreen(
                         color = Color.Gray,
                         fontSize = 11.sp
                     )
-                    Surface(
-                        color = Color(0xFF1F0F2E),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF9C27B0)),
-                        shape = CutCornerShape(4.dp),
+                    ShadowBrokerCountdownBadge(
+                        isAdmin = player?.is_admin == true,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                    ) {
-                        Text(
-                            "⏳ ПРИБЫТИЕ ЧЕРЕЗ: $brokerTimeStr",
-                            color = Color(0xFFE040FB),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.Monospace,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(10.dp)
-                        )
-                    }
+                    )
                     Text(
                         "💡 В момент подключения у него будет 5 редчайших секретных предметов (реликвии, проклятый шмот, чипы), недоступных в обычном магазине!",
                         color = Color.LightGray,
@@ -1756,16 +1747,16 @@ fun CyberGridMenuItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val haptic = LocalHapticFeedback.current
     Surface(
-        onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            onClick()
-        },
         color = ZzzDarkSurface.copy(alpha = 0.95f),
         shape = CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
         border = androidx.compose.foundation.BorderStroke(2.dp, borderColor),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .premiumCyberClickable(
+                hapticType = HapticFeedbackType.LongPress,
+                onClick = onClick
+            )
     ) {
         Column(
             modifier = Modifier

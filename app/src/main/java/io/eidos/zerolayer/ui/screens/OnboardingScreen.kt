@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -64,12 +65,12 @@ fun OnboardingScreen(
 ) {
     val context = LocalContext.current
     val audioManager = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
-    var showVideoIntro by remember { mutableStateOf(true) }
-    var nickname by remember { mutableStateOf("") }
-    var selectedFaction by remember { mutableStateOf("МАТЕРИЯ") }
-    var secretCode by remember { mutableStateOf("") }
-    var showSecretInput by remember { mutableStateOf(false) }
-    var currentStep by remember { mutableIntStateOf(0) } // 0: Lore, 1: Callsign, 2: Faction, 3: Directives, 4: Deployment
+    var showVideoIntro by rememberSaveable { mutableStateOf(true) }
+    var nickname by rememberSaveable { mutableStateOf("") }
+    var selectedFaction by rememberSaveable { mutableStateOf("МАТЕРИЯ") }
+    var secretCode by rememberSaveable { mutableStateOf("") }
+    var showSecretInput by rememberSaveable { mutableStateOf(false) }
+    var currentStep by rememberSaveable { mutableIntStateOf(0) } // 0: Lore, 1: Callsign, 2: Faction, 3: Directives, 4: Deployment
     var isVoiceMuted by remember { mutableStateOf(false) }
     var replayTrigger by remember { mutableIntStateOf(0) }
 

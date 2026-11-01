@@ -1,19 +1,31 @@
 package io.eidos.zerolayer.data
 
+import io.eidos.zerolayer.data.GameRepository.ItemMetadata
+
 object ShadowBrokerPrices {
-    fun getXpPrice(meta: GameRepository.ItemMetadata): Long {
+    // Dynamic price multipliers configurable at runtime or via remote config / Supabase
+    @Volatile var xpMultiplier: Double = 1.0
+    @Volatile var bcMultiplier: Double = 1.0
+
+    fun updateMultipliers(xpMul: Double, bcMul: Double) {
+        xpMultiplier = xpMul.coerceIn(0.1, 10.0)
+        bcMultiplier = bcMul.coerceIn(0.1, 10.0)
+    }
+
+    fun getXpPrice(meta: ItemMetadata): Long {
         val r = meta.rarity.lowercase()
         val name = meta.name
         val isCursedOrRelic = r in listOf("cursed", "relic") || name.contains("💀") || name.contains("👁") || name.contains("🔴") || meta.type == "cursed"
         val isLegendary = r == "legendary" || name.contains("🟠")
         val isEpicOrChip = r == "epic" || meta.type == "chip"
 
-        return when {
+        val basePrice = when {
             isCursedOrRelic -> 50000L
             isLegendary -> 20000L
             isEpicOrChip -> 8000L
             else -> 3000L
         }
+        return (basePrice * xpMultiplier).toLong()
     }
 
     fun getBcPrice(meta: ItemMetadata): Long {
@@ -23,11 +35,12 @@ object ShadowBrokerPrices {
         val isLegendary = r == "legendary" || name.contains("🟠")
         val isEpicOrChip = r == "epic" || meta.type == "chip"
 
-        return when {
+        val basePrice = when {
             isCursedOrRelic -> 25000L
             isLegendary -> 10000L
             isEpicOrChip -> 4000L
             else -> 1500L
         }
+        return (basePrice * bcMultiplier).toLong()
     }
 }

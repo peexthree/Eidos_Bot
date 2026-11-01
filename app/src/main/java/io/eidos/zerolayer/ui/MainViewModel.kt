@@ -52,7 +52,21 @@ class MainViewModel(
         uuid
     }
 
-    private val localUid: Long = Math.abs(deviceUuid.hashCode().toLong()) + 100000L
+    private val localUid: Long = run {
+        val prefs = application.getSharedPreferences("eidos_device_prefs", android.content.Context.MODE_PRIVATE)
+        var storedUid = prefs.getLong("device_local_uid", 0L)
+        if (storedUid == 0L) {
+            val msb = try {
+                java.util.UUID.fromString(deviceUuid).mostSignificantBits
+            } catch (_: Throwable) {
+                java.util.UUID.randomUUID().mostSignificantBits
+            }
+            val safeLong = Math.abs(if (msb == Long.MIN_VALUE) 1L else msb) % 9_000_000_000_000_000L + 1_000_000_000_000L
+            storedUid = safeLong
+            prefs.edit().putLong("device_local_uid", storedUid).apply()
+        }
+        storedUid
+    }
 
     private val _uid = MutableStateFlow(localUid)
     val uid: StateFlow<Long> = _uid.asStateFlow()
@@ -165,11 +179,22 @@ class MainViewModel(
         alarmScheduler.scheduleNetworkIntrusionNotification()
 
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val legacyUid = Math.abs(deviceUuid.hashCode().toLong()) + 100000L
+            var effectiveUid = localUid
+            if (localUid != legacyUid) {
+                val legacyPlayer = repository.getPlayerSync(legacyUid)
+                if (legacyPlayer != null && repository.getPlayerSync(localUid) == null) {
+                    effectiveUid = legacyUid
+                    _uid.value = legacyUid
+                    application.getSharedPreferences("eidos_device_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit().putLong("device_local_uid", legacyUid).apply()
+                }
+            }
             val defaultUsername = "Оператор ${deviceUuid.take(8).uppercase()}"
-            repository.ensureDevicePlayerExists(localUid, deviceUuid, defaultUsername)
+            repository.ensureDevicePlayerExists(effectiveUid, deviceUuid, defaultUsername)
             
             // Passive Energy Regeneration (offline calculations with Anti-Time Cheat protection)
-            val p = repository.getPlayerSync(localUid)
+            val p = repository.getPlayerSync(effectiveUid)
             if (p != null) {
                 val validation = io.eidos.zerolayer.domain.anti_cheat.TimeAntiCheat.validateAndSanitizeTimestamp(application)
                 val safeNow = validation.sanitizedCurrentTime

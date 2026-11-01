@@ -8,6 +8,15 @@ class EidosAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val notificationManager = EidosNotificationManager.getInstance(context)
         when (intent.action) {
+            Intent.ACTION_BOOT_COMPLETED,
+            "android.intent.action.QUICKBOOT_POWERON" -> {
+                // Re-arm alarms that were wiped by Android system shutdown
+                try {
+                    val scheduler = EidosAlarmScheduler(context)
+                    scheduler.scheduleDailySyncNotification()
+                    scheduler.scheduleNetworkIntrusionNotification()
+                } catch (_: Throwable) {}
+            }
             ACTION_ENERGY_RESTORED -> notificationManager.notifyEnergyRestored()
             ACTION_DAILY_SYNC -> notificationManager.notifySupplyDropReady()
             ACTION_NETWORK_INTRUSION -> notificationManager.notifyPvpAttackAlert("Phantom")
