@@ -21,10 +21,14 @@ jobs:
 
     - name: Accept Licenses & Install Android SDK 35
       run: |
+        echo "Fixing runner permissions..."
+        sudo chown -R runner:docker /home/runner
+        mkdir -p /home/runner/.config/.android /home/runner/.android
+        sudo chown -R runner:docker /home/runner/.config /home/runner/.android
         echo "Accepting licenses..."
-        yes | sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses || true
         echo "Installing Android SDK 35 and Build Tools..."
-        sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-35" "build-tools;35.0.0"
         sudo chown -R runner:docker $ANDROID_HOME
 
     - name: Grant execute permission for gradlew
@@ -39,7 +43,10 @@ jobs:
           echo "========================================="
           echo "💥 GRADLE BUILD FAILED (Exit Code: $EXIT_CODE)"
           echo "========================================="
-          tail -n 250 build_gradle.log
+          echo ">>> COMPILATION ERRORS:"
+          grep -E "(^e: |error: |FAILURE:|What went wrong)" build_gradle.log || true
+          echo ">>> LAST 100 LINES:"
+          tail -n 100 build_gradle.log
           exit $EXIT_CODE
         fi
 
