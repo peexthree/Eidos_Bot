@@ -41,6 +41,11 @@ import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.cyberClickable
+import io.eidos.zerolayer.ui.components.EidosGlassCard
+import io.eidos.zerolayer.ui.components.EidosRarityBadge
+import io.eidos.zerolayer.ui.components.rarityColor
+import io.eidos.zerolayer.ui.components.EidosButton
+import io.eidos.zerolayer.ui.components.EidosButtonVariant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -547,96 +552,98 @@ fun ShopScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredItems, key = { it.id }) { item ->
-                    val rarityColor = when (item.rarity.lowercase()) {
-                        "uncommon" -> Color(0xFF1E88E5)
-                        "rare" -> Color(0xFFFFD54F)
-                        "epic" -> Color(0xFFAB47BC)
-                        "legendary" -> Color(0xFFFF7043)
-                        "relic" -> Color(0xFFFF1744)
-                        else -> Color.LightGray
-                    }
+                        val itemRarityColor = rarityColor(item.rarity)
+                        val effectivePrice = if (item.price > 0) item.price else when (item.rarity.lowercase()) {
+                            "uncommon" -> 350
+                            "rare" -> 1200
+                            "epic" -> 3500
+                            "legendary" -> 10000
+                            "relic" -> 25000
+                            "cursed" -> 50000
+                            else -> 100
+                        }
 
-                    val isLegendaryOrRelic = item.rarity.lowercase() in listOf("legendary", "relic", "cursed")
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (isLegendaryOrRelic) {
-                                    Modifier.neonGlowPulse(
-                                        glowColor = rarityColor,
-                                        shape = CutCornerShape(6.dp)
-                                    )
-                                } else {
-                                    Modifier.border(1.dp, rarityColor.copy(alpha = 0.4f), CutCornerShape(6.dp))
-                                }
-                            )
-                            .clickable { selectedInspectItem = item },
-                        colors = CardDefaults.cardColors(containerColor = Color.Black),
-                        shape = CutCornerShape(6.dp)
-                    ) {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            // Full background banner image
-                            EidosImage(
-                                resName = item.id,
-                                borderColor = Color.Transparent,
-                                borderWidth = 0.dp,
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                modifier = Modifier.matchParentSize()
-                            )
-
-                            // Cybernetic dark overlay for perfect text contrast
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .background(
-                                        androidx.compose.ui.graphics.Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Black.copy(alpha = 0.80f),
-                                                Color.Black.copy(alpha = 0.90f)
-                                            )
-                                        )
-                                    )
-                            )
-
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                        EidosGlassCard(
+                            glowColor = itemRarityColor,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedInspectItem = item }
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Item Thumbnail with Rarity Frame
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CutCornerShape(4.dp))
+                                        .background(Color(0xFF070B12))
+                                        .border(1.dp, itemRarityColor, CutCornerShape(4.dp)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        EidosImage(
-                                            resName = item.id,
-                                            borderColor = rarityColor,
-                                            borderWidth = 1.dp,
-                                            modifier = Modifier.size(28.dp)
+                                    EidosImage(
+                                        resName = item.id,
+                                        borderColor = Color.Transparent,
+                                        borderWidth = 0.dp,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                // Item Info Column
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            item.name,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(item.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Surface(
-                                            color = rarityColor.copy(alpha = 0.25f),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, rarityColor),
-                                            shape = CutCornerShape(3.dp)
-                                        ) {
-                                            Text(
-                                                item.rarity.uppercase(),
-                                                color = rarityColor,
-                                                fontSize = 8.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                            )
+                                        EidosRarityBadge(item.rarity)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(3.dp))
+
+                                    // Stat Badges
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        if (item.bonusAttack > 0) {
+                                            Text("+${item.bonusAttack} ATK", color = EidosRed, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                                        }
+                                        if (item.bonusDefense > 0) {
+                                            Text("+${item.bonusDefense} DEF", color = EidosCyan, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                                        }
+                                        if (item.bonusLuck > 0) {
+                                            Text("+${item.bonusLuck} LUCK", color = EidosGold, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                                         }
                                     }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("${item.price} BC", color = amberColor, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    // Price & Level Tag
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            "$effectivePrice BC",
+                                            color = amberColor,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
                                         if (item.reqLevel > 1) {
                                             val hasLevel = (player?.level ?: 1) >= item.reqLevel
                                             Text(
-                                                " [УР ${item.reqLevel}]",
+                                                "УР ${item.reqLevel}",
                                                 color = if (hasLevel) EidosCyan else Color(0xFFFF5252),
-                                                fontSize = 10.sp,
+                                                fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 fontFamily = FontFamily.Monospace
                                             )
@@ -644,44 +651,40 @@ fun ShopScreen(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(item.description, color = Color.LightGray, fontSize = 11.sp, lineHeight = 14.sp, fontFamily = FontFamily.Monospace)
+                                Spacer(modifier = Modifier.width(8.dp))
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                // Buy Button
+                                val canAfford = (player?.biocoin ?: 0) >= effectivePrice
+                                val meetsLevel = (player?.level ?: 1) >= item.reqLevel
+                                val canBuy = canAfford && meetsLevel
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                Button(
+                                    onClick = { onBuy(item.id) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (canBuy) amberColor.copy(alpha = 0.25f) else Color.DarkGray.copy(alpha = 0.15f),
+                                        disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
+                                    ),
+                                    enabled = canBuy,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (canBuy) amberColor else Color.DarkGray),
+                                    shape = CutCornerShape(4.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.heightIn(min = 38.dp)
                                 ) {
-                                    Text("🔍 Нажмите для подробностей / осмотра", color = EidosCyan, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-
-                                    val canAfford = (player?.biocoin ?: 0) >= item.price
-                                    val meetsLevel = (player?.level ?: 1) >= item.reqLevel
-                                    val canBuy = canAfford && meetsLevel
-
-                                    Button(
-                                        onClick = { onBuy(item.id) },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (canBuy) amberColor.copy(alpha = 0.25f) else Color.DarkGray.copy(alpha = 0.15f),
-                                            disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
-                                        ),
-                                        enabled = canBuy,
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (canBuy) amberColor else Color.DarkGray),
-                                        shape = CutCornerShape(4.dp),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                                    ) {
-                                        val btnText = when {
-                                            !meetsLevel -> "УР ${item.reqLevel}"
-                                            !canAfford -> "НЕ ХВАТАЕТ"
-                                            else -> " КУПИТЬ "
-                                        }
-                                        Text(btnText, color = if (canBuy) amberColor else Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    val btnText = when {
+                                        !meetsLevel -> "УР ${item.reqLevel}"
+                                        !canAfford -> "НЕТ BC"
+                                        else -> "КУПИТЬ"
                                     }
+                                    Text(
+                                        btnText,
+                                        color = if (canBuy) amberColor else Color.Gray,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
                                 }
                             }
                         }
-                    }
                 }
             }
         }
@@ -802,7 +805,16 @@ fun ShopScreen(
                             Text("$buyQuantity", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                             IconButton(
                                 onClick = {
-                                    val priceLong = maxOf(1L, inspect.price.toLong())
+                                    val effectiveInspectPrice = if (inspect.price > 0) inspect.price else when (inspect.rarity.lowercase()) {
+                                        "uncommon" -> 350
+                                        "rare" -> 1200
+                                        "epic" -> 3500
+                                        "legendary" -> 10000
+                                        "relic" -> 25000
+                                        "cursed" -> 50000
+                                        else -> 100
+                                    }
+                                    val priceLong = maxOf(1L, effectiveInspectPrice.toLong())
                                     val maxAfford = ((player?.biocoin ?: 0L) / priceLong).toInt()
                                     if (buyQuantity < minOf(99, maxOf(1, maxAfford))) buyQuantity++
                                 },
@@ -814,13 +826,31 @@ fun ShopScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    val totalCost = inspect.price * buyQuantity.toLong()
+                    val effectiveInspectPrice = if (inspect.price > 0) inspect.price else when (inspect.rarity.lowercase()) {
+                        "uncommon" -> 350
+                        "rare" -> 1200
+                        "epic" -> 3500
+                        "legendary" -> 10000
+                        "relic" -> 25000
+                        "cursed" -> 50000
+                        else -> 100
+                    }
+                    val totalCost = effectiveInspectPrice * buyQuantity.toLong()
                     Text("🪙 СТОИМОСТЬ ПОКУПКИ:", color = amberColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text(if (buyQuantity > 1) "$totalCost BioCoins (${inspect.price} BC/шт)" else "${inspect.price} BioCoins", color = amberColor, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text(if (buyQuantity > 1) "$totalCost BioCoins ($effectiveInspectPrice BC/шт)" else "$effectiveInspectPrice BioCoins", color = amberColor, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                 }
             },
             confirmButton = {
-                val totalCost = inspect.price * buyQuantity.toLong()
+                val effectiveInspectPrice = if (inspect.price > 0) inspect.price else when (inspect.rarity.lowercase()) {
+                    "uncommon" -> 350
+                    "rare" -> 1200
+                    "epic" -> 3500
+                    "legendary" -> 10000
+                    "relic" -> 25000
+                    "cursed" -> 50000
+                    else -> 100
+                }
+                val totalCost = effectiveInspectPrice * buyQuantity.toLong()
                 Button(
                     onClick = {
                         repeat(buyQuantity) { onBuy(inspect.id) }
