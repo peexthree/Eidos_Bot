@@ -2069,6 +2069,17 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         )
 
         when (dispatchResult) {
+            is io.eidos.zerolayer.domain.raid.RaidEventDispatcher.DispatchResult.VoidStep -> {
+                val updatedPlayer = workingPlayer.copy(xp = workingPlayer.xp + dispatchResult.xpGain)
+                dao.updatePlayer(updatedPlayer)
+                dao.insertRaidSession(session.copy(
+                    depth = newDepth,
+                    active_mutator = currentMutator,
+                    next_event_type = "scan",
+                    is_scanned = false
+                ))
+                log(uid, dispatchResult.message, "info")
+            }
             is io.eidos.zerolayer.domain.raid.RaidEventDispatcher.DispatchResult.MaxwellDemon -> {
                 dao.insertRaidSession(session.copy(
                     depth = newDepth,
@@ -2178,6 +2189,33 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     log(uid, dispatchResult.message, "info")
                 }
             }
+        }
+    }
+
+    suspend fun resolveRiddle(uid: Long, isCorrect: Boolean) = dbMutex.withLock {
+        val session = dao.getRaidSession(uid) ?: return@withLock
+        val player = dao.getPlayer(uid) ?: return@withLock
+        if (isCorrect) {
+            val rewardCoins = 150L + (session.depth / 10L)
+            val rewardXp = 100L + (session.depth / 20L)
+            dao.insertRaidSession(session.copy(
+                riddles_solved = session.riddles_solved + 1,
+                buffer_coins = session.buffer_coins + rewardCoins,
+                buffer_xp = session.buffer_xp + rewardXp,
+                next_event_type = "scan"
+            ))
+            dao.updatePlayer(player.copy(xp = player.xp + rewardXp))
+            log(uid, "🧩 [СФИНКС]: Загадка решена верно! Получено +$rewardCoins BC, +$rewardXp XP.", "loot")
+        } else {
+            val penaltyDmg = 15
+            val newSignal = maxOf(1, session.signal - penaltyDmg)
+            val newHp = maxOf(1, player.hp - penaltyDmg)
+            dao.insertRaidSession(session.copy(
+                signal = newSignal,
+                next_event_type = "scan"
+            ))
+            dao.updatePlayer(player.copy(hp = newHp))
+            log(uid, "🧩 [СФИНКС]: Ошибка в логике! Разряд искажения нанес -$penaltyDmg урона.", "error")
         }
     }
 
@@ -4239,8 +4277,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             defense_program_1 = p.defense_program_1,
             defense_program_2 = p.defense_program_2,
             defense_program_3 = p.defense_program_3,
-            stateVersion = p.state_version,
-            updatedAt = System.currentTimeMillis()
+            stateVersion = p.state_version
         )
         val res = SupabaseClientManager.syncPlayer(sp)
         if (res != null) {

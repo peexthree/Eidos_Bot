@@ -341,7 +341,8 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onBetDemonHp = { mainViewModel.betMaxwellDemonHp() },
                         onBetDemonBuffer = { mainViewModel.betMaxwellDemonBuffer() },
                         onIgnoreDemon = { mainViewModel.ignoreMaxwellDemon() },
-                        onResolveHardGlitch = { chosen, correct -> mainViewModel.resolveHardGlitch(chosen, correct) }
+                        onResolveHardGlitch = { chosen, correct -> mainViewModel.resolveHardGlitch(chosen, correct) },
+                        onResolveRiddle = { mainViewModel.resolveRiddle(it) }
                     )
                 }
                 composable<Forge> {

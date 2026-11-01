@@ -96,6 +96,7 @@ fun RaidScreen(
     onBetDemonBuffer: () -> Unit = {},
     onIgnoreDemon: () -> Unit = {},
     onResolveHardGlitch: (chosenIndex: Int, correctIndex: Int) -> Unit = { _, _ -> },
+    onResolveRiddle: (Boolean) -> Unit = {},
     onFlee: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -488,6 +489,21 @@ fun RaidScreen(
             onConfirmExit = {
                 showEvacSummary = false
                 onExitRaid()
+            }
+        )
+    }
+
+    // Riddle / Sphinx Encounter Modal
+    if (session?.next_event_type == "riddle") {
+        io.eidos.zerolayer.ui.components.LoreRiddleDialog(
+            onDismiss = {
+                onNextStep()
+            },
+            onCorrectAnswer = {
+                onResolveRiddle(true)
+            },
+            onWrongAnswer = {
+                onResolveRiddle(false)
             }
         )
     }

@@ -323,7 +323,7 @@ class MainViewModel(
                 hp = remote.hp,
                 energy = remote.energy,
                 state_version = remote.stateVersion,
-                updated_at = remote.updatedAt
+                updated_at = System.currentTimeMillis()
             ))
             syncConflict.value = null
             repository.log(conflict.local.uid, "🔄 [СИНХРОНИЗАЦИЯ]: Прогресс восстановлен из облака (версия ${remote.stateVersion}).", "info")
@@ -347,8 +347,7 @@ class MainViewModel(
                 hp = updatedLocal.hp,
                 energy = updatedLocal.energy,
                 rank = updatedLocal.path,
-                stateVersion = updatedLocal.state_version,
-                updatedAt = updatedLocal.updated_at
+                stateVersion = updatedLocal.state_version
             )
             SupabaseClientManager.syncPlayer(sp)
             syncConflict.value = null
@@ -379,10 +378,22 @@ class MainViewModel(
                         hp = localPlayer.hp,
                         energy = localPlayer.energy,
                         rank = localPlayer.path,
-                        stateVersion = localPlayer.state_version,
-                        updatedAt = localPlayer.updated_at
+                        stateVersion = localPlayer.state_version
                     )
-                    SupabaseClientManager.syncPlayer(sp)
+                    val synced = SupabaseClientManager.syncPlayer(sp)
+                    val targetUuid = synced?.id ?: remotePlayer.id
+                    if (targetUuid != null) {
+                        val currentInv = repository.getInventory(_uid.value).first()
+                        val supabaseInvList = currentInv.map { item ->
+                            SupabaseInventoryItem(
+                                playerId = targetUuid,
+                                itemId = item.item_id,
+                                quantity = item.quantity,
+                                isEquipped = item.is_equipped
+                            )
+                        }
+                        SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
+                    }
                 } else {
                     // Equal: keep synced
                     repository.savePlayer(localPlayer.copy(
@@ -405,23 +416,24 @@ class MainViewModel(
                     hp = localPlayer.hp,
                     energy = localPlayer.energy,
                     rank = localPlayer.path,
-                    stateVersion = localPlayer.state_version,
-                    updatedAt = localPlayer.updated_at
+                    stateVersion = localPlayer.state_version
                 )
-                SupabaseClientManager.syncPlayer(sp)
+                val synced = SupabaseClientManager.syncPlayer(sp)
+                val targetUuid = synced?.id
+                if (targetUuid != null) {
+                    val currentInv = repository.getInventory(_uid.value).first()
+                    val supabaseInvList = currentInv.map { item ->
+                        SupabaseInventoryItem(
+                            playerId = targetUuid,
+                            itemId = item.item_id,
+                            quantity = item.quantity,
+                            isEquipped = item.is_equipped
+                        )
+                    }
+                    SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
+                    repository.log(localPlayer.uid, "🌐 [СИНХРОНИЗАЦИЯ]: Профиль оператора '${synced.username}' успешно зарегистрирован в базе данных EIDOS Cloud.", "info")
+                }
             }
-
-            // 2. Sync inventory
-            val currentInv = repository.getInventory(_uid.value).first()
-            val supabaseInvList = currentInv.map { item ->
-                SupabaseInventoryItem(
-                    playerId = deviceUuid,
-                    itemId = item.item_id,
-                    quantity = item.quantity,
-                    isEquipped = item.is_equipped
-                )
-            }
-            SupabaseClientManager.syncInventory(deviceUuid, supabaseInvList)
         }
     }
 
@@ -454,6 +466,19 @@ class MainViewModel(
         audio.playSound(EidosAudioManager.SoundType.GLITCH_FOUND)
         viewModelScope.launch {
             repository.scanSector(_uid.value)
+        }
+    }
+
+    fun resolveRiddle(isCorrect: Boolean) {
+        if (isCorrect) {
+            haptics.lootLegendary()
+            audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
+        } else {
+            haptics.errorGlitch()
+            audio.playSound(EidosAudioManager.SoundType.ERROR_GLITCH)
+        }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            repository.resolveRiddle(_uid.value, isCorrect)
         }
     }
 

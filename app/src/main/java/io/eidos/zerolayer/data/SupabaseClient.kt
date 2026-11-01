@@ -61,7 +61,7 @@ sealed class AuthResult {
 
 @Serializable
 data class SupabasePlayer(
-    val id: Long? = null,
+    val id: String? = null,
     @SerialName("device_id") val deviceId: String,
     val username: String,
     val level: Int = 1,
@@ -77,12 +77,12 @@ data class SupabasePlayer(
     @SerialName("installed_hardware") val installed_hardware: String? = null,
     @SerialName("pvp_proxy_until") val pvp_proxy_until: Long = 0L,
     @SerialName("state_version") val stateVersion: Long = 1,
-    @SerialName("updated_at") val updatedAt: Long = System.currentTimeMillis()
+    @SerialName("updated_at") val updatedAt: String? = null
 )
 
 @Serializable
 data class SupabaseInventoryItem(
-    val id: Long? = null,
+    val id: String? = null,
     @SerialName("player_id") val playerId: String,
     @SerialName("item_id") val itemId: String,
     val quantity: Int = 1,
@@ -91,7 +91,7 @@ data class SupabaseInventoryItem(
 
 @Serializable
 data class SupabaseRaidLog(
-    val id: Long? = null,
+    val id: String? = null,
     @SerialName("player_id") val playerId: String,
     @SerialName("log_text") val logText: String,
     @SerialName("created_at") val createdAt: String? = null

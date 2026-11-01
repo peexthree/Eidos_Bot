@@ -23,6 +23,11 @@ object RaidEventDispatcher {
             val message: String
         ) : DispatchResult()
 
+        data class VoidStep(
+            val xpGain: Long,
+            val message: String
+        ) : DispatchResult()
+
         data class TrapTriggered(
             val damage: Int,
             val healAmount: Int, // if karma inversion is equipped
@@ -118,15 +123,29 @@ object RaidEventDispatcher {
             )
         }
 
-        // 5. Base Pool Selection
+        // 5. Multi-tiered Event Pool Selection
         val roll = Random.nextInt(100)
         return when {
-            roll < 20 -> handleTrapEvent(depth, player, playerDefense, flags)
-            roll < 45 -> handleLootEvent(depth, player, playerLuck, flags)
-            roll < 60 -> handleSafeZoneEvent(depth, player, flags)
-            roll < 75 -> handleRiddleEvent(depth)
+            roll < 25 -> handleVoidStepEvent(depth, player)
+            roll < 40 -> handleTrapEvent(depth, player, playerDefense, flags)
+            roll < 60 -> handleLootEvent(depth, player, playerLuck, flags)
+            roll < 72 -> handleSafeZoneEvent(depth, player, flags)
+            roll < 82 -> handleRiddleEvent(depth)
             else -> handleCombatEvent(depth, flags)
         }
+    }
+
+    private fun handleVoidStepEvent(depth: Int, player: Player): DispatchResult {
+        val xpGain = (5L..15L).random() + (depth / 50L)
+        val message = RaidLoreEngine.generateCombinedLore(
+            type = "empty",
+            depth = depth,
+            extraNote = "💠 [ИССЛЕДОВАНИЕ БЕЗДНЫ]: Слой исследован глубже (+${xpGain} XP)."
+        )
+        return DispatchResult.VoidStep(
+            xpGain = xpGain,
+            message = message
+        )
     }
 
     private fun handleTrapEvent(
@@ -135,28 +154,41 @@ object RaidEventDispatcher {
         playerDefense: Int,
         flags: EquipmentFlags
     ): DispatchResult {
+        val trapContent = RaidLoreEngine.getRandomContent("trap")
+        val baseTrapVal = if (trapContent.value > 0) trapContent.value else 25
+
         // 1. Check Maxwell Entropy Shield (100% trap immunity)
         if (AnomalyEngine.isBuffActive(player, AnomalyEngine.BUFF_MAXWELL_ENTROPY_SHIELD)) {
+            val message = RaidLoreEngine.generateCombinedLore(
+                type = "trap",
+                depth = depth,
+                extraNote = "🛡️ [ЭНТРОПИЙНЫЙ ЩИТ]: Ловушка Нулевого Слоя полностью поглощена квантовым барьером!"
+            )
             return DispatchResult.TrapTriggered(
                 damage = 0,
                 healAmount = 0,
-                message = "🛡️ [ЭНТРОПИЙНЫЙ ЩИТ]: Ловушка Нулевого Слоя полностью поглощена квантовым барьером!"
+                message = message
             )
         }
 
         if (flags.hasKarmaInversion) {
             // Karma Inversion heals +20% HP instead of damaging
             val healAmount = maxOf(5, (player.max_hp * 0.20f).toInt())
+            val message = RaidLoreEngine.generateCombinedLore(
+                type = "trap",
+                depth = depth,
+                extraNote = "☯️ [ИНВЕРСИЯ КАРМЫ]: Ловушка Нулевого Слоя инвертирована в регенеративный импульс! Восстановлено +${healAmount} HP!"
+            )
             return DispatchResult.TrapTriggered(
                 damage = 0,
                 healAmount = healAmount,
-                message = "☯️ [ИНВЕРСИЯ КАРМЫ]: Ловушка Нулевого Слоя инвертирована в регенеративный импульс! Восстановлено +$healAmount HP!"
+                message = message
             )
         }
 
         val depthMultiplier = io.eidos.zerolayer.domain.combat.CombatEngine.getDepthDifficultyMultiplier(depth)
         val maskReduction = if (flags.hasScavengerMask) 5 else 0
-        val baseDamage = ((15 + (depth / 10)) * depthMultiplier).toInt()
+        val baseDamage = ((baseTrapVal + (depth / 15)) * depthMultiplier).toInt()
         var finalDamage = maxOf(5, baseDamage - (playerDefense / 2) - maskReduction)
 
         // If Maxwell Vulnerability is active, increase trap damage by +25%
@@ -173,11 +205,16 @@ object RaidEventDispatcher {
 
         val maskNote = if (flags.hasScavengerMask) " (Защита Маски: -5 ед)" else ""
         val vulnNote = if (AnomalyEngine.isBuffActive(player, AnomalyEngine.BUFF_MAXWELL_VULNERABILITY)) " [⚠️ УЯЗВИМОСТЬ +25%]" else ""
-        val scalingNote = if (depth > 1000) " [МАСШТАБ ГЛУБИНЫ x${String.format(java.util.Locale.US, "%.2f", depthMultiplier)}]" else ""
+        val message = RaidLoreEngine.generateCombinedLore(
+            type = "trap",
+            depth = depth,
+            extraNote = "💥 [УРОН ЛОВУШКИ]: -$finalDamage HP$maskNote$vulnNote."
+        )
+
         return DispatchResult.TrapTriggered(
             damage = finalDamage,
             healAmount = 0,
-            message = "⚠️ [ЛОВУШКА СЛОЯ]: Детонировал лазерный импульс! Нанесено -$finalDamage урона$maskNote$vulnNote$scalingNote."
+            message = message
         )
     }
 
@@ -187,12 +224,13 @@ object RaidEventDispatcher {
         playerLuck: Int,
         flags: EquipmentFlags
     ): DispatchResult {
+        val lootContent = RaidLoreEngine.getRandomContent("loot")
+        val baseLootVal = if (lootContent.value > 0) lootContent.value.toLong() else (20L..60L).random()
         val isOverload = AnomalyEngine.isBuffActive(player, AnomalyEngine.BUFF_OVERLOAD)
         val hasFortune = AnomalyEngine.isBuffActive(player, AnomalyEngine.BUFF_MAXWELL_FORTUNE)
         val luckMultiplier = 1.0f + (playerLuck * 0.02f)
         val depthRewardMultiplier = io.eidos.zerolayer.domain.combat.CombatEngine.getDepthRewardMultiplier(depth)
-        val baseCoins = (10..30).random() + (depth / 5)
-        val rawCoins = (baseCoins * luckMultiplier * depthRewardMultiplier).toLong()
+        val rawCoins = ((baseLootVal + (depth / 10L)) * luckMultiplier * depthRewardMultiplier).toLong()
         val finalCoins = if (isOverload) (rawCoins * 1.5f).toLong() else rawCoins
 
         val items = mutableListOf<String>()
@@ -223,14 +261,17 @@ object RaidEventDispatcher {
             }
         }
 
-        val overloadNote = if (isOverload) " ⚡ [ПЕРЕГРУЗКА +50%]" else ""
-        val fortuneNote = if (hasFortune) " 🎲 [ИНВЕРСИЯ ФОРТУНЫ x2]" else ""
-        val singularityNote = if (depth >= 5000) " 🌌 [СИНГУЛЯРНОСТЬ]" else ""
         val itemsNote = if (items.isNotEmpty()) " и предметы: [${items.joinToString(", ")}]" else ""
+        val message = RaidLoreEngine.generateCombinedLore(
+            type = "loot",
+            depth = depth,
+            extraNote = "💰 [ДОБЫЧА СЛОЯ]: Получено +$finalCoins BC$itemsNote!"
+        )
+
         return DispatchResult.LootFound(
             coins = finalCoins,
             items = items,
-            message = "📦 [ТАЙНИК СЛОЯ]: Извлечено +$finalCoins BC$overloadNote$fortuneNote$singularityNote$itemsNote!"
+            message = message
         )
     }
 
@@ -239,34 +280,32 @@ object RaidEventDispatcher {
         player: Player,
         flags: EquipmentFlags
     ): DispatchResult {
-        val heal = maxOf(5, (player.max_hp * 0.05f).toInt())
+        val healContent = RaidLoreEngine.getRandomContent("heal")
+        val baseHealVal = if (healContent.value > 0) healContent.value else 15
+        val heal = maxOf(5, (player.max_hp * 0.05f).toInt() + baseHealVal)
+        val message = RaidLoreEngine.generateCombinedLore(
+            type = "heal",
+            depth = depth,
+            extraNote = "💚 [ОАЗИС СТАБИЛЬНОСТИ]: Сигнал и биологический аватар восстановлены на +$heal HP."
+        )
         return DispatchResult.SafeZone(
             healAmount = heal,
-            message = "🏕 [БЕЗОПАСНАЯ ЗОНА]: Нейро-купол изоляции. Сигнал стабилизирован на +$heal HP."
+            message = message
         )
     }
 
     private fun handleRiddleEvent(depth: Int): DispatchResult {
         val rewardMultiplier = io.eidos.zerolayer.domain.combat.CombatEngine.getDepthRewardMultiplier(depth)
-        val riddles = listOf(
-            DispatchResult.RiddleEncounter(
-                question = "ТЕРМИНАЛ: «Сколько бит в одном килобайте в архитектуре Нулевого Слоя?»",
-                options = listOf("8192 бит", "1024 бит", "4096 бит"),
-                correctIndex = 0,
-                rewardCoins = (150L * rewardMultiplier).toLong(),
-                penaltyHp = 10,
-                message = "🧩 [ТЕРМИНАЛЬНАЯ ЗАГАДКА]: Взломайте проверочный хэш."
-            ),
-            DispatchResult.RiddleEncounter(
-                question = "ТЕРМИНАЛ: «Какой протокол сбрасывает тепловую энтропию демона?»",
-                options = listOf("MAXWELL_REVERSE", "ENTROPY_ZERO", "BIT_PARITY"),
-                correctIndex = 0,
-                rewardCoins = (200L * rewardMultiplier).toLong(),
-                penaltyHp = 15,
-                message = "🧩 [ТЕРМИНАЛЬНАЯ ЗАГАДКА]: Взломайте проверочный хэш."
-            )
+        val riddle = RaidLoreEngine.getRandomRiddle()
+        val hint = RaidLoreEngine.getRandomHint("lore")
+        return DispatchResult.RiddleEncounter(
+            question = "ТЕРМИНАЛ СФИНКСА: «${riddle.question}»",
+            options = riddle.options,
+            correctIndex = riddle.correctIndex,
+            rewardCoins = (150L * rewardMultiplier).toLong(),
+            penaltyHp = 15,
+            message = "🧩 [СФИНКС НУЛЕВОГО СЛОЯ]: ${hint.text}\nВпереди материализовалась загадка: «${riddle.question}»"
         )
-        return riddles.random()
     }
 
     private fun handleCombatEvent(depth: Int, flags: EquipmentFlags): DispatchResult {

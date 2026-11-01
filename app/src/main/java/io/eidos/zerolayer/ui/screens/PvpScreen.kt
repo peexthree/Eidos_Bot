@@ -75,9 +75,9 @@ fun PvpScreen(
     val validTargets = remember(phantoms, player) {
         val list = phantoms.ifEmpty {
             listOf(
-                SupabasePlayer(deviceId = "bot1", username = "Phantom_Spectre", level = (player?.level ?: 1) + 1, exp = 300, biocoins = 800, hp = 120, energy = 100, rank = "Ghost", stateVersion = 1, updatedAt = System.currentTimeMillis()),
-                SupabasePlayer(deviceId = "bot2", username = "Neon_Viper", level = (player?.level ?: 1), exp = 150, biocoins = 550, hp = 100, energy = 100, rank = "Rogue", stateVersion = 1, updatedAt = System.currentTimeMillis()),
-                SupabasePlayer(deviceId = "bot3", username = "NetRunner_Zero", level = (player?.level ?: 1) + 2, exp = 450, biocoins = 1200, hp = 150, energy = 100, rank = "Architect", stateVersion = 1, updatedAt = System.currentTimeMillis())
+                SupabasePlayer(deviceId = "bot1", username = "Phantom_Spectre", level = (player?.level ?: 1) + 1, exp = 300, biocoins = 800, hp = 120, energy = 100, rank = "Ghost", stateVersion = 1),
+                SupabasePlayer(deviceId = "bot2", username = "Neon_Viper", level = (player?.level ?: 1), exp = 150, biocoins = 550, hp = 100, energy = 100, rank = "Rogue", stateVersion = 1),
+                SupabasePlayer(deviceId = "bot3", username = "NetRunner_Zero", level = (player?.level ?: 1) + 2, exp = 450, biocoins = 1200, hp = 150, energy = 100, rank = "Architect", stateVersion = 1)
             )
         }
         val now = System.currentTimeMillis()
