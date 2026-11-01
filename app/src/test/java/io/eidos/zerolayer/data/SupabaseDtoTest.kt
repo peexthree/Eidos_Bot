@@ -87,7 +87,7 @@ class SupabaseDtoTest {
     @Test
     fun testSupabaseInventoryItemSerializationRoundtrip() {
         val item = SupabaseInventoryItem(
-            id = 101L,
+            id = "item-uuid-101",
             playerId = "player_abc",
             itemId = "cyber_katana",
             quantity = 1,
@@ -102,5 +102,37 @@ class SupabaseDtoTest {
         assertEquals(item.itemId, decoded.itemId)
         assertEquals(item.quantity, decoded.quantity)
         assertEquals(item.isEquipped, decoded.isEquipped)
+    }
+
+    @Test
+    fun testSupabasePlayerSerializationRoundtrip() {
+        val player = SupabasePlayer(
+            id = "player-uuid-555",
+            deviceId = "dev_123",
+            username = "NetRunner",
+            level = 5,
+            exp = 1200L,
+            biocoins = 4500L,
+            hp = 95,
+            energy = 80,
+            rank = "Элита",
+            stateVersion = 3,
+            updatedAt = null
+        )
+
+        val raw = json.encodeToString(SupabasePlayer.serializer(), player)
+        val decoded = json.decodeFromString<SupabasePlayer>(raw)
+
+        assertEquals(player.id, decoded.id)
+        assertEquals(player.deviceId, decoded.deviceId)
+        assertEquals(player.username, decoded.username)
+        assertEquals(player.level, decoded.level)
+        assertEquals(player.exp, decoded.exp)
+        assertEquals(player.biocoins, decoded.biocoins)
+        assertEquals(player.hp, decoded.hp)
+        assertEquals(player.energy, decoded.energy)
+        assertEquals(player.rank, decoded.rank)
+        assertEquals(player.stateVersion, decoded.stateVersion)
+        assertEquals(player.updatedAt, decoded.updatedAt)
     }
 }
