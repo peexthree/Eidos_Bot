@@ -92,7 +92,8 @@ fun RaidScreen(
     onBetDemonHp: () -> Unit = {},
     onBetDemonBuffer: () -> Unit = {},
     onIgnoreDemon: () -> Unit = {},
-    onResolveHardGlitch: (chosenIndex: Int, correctIndex: Int) -> Unit = { _, _ -> }
+    onResolveHardGlitch: (chosenIndex: Int, correctIndex: Int) -> Unit = { _, _ -> },
+    onFlee: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = remember { HapticFeedbackManager.getInstance(context) }
@@ -419,12 +420,17 @@ fun RaidScreen(
                         RaidControls(
                             session = session,
                             anomalyData = anomalyData,
+                            overdriveCharge = overdriveCharge,
+                            overchargeTier = overchargeTier,
                             onNextStep = onNextStep,
                             onAnomalyChoice = onAnomalyChoice,
                             onOpenInventory = onOpenInventory,
                             onOpenBuffer = { showBufferModal = true },
                             onScanSector = onScanSector,
-                            onUseAbility = onUseAbility
+                            onUseAbility = onUseAbility,
+                            onTriggerOverdrive = onTriggerOverdrive,
+                            onBoostOvercharge = onBoostOvercharge,
+                            onFlee = onFlee
                         )
                     }
                 }
@@ -863,6 +869,49 @@ fun EventCard(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                Spacer(modifier = Modifier.height(8.dp))
+                // Enemy Description and Threat Dossier
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(androidx.compose.foundation.shape.CutCornerShape(6.dp))
+                        .background(Color(0xFF14080B).copy(alpha = 0.9f))
+                        .border(1.dp, EidosRed.copy(alpha = 0.5f), androidx.compose.foundation.shape.CutCornerShape(6.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "⚡ [ДОСЬЕ УГРОЗЫ // УР ${villain.level}]",
+                                color = EidosRed,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                "+${villain.xp} EXP // +${villain.coin} BIO",
+                                color = Color.Yellow,
+                                fontSize = 8.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            villain.description,
+                            color = Color(0xFFE2E8F0),
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+
                 // Combat Feedback Banner
                 val combatLogs = logs.filter { it.type == "combat" || it.type == "error" }.takeLast(2)
                 if (combatLogs.isNotEmpty()) {
@@ -972,7 +1021,8 @@ fun RaidControls(
     onScanSector: () -> Unit = {},
     onUseAbility: () -> Unit = {},
     onTriggerOverdrive: () -> Unit = {},
-    onBoostOvercharge: () -> Unit = {}
+    onBoostOvercharge: () -> Unit = {},
+    onFlee: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = remember { HapticFeedbackManager.getInstance(context) }
@@ -980,7 +1030,6 @@ fun RaidControls(
 
     val isCombat = session?.current_enemy_id != null
     val isAnomaly = session?.current_anomaly_id != null
-    val primaryButtonText = if (isCombat) "АТАКА [НЕЙРО_ИМПУЛЬС]" else if (isAnomaly) "ОЖИДАНИЕ ВВОДА..." else "СЛЕДУЮЩИЙ ШАГ [ЭНЕРГИЯ]"
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -998,14 +1047,6 @@ fun RaidControls(
             )
 
             if (isOverdriveReady) {
-                val infiniteTransition = rememberInfiniteTransition(label = "overdrive_pulse")
-                val pulseScale by infiniteTransition.animateFloat(
-                    initialValue = 0.98f,
-                    targetValue = 1.03f,
-                    animationSpec = infiniteRepeatable(tween(500), RepeatMode.Reverse),
-                    label = "pulse"
-                )
-
                 Button(
                     onClick = {
                         haptics.criticalHit()
@@ -1029,32 +1070,82 @@ fun RaidControls(
                     )
                 }
             }
-        }
 
-        // OVERCHARGE RISK PROTOCOL BUTTON (Non-combat raid boost)
-        if (!isCombat && !isAnomaly && overchargeTier < io.eidos.zerolayer.domain.combat.CombatEngine.MAX_OVERCHARGE_TIER) {
-            Button(
-                onClick = {
-                    haptics.glitchPulse()
-                    audio.playSound(EidosAudioManager.SoundType.LEVEL_UP)
-                    onBoostOvercharge()
-                },
-                modifier = Modifier.fillMaxWidth().height(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1000)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, EidosOrange),
-                shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+            // TACTICAL 3-ACTION COMBAT MATRIX (ZZZ STYLE)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    "🔥 ФОРСИРОВАТЬ СИГНАЛ (+50% ЛУТ / +РИСК) [УР ${overchargeTier + 1}/3]",
-                    color = EidosOrange,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.5.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-        }
+                // 1. ATTACK
+                Button(
+                    onClick = {
+                        haptics.criticalHit()
+                        audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
+                        onNextStep()
+                    },
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF280B11)),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosRed),
+                    shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("⚔️ АТАКА", color = EidosRed, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text("УДАР", color = Color.White.copy(alpha = 0.8f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
 
-        if (isAnomaly && anomalyData != null) {
+                // 2. USE ABILITY
+                Button(
+                    onClick = {
+                        haptics.criticalHit()
+                        audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
+                        onUseAbility()
+                    },
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF07212B)),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosCyan),
+                    shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("⚡ НАВЫК", color = EidosCyan, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text("СПЕЦУДАР", color = Color.White.copy(alpha = 0.8f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+
+                // 3. FLEE / RETREAT
+                Button(
+                    onClick = {
+                        haptics.step()
+                        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                        onFlee()
+                    },
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906)),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosOrange),
+                    shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🏃 УБЕЖАТЬ", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text("ОТХОД 75%", color = Color.White.copy(alpha = 0.8f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+
+            // Secondary: Open Loot Buffer
+            OutlinedButton(
+                onClick = {
+                    haptics.click()
+                    audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                    onOpenBuffer()
+                },
+                modifier = Modifier.fillMaxWidth().height(36.dp),
+                shape = androidx.compose.foundation.shape.CutCornerShape(4.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.LightGray),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray)
+            ) {
+                Text("🎒 БУФЕР ЛУТА И ИНВЕНТАРЬ", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            }
+        } else if (isAnomaly && anomalyData != null) {
             Text("ВЫБОР ДЕЙСТВИЯ В НУЛЕВОМ СЛОЕ:", color = Color.Yellow, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             anomalyData.options.forEach { option ->
                 val btnColor = when {
@@ -1082,6 +1173,29 @@ fun RaidControls(
                 }
             }
         } else {
+            // OVERCHARGE RISK PROTOCOL BUTTON (Non-combat raid boost)
+            if (overchargeTier < io.eidos.zerolayer.domain.combat.CombatEngine.MAX_OVERCHARGE_TIER) {
+                Button(
+                    onClick = {
+                        haptics.glitchPulse()
+                        audio.playSound(EidosAudioManager.SoundType.LEVEL_UP)
+                        onBoostOvercharge()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1000)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosOrange),
+                    shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                ) {
+                    Text(
+                        "🔥 ФОРСИРОВАТЬ СИГНАЛ (+50% ЛУТ / +РИСК) [УР ${overchargeTier + 1}/3]",
+                        color = EidosOrange,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.5.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1089,28 +1203,22 @@ fun RaidControls(
                 // Primary Action: Step into Abyss
                 Button(
                     onClick = {
-                        if (isCombat) {
-                            haptics.criticalHit()
-                            audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-                        } else {
-                            haptics.step()
-                            audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
-                        }
+                        haptics.step()
+                        audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
                         onNextStep()
                     },
                     modifier = Modifier.weight(1.2f).height(50.dp),
-                    enabled = !isAnomaly,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818)),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosNeon),
                     shape = androidx.compose.foundation.shape.CutCornerShape(8.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🏃 [ ШАГ В БЕЗДНУ ]", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text(primaryButtonText, color = Color.LightGray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text("СЛЕДУЮЩИЙ ШАГ [ЭНЕРГИЯ]", color = Color.LightGray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
 
-                // Secondary Action: Evacuate / Open Inventory Buffer
+                // Secondary Action: Open Inventory Buffer
                 OutlinedButton(
                     onClick = {
                         haptics.click()
@@ -1128,38 +1236,11 @@ fun RaidControls(
                     }
                 }
             }
-        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (isCombat) {
-                OutlinedButton(
-                    onClick = {
-                        haptics.click()
-                        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
-                        onOpenBuffer()
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(4.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EidosCyan)
-                ) {
-                    Text("ИНВЕНТАРЬ", fontSize = 12.sp)
-                }
-                OutlinedButton(
-                    onClick = {
-                        haptics.criticalHit()
-                        audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-                        onUseAbility()
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(4.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Yellow)
-                ) {
-                    Text("СПОСОБНОСТЬ", fontSize = 12.sp)
-                }
-            } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 OutlinedButton(
                     onClick = {
                         haptics.click()

@@ -16,16 +16,18 @@ fun Player.getLevelUpShards(toLevel: Int): Int {
 }
 
 fun Player.checkAndApplyLevelUp(): Pair<Player, Boolean> {
-    val newLevel = calculateLevelForXp(this.xp).coerceIn(1, 31)
-    if (newLevel > this.level) {
-        val levelDiff = newLevel - this.level
+    val targetLevel = calculateLevelForXp(this.xp).coerceIn(1, 31)
+    if (targetLevel > this.level) {
+        // Pacing protection: advance at most 1 level per trigger to give the player smooth onboarding
+        val nextLevel = minOf(this.level + 1, targetLevel)
+        val levelDiff = nextLevel - this.level
         val bonusHp = levelDiff * 20
         val bonusAtk = levelDiff * 3
         val bonusDef = levelDiff * 2
-        val bonusCoins = (this.level + 1..newLevel).sumOf { lvl -> PlayerProgressManager.getLevelInfo(lvl).rewardBioCoins }
+        val bonusCoins = (this.level + 1..nextLevel).sumOf { lvl -> PlayerProgressManager.getLevelInfo(lvl).rewardBioCoins }
         val updated = this.copy(
-            level = newLevel,
-            highest_level = maxOf(this.highest_level, newLevel),
+            level = nextLevel,
+            highest_level = maxOf(this.highest_level, nextLevel),
             biocoin = this.biocoin + bonusCoins,
             max_hp = this.max_hp + bonusHp,
             hp = minOf(this.max_hp + bonusHp, this.hp + bonusHp),

@@ -1112,7 +1112,7 @@ class MainViewModel(
                     title = def.title,
                     description = def.description,
                     xpReward = def.xpReward,
-                    coinReward = 0,
+                    coinReward = def.coinReward,
                     icon = def.icon,
                     category = def.category,
                     achievementKey = def.id
@@ -1132,7 +1132,8 @@ class MainViewModel(
             val currentP = repository.getPlayerSync(_uid.value)
             if (currentP != null) {
                 val newXp = currentP.xp + achievement.xpReward
-                val (updatedP, didLevelUp) = currentP.copy(xp = newXp).checkAndApplyLevelUp()
+                val newCoins = currentP.biocoin + achievement.coinReward
+                val (updatedP, didLevelUp) = currentP.copy(xp = newXp, biocoin = newCoins).checkAndApplyLevelUp()
                 repository.savePlayer(updatedP)
                 if (didLevelUp) {
                     repository.handleLevelUpRewards(_uid.value, currentP.level, updatedP.level)
@@ -1141,10 +1142,23 @@ class MainViewModel(
             }
         }
         
-        showToast("⚡️ Награда получена: +${achievement.xpReward} XP за «${achievement.title}»!", CyberToastType.SUCCESS)
+        val rewardMsg = when {
+            achievement.coinReward > 0 && achievement.xpReward > 0 -> "+${achievement.coinReward} BC, +${achievement.xpReward} XP"
+            achievement.coinReward > 0 -> "+${achievement.coinReward} BC"
+            else -> "+${achievement.xpReward} XP"
+        }
+        showToast("⚡️ Награда получена: $rewardMsg за «${achievement.title}»!", CyberToastType.SUCCESS)
         haptics.lootLegendary()
         audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
         dismissAchievement(achievement.id)
+    }
+
+    fun fleeCombat() {
+        haptics.step()
+        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+        viewModelScope.launch {
+            repository.fleeCombat(_uid.value)
+        }
     }
 
     fun trackClick() {

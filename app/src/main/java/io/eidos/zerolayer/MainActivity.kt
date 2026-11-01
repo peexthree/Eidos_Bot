@@ -332,6 +332,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onStartRaid = { mainViewModel.startRaid() },
                         onScanSector = { mainViewModel.scanSector() },
                         onUseAbility = { mainViewModel.useActiveAbility() },
+                        onFlee = { mainViewModel.fleeCombat() },
                         onTriggerOverdrive = { mainViewModel.triggerOverdrive() },
                         onBoostOvercharge = { mainViewModel.boostOvercharge() },
                         onUseConsumable = { mainViewModel.useConsumable(it) },

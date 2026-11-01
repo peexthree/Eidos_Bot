@@ -1248,8 +1248,26 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun ensureDevicePlayerExists(uid: Long, deviceUuid: String, defaultUsername: String) {
         val target = if (uid <= 0L) (Math.abs(deviceUuid.hashCode().toLong()) + 100000L) else uid
         activeDeviceUid = target
+        val legacyHashUid = Math.abs(deviceUuid.hashCode().toLong()) + 100000L
         if (dao.getPlayer(target) == null) {
-            dao.insertPlayer(Player(uid = target, username = defaultUsername, first_name = defaultUsername, biocoin = 500L))
+            val legacyPlayer = if (target != legacyHashUid) dao.getPlayer(legacyHashUid) else null
+            if (legacyPlayer != null) {
+                dao.insertPlayer(legacyPlayer.copy(uid = target))
+            } else {
+                dao.insertPlayer(Player(uid = target, username = defaultUsername, first_name = defaultUsername, biocoin = 500L))
+            }
+        }
+        // Seamless migration: transfer items from legacy hash UID if target inventory is empty
+        if (target != legacyHashUid) {
+            val legacyItems = dao.getInventorySync(legacyHashUid)
+            if (legacyItems.isNotEmpty()) {
+                val currentTargetItems = dao.getInventorySync(target)
+                if (currentTargetItems.isEmpty()) {
+                    legacyItems.forEach { oldItem ->
+                        dao.insertInventoryItem(oldItem.copy(id = 0, uid = target))
+                    }
+                }
+            }
         }
         val inv = dao.getInventorySync(target)
         if (inv.isEmpty()) {
@@ -2554,9 +2572,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
                 val deathMask = dao.getInventoryFlow(uid).first().find { it.item_id == "death_mask" && it.is_equipped } != null
                 if (deathMask) {
-                    log(uid, "💀 [Маска Мертвеца]: Весь ваш инвентарь стерт безвозвратно!", "error")
-                    val fullInventory = dao.getInventoryFlow(uid).first()
-                    fullInventory.forEach { dao.deleteInventoryItem(it) }
+                    log(uid, "💀 [Маска Мертвеца]: Получен критический урон! Проклятие маски поглотило остатки сигнала.", "error")
                 }
 
                 // Create a Grave at the depth of death (deduplicate existing grave at this depth)
@@ -3016,6 +3032,41 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     )
                     dao.insertRaidSession(updatedSessionDefeated)
                 }
+            }
+        }
+    }
+
+    suspend fun fleeCombat(uid: Long) {
+        val session = dao.getRaidSession(uid) ?: return
+        val player = dao.getPlayer(uid) ?: return
+        val enemyName = session.current_enemy_id ?: return
+
+        // 75% escape probability, 100% with tactical fog
+        val roll = (1..100).random()
+        if (roll <= 75) {
+            val updatedSession = session.copy(
+                current_enemy_id = null,
+                current_enemy_hp = 0,
+                active_aggro = maxOf(0, session.active_aggro - 1)
+            )
+            dao.insertRaidSession(updatedSession)
+            log(uid, "🏃 [ТАКТИЧЕСКИЙ ОТХОД]: Вы успешно оторвались от преследования $enemyName и отступили в защищенный сектор!", "info")
+        } else {
+            val villain = GameData.VILLAINS.find { it.name == enemyName }
+            val enemyAtk = villain?.atk ?: 25
+            val playerDef = player.defense + (player.level * 2)
+            val dmg = maxOf(6, enemyAtk - (playerDef / 3))
+            val newSignal = maxOf(0, session.signal - dmg)
+            val newHp = maxOf(0, player.hp - dmg)
+
+            val updatedPlayer = player.copy(hp = newHp)
+            val updatedSession = session.copy(signal = newSignal)
+            dao.updatePlayer(updatedPlayer)
+            dao.insertRaidSession(updatedSession)
+            log(uid, "⚠️ [НЕУДАЧНЫЙ ПОБЕГ]: $enemyName перехватил вектор отхода и нанес -$dmg урона в спину!", "error")
+
+            if (newSignal <= 0 || newHp <= 0) {
+                endRaidDueToDeath(uid, updatedSession, updatedPlayer)
             }
         }
     }

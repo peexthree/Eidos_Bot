@@ -41,6 +41,7 @@ object AchievementRegistry {
         val title: String,
         val description: String,
         val xpReward: Long,
+        val coinReward: Long = 0L,
         val target: Long,
         val getProgress: (Player, AchievementStats) -> Long,
         val isMet: (Player, AchievementStats) -> Boolean
@@ -54,7 +55,8 @@ object AchievementRegistry {
             icon = "🐣",
             title = "ВЫХОД ИЗ КОКОНА",
             description = "Достиг 2-го уровня",
-            xpReward = 100L,
+            xpReward = 0L,
+            coinReward = 300L,
             target = 2L,
             getProgress = { p, _ -> p.level.toLong() },
             isMet = { p, _ -> p.level >= 2 }
@@ -65,7 +67,8 @@ object AchievementRegistry {
             icon = "🥚",
             title = "ОПЕРАТОР",
             description = "Достиг 3-го уровня",
-            xpReward = 200L,
+            xpReward = 0L,
+            coinReward = 500L,
             target = 3L,
             getProgress = { p, _ -> p.level.toLong() },
             isMet = { p, _ -> p.level >= 3 }
@@ -76,7 +79,8 @@ object AchievementRegistry {
             icon = "⚡️",
             title = "ЭКВАТОР",
             description = "Достиг 5-го уровня",
-            xpReward = 500L,
+            xpReward = 0L,
+            coinReward = 1000L,
             target = 5L,
             getProgress = { p, _ -> p.level.toLong() },
             isMet = { p, _ -> p.level >= 5 }
@@ -87,7 +91,8 @@ object AchievementRegistry {
             icon = "👑",
             title = "АБСОЛЮТ",
             description = "Финал первой фазы (10 lvl)",
-            xpReward = 2000L,
+            xpReward = 0L,
+            coinReward = 3000L,
             target = 10L,
             getProgress = { p, _ -> p.level.toLong() },
             isMet = { p, _ -> p.level >= 10 }
@@ -98,7 +103,8 @@ object AchievementRegistry {
             icon = "🔥",
             title = "АРХОНТ",
             description = "Достиг 15-го уровня",
-            xpReward = 5000L,
+            xpReward = 0L,
+            coinReward = 5000L,
             target = 15L,
             getProgress = { p, _ -> p.level.toLong() },
             isMet = { p, _ -> p.level >= 15 }
@@ -109,7 +115,8 @@ object AchievementRegistry {
             icon = "⚙️",
             title = "БОГ МАШИНЫ",
             description = "Подчинил алгоритм (20 lvl)",
-            xpReward = 10000L,
+            xpReward = 0L,
+            coinReward = 10000L,
             target = 20L,
             getProgress = { p, _ -> p.level.toLong() },
             isMet = { p, _ -> p.level >= 20 }
@@ -120,7 +127,8 @@ object AchievementRegistry {
             icon = "🌌",
             title = "OMNI",
             description = "Стал Всем и Ничем (30 lvl)",
-            xpReward = 30000L,
+            xpReward = 0L,
+            coinReward = 25000L,
             target = 30L,
             getProgress = { p, _ -> p.level.toLong() },
             isMet = { p, _ -> p.level >= 30 }

@@ -179,7 +179,7 @@ fun ProfileScreen(
                 title = def.title,
                 description = def.description,
                 xpReward = def.xpReward,
-                coinReward = 0,
+                coinReward = def.coinReward,
                 target = def.target,
                 current = curr,
                 isUnlocked = isUnlocked,
