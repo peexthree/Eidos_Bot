@@ -19,11 +19,26 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        val localProps = java.util.Properties().apply {
+            val localPropertiesFile = rootProject.file("local.properties")
+            if (localPropertiesFile.exists()) {
+                localPropertiesFile.inputStream().use { load(it) }
+            }
+        }
+
         fun resolveEnv(vararg primaryKeys: String): String {
             for (key in primaryKeys) {
-                val value = System.getenv(key)
-                if (!value.isNullOrBlank()) {
-                    return value.trim().removeSurrounding("\"").removeSurrounding("'")
+                val fromLocalProps = localProps.getProperty(key)
+                if (!fromLocalProps.isNullOrBlank()) {
+                    return fromLocalProps.trim().removeSurrounding("\"").removeSurrounding("'")
+                }
+                val fromProject = findProperty(key) as? String
+                if (!fromProject.isNullOrBlank()) {
+                    return fromProject.trim().removeSurrounding("\"").removeSurrounding("'")
+                }
+                val fromEnv = System.getenv(key)
+                if (!fromEnv.isNullOrBlank()) {
+                    return fromEnv.trim().removeSurrounding("\"").removeSurrounding("'")
                 }
             }
             return ""
@@ -31,8 +46,7 @@ android {
 
         val supabaseUrl = resolveEnv("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "PUBLIC_SUPABASE_URL")
         val supabaseAnonKey = resolveEnv("SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_KEY")
-        val geminiKey = (System.getenv("GEMINI_API_KEY") ?: "").trim().removeSurrounding("\"").removeSurrounding("'")
-
+        val geminiKey = resolveEnv("GEMINI_API_KEY")
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
