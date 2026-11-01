@@ -15,7 +15,9 @@ app/build/
 *.iml
 local.properties
 *.keystore
+!app/debug.keystore
 *.jks
+!app/google-services.json
 
 # Temp scripts
 patch_*.py
