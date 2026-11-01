@@ -31,19 +31,32 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build Debug APK
+      shell: bash
       run: |
         ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee build_gradle.log
+        EXIT_CODE=${PIPESTATUS[0]}
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "========================================="
+          echo "💥 GRADLE BUILD FAILED (Exit Code: $EXIT_CODE)"
+          echo "========================================="
+          tail -n 250 build_gradle.log
+          exit $EXIT_CODE
+        fi
+
+    - name: Locate APK Files
+      run: |
+        echo "=== Locating any generated APK files ==="
+        find app/build/outputs/ -type f || true
 
     - name: Upload APK Artifact
-      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: "app/build/outputs/apk/**/*.apk"
 
-    - name: Upload Build Log on Failure
-      if: failure()
+    - name: Upload Build Log
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: build-failure-log
+        name: build-log
         path: build_gradle.log
