@@ -733,20 +733,33 @@ fun EquipDollSection(
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     onUnequip: (InventoryItem) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        val head = inventory.find { it.is_equipped && (it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "head") }
-        val armor = inventory.find { it.is_equipped && (it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "armor") }
-        val weapon = inventory.find { it.is_equipped && (it.slot == "weapon" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "weapon") }
-        val chip = inventory.find { it.is_equipped && (it.slot == "chip" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "chip") }
+    val head = inventory.find { it.is_equipped && (it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "head") }
+    val armor = inventory.find { it.is_equipped && (it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "armor") }
+    val weapon = inventory.find { it.is_equipped && (it.slot == "weapon" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "weapon") }
+    val chips = inventory.filter { it.is_equipped && (it.slot == "chip" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "chip") }
 
-        EquipSlot("ГОЛОВА", head, allItemsMetadata, onUnequip, Modifier.weight(1f))
-        EquipSlot("БРОНЯ", armor, allItemsMetadata, onUnequip, Modifier.weight(1f))
-        EquipSlot("ОРУЖИЕ", weapon, allItemsMetadata, onUnequip, Modifier.weight(1f))
-        EquipSlot("ЧИП", chip, allItemsMetadata, onUnequip, Modifier.weight(1f))
-    }
+    val headName = head?.let { allItemsMetadata.find { meta -> meta.id == it.item_id }?.name ?: getItemName(it.item_id) }
+    val armorName = armor?.let { allItemsMetadata.find { meta -> meta.id == it.item_id }?.name ?: getItemName(it.item_id) }
+    val weaponName = weapon?.let { allItemsMetadata.find { meta -> meta.id == it.item_id }?.name ?: getItemName(it.item_id) }
+    val chipNames = chips.map { allItemsMetadata.find { meta -> meta.id == it.item_id }?.name ?: getItemName(it.item_id) }
+
+    io.eidos.zerolayer.ui.components.zzz.ZzzCyberMannequinDeck(
+        equippedHead = headName,
+        equippedTorso = armorName,
+        equippedWeapon = weaponName,
+        equippedChips = chipNames,
+        onSlotClick = { slot ->
+            when (slot) {
+                "head" -> head?.let { onUnequip(it) }
+                "torso" -> armor?.let { onUnequip(it) }
+                "weapon" -> weapon?.let { onUnequip(it) }
+                else -> {
+                    val index = slot.removePrefix("chip_").toIntOrNull() ?: 0
+                    chips.getOrNull(index)?.let { onUnequip(it) }
+                }
+            }
+        }
+    )
 }
 
 @Composable

@@ -431,13 +431,33 @@ fun SynthesisTab(
             )
 
             Column(modifier = Modifier.fillMaxSize()) {
+                // HIGH-TECH WEAPON CRAFTING CHAMBER (References 1 & 5)
+                io.eidos.zerolayer.ui.components.zzz.ZzzForgeHologramChamber(
+                    weaponTitle = "APEX STARBURST [AS-VII]",
+                    weaponRarity = "LEGENDARY",
+                    dataSlicerLvl = 5,
+                    quantumTunerLvl = 3,
+                    isVaalCorrupted = false,
+                    quantumCoils = 18,
+                    maxQuantumCoils = 20,
+                    voidCells = 12,
+                    maxVoidCells = 15,
+                    vaalEssence = 3,
+                    maxVaalEssence = 5,
+                    onCommenceCraft = {
+                        recipes.firstOrNull()?.let { onCraft(it.id) }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
                         .background(EidosGlass)
-                        .padding(12.dp)
+                        .padding(8.dp)
                 ) {
-                    Text("КРЕДИТНЫЙ БАЛАНС СКОПЛЕНИЯ: $shards 💎 Осколков", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    Text("КРЕДИТНЫЙ БАЛАНС СКОПЛЕНИЯ: $shards 💎 Осколков", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 }
 
                 LazyColumn(

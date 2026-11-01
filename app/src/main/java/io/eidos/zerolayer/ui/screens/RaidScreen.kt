@@ -990,19 +990,30 @@ fun EventCard(
                     borderColor = Color.Yellow,
                     modifier = Modifier.size(90.dp)
                 )
+            } else {
+                // TACTICAL CYBER SONAR RADAR (Reference 4)
+                Spacer(modifier = Modifier.height(8.dp))
+                ZzzCyberSonarRadar(
+                    anomalyCount = 1,
+                    hasEnemy = false,
+                    enemyDistanceM = 29,
+                    lootDistanceM = 6,
+                    signalStability = session?.signal ?: 94,
+                    depthM = session?.depth ?: 1480
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             val displayedDescription = ghostTyping(description, speed = if (enemyId != null) 5L else 15L)
             Text(
                 displayedDescription,
                 color = Color.White.copy(alpha = 0.7f),
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.heightIn(min = 60.dp),
+                modifier = Modifier.heightIn(min = 40.dp),
                 fontFamily = FontFamily.Monospace,
-                lineHeight = 18.sp
+                lineHeight = 16.sp
             )
         }
     }
