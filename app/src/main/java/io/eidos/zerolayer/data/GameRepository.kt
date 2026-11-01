@@ -4266,7 +4266,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun pushPlayerToSupabase(uid: Long, customDeviceId: String? = null, customUsername: String? = null): Boolean {
         val p = dao.getPlayer(uid) ?: return false
         val session = authStore.getSession()
-        val deviceId = customDeviceId ?: session.userId ?: io.eidos.zerolayer.domain.anti_cheat.DeviceIdentity.getOrCreateDeviceId(context)
+        val deviceId = customDeviceId ?: session.userId ?: (android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "device_$uid")
         val username = customUsername ?: session.username ?: p.username ?: "Operator_$uid"
 
         val sp = SupabasePlayer(

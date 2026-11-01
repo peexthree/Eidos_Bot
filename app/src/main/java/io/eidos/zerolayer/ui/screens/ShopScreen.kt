@@ -33,10 +33,7 @@ import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.R
 import io.eidos.zerolayer.data.Player
 import io.eidos.zerolayer.data.GameRepository.ItemMetadata
-import io.eidos.zerolayer.ui.theme.EidosCyan
-import io.eidos.zerolayer.ui.theme.EidosGlass
-import io.eidos.zerolayer.ui.theme.EidosNeon
-import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.theme.*
 import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
@@ -654,7 +651,7 @@ fun ShopScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
 
                                 // Buy Button
-                                val canAfford = (player?.biocoin ?: 0) >= effectivePrice
+                                val canAfford = (player?.biocoin ?: 0L) >= effectivePrice.toLong()
                                 val meetsLevel = (player?.level ?: 1) >= item.reqLevel
                                 val canBuy = canAfford && meetsLevel
 
@@ -857,7 +854,7 @@ fun ShopScreen(
                         selectedInspectItem = null
                         buyQuantity = 1
                     },
-                    enabled = (player?.biocoin ?: 0) >= totalCost,
+                    enabled = (player?.biocoin ?: 0L) >= totalCost,
                     colors = ButtonDefaults.buttonColors(containerColor = amberColor),
                     shape = CutCornerShape(4.dp)
                 ) {
