@@ -2527,7 +2527,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     private suspend fun checkDeath(uid: Long) {
         val session = dao.getRaidSession(uid) ?: return
-        if (session.signal <= 0) {
+        val player = dao.getPlayer(uid)
+        if (session.signal <= 0 || (player != null && player.hp <= 0)) {
             val inventory = dao.getInventoryFlow(uid).first()
             val aegisItem = inventory.find { it.item_id == "aegis" && it.quantity > 0 }
             if (aegisItem != null) {
@@ -2536,7 +2537,6 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 } else {
                     dao.deleteInventoryItem(aegisItem)
                 }
-                val player = dao.getPlayer(uid)
                 if (player != null) {
                     dao.updatePlayer(player.copy(hp = 1))
                 }
@@ -3066,7 +3066,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             log(uid, "⚠️ [НЕУДАЧНЫЙ ПОБЕГ]: $enemyName перехватил вектор отхода и нанес -$dmg урона в спину!", "error")
 
             if (newSignal <= 0 || newHp <= 0) {
-                endRaidDueToDeath(uid, updatedSession, updatedPlayer)
+                checkDeath(uid)
             }
         }
     }

@@ -279,7 +279,7 @@ fun HubScreen(
                     Card(
                         modifier = Modifier
                             .weight(1f)
-                            .cyber3DTilt(maxTiltDegrees = 7f)
+                            .cyber3DTilt(maxRotationDegrees = 7f)
                             .border(1.dp, Color.Yellow, CutCornerShape(8.dp))
                             .premiumCyberClickable { showRelicShowcaseDialog = true },
                         colors = CardDefaults.cardColors(containerColor = EidosGlass),

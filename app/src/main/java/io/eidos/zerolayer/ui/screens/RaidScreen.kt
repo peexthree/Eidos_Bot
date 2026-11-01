@@ -43,6 +43,7 @@ import io.eidos.zerolayer.ui.components.TerminalLog
 import io.eidos.zerolayer.ui.utils.ghostTyping
 
 import io.eidos.zerolayer.ui.components.EidosImage
+import io.eidos.zerolayer.ui.components.zzz.ZzzCyberSonarRadar
 import io.eidos.zerolayer.ui.components.CyberCard
 import io.eidos.zerolayer.ui.components.RadarScanView
 import io.eidos.zerolayer.ui.components.HackingMinigameDialog
