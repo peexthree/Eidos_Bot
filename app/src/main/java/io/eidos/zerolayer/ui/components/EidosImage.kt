@@ -253,7 +253,12 @@ fun EidosImage(
     val loadedBitmap = remember(resId, context) { safeLoadImageBitmap(context, resId) }
 
     val cleanName = remember(safeName) {
-        safeName.lowercase().removeSuffix(".jpg").removeSuffix(".png").replace(" ", "_")
+        safeName.lowercase()
+            .removeSuffix(".jpeg")
+            .removeSuffix(".jpg")
+            .removeSuffix(".png")
+            .removeSuffix(".webp")
+            .replace(" ", "_")
     }
 
     val boxModifier = modifier

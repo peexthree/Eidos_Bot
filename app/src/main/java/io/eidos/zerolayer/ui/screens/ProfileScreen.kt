@@ -21,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
@@ -100,6 +102,8 @@ fun ProfileScreen(
     var signalRecipient by remember { mutableStateOf("") }
     var signalMessage by remember { mutableStateOf("") }
     var showTerminalDialog by remember { mutableStateOf(false) }
+    var showAvatarInspector by remember { mutableStateOf(false) }
+    var inspectedAvatarLvl by remember { mutableIntStateOf(1) }
     var topPlayers by remember { mutableStateOf<List<SupabasePlayer>>(emptyList()) }
     var isLeaderboardLoading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -249,6 +253,10 @@ fun ProfileScreen(
                                 .fillMaxWidth()
                                 .height(220.dp)
                                 .background(Color.Black)
+                                .clickable {
+                                    inspectedAvatarLvl = currentDisplayLevel
+                                    showAvatarInspector = true
+                                }
                         ) {
                             // Animated transition between character level images (lvl_x.png -> lvl_x+1.png)
                             AnimatedContent(
@@ -261,7 +269,7 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxSize()
                             ) { targetLvl ->
                                 EidosImage(
-                                    resName = "lvl_${targetLvl.coerceIn(1, 30)}",
+                                    resName = "lvl_${targetLvl.coerceIn(1, 31)}",
                                     borderColor = Color.Transparent,
                                     borderWidth = 0.dp,
                                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -393,6 +401,34 @@ fun ProfileScreen(
                                 Text("ЛИЧНОСТЬ ОПЕРАТОРА", color = EidosCyan, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                                 Text(player?.username ?: "ГОСТЬ", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
                                 Text("ФРАКЦИЯ: ${player?.faction ?: "НЕТ"}", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+
+                            // Avatar Gallery Pill button on bottom-right of image
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(12.dp)
+                                    .background(Color.Black.copy(alpha = 0.85f), CutCornerShape(4.dp))
+                                    .border(1.dp, EidosCyan.copy(alpha = 0.7f), CutCornerShape(4.dp))
+                                    .clickable {
+                                        inspectedAvatarLvl = currentDisplayLevel
+                                        showAvatarInspector = true
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text("🔍", fontSize = 10.sp)
+                                    Text(
+                                        "ГАЛЕРЕЯ (1-31)",
+                                        color = EidosCyan,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
                             }
                         }
 
@@ -1308,6 +1344,301 @@ fun ProfileScreen(
                     }
                 }
             )
+        }
+
+        if (showAvatarInspector) {
+            Dialog(
+                onDismissRequest = { showAvatarInspector = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.88f))
+                        .clickable { showAvatarInspector = false },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .clip(CutCornerShape(12.dp))
+                            .background(Color(0xFF090D1A))
+                            .border(1.5.dp, EidosCyan, CutCornerShape(12.dp))
+                            .clickable(enabled = false) {}
+                            .padding(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Header
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        "🧬 ГОЛОГРАММА АВАТАРА",
+                                        color = EidosCyan,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        "НЕЙРО-ПРОЕКЦИЯ ОПЕРАТОРА // 1-31",
+                                        color = Color.Gray,
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .background(Color.Black.copy(alpha = 0.6f), CutCornerShape(4.dp))
+                                        .border(1.dp, EidosCyan.copy(alpha = 0.5f), CutCornerShape(4.dp))
+                                        .clickable { showAvatarInspector = false },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("✕", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Large Holographic Avatar Frame
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(260.dp)
+                                    .clip(CutCornerShape(8.dp))
+                                    .border(
+                                        1.5.dp,
+                                        if (inspectedAvatarLvl <= actualLevel) EidosCyan else Color(0xFFFF5252).copy(alpha = 0.6f),
+                                        CutCornerShape(8.dp)
+                                    )
+                                    .background(Color.Black)
+                            ) {
+                                EidosImage(
+                                    resName = "lvl_$inspectedAvatarLvl",
+                                    borderColor = Color.Transparent,
+                                    borderWidth = 0.dp,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+
+                                // Cyber scanline gradient
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = 0.85f)
+                                                )
+                                            )
+                                        )
+                                )
+
+                                // Level badge (top-left)
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(10.dp)
+                                        .background(Color.Black.copy(alpha = 0.8f), CutCornerShape(4.dp))
+                                        .border(1.dp, EidosCyan, CutCornerShape(4.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        "УРОВЕНЬ $inspectedAvatarLvl / 31",
+                                        color = EidosCyan,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+
+                                // Status badge (top-right)
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(10.dp)
+                                        .background(Color.Black.copy(alpha = 0.8f), CutCornerShape(4.dp))
+                                        .border(
+                                            1.dp,
+                                            if (inspectedAvatarLvl <= actualLevel) EidosNeon else Color(0xFFFF5252),
+                                            CutCornerShape(4.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        if (inspectedAvatarLvl <= actualLevel) "🟢 ДОСТУПЕН" else "🔒 НУЖЕН LVL $inspectedAvatarLvl",
+                                        color = if (inspectedAvatarLvl <= actualLevel) EidosNeon else Color(0xFFFF5252),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Prev / Next Navigation Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(
+                                            if (inspectedAvatarLvl > 1) EidosCyan.copy(alpha = 0.15f) else Color.DarkGray.copy(alpha = 0.2f),
+                                            CutCornerShape(6.dp)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (inspectedAvatarLvl > 1) EidosCyan else Color.DarkGray,
+                                            CutCornerShape(6.dp)
+                                        )
+                                        .clickable(enabled = inspectedAvatarLvl > 1) {
+                                            if (inspectedAvatarLvl > 1) inspectedAvatarLvl--
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "◀ НАЗАД",
+                                        color = if (inspectedAvatarLvl > 1) EidosCyan else Color.Gray,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(
+                                            if (inspectedAvatarLvl < 31) EidosCyan.copy(alpha = 0.15f) else Color.DarkGray.copy(alpha = 0.2f),
+                                            CutCornerShape(6.dp)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (inspectedAvatarLvl < 31) EidosCyan else Color.DarkGray,
+                                            CutCornerShape(6.dp)
+                                        )
+                                        .clickable(enabled = inspectedAvatarLvl < 31) {
+                                            if (inspectedAvatarLvl < 31) inspectedAvatarLvl++
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "ВПЕРЕД ▶",
+                                        color = if (inspectedAvatarLvl < 31) EidosCyan else Color.Gray,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Horizontal strip of all 31 levels
+                            Text(
+                                "БЫСТРЫЙ ВЫБОР УРОВНЯ (1 - 31):",
+                                color = Color.Gray,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Start
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                (1..31).forEach { lvl ->
+                                    val isCurrent = lvl == inspectedAvatarLvl
+                                    val isUnlocked = lvl <= actualLevel
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .background(
+                                                when {
+                                                    isCurrent -> EidosCyan
+                                                    isUnlocked -> EidosCyan.copy(alpha = 0.2f)
+                                                    else -> Color.Black.copy(alpha = 0.5f)
+                                                },
+                                                CutCornerShape(4.dp)
+                                            )
+                                            .border(
+                                                1.dp,
+                                                when {
+                                                    isCurrent -> Color.White
+                                                    isUnlocked -> EidosCyan
+                                                    else -> Color.DarkGray
+                                                },
+                                                CutCornerShape(4.dp)
+                                            )
+                                            .clickable {
+                                                inspectedAvatarLvl = lvl
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "$lvl",
+                                            color = when {
+                                                isCurrent -> Color.Black
+                                                isUnlocked -> Color.White
+                                                else -> Color.Gray
+                                            },
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Action button: Apply for preview or current profile
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        currentDisplayLevel = inspectedAvatarLvl
+                                        showAvatarInspector = false
+                                        audioManager.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.CLICK)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
+                                    shape = CutCornerShape(6.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        "👁 ПРИМЕНИТЬ ДЛЯ ОБЗОРА",
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

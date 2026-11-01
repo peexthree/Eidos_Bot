@@ -740,7 +740,7 @@ fun LevelUpModalDialog(
                             .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f), CutCornerShape(8.dp))
                     ) {
                         EidosImage(
-                            resName = "lvl_${event.toLevel.coerceIn(1, 30)}",
+                            resName = "lvl_${event.toLevel.coerceIn(1, 31)}",
                             borderColor = Color.Transparent,
                             borderWidth = 0.dp,
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,

@@ -333,7 +333,7 @@ fun HubScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 EidosImage(
-                                    resName = "lvl_${(player?.level ?: 1).coerceIn(1, 30)}",
+                                    resName = "lvl_${(player?.level ?: 1).coerceIn(1, 31)}",
                                     borderColor = Color.Transparent,
                                     borderWidth = 0.dp,
                                     contentScale = ContentScale.Crop,
