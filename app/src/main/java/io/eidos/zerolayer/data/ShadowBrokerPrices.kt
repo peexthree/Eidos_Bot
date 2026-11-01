@@ -1,7 +1,7 @@
 package io.eidos.zerolayer.data
 
 object ShadowBrokerPrices {
-    fun getXpPrice(meta: ItemMetadata): Long {
+    fun getXpPrice(meta: GameRepository.ItemMetadata): Long {
         val r = meta.rarity.lowercase()
         val name = meta.name
         val isCursedOrRelic = r in listOf("cursed", "relic") || name.contains("💀") || name.contains("👁") || name.contains("🔴") || meta.type == "cursed"
