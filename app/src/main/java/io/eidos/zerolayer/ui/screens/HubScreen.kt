@@ -130,18 +130,6 @@ fun HubScreen(
     var bossHp by remember { mutableStateOf(984124510L) }
     var personalDamage by remember { mutableStateOf(1540200L) }
 
-    // Dynamic scanning line effect
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()

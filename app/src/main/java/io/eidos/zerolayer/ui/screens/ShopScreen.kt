@@ -78,24 +78,26 @@ fun ShopScreen(
         "material" to "📦 РЕСУРСЫ"
     )
 
-    val shopSpecialIds = setOf("scavenger_mask", "nomad_goggles", "aegis")
-    val filteredItems = items
-        .distinctBy { it.id }
-        .filter { selectedCategory == "all" || it.type == selectedCategory }
-        .filter {
-            val rarityLower = it.rarity.lowercase()
-            val isShopSpecial = shopSpecialIds.contains(it.id)
-            (isShopSpecial || rarityLower in listOf("common", "uncommon", "rare")) &&
-            (isShopSpecial || (!it.name.contains("💀") && !it.name.contains("👁") && !it.name.contains("🔴") && !it.name.contains("🟠")))
-        }
-        .filter { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
-        .sortedWith { a, b ->
-            when (sortBy) {
-                "price_asc" -> a.price.compareTo(b.price)
-                "price_desc" -> b.price.compareTo(a.price)
-                else -> a.name.compareTo(b.name)
+    val shopSpecialIds = remember { setOf("scavenger_mask", "nomad_goggles", "aegis") }
+    val filteredItems = remember(items, selectedCategory, searchQuery, sortBy) {
+        items
+            .distinctBy { it.id }
+            .filter { selectedCategory == "all" || it.type == selectedCategory }
+            .filter {
+                val rarityLower = it.rarity.lowercase()
+                val isShopSpecial = shopSpecialIds.contains(it.id)
+                (isShopSpecial || rarityLower in listOf("common", "uncommon", "rare")) &&
+                (isShopSpecial || (!it.name.contains("💀") && !it.name.contains("👁") && !it.name.contains("🔴") && !it.name.contains("🟠")))
             }
-        }
+            .filter { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
+            .sortedWith { a, b ->
+                when (sortBy) {
+                    "price_asc" -> a.price.compareTo(b.price)
+                    "price_desc" -> b.price.compareTo(a.price)
+                    else -> a.name.compareTo(b.name)
+                }
+            }
+    }
 
     BackHandler(enabled = selectedInspectItem != null) {
         selectedInspectItem = null

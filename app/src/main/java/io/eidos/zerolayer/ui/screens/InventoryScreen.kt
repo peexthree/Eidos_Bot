@@ -359,16 +359,18 @@ fun InventoryScreen(
                 }
 
                 // Filter inventory
-                val filteredInventory = inventory.filter { item ->
-                    val itemMeta = allItemsMetadata.find { it.id == item.item_id }
-                    val slot = ItemSlotUtils.getSlotForItem(item.item_id, itemMeta)
-                    when (selectedCategory) {
-                        "all" -> true
-                        "weapon" -> slot == "weapon"
-                        "armor" -> slot == "armor" || slot == "head"
-                        "chip" -> slot == "chip"
-                        "consumable" -> isConsumable(item.item_id, itemMeta)
-                        else -> true
+                val filteredInventory = remember(inventory, allItemsMetadata, selectedCategory) {
+                    inventory.filter { item ->
+                        val itemMeta = allItemsMetadata.find { it.id == item.item_id }
+                        val slot = ItemSlotUtils.getSlotForItem(item.item_id, itemMeta)
+                        when (selectedCategory) {
+                            "all" -> true
+                            "weapon" -> slot == "weapon"
+                            "armor" -> slot == "armor" || slot == "head"
+                            "chip" -> slot == "chip"
+                            "consumable" -> isConsumable(item.item_id, itemMeta)
+                            else -> true
+                        }
                     }
                 }
 

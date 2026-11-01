@@ -26,7 +26,7 @@ import java.util.*
 @Composable
 fun TerminalLog(logs: List<GameLog>) {
     val listState = rememberLazyListState()
-    val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    val dateFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
     LaunchedEffect(logs.size) {
         if (logs.isNotEmpty() && listState.firstVisibleItemIndex <= 1) {

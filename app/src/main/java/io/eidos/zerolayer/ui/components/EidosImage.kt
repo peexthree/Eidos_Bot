@@ -49,7 +49,7 @@ import io.eidos.zerolayer.ui.theme.ZzzDarkSurface
 import java.util.concurrent.ConcurrentHashMap
 
 private val drawableCache = ConcurrentHashMap<String, Int>()
-private val bitmapCache = ConcurrentHashMap<Int, ImageBitmap>()
+private val bitmapCache = android.util.LruCache<Int, ImageBitmap>(80)
 
 /**
  * Singleton Coil ImageLoader configured with SvgDecoder for rendering SVG icons from assets.
@@ -75,7 +75,7 @@ object EidosSvgImageLoader {
  */
 fun safeLoadImageBitmap(context: Context, resId: Int): ImageBitmap? {
     if (resId == 0) return null
-    bitmapCache[resId]?.let { return it }
+    bitmapCache.get(resId)?.let { return it }
 
     return try {
         // 1. Try decoding as direct Bitmap (PNG / JPG / WEBP)
@@ -89,7 +89,7 @@ fun safeLoadImageBitmap(context: Context, resId: Int): ImageBitmap? {
         }
         if (rawBitmap != null && rawBitmap.width > 0 && rawBitmap.height > 0) {
             val imgBitmap = rawBitmap.asImageBitmap()
-            bitmapCache[resId] = imgBitmap
+            bitmapCache.put(resId, imgBitmap)
             return imgBitmap
         }
 
@@ -107,7 +107,7 @@ fun safeLoadImageBitmap(context: Context, resId: Int): ImageBitmap? {
             drawable.setBounds(0, 0, canvas.width, canvas.height)
             drawable.draw(canvas)
             val imgBitmap = bitmap.asImageBitmap()
-            bitmapCache[resId] = imgBitmap
+            bitmapCache.put(resId, imgBitmap)
             return imgBitmap
         }
         null
