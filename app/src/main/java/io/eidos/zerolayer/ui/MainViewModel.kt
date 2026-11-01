@@ -457,6 +457,14 @@ class MainViewModel(
         }
     }
 
+    fun defendCombat() {
+        haptics.step()
+        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+        viewModelScope.launch {
+            repository.defendCombat(_uid.value)
+        }
+    }
+
     fun useActiveAbility() {
         haptics.criticalHit()
         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)

@@ -169,8 +169,8 @@ fun resolveDrawableResourceId(context: Context, resName: String?): Int {
                 cleanName.contains("синтез") || cleanName.contains("омни_синтез") -> "monster_14"
                 cleanName.contains("бог_машины") || cleanName.contains("бог") || cleanName.contains("машина") -> "monster_15"
                 cleanName.contains("странник") || cleanName.contains("пустотный") -> "monster_16"
-                cleanName.contains("сбой") || cleanName.contains("фатальный") -> "monster_17"
-                cleanName.contains("энтропия") -> "monster_18"
+                cleanName.contains("энтропия") -> "monster_17"
+                cleanName.contains("сбой") || cleanName.contains("фатальный") -> "monster_18"
                 cleanName.contains("ассасин") || cleanName.contains("даркнет") -> "monster_19"
                 else -> null
             }

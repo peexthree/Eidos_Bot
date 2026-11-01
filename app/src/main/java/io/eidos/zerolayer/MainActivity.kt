@@ -331,6 +331,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onBack = { navController.popBackStack() },
                         onStartRaid = { mainViewModel.startRaid() },
                         onScanSector = { mainViewModel.scanSector() },
+                        onDefend = { mainViewModel.defendCombat() },
                         onUseAbility = { mainViewModel.useActiveAbility() },
                         onFlee = { mainViewModel.fleeCombat() },
                         onTriggerOverdrive = { mainViewModel.triggerOverdrive() },

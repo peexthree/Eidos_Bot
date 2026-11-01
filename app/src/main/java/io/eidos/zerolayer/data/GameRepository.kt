@@ -1966,7 +1966,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             return
         }
         if (session.current_enemy_id != null) {
-            handleCombatTurn(uid, session, player)
+            handleCombatTurn(uid, session, player, isGuarding = false)
             return
         }
 
@@ -2158,10 +2158,27 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    private suspend fun handleCombatTurn(uid: Long, session: RaidSession, player: Player) {
+    suspend fun defendCombat(uid: Long) = dbMutex.withLock {
+        val session = dao.getRaidSession(uid) ?: return@withLock
+        val player = dao.getPlayer(uid) ?: return@withLock
+        if (session.current_enemy_id == null) return@withLock
+
+        // Gain +25% Overdrive charge on guard
+        val curCharge = getOverdriveCharge(uid)
+        setOverdriveCharge(uid, curCharge + io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_GUARD)
+
+        // Restore +2 EP
+        val newEnergy = minOf(player.max_energy, player.energy + 2)
+        dao.updatePlayer(player.copy(energy = newEnergy))
+
+        log(uid, "🛡 [ЗАЩИТНАЯ СТОЙКА]: Нейро-барьер активен! Входящий урон снижен на 50% (+25% Овердрайв, +2 EP).", "info")
+        _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = false))
+
+        handleCombatTurn(uid, session, player, isGuarding = true)
+    }
+
+    private suspend fun handleCombatTurn(uid: Long, session: RaidSession, player: Player, isGuarding: Boolean = false) {
         val villainsStatic = io.eidos.zerolayer.data.GameData.VILLAINS
-        val depthDiffMult = io.eidos.zerolayer.domain.combat.CombatEngine.getDepthDifficultyMultiplier(session.depth)
-        val depthRewardMult = io.eidos.zerolayer.domain.combat.CombatEngine.getDepthRewardMultiplier(session.depth)
         val villain = villainsStatic.find { it.name == session.current_enemy_id }
             ?: villainsStatic.find {
                 val clean1 = it.name.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
@@ -2170,12 +2187,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             } ?: io.eidos.zerolayer.data.GameVillainData(
             id = 9999,
             name = session.current_enemy_id ?: "Неизвестный Сбой",
-            level = (session.depth / 50) + 1,
+            level = 1,
             hp = session.current_enemy_hp,
-            atk = ((15 + (session.depth / 10)) * depthDiffMult).toInt(),
-            def = (5 + (session.depth / 20)),
-            xp = ((50 + (session.depth / 2)) * depthRewardMult).toLong(),
-            coin = ((30 + (session.depth / 3)) * depthRewardMult).toLong(),
+            atk = 15,
+            def = 5,
+            xp = 50L,
+            coin = 30L,
             description = "Искаженный фрагмент кода, затерянный в Слоях Нуля.",
             image = ""
         )
@@ -2188,123 +2205,147 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         val isCursedWeapon = weaponItem != null && getItemMetadata(weaponItem.item_id)?.rarity == "cursed"
 
-        // --- Player Turn ---
-        val weaponMultiplier = if (weaponItem != null && weaponItem.durability > 0f) {
-            getItemMetadata(weaponItem.item_id)?.multiplier ?: 1.0f
-        } else {
-            1.0f
-        }
-
-        var baseDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateBasePlayerDamage(activeStats.attack, weaponMultiplier, villain.def)
-
-        // Cursed weapon credit_slicer logic
-        if (weaponItem?.item_id == "credit_slicer") {
-            if (player.biocoin > 0) {
-                val burned = maxOf(1, (player.biocoin * 0.01).toLong())
-                dao.updatePlayer(player.copy(biocoin = player.biocoin - burned))
-                baseDamage = (activeStats.attack + burned * 1.5).toInt()
-                log(uid, "💸 [Кредитный Резак]: Сожжено -$burned BC для форсированного удара!", "combat")
-            } else {
-                baseDamage = 5
-            }
-        }
-
-        // Cursed weapon empath_whip logic
-        if (weaponItem?.item_id == "empath_whip") {
-            baseDamage = (villain.atk * 1.5).toInt()
-        }
-
-        // Crit roll using CombatEngine
-        val isWarpAffix = session.active_mutator == io.eidos.zerolayer.domain.combat.CombatEngine.AFFIX_WARP
-        val warpCritBonus = if (isWarpAffix) 30 else 0
-        val finalCritChance = io.eidos.zerolayer.domain.combat.CombatEngine.calculateCritChance(
-            baseLuck = activeStats.luck,
-            hasBerserk1 = player.skill_berserk_1 == 1,
-            hasOverclockCrown = headItem?.item_id == "overclock_crown"
-        )
-        val maxwellCritBonus = if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_OVERCLOCK)) 15 else 0
-        val isCrit = (0..100).random() < (finalCritChance + maxwellCritBonus + warpCritBonus)
-
-        var finalPlayerDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateFinalPlayerDamage(baseDamage, isCrit)
-
-        // Gain Overdrive Charge on Player Attack
-        val currentCharge = getOverdriveCharge(uid)
-        val chargeGain = if (isCrit) io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_CRIT_HIT else io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_NORMAL_ATTACK
-        setOverdriveCharge(uid, currentCharge + chargeGain)
-
-        // Glitch Berserk Anomaly Buff: +25% player ATK damage
-        if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK)) {
-            finalPlayerDamage = (finalPlayerDamage * 1.25f).toInt()
-        }
-
-        // Maxwell Blood Overclock Buff: +35% player ATK damage
-        if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_OVERCLOCK)) {
-            finalPlayerDamage = (finalPlayerDamage * 1.35f).toInt()
-        }
-
-        // Cursed weapon banhammer_shard logic
-        if (weaponItem?.item_id == "banhammer_shard" && (0..100).random() < 1) {
-            finalPlayerDamage = 999999
-            log(uid, "🔨 [Осколок Бан-Хаммера]: Враг стерт из реестра реальности!", "combat")
-        }
-
-        val newEnemyHp = session.current_enemy_hp - finalPlayerDamage
-        val critTag = if (isCrit) " [CRITICAL_HIT]" else ""
-        log(uid, "НЕЙРО-ВСПЛЕСК: -$finalPlayerDamage Сигнала у ${villain.name}$critTag.", "combat")
-
-        // Emit combat visual event for player hit
-        _combatEventFlow.tryEmit(CombatVisualEvent(
-            damage = finalPlayerDamage,
-            isCrit = isCrit,
-            isOverdrive = false,
-            isDodge = false,
-            isPlayerHit = false
-        ))
-
-        // Singularity Affix: Thorns / Quantum Damage Reflection (20%)
-        if (session.active_mutator == io.eidos.zerolayer.domain.combat.CombatEngine.AFFIX_THORNS && finalPlayerDamage in 1..50000) {
-            val reflectedDmg = maxOf(1, (finalPlayerDamage * 0.20f).toInt())
-            val newSigAfterReflect = maxOf(0, session.signal - reflectedDmg)
-            val newHpAfterReflect = maxOf(0, player.hp - reflectedDmg)
-            dao.updatePlayer(player.copy(hp = newHpAfterReflect))
-            dao.insertRaidSession(session.copy(signal = newSigAfterReflect))
-            log(uid, "🪞 [КВАНТОВОЕ ОТРАЖЕНИЕ]: Отражено -$reflectedDmg урона обратно в оператора!", "error")
-            if (newSigAfterReflect <= 0 || newHpAfterReflect <= 0) {
-                checkDeath(uid)
-            }
-        }
-
-        // Overclock crown cost
-        if (isCrit && headItem?.item_id == "overclock_crown") {
-            val costHp = maxOf(1, (player.hp * 0.02).toInt())
-            dao.updatePlayer(player.copy(hp = maxOf(1, player.hp - costHp)))
-            log(uid, "⚡ [Венец Разгона]: Крит стоил -$costHp Сигнала.", "error")
-        }
-
-        // Weapon durability reduction
-        if (weaponItem != null) {
-            val loss = if (isCrit || isCursedWeapon) 1.0f else 0.5f
-            val newDur = maxOf(0f, weaponItem.durability - loss)
-            dao.updateInventoryItem(weaponItem.copy(durability = newDur))
-            if (newDur <= 0f) {
-                log(uid, "🚨 [КРИТИЧЕСКИЙ СБОЙ]: Ваше оружие ${getItemMetadata(weaponItem.item_id)?.name} сломано!", "error")
-            }
-        }
-
-        // Vampirism / True Blood Crown
-        if (headItem?.item_id == "relic_vampire") {
-            val healSignal = maxOf(1, (session.signal * 0.02).toInt())
-            val newSig = minOf(100, session.signal + healSignal)
-            dao.insertRaidSession(session.copy(signal = newSig))
-            log(uid, "👑 [Корона Истинной Крови]: Восстановлено +2% ($healSignal HP) Сигнала при ударе!", "info")
-        }
-        if (player.skill_berserk_3 == 1) {
-            val heal = maxOf(1, (finalPlayerDamage * 0.05).toInt())
-            dao.updatePlayer(player.copy(hp = minOf(player.max_hp, player.hp + heal)))
-            log(uid, "🧛 [Вампиризм]: Восстановлено +$heal Сигнала.", "info")
-        }
-
         val nextTurn = session.combat_turn + 1
+        val aiAction = io.eidos.zerolayer.domain.combat.CombatEngine.evaluateMonsterAi(
+            villainId = villain.id,
+            combatTurn = nextTurn,
+            villainAtk = villain.atk,
+            villainCurrentHp = session.current_enemy_hp
+        )
+
+        var newEnemyHp = session.current_enemy_hp
+
+        // --- Player Turn (Only if not in defensive guard posture) ---
+        if (!isGuarding) {
+            if (aiAction.isPhaseEvading) {
+                log(uid, aiAction.logMessage ?: "Враг уклонился от физического удара!", "info")
+                _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true))
+            } else {
+                val weaponMultiplier = if (weaponItem != null && weaponItem.durability > 0f) {
+                    getItemMetadata(weaponItem.item_id)?.multiplier ?: 1.0f
+                } else {
+                    1.0f
+                }
+
+                val effectiveEnemyDef = villain.def + aiAction.selfDefBonus
+                var baseDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateBasePlayerDamage(activeStats.attack, weaponMultiplier, effectiveEnemyDef)
+
+                // Cursed weapon credit_slicer logic
+                if (weaponItem?.item_id == "credit_slicer") {
+                    if (player.biocoin > 0) {
+                        val burned = maxOf(1, (player.biocoin * 0.01).toLong())
+                        dao.updatePlayer(player.copy(biocoin = player.biocoin - burned))
+                        baseDamage = (activeStats.attack + burned * 1.5).toInt()
+                        log(uid, "💸 [Кредитный Резак]: Сожжено -$burned BC для форсированного удара!", "combat")
+                    } else {
+                        baseDamage = 5
+                    }
+                }
+
+                // Cursed weapon empath_whip logic
+                if (weaponItem?.item_id == "empath_whip") {
+                    baseDamage = (villain.atk * 1.5).toInt()
+                }
+
+                // Crit roll using CombatEngine
+                val isWarpAffix = session.active_mutator == io.eidos.zerolayer.domain.combat.CombatEngine.AFFIX_WARP
+                val warpCritBonus = if (isWarpAffix) 30 else 0
+                val finalCritChance = io.eidos.zerolayer.domain.combat.CombatEngine.calculateCritChance(
+                    baseLuck = activeStats.luck,
+                    hasBerserk1 = player.skill_berserk_1 == 1,
+                    hasOverclockCrown = headItem?.item_id == "overclock_crown"
+                )
+                val maxwellCritBonus = if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_OVERCLOCK)) 15 else 0
+                val isCrit = (0..100).random() < (finalCritChance + maxwellCritBonus + warpCritBonus)
+
+                var finalPlayerDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateFinalPlayerDamage(baseDamage, isCrit)
+
+                // Gain Overdrive Charge on Player Attack
+                val currentCharge = getOverdriveCharge(uid)
+                val chargeGain = if (isCrit) io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_CRIT_HIT else io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_NORMAL_ATTACK
+                setOverdriveCharge(uid, currentCharge + chargeGain)
+
+                // Glitch Berserk Anomaly Buff: +25% player ATK damage
+                if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK)) {
+                    finalPlayerDamage = (finalPlayerDamage * 1.25f).toInt()
+                }
+
+                // Maxwell Blood Overclock Buff: +35% player ATK damage
+                if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_OVERCLOCK)) {
+                    finalPlayerDamage = (finalPlayerDamage * 1.35f).toInt()
+                }
+
+                // Cursed weapon banhammer_shard logic
+                if (weaponItem?.item_id == "banhammer_shard" && (0..100).random() < 1) {
+                    finalPlayerDamage = 999999
+                    log(uid, "🔨 [Осколок Бан-Хаммера]: Враг стерт из реестра реальности!", "combat")
+                }
+
+                newEnemyHp = maxOf(0, session.current_enemy_hp - finalPlayerDamage)
+                val critTag = if (isCrit) " [CRITICAL_HIT]" else ""
+                log(uid, "НЕЙРО-ВСПЛЕСК: -$finalPlayerDamage Сигнала у ${villain.name}$critTag.", "combat")
+
+                // Emit combat visual event for player hit
+                _combatEventFlow.tryEmit(CombatVisualEvent(
+                    damage = finalPlayerDamage,
+                    isCrit = isCrit,
+                    isOverdrive = false,
+                    isDodge = false,
+                    isPlayerHit = false
+                ))
+
+                // Core Guardian reflection
+                if (villain.id == 398 && finalPlayerDamage > 0) {
+                    val reflected = maxOf(1, (finalPlayerDamage * 0.15f).toInt())
+                    val curSig = maxOf(0, session.signal - reflected)
+                    dao.insertRaidSession(session.copy(signal = curSig))
+                    log(uid, "🛡 [Страж Ядра]: Отражено -$reflected урона в оператора!", "error")
+                }
+
+                // Singularity Affix: Thorns / Quantum Damage Reflection (20%)
+                if (session.active_mutator == io.eidos.zerolayer.domain.combat.CombatEngine.AFFIX_THORNS && finalPlayerDamage in 1..50000) {
+                    val reflectedDmg = maxOf(1, (finalPlayerDamage * 0.20f).toInt())
+                    val newSigAfterReflect = maxOf(0, session.signal - reflectedDmg)
+                    val newHpAfterReflect = maxOf(0, player.hp - reflectedDmg)
+                    dao.updatePlayer(player.copy(hp = newHpAfterReflect))
+                    dao.insertRaidSession(session.copy(signal = newSigAfterReflect))
+                    log(uid, "🪞 [КВАНТОВОЕ ОТРАЖЕНИЕ]: Отражено -$reflectedDmg урона обратно в оператора!", "error")
+                    if (newSigAfterReflect <= 0 || newHpAfterReflect <= 0) {
+                        checkDeath(uid)
+                    }
+                }
+
+                // Overclock crown cost
+                if (isCrit && headItem?.item_id == "overclock_crown") {
+                    val costHp = maxOf(1, (player.hp * 0.02).toInt())
+                    dao.updatePlayer(player.copy(hp = maxOf(1, player.hp - costHp)))
+                    log(uid, "⚡ [Венец Разгона]: Крит стоил -$costHp Сигнала.", "error")
+                }
+
+                // Weapon durability reduction
+                if (weaponItem != null) {
+                    val loss = if (isCrit || isCursedWeapon) 1.0f else 0.5f
+                    val newDur = maxOf(0f, weaponItem.durability - loss)
+                    dao.updateInventoryItem(weaponItem.copy(durability = newDur))
+                    if (newDur <= 0f) {
+                        log(uid, "🚨 [КРИТИЧЕСКИЙ СБОЙ]: Ваше оружие ${getItemMetadata(weaponItem.item_id)?.name} сломано!", "error")
+                    }
+                }
+
+                // Vampirism / True Blood Crown
+                if (headItem?.item_id == "relic_vampire") {
+                    val healSignal = maxOf(1, (session.signal * 0.02).toInt())
+                    val newSig = minOf(100, session.signal + healSignal)
+                    dao.insertRaidSession(session.copy(signal = newSig))
+                    log(uid, "👑 [Корона Истинной Крови]: Восстановлено +2% ($healSignal HP) Сигнала при ударе!", "info")
+                }
+                if (player.skill_berserk_3 == 1) {
+                    val heal = maxOf(1, (finalPlayerDamage * 0.05).toInt())
+                    dao.updatePlayer(player.copy(hp = minOf(player.max_hp, player.hp + heal)))
+                    log(uid, "🧛 [Вампиризм]: Восстановлено +$heal Сигнала.", "info")
+                }
+            }
+        }
 
         if (newEnemyHp <= 0) {
             log(uid, "УСПЕХ: Цель ${villain.name} нейтрализована.", "loot")
@@ -2313,7 +2354,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             val hasMaxwellsDemon = equippedAll.any { it.item_id == "maxwells_demon" }
             val hasOblivionChip = equippedAll.any { it.item_id == "oblivion_chip" }
             val isDoubleDrop = session.active_mutator == io.eidos.zerolayer.domain.combat.CombatEngine.AFFIX_DOUBLE_DROP
-            val rawCoins = if (weaponItem?.item_id == "cache_wiper") 0L else villain.coin.toLong()
+            val rawCoins = if (weaponItem?.item_id == "cache_wiper") 0L else villain.coin
             val baseCoins = if (isDoubleDrop) rawCoins * 2 else rawCoins
             val tax = if (hasMaxwellsDemon) (baseCoins * 0.1).toLong() else 0L
 
@@ -2357,38 +2398,69 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 log(uid, "😈 [ДЕМОН МАКСВЕЛЛА]: Изъят налог 10% с трофеев врага (-$tax BC).", "error")
             }
         } else {
-            // --- Enemy Turn ---
-            // Grandfather paradox logic
+            // --- Enemy Turn with Tactical AI ---
+            if (aiAction.logMessage != null && !aiAction.isPhaseEvading) {
+                log(uid, aiAction.logMessage, "combat")
+            }
+            if (aiAction.selfHeal > 0) {
+                newEnemyHp = minOf(villain.hp, newEnemyHp + aiAction.selfHeal)
+            }
+            var workingCoins = session.buffer_coins
+            if (aiAction.drainBioCoins > 0 && workingCoins > 0) {
+                val drained = minOf(workingCoins, aiAction.drainBioCoins.toLong())
+                workingCoins -= drained
+            }
+            if (aiAction.drainEnergy > 0 && player.energy > 0) {
+                val newE = maxOf(0, player.energy - aiAction.drainEnergy)
+                dao.updatePlayer(player.copy(energy = newE))
+            }
+            if (aiAction.isDetonating) {
+                newEnemyHp = 0
+            }
+
             val hasParadox = weaponItem?.item_id == "grandfather_paradox"
             val evasionChance = io.eidos.zerolayer.domain.combat.CombatEngine.calculateEvasionChance(
                 playerDefense = activeStats.defense,
                 hasTacticalHelmet = headItem?.item_id == "tactical_helmet"
             )
-            val isEvaded = (0..100).random() < evasionChance
+            val isEvaded = !isGuarding && ((0..100).random() < evasionChance)
 
             if (isEvaded) {
-                // Gain overdrive charge on successful dodge (+25%)
                 val dodgeCharge = getOverdriveCharge(uid) + io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_DODGE
                 setOverdriveCharge(uid, dodgeCharge)
                 _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true))
 
                 log(uid, "УКЛОНЕНИЕ: Сдвиг сигнала. Атака от ${villain.name} промахнулась (+25% Овердрайв).", "info")
-                dao.insertRaidSession(session.copy(current_enemy_hp = newEnemyHp, combat_turn = nextTurn))
+                dao.insertRaidSession(session.copy(
+                    current_enemy_hp = newEnemyHp,
+                    buffer_coins = workingCoins,
+                    combat_turn = nextTurn
+                ))
             } else {
                 val playerPower = activeStats.attack + activeStats.defense + activeStats.luck
                 val rawVillainAtk = io.eidos.zerolayer.domain.combat.CombatEngine.calculateScaledEnemyAtk(
                     villainAtk = villain.atk,
                     playerPower = playerPower,
                     depth = session.depth
-                )
-                val ocAtkMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeEnemyAtkMultiplier(getOverchargeTier(uid))
-                val scaledVillainAtk = (rawVillainAtk * ocAtkMult).toInt()
+                ) + aiAction.extraDamage
 
+                val ocAtkMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeEnemyAtkMultiplier(getOverchargeTier(uid))
+                val scaledVillainAtk = (rawVillainAtk * aiAction.damageMultiplier * ocAtkMult).toInt()
+
+                val effectivePlayerDef = (activeStats.defense * (1.0f - aiAction.bypassArmorPercent)).toInt()
                 val baseEnemyDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateBaseEnemyDamage(
                     scaledEnemyAtk = scaledVillainAtk,
-                    playerDefense = activeStats.defense
+                    playerDefense = effectivePlayerDef
                 )
                 var enemyDamage = baseEnemyDamage
+
+                if (isGuarding) {
+                    enemyDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateGuardedDamage(enemyDamage)
+                }
+
+                if (aiAction.strikesTwice) {
+                    enemyDamage = (enemyDamage * 1.7f).toInt()
+                }
 
                 // Maxwell Vulnerability: +25% damage taken from enemies
                 if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_VULNERABILITY) ||
@@ -2404,7 +2476,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 if (hasParadox && nextTurn <= 3) {
                     val newDmgBuf = session.damage_buffer + enemyDamage
                     log(uid, "⏳ [Парадокс Деда]: Отражен входящий удар (-$enemyDamage) в буфер ($newDmgBuf/3 ходов).", "info")
-                    dao.insertRaidSession(session.copy(current_enemy_hp = newEnemyHp, combat_turn = nextTurn, damage_buffer = newDmgBuf))
+                    dao.insertRaidSession(session.copy(
+                        current_enemy_hp = newEnemyHp,
+                        buffer_coins = workingCoins,
+                        combat_turn = nextTurn,
+                        damage_buffer = newDmgBuf
+                    ))
                 } else {
                     var totalIncoming = enemyDamage
                     if (hasParadox && nextTurn == 4) {
@@ -2420,6 +2497,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         log(uid, "🪞 [Зеркало 404]: Входящий урон ($totalIncoming) отражен обратно во врага!", "combat")
                         dao.insertRaidSession(session.copy(
                             current_enemy_hp = newEnemyHp - totalIncoming,
+                            buffer_coins = workingCoins,
                             combat_turn = nextTurn,
                             damage_buffer = 0
                         ))
@@ -2439,10 +2517,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                                 damage_buffer = 0
                             ))
                         } else {
-                            log(uid, "УРОН: ${villain.name} атакует! -$totalIncoming Сигнала/HP.", "combat")
+                            val guardSuffix = if (isGuarding) " [ЗАЩИТА -50%]" else ""
+                            log(uid, "УРОН: ${villain.name} атакует! -$totalIncoming Сигнала/HP$guardSuffix.", "combat")
                             dao.updatePlayer(player.copy(hp = maxOf(0, player.hp - totalIncoming)))
                             dao.insertRaidSession(session.copy(
                                 current_enemy_hp = newEnemyHp,
+                                buffer_coins = workingCoins,
                                 signal = newSignal,
                                 combat_turn = nextTurn,
                                 damage_buffer = 0

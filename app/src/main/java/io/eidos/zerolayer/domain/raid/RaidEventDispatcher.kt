@@ -270,30 +270,44 @@ object RaidEventDispatcher {
     }
 
     private fun handleCombatEvent(depth: Int, flags: EquipmentFlags): DispatchResult {
-        val depthLevel = (depth / 50) + 1
-        val depthMultiplier = io.eidos.zerolayer.domain.combat.CombatEngine.getDepthDifficultyMultiplier(depth)
+        val maxMonsterLevel = when {
+            depth < 150 -> 1
+            depth < 350 -> 2
+            depth < 650 -> 3
+            depth < 1000 -> 4
+            depth < 1500 -> 5
+            depth < 2000 -> 6
+            depth < 2600 -> 7
+            depth < 3300 -> 8
+            depth < 4000 -> 9
+            depth < 4800 -> 10
+            depth < 5800 -> 12
+            depth < 7000 -> 15
+            depth < 8500 -> 20
+            depth < 10000 -> 25
+            else -> 30
+        }
         val isGlitch = !flags.hasRealitySilencer && Random.nextInt(100) < 5
 
         if (isGlitch) {
-            val baseHp = (180..350).random() + (depth * 2)
-            val hp = (baseHp * depthMultiplier).toInt()
+            val baseHp = 180 + (depth / 25)
             return DispatchResult.CombatEncounter(
                 enemyName = "▲▓ СТИРАТЕЛЬ_ГЛИТЧЕЙ █░",
-                enemyHp = hp,
-                enemyLevel = depthLevel + 1,
+                enemyHp = baseHp,
+                enemyLevel = maxMonsterLevel + 1,
                 isGlitchPhantom = true,
                 message = "☠ ░▒▓ ГЛИТЧ-ФАНТОМ ▓▒░ ☠: Нестабильная программа-фантом атаковала аватар!"
             )
         }
 
-        val candidates = io.eidos.zerolayer.data.GameData.VILLAINS.filter { it.level <= maxOf(1, depthLevel) }
+        val candidates = io.eidos.zerolayer.data.GameData.VILLAINS.filter { it.level <= maxMonsterLevel }
         val villain = if (candidates.isNotEmpty()) {
             candidates.takeLast(3).random()
         } else {
             io.eidos.zerolayer.data.GameData.VILLAINS.first()
         }
-        val baseHp = villain.hp + (depth * 2)
-        val hp = (baseHp * depthMultiplier).toInt()
+        // Canonical HP strictly from official monster data
+        val hp = villain.hp
 
         return DispatchResult.CombatEncounter(
             enemyName = villain.name,

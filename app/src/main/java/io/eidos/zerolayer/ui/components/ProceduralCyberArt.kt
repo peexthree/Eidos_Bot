@@ -124,8 +124,8 @@ private fun extractMonsterIndex(cleanName: String): Int {
         cleanName.contains("синтез") || cleanName.contains("омни_синтез") || cleanName.contains("synthesis") -> 14
         cleanName.contains("бог_машины") || cleanName.contains("машина") || cleanName.contains("machine") || cleanName.contains("deus") -> 15
         cleanName.contains("странник") || cleanName.contains("пустотный") || cleanName.contains("nomad") -> 16
-        cleanName.contains("сбой") || cleanName.contains("фатальный") || cleanName.contains("error") -> 17
-        cleanName.contains("энтропия") || cleanName.contains("entropy") -> 18
+        cleanName.contains("энтропия") || cleanName.contains("entropy") -> 17
+        cleanName.contains("сбой") || cleanName.contains("фатальный") || cleanName.contains("error") -> 18
         cleanName.contains("ассасин") || cleanName.contains("даркнет") || cleanName.contains("assassin") -> 19
         else -> abs(cleanName.hashCode() % 19) + 1
     }

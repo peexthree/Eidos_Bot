@@ -9,11 +9,11 @@ object CombatEngine {
 
     /**
      * Calculates the dynamic difficulty multiplier:
-     * After 1000m, damage and monster stats scale via: multiplier = 1.0f + (depth / 1000f) * 0.75f
+     * Gentle abyssal scaling for depths > 5000m.
      */
     fun getDepthDifficultyMultiplier(depth: Int): Float {
-        return if (depth > 1000) {
-            1.0f + (depth / 1000f) * 0.75f
+        return if (depth > 5000) {
+            1.0f + ((depth - 5000) / 25000f).coerceIn(0f, 0.25f)
         } else {
             1.0f
         }
@@ -23,7 +23,7 @@ object CombatEngine {
      * Calculates proportional reward multiplier for BioCoins and XP with depth stepping.
      */
     fun getDepthRewardMultiplier(depth: Int): Float {
-        return 1.0f + (depth / 1000f) * 0.75f
+        return 1.0f + (depth / 2000f) * 0.5f
     }
 
     /**
@@ -89,27 +89,39 @@ object CombatEngine {
     }
 
     /**
-     * Calculates scalable enemy attack power based on player's overall power levels and dynamic depth scaling.
+     * Calculates enemy attack power strictly anchored to canonical stats.
+     * Early monsters hit with exact canonical ATK (3 to 20); Abyssal Singularity (5000m+) applies subtle bonus.
      */
     fun calculateScaledEnemyAtk(
         villainAtk: Int,
-        playerPower: Int,
-        depth: Int
+        playerPower: Int = 0,
+        depth: Int = 0
     ): Int {
-        val powerScale = 1.0f + (playerPower / 150.0f)
-        val depthMult = getDepthDifficultyMultiplier(depth)
-        val rawAtk = (villainAtk * powerScale) + (depth / 10)
-        return (rawAtk * depthMult).toInt()
+        val abyssMult = if (depth > 5000) {
+            1.0f + ((depth - 5000) / 25000f).coerceIn(0f, 0.20f)
+        } else {
+            1.0f
+        }
+        return maxOf(1, (villainAtk * abyssMult).toInt())
     }
 
     /**
-     * Calculates raw incoming enemy damage against player defenses.
+     * Calculates incoming enemy damage against player defenses.
+     * Player defense mitigates damage by def / 2, minimum 1 damage.
      */
     fun calculateBaseEnemyDamage(
         scaledEnemyAtk: Int,
         playerDefense: Int
     ): Int {
-        return maxOf(1, scaledEnemyAtk - (playerDefense / 2))
+        val mitigation = playerDefense / 2
+        return maxOf(1, scaledEnemyAtk - mitigation)
+    }
+
+    /**
+     * Calculates guarded damage reduction (Defensive Stance blocks 50% incoming damage).
+     */
+    fun calculateGuardedDamage(incomingDamage: Int): Int {
+        return maxOf(1, (incomingDamage * 0.5f).toInt())
     }
 
     // --- ⚡ 1. OVERDRIVE MECHANICS ---
@@ -117,6 +129,8 @@ object CombatEngine {
     const val CHARGE_NORMAL_ATTACK = 20
     const val CHARGE_CRIT_HIT = 35
     const val CHARGE_DODGE = 25
+    const val CHARGE_GUARD = 25
+    const val CHARGE_ABILITY = 35
 
     /**
      * Calculates Singularity Overdrive damage: deals 250% true critical damage bypassing enemy armor.
@@ -164,5 +178,158 @@ object CombatEngine {
         }
         return rarePool.random()
     }
-}
 
+    // --- 👾 3. TACTICAL MONSTER AI & CANONICAL ABILITIES ---
+    data class MonsterAiAction(
+        val extraDamage: Int = 0,
+        val damageMultiplier: Float = 1.0f,
+        val selfHeal: Int = 0,
+        val selfDefBonus: Int = 0,
+        val drainBioCoins: Int = 0,
+        val drainEnergy: Int = 0,
+        val bypassArmorPercent: Float = 0f,
+        val isPhaseEvading: Boolean = false,
+        val isDetonating: Boolean = false,
+        val strikesTwice: Boolean = false,
+        val logMessage: String? = null
+    )
+
+    fun evaluateMonsterAi(
+        villainId: Int,
+        combatTurn: Int,
+        villainAtk: Int,
+        villainCurrentHp: Int
+    ): MonsterAiAction {
+        return when (villainId) {
+            384 -> { // 🦠 Цифровой Паразит
+                MonsterAiAction(logMessage = "🦠 [Цифровой Паразит]: Засоряет кэш мусорными пакетами.")
+            }
+            385 -> { // 👻 Призрак Глитча
+                val evades = (0..100).random() < 20
+                MonsterAiAction(
+                    isPhaseEvading = evades,
+                    logMessage = if (evades) "👻 [Призрак Глитча]: Мерцание текстур — атака прошла сквозь фазу!" else null
+                )
+            }
+            386 -> { // 🚁 Дрон-Страж
+                val shieldTurn = combatTurn > 0 && combatTurn % 3 == 0
+                MonsterAiAction(
+                    selfDefBonus = if (shieldTurn) 6 else 0,
+                    logMessage = if (shieldTurn) "🚁 [Дрон-Страж]: Активирован силовой протокол щита (+6 DEF)!" else null
+                )
+            }
+            387 -> { // 💣 Логическая Бомба
+                val detonates = combatTurn >= 4
+                MonsterAiAction(
+                    isDetonating = detonates,
+                    extraDamage = if (detonates) 25 else 0,
+                    logMessage = if (detonates) "💣 [Логическая Бомба]: ТАЙМЕР НА НУЛЕ! Бомба сдетонировала с колоссальной силой!" else "💣 [Логическая Бомба]: Таймер детонации тикает... (ход $combatTurn/4)"
+                )
+            }
+            388 -> { // ⛏ Крипто-Майнер
+                MonsterAiAction(
+                    drainBioCoins = 4,
+                    logMessage = "⛏ [Крипто-Майнер]: Скрытый фоновый скрипт выкачал 4 BioCoins!"
+                )
+            }
+            389 -> { // 🐉 Спам-Гидра
+                MonsterAiAction(
+                    selfHeal = 5,
+                    logMessage = "🐉 [Спам-Гидра]: Репликация рекламных окон восстановила +5 HP!"
+                )
+            }
+            390 -> { // ❌ Фатальный Сбой
+                val mult = (70..135).random() / 100f
+                MonsterAiAction(
+                    damageMultiplier = mult,
+                    logMessage = "❌ [Фатальный Сбой]: Амплитуда Ошибки 404 искажает входящий урон!"
+                )
+            }
+            391 -> { // 🗡 Ассасин Даркнета
+                val isCrit = (0..100).random() < 30
+                MonsterAiAction(
+                    damageMultiplier = if (isCrit) 1.5f else 1.0f,
+                    logMessage = if (isCrit) "🗡 [Ассасин Даркнета]: Удар из слепой зоны сервера (КРИТ x1.5)!" else null
+                )
+            }
+            392 -> { // 🧠 ИИ-Доминатор
+                MonsterAiAction(
+                    bypassArmorPercent = 0.35f,
+                    logMessage = "🧠 [ИИ-Доминатор]: Предиктивный расчет обошел 35% вашей брони!"
+                )
+            }
+            393 -> { // ⬛ Стиратель
+                MonsterAiAction(
+                    selfDefBonus = 5,
+                    logMessage = "⬛ [Стиратель]: Монолитный барьер санитара форматирует вектор урона (+5 DEF)."
+                )
+            }
+            394 -> { // 👻 Нейро-Призрак
+                MonsterAiAction(
+                    drainEnergy = 2,
+                    logMessage = "👻 [Нейро-Призрак]: Проекция страха сожгла 2 EP оператора!"
+                )
+            }
+            395 -> { // 💀 Кибер-Лич
+                val leech = maxOf(4, (villainAtk * 0.35f).toInt())
+                MonsterAiAction(
+                    selfHeal = leech,
+                    logMessage = "💀 [Кибер-Лич]: Вампиризм кода восстановил +$leech HP!"
+                )
+            }
+            396 -> { // 🏗 Архитектор Кошмаров
+                val isOdd = combatTurn % 2 == 1
+                MonsterAiAction(
+                    selfDefBonus = if (isOdd) 5 else 0,
+                    extraDamage = if (!isOdd) 6 else 0,
+                    logMessage = if (isOdd) "🏗 [Архитектор Кошмаров]: Искажение архитектуры укрепляет броню (+5 DEF)!" else "🏗 [Архитектор Кошмаров]: Обрушение конструкций Нулевого Слоя (+6 Урона)!"
+                )
+            }
+            397 -> { // 🍽 Пожиратель Кода
+                val bonusAtk = (combatTurn * 2).coerceAtMost(20)
+                MonsterAiAction(
+                    extraDamage = bonusAtk,
+                    logMessage = if (bonusAtk > 0) "🍽 [Пожиратель Кода]: Поглощение данных усиливает атаку (+$bonusAtk ATK)!" else null
+                )
+            }
+            398 -> { // 🛡 Страж Ядра
+                MonsterAiAction(
+                    selfDefBonus = 4,
+                    logMessage = "🛡 [Страж Ядра]: Военный протокол шифрования активен (+4 DEF)."
+                )
+            }
+            399 -> { // ⚛️ Омни-Синтез
+                val element = combatTurn % 3
+                val (elemMsg, elemDmg) = when (element) {
+                    0 -> "Огненный выброс плазмы (+5 Урона)" to 5
+                    1 -> "Криогенная заморозка канала связи" to 2
+                    else -> "Электромагнитный шок (+4 Урона)" to 4
+                }
+                MonsterAiAction(
+                    extraDamage = elemDmg,
+                    logMessage = "⚛️ [Омни-Синтез]: $elemMsg!"
+                )
+            }
+            400 -> { // 🤖 Бог Машины
+                MonsterAiAction(
+                    extraDamage = 5,
+                    logMessage = "🤖 [Бог Машины]: Deus Ex Machina выполняет методичный стирающий расчет (+5 Урона)."
+                )
+            }
+            401 -> { // 🌌 Пустотный Странник
+                val doubleHit = (0..100).random() < 35
+                MonsterAiAction(
+                    strikesTwice = doubleHit,
+                    logMessage = if (doubleHit) "🌌 [Пустотный Странник]: Атака из прошлого повторена сквозь разрыв времени!" else null
+                )
+            }
+            402 -> { // 🌀 Энтропия
+                MonsterAiAction(
+                    extraDamage = 6,
+                    logMessage = "🌀 [Энтропия]: Аудиторский распад материи наносит неизбежный урон энтропии (-6 HP)!"
+                )
+            }
+            else -> MonsterAiAction()
+        }
+    }
+}

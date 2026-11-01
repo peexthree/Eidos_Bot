@@ -85,6 +85,7 @@ fun RaidScreen(
     onBack: () -> Unit,
     onStartRaid: () -> Unit = {},
     onScanSector: () -> Unit = {},
+    onDefend: () -> Unit = {},
     onUseAbility: () -> Unit = {},
     onTriggerOverdrive: () -> Unit = {},
     onBoostOvercharge: () -> Unit = {},
@@ -431,6 +432,7 @@ fun RaidScreen(
                             onOpenInventory = onOpenInventory,
                             onOpenBuffer = { showBufferModal = true },
                             onScanSector = onScanSector,
+                            onDefend = onDefend,
                             onUseAbility = onUseAbility,
                             onTriggerOverdrive = onTriggerOverdrive,
                             onBoostOvercharge = onBoostOvercharge,
@@ -1057,6 +1059,7 @@ fun RaidControls(
     onOpenInventory: () -> Unit,
     onOpenBuffer: () -> Unit = {},
     onScanSector: () -> Unit = {},
+    onDefend: () -> Unit = {},
     onUseAbility: () -> Unit = {},
     onTriggerOverdrive: () -> Unit = {},
     onBoostOvercharge: () -> Unit = {},
@@ -1120,78 +1123,109 @@ fun RaidControls(
                 else -> "СПЕЦУДАР ЯДРА"
             }
 
-            Row(
+            // TACTICAL 2x2 COMBAT MATRIX (HIGH-EFFICIENCY COMBAT)
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // 1. ATTACK BUTTON
-                Button(
-                    onClick = {
-                        haptics.criticalHit()
-                        audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-                        onNextStep()
-                    },
-                    modifier = Modifier.weight(1.1f).height(54.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14)),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, EidosRed),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                // ROW 1: ATTACK + DEFEND
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("⚔️ АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                        Text("УДАР (${player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    // 1. ATTACK BUTTON
+                    Button(
+                        onClick = {
+                            haptics.criticalHit()
+                            audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
+                            onNextStep()
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14)),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, EidosRed),
+                        shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("⚔️ АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                            Text("УДАР (${player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+
+                    // 2. DEFEND BUTTON (GUARD STANCE)
+                    Button(
+                        onClick = {
+                            haptics.step()
+                            audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                            onDefend()
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818)),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, EidosNeon),
+                        shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🛡 ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                            Text("БЛОК 50% // +2 EP", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        }
                     }
                 }
 
-                // 2. USE ABILITY BUTTON
-                Button(
-                    onClick = {
-                        haptics.criticalHit()
-                        audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-                        onUseAbility()
-                    },
-                    modifier = Modifier.weight(1.1f).height(54.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38) else Color(0xFF2B1408)
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(
-                        2.dp,
-                        if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80)
-                    ),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                // ROW 2: ABILITY + FLEE
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            if (hasAbilityEnergy) "⚡ НАВЫК [5 EP]" else "⚡ НАВЫК [-5 HP]",
-                            color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Text(
-                            factionAbilityTitle,
-                            color = Color.White.copy(alpha = 0.85f),
-                            fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace,
-                            maxLines = 1
-                        )
+                    // 3. USE ABILITY BUTTON
+                    Button(
+                        onClick = {
+                            haptics.criticalHit()
+                            audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
+                            onUseAbility()
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38) else Color(0xFF2B1408)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            2.dp,
+                            if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80)
+                        ),
+                        shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                if (hasAbilityEnergy) "⚡ НАВЫК [5 EP]" else "⚡ НАВЫК [-5 HP]",
+                                color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                factionAbilityTitle,
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1
+                            )
+                        }
                     }
-                }
 
-                // 3. FLEE / RETREAT BUTTON
-                Button(
-                    onClick = {
-                        haptics.step()
-                        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
-                        onFlee()
-                    },
-                    modifier = Modifier.weight(0.9f).height(54.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906)),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosOrange),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🏃 ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("ШАНС 75%", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    // 4. FLEE / RETREAT BUTTON
+                    Button(
+                        onClick = {
+                            haptics.step()
+                            audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                            onFlee()
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906)),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosOrange),
+                        shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🏃 ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                            Text("ШАНС 75%", color = Color.White.copy(alpha = 0.85f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        }
                     }
                 }
             }

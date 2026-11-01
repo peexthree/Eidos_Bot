@@ -1,6 +1,7 @@
 package io.eidos.zerolayer.domain.combat
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CombatMathTest {
@@ -40,12 +41,12 @@ class CombatMathTest {
         val dmgCrit = CombatEngine.calculateFinalPlayerDamage(20, isCrit = true)
         assertEquals(30, dmgCrit)
 
-        // Negative damage should be clamped to at least 1, then multiplied if crit
+        // Negative damage clamped to at least 1
         val clampedDmg = CombatEngine.calculateFinalPlayerDamage(-5, isCrit = false)
         assertEquals(1, clampedDmg)
 
         val clampedDmgCrit = CombatEngine.calculateFinalPlayerDamage(-5, isCrit = true)
-        assertEquals(1, clampedDmgCrit) // minOf(1, base) * 1.5 = 1 * 1.5 = 1 in Int division
+        assertEquals(1, clampedDmgCrit)
     }
 
     @Test
@@ -59,15 +60,29 @@ class CombatMathTest {
     }
 
     @Test
-    fun testCalculateScaledEnemyAtkAndBaseEnemyDamage() {
-        // Player power = Attack + Defense + Luck
-        val playerPower = 100 // Scale = 1 + 100/150 = 1.666...
-        val scaledAtk = CombatEngine.calculateScaledEnemyAtk(20, playerPower, depth = 50)
-        // (20 * 1.666) + 5 = 33 + 5 = 38
-        assertEquals(38, scaledAtk)
+    fun testCanonicalMonsterAttackAndDamageMitigation() {
+        // Level 1 Parasite (ATK 3) vs player with 4 defense:
+        val parasiteAtk = CombatEngine.calculateScaledEnemyAtk(3, playerPower = 20, depth = 50)
+        assertEquals(3, parasiteAtk)
+        val parasiteDmg = CombatEngine.calculateBaseEnemyDamage(parasiteAtk, playerDefense = 4)
+        // 3 - (4 / 2) = 1 damage
+        assertEquals(1, parasiteDmg)
 
-        // Incoming damage = Max(1, scaledEnemyAtk - playerDefense / 2)
-        val incomingDmg = CombatEngine.calculateBaseEnemyDamage(38, playerDefense = 30)
-        assertEquals(23, incomingDmg)
+        // Level 30 Entropy (ATK 48) vs player with 40 defense:
+        val entropyAtk = CombatEngine.calculateScaledEnemyAtk(48, playerPower = 150, depth = 7500)
+        val entropyDmg = CombatEngine.calculateBaseEnemyDamage(entropyAtk, playerDefense = 40)
+        // 48 * 1.10 = 52 -> 52 - 20 = 32 damage
+        assertTrue(entropyDmg in 25..35)
+
+        // Defensive Stance blocks 50% damage:
+        val guardedDmg = CombatEngine.calculateGuardedDamage(32)
+        assertEquals(16, guardedDmg)
+    }
+
+    @Test
+    fun testOverdriveCalculation() {
+        val overdriveDmg = CombatEngine.calculateOverdriveDamage(playerAttack = 20, weaponMultiplier = 1.5f)
+        // base = 30 -> 30 * 2.5 = 75 true damage
+        assertEquals(75, overdriveDmg)
     }
 }
