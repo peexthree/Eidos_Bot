@@ -638,7 +638,9 @@ fun InventoryScreen(
                         }
                     } else if (isEquippable(item.item_id, itemMeta)) {
                         val reqLevel = itemMeta?.reqLevel ?: 1
-                        val canEquip = player == null || player.level >= reqLevel
+                        val isChip = (item.slot == "chip" || ItemSlotUtils.getSlotForItem(item.item_id, itemMeta) == "chip")
+                        val isChipAlreadyEquipped = isChip && inventory.any { it.is_equipped && it.item_id == item.item_id && it.id != item.id }
+                        val canEquip = (player == null || player.level >= reqLevel) && !isChipAlreadyEquipped
                         if (item.is_equipped) {
                             Button(
                                 onClick = {
@@ -672,7 +674,11 @@ fun InventoryScreen(
                                 shape = RoundedCornerShape(6.dp)
                             ) {
                                 Text(
-                                    if (canEquip) "ЭКИПИРОВАТЬ" else "ТРЕБУЕТСЯ LVL $reqLevel",
+                                    when {
+                                        isChipAlreadyEquipped -> "ЧИП УЖЕ УСТАНОВЛЕН"
+                                        !canEquip -> "ТРЕБУЕТСЯ LVL $reqLevel"
+                                        else -> "ЭКИПИРОВАТЬ"
+                                    },
                                     color = if (canEquip) EidosCyan else Color(0xFF78909C),
                                     fontSize = 9.sp,
                                     fontFamily = FontFamily.Monospace
@@ -830,6 +836,14 @@ fun ProfileSection(player: Player?) {
         }
     }
 }
+
+@Composable
+fun OperatorEquipmentDeck(
+    inventory: List<InventoryItem>,
+    allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
+    player: Player? = null,
+    onUnequip: (InventoryItem) -> Unit
+) = EquipDollSection(inventory, allItemsMetadata, player, onUnequip)
 
 @Composable
 fun EquipDollSection(

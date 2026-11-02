@@ -70,6 +70,14 @@ class EidosAuthStore private constructor(context: Context) {
         prefs.edit().putLong(KEY_LAST_SYNC, timestamp).apply()
     }
 
+    fun isInventoryInitialized(uid: Long): Boolean {
+        return prefs.getBoolean("key_inventory_init_$uid", false)
+    }
+
+    fun setInventoryInitialized(uid: Long, initialized: Boolean = true) {
+        prefs.edit().putBoolean("key_inventory_init_$uid", initialized).apply()
+    }
+
     fun clearSession() {
         prefs.edit()
             .putBoolean(KEY_IS_LOGGED_IN, false)

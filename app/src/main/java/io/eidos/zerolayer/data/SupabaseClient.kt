@@ -480,14 +480,8 @@ object SupabaseClientManager {
 
         }
 
-        if (items.isEmpty()) {
-            // Safety guard: never wipe remote inventory if passed an empty list,
-            // as that indicates an uninitialized or transient local state!
-            return@withContext true
-        }
-
         try {
-            // Delete existing for player and insert current list
+            // Delete existing for player
             val deleteUrl = "$baseUrl/rest/v1/app_inventory?player_id=eq.$validPlayerId"
             val deleteRequest = Request.Builder()
                 .url(deleteUrl)
@@ -496,6 +490,11 @@ object SupabaseClientManager {
                 .delete()
                 .build()
             httpClient.newCall(deleteRequest).execute().close()
+
+            if (items.isEmpty()) {
+                // Legitimate empty inventory synced -> remote inventory successfully wiped
+                return@withContext true
+            }
 
             val insertUrl = "$baseUrl/rest/v1/app_inventory"
             val safeItems = items.map { it.copy(playerId = validPlayerId) }
@@ -513,6 +512,30 @@ object SupabaseClientManager {
             }
         } catch (e: Exception) {
             Log.e("SUPABASE", "syncInventory Exception: ${e.message}")
+        }
+        return@withContext false
+    }
+
+    /**
+     * Explicitly delete item(s) from `app_inventory` in Supabase for a player.
+     */
+    suspend fun deleteInventoryItem(playerId: String, itemId: String): Boolean = withContext(Dispatchers.IO) {
+        if (!isConfigured()) return@withContext false
+        val validPlayerId = if (playerId.length == 36 && playerId.contains("-")) playerId else cachedPlayerUuid
+        if (validPlayerId.isNullOrBlank()) return@withContext false
+        try {
+            val url = "$baseUrl/rest/v1/app_inventory?player_id=eq.$validPlayerId&item_id=eq.$itemId"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", apiKey)
+                .addHeader("Authorization", "Bearer $apiKey")
+                .delete()
+                .build()
+            httpClient.newCall(request).execute().use { resp ->
+                return@withContext resp.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("SUPABASE", "deleteInventoryItem Exception: ${e.message}")
         }
         return@withContext false
     }

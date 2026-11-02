@@ -416,15 +416,20 @@ class MainViewModel(
                     if (targetUuid != null) {
                         SupabaseClientManager.cachedPlayerUuid = targetUuid
                         val currentInv = repository.getInventory(_uid.value).first()
-                        if (currentInv.isEmpty()) {
+                        val isInit = repository.isInventoryInitialized(_uid.value)
+                        if (currentInv.isEmpty() && !isInit) {
                             val remoteInv = SupabaseClientManager.fetchInventory(targetUuid)
                             if (remoteInv.isNotEmpty()) {
                                 remoteInv.forEach { item ->
                                     repository.addInventoryDirect(_uid.value, item.itemId, item.quantity, item.isEquipped)
                                 }
+                                repository.setInventoryInitialized(_uid.value, true)
                                 repository.log(localPlayer.uid, "📦 [ОБЛАКО]: Инвентарь восстановлен из EIDOS Cloud (${remoteInv.size} предм.).", "loot")
                             }
                         } else {
+                            if (currentInv.isNotEmpty()) {
+                                repository.setInventoryInitialized(_uid.value, true)
+                            }
                             val supabaseInvList = currentInv.map { item ->
                                 SupabaseInventoryItem(
                                     playerId = targetUuid,
@@ -459,15 +464,20 @@ class MainViewModel(
                 if (targetUuid != null) {
                     SupabaseClientManager.cachedPlayerUuid = targetUuid
                     val currentInv = repository.getInventory(_uid.value).first()
-                    if (currentInv.isEmpty()) {
+                    val isInit = repository.isInventoryInitialized(_uid.value)
+                    if (currentInv.isEmpty() && !isInit) {
                         val remoteInv = SupabaseClientManager.fetchInventory(targetUuid)
                         if (remoteInv.isNotEmpty()) {
                             remoteInv.forEach { item ->
                                 repository.addInventoryDirect(_uid.value, item.itemId, item.quantity, item.isEquipped)
                             }
+                            repository.setInventoryInitialized(_uid.value, true)
                             repository.log(localPlayer.uid, "📦 [ОБЛАКО]: Инвентарь восстановлен из EIDOS Cloud (${remoteInv.size} предм.).", "loot")
                         }
                     } else {
+                        if (currentInv.isNotEmpty()) {
+                            repository.setInventoryInitialized(_uid.value, true)
+                        }
                         val supabaseInvList = currentInv.map { item ->
                             SupabaseInventoryItem(
                                 playerId = targetUuid,
@@ -574,6 +584,24 @@ class MainViewModel(
         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
         viewModelScope.launch {
             repository.dismantleItem(_uid.value, item)
+            val targetUuid = SupabaseClientManager.cachedPlayerUuid
+            if (targetUuid != null) {
+                SupabaseClientManager.deleteInventoryItem(targetUuid, item.item_id)
+            }
+            syncWithSupabase()
+        }
+    }
+
+    fun sellItem(item: InventoryItem) {
+        haptics.click()
+        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+        viewModelScope.launch {
+            repository.sellItem(_uid.value, item)
+            val targetUuid = SupabaseClientManager.cachedPlayerUuid
+            if (targetUuid != null && item.quantity <= 1) {
+                SupabaseClientManager.deleteInventoryItem(targetUuid, item.item_id)
+            }
+            syncWithSupabase()
         }
     }
 
@@ -690,6 +718,11 @@ class MainViewModel(
     fun useConsumable(item: InventoryItem) {
         viewModelScope.launch {
             repository.useConsumable(_uid.value, item)
+            val targetUuid = SupabaseClientManager.cachedPlayerUuid
+            if (targetUuid != null && item.quantity <= 1) {
+                SupabaseClientManager.deleteInventoryItem(targetUuid, item.item_id)
+            }
+            syncWithSupabase()
         }
     }
 
@@ -1083,6 +1116,7 @@ class MainViewModel(
                 }
                 }
 
+                repository.setInventoryInitialized(_uid.value, true)
                 repository.log(_uid.value, "Neural link established. Operator nickname is now: $nickname. Selected faction: $faction.", "info")
                 repository.log(_uid.value, "🎁 [СИСТЕМА]: Стартовый набор начислен и автоматически экипирован!", "loot")
 

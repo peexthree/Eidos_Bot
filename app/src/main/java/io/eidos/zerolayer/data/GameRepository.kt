@@ -955,8 +955,15 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val bcReward = maxOf(5L, (meta.price * 0.15f).toLong())
         
         dao.deleteInventoryItem(item)
+        val targetUuid = SupabaseClientManager.cachedPlayerUuid
+        if (targetUuid != null) {
+            SupabaseClientManager.deleteInventoryItem(targetUuid, item.item_id)
+        }
         if (player != null) {
-            dao.updatePlayer(player.copy(biocoin = player.biocoin + bcReward))
+            dao.updatePlayer(player.copy(
+                biocoin = player.biocoin + bcReward,
+                state_version = player.state_version + 1
+            ))
         }
         
         if (shardCount > 0) {
@@ -1177,11 +1184,18 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         val sellPrice = (meta.price / 2) + bonusPrice
         
-        dao.updatePlayer(player.copy(biocoin = player.biocoin + sellPrice))
+        dao.updatePlayer(player.copy(
+            biocoin = player.biocoin + sellPrice,
+            state_version = player.state_version + 1
+        ))
         if (item.quantity > 1) {
             dao.updateInventoryItem(item.copy(quantity = item.quantity - 1))
         } else {
             dao.deleteInventoryItem(item)
+            val targetUuid = SupabaseClientManager.cachedPlayerUuid
+            if (targetUuid != null) {
+                SupabaseClientManager.deleteInventoryItem(targetUuid, item.item_id)
+            }
         }
         log(uid, "Продано: ${meta.name} за $sellPrice BC.", "info")
     }
@@ -1533,6 +1547,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         // Unequip current item(s) in targetSlot (allow up to 4 chips without unequipping others)
         val inventory = dao.getInventoryFlow(uid).first()
         if (targetSlot == "chip") {
+            val isDuplicate = inventory.any { invItem ->
+                invItem.is_equipped && invItem.item_id == item.item_id && invItem.id != item.id
+            }
+            if (isDuplicate) {
+                log(uid, "❌ [ПРОТОКОЛ ЧИПОВ]: Чип [${meta?.name ?: item.item_id}] уже установлен в один из слотов! Нельзя экипировать одинаковые чипы.", "error")
+                return
+            }
             val equippedChips = inventory.filter { invItem ->
                 invItem.is_equipped && (invItem.slot == "chip" || ItemSlotUtils.getSlotForItem(invItem.item_id, getItemMetadata(invItem.item_id)) == "chip")
             }
@@ -1746,10 +1767,18 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
     private suspend fun consumeOneItem(uid: Long, item: InventoryItem) {
+        val player = dao.getPlayer(uid)
         if (item.quantity > 1) {
             dao.updateInventoryItem(item.copy(quantity = item.quantity - 1))
         } else {
             dao.deleteInventoryItem(item)
+            val targetUuid = SupabaseClientManager.cachedPlayerUuid
+            if (targetUuid != null) {
+                SupabaseClientManager.deleteInventoryItem(targetUuid, item.item_id)
+            }
+        }
+        if (player != null) {
+            dao.updatePlayer(player.copy(state_version = player.state_version + 1))
         }
     }
 
@@ -4288,6 +4317,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     val authStore: EidosAuthStore = EidosAuthStore.getInstance(context)
 
     fun getAuthSession(): AuthSession = authStore.getSession()
+
+    fun isInventoryInitialized(uid: Long): Boolean = authStore.isInventoryInitialized(uid)
+    fun setInventoryInitialized(uid: Long, initialized: Boolean = true) = authStore.setInventoryInitialized(uid, initialized)
 
     suspend fun registerOperator(username: String, password: String, targetUid: Long = 0L): AuthResult {
         val clean = username.trim()
