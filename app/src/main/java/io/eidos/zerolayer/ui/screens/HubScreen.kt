@@ -105,6 +105,7 @@ fun HubScreen(
     }
 
     val context = LocalContext.current
+    val haptics = remember { io.eidos.zerolayer.ui.utils.HapticFeedbackManager.getInstance(context) }
     val activity = context as? FragmentActivity
     val ambientSynth = remember { EidosAmbientSynthesizer.getInstance() }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -677,11 +678,19 @@ fun HubScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        val isPvpAvailable = (player?.level ?: 1) >= 4
                         CyberGridMenuItem(
-                            title = "СЕТЕВАЯ ВОЙНА",
-                            emojiIcon = "💀",
-                            borderColor = EidosRed,
-                            onClick = onNavigateToPvp,
+                            title = if (isPvpAvailable) "СЕТЕВАЯ ВОЙНА" else "СЕТЕВАЯ ВОЙНА [LVL 4]",
+                            emojiIcon = if (isPvpAvailable) "💀" else "🔒",
+                            borderColor = if (isPvpAvailable) EidosRed else Color.Gray,
+                            onClick = {
+                                if (isPvpAvailable) {
+                                    onNavigateToPvp()
+                                } else {
+                                    haptics.puzzleError()
+                                    android.widget.Toast.makeText(context, "Сетевая Война доступна строго с 4 уровня!", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
                             modifier = Modifier.weight(1f)
                         )
                         CyberGridMenuItem(
@@ -1790,8 +1799,10 @@ fun CyberGridMenuItem(
 @Composable
 fun CyberHubBottomBar(
     selectedTab: String = "hub",
+    isPvpUnlocked: Boolean = true,
     onTabSelected: (String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1832,10 +1843,16 @@ fun CyberHubBottomBar(
             )
             BottomNavItem(
                 iconRes = io.eidos.zerolayer.R.drawable.ic_nav_pvp,
-                fallbackEmoji = "⚔️",
-                label = "PVP СЕТЬ",
+                fallbackEmoji = if (isPvpUnlocked) "⚔️" else "🔒",
+                label = if (isPvpUnlocked) "PVP СЕТЬ" else "PVP [УР 4]",
                 isSelected = selectedTab == "pvp",
-                onClick = { onTabSelected("pvp") }
+                onClick = {
+                    if (isPvpUnlocked) {
+                        onTabSelected("pvp")
+                    } else {
+                        android.widget.Toast.makeText(context, "Сетевая Война доступна строго с 4 уровня!", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
             )
             BottomNavItem(
                 iconRes = io.eidos.zerolayer.R.drawable.ic_nav_settings,

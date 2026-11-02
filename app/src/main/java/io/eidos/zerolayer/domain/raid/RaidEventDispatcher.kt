@@ -105,15 +105,7 @@ object RaidEventDispatcher {
             )
         }
 
-        // 3. Stealth Night Buff / Shadow bypass Check (30% chance to safely bypass danger)
-        val hasStealthBuff = AnomalyEngine.isBuffActive(player, AnomalyEngine.BUFF_STEALTH_NIGHT)
-        if (hasStealthBuff && Random.nextInt(100) < 30) {
-            return DispatchResult.StealthBypass(
-                message = "🌙 [НОЧНАЯ СКРЫТНОСТЬ]: Вы активировали маскировку сигнала и незаметно обошли опасный патруль без боя!"
-            )
-        }
-
-        // 4. Player Graves Check (30% base, 80% if Death Mask is equipped)
+        // 3. Player Graves Check (30% base, 80% if Death Mask is equipped)
         val graveChance = if (flags.hasDeathMask) 80 else 30
         if (gravesList.isNotEmpty() && Random.nextInt(100) < graveChance) {
             val grave = gravesList.random()
@@ -123,15 +115,33 @@ object RaidEventDispatcher {
             )
         }
 
-        // 5. Multi-tiered Event Pool Selection
+        val hasStealthBuff = AnomalyEngine.isBuffActive(player, AnomalyEngine.BUFF_STEALTH_NIGHT)
+
+        // 4. Multi-tiered Event Pool Selection (Stealth Night 30% bypass triggers ONLY on Trap or Combat)
         val roll = Random.nextInt(100)
         return when {
             roll < 25 -> handleVoidStepEvent(depth, player)
-            roll < 40 -> handleTrapEvent(depth, player, playerDefense, flags)
+            roll < 40 -> {
+                if (hasStealthBuff && Random.nextInt(100) < 30) {
+                    DispatchResult.StealthBypass(
+                        message = "🌙 [НОЧНАЯ СКРЫТНОСТЬ]: Вы активировали маскировку сигнала и незаметно обошли ловушку без урона!"
+                    )
+                } else {
+                    handleTrapEvent(depth, player, playerDefense, flags)
+                }
+            }
             roll < 60 -> handleLootEvent(depth, player, playerLuck, flags)
             roll < 72 -> handleSafeZoneEvent(depth, player, flags)
             roll < 82 -> handleRiddleEvent(depth)
-            else -> handleCombatEvent(depth, flags)
+            else -> {
+                if (hasStealthBuff && Random.nextInt(100) < 30) {
+                    DispatchResult.StealthBypass(
+                        message = "🌙 [НОЧНАЯ СКРЫТНОСТЬ]: Вы активировали маскировку сигнала и незаметно обошли опасный патруль без боя!"
+                    )
+                } else {
+                    handleCombatEvent(depth, flags)
+                }
+            }
         }
     }
 
@@ -199,8 +209,8 @@ object RaidEventDispatcher {
         // One-shot protection: If HP > 90%, damage leaves minimum 5% HP
         val ninetyPercentHp = (player.max_hp * 0.90f).toInt()
         val fivePercentHp = maxOf(1, (player.max_hp * 0.05f).toInt())
-        if (player.hp >= ninetyPercentHp && finalDamage >= player.hp) {
-            finalDamage = maxOf(1, player.hp - fivePercentHp)
+        if (player.hp >= ninetyPercentHp && (player.hp - finalDamage) < fivePercentHp) {
+            finalDamage = maxOf(0, player.hp - fivePercentHp)
         }
 
         val maskNote = if (flags.hasScavengerMask) " (Защита Маски: -5 ед)" else ""

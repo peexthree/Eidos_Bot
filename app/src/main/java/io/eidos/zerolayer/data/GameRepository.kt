@@ -54,6 +54,17 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     // ⚡ IN-MEMORY OVERDRIVE & OVERCHARGE STATE (ZERO ROOM MIGRATION)
     private val overdriveChargeMap = ConcurrentHashMap<Long, Int>()
     private val overchargeTierMap = ConcurrentHashMap<Long, Int>()
+    private val empUsedInCombat = ConcurrentHashMap<Long, Boolean>()
+    private val matterStealUsedInCombat = ConcurrentHashMap<Long, Boolean>()
+
+    data class DeathReport(
+        val depth: Int,
+        val lostCoins: Long,
+        val lostItems: String,
+        val graveCreated: Boolean
+    )
+    val deathReportFlow = MutableStateFlow<DeathReport?>(null)
+    fun clearDeathReport() { deathReportFlow.value = null }
 
     private val _overdriveChargeFlow = MutableStateFlow(0)
     val overdriveChargeFlow: StateFlow<Int> = _overdriveChargeFlow.asStateFlow()
@@ -811,9 +822,17 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     log(uid, "😈 [ДЕМОН МАКСВЕЛЛА]: Чип заблокировал урон от ловушки!", "info")
                 } else if (optionId == "accept") {
                     val damage = gameEvent.value
-                    dao.insertRaidSession(session.copy(signal = maxOf(0, session.signal - damage), current_anomaly_id = null))
-                    damageArmorHelmet(uid, damage)
-                    log(uid, "⚡ ПРЯМОЙ УДАР: -${damage} Сигнала.", "error")
+                    val preSignal = session.signal
+                    if (preSignal > 90 && preSignal - damage <= 0) {
+                        val protectedSignal = maxOf(1, (100 * 0.05f).toInt())
+                        dao.insertRaidSession(session.copy(signal = protectedSignal, current_anomaly_id = null))
+                        damageArmorHelmet(uid, damage)
+                        log(uid, "🛡️ [ONE-SHOT PROTECTION]: Фатальный импульс ловушки отражен системным предохранителем! Сигнал стабилизирован на 5% без траты предметов.", "heal")
+                    } else {
+                        dao.insertRaidSession(session.copy(signal = maxOf(0, preSignal - damage), current_anomaly_id = null))
+                        damageArmorHelmet(uid, damage)
+                        log(uid, "⚡ ПРЯМОЙ УДАР: -${damage} Сигнала.", "error")
+                    }
                 } else if (optionId == "dodge") {
                     val roll = (0..100).random()
                     val activeStats = getActiveStats(uid)
@@ -823,9 +842,17 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         log(uid, "✨ УСПЕХ: Вы уклонились от ловушки!", "info")
                     } else {
                         val damage = (gameEvent.value * 1.5).toInt()
-                        dao.insertRaidSession(session.copy(signal = maxOf(0, session.signal - damage), current_anomaly_id = null))
-                        damageArmorHelmet(uid, damage)
-                        log(uid, "💥 ПРОВАЛ: Уклонение не удалось! -${damage} Сигнала.", "error")
+                        val preSignal = session.signal
+                        if (preSignal > 90 && preSignal - damage <= 0) {
+                            val protectedSignal = maxOf(1, (100 * 0.05f).toInt())
+                            dao.insertRaidSession(session.copy(signal = protectedSignal, current_anomaly_id = null))
+                            damageArmorHelmet(uid, damage)
+                            log(uid, "🛡️ [ONE-SHOT PROTECTION]: Фатальный урон ловушки отражен предохранителем! Сигнал стабилизирован на 5%.", "heal")
+                        } else {
+                            dao.insertRaidSession(session.copy(signal = maxOf(0, preSignal - damage), current_anomaly_id = null))
+                            damageArmorHelmet(uid, damage)
+                            log(uid, "💥 ПРОВАЛ: Уклонение не удалось! -${damage} Сигнала.", "error")
+                        }
                     }
                 }
             }
@@ -962,14 +989,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         ForgeRecipeDefinition("karma_inversion", shardCost = 8, creditCost = 2000L, additionalIngredients = mapOf("abyssal_key" to 1)),
         ForgeRecipeDefinition("holo_poverty", shardCost = 6, creditCost = 1200L, additionalIngredients = emptyMap()),
         ForgeRecipeDefinition("aegis", shardCost = 5, creditCost = 1000L, additionalIngredients = mapOf("battery" to 1)),
-        ForgeRecipeDefinition("medkit_small", shardCost = 15, creditCost = 100L),
-        ForgeRecipeDefinition("battery", shardCost = 15, creditCost = 100L),
         ForgeRecipeDefinition("rusty_knife", shardCost = 30, creditCost = 250L),
         ForgeRecipeDefinition("crowbar", shardCost = 50, creditCost = 500L),
-        ForgeRecipeDefinition("hoodie", shardCost = 40, creditCost = 400L),
-        ForgeRecipeDefinition("master_key", shardCost = 20, creditCost = 200L),
-        ForgeRecipeDefinition("data_spike", shardCost = 25, creditCost = 300L),
-        ForgeRecipeDefinition("compass", shardCost = 25, creditCost = 300L)
+        ForgeRecipeDefinition("hoodie", shardCost = 40, creditCost = 400L)
     )
 
     suspend fun craftItem(uid: Long, targetId: String) {
@@ -1025,48 +1047,18 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
     
-    suspend fun buyShadowBrokerItem(uid: Long, itemId: String, useBioCoins: Boolean = false) {
+    suspend fun buyShadowBrokerItem(uid: Long, itemId: String, useBioCoins: Boolean = true) {
         val player = dao.getPlayer(uid) ?: return
         val meta = getItemMetadata(itemId) ?: return
         
-        val xpCost = ShadowBrokerPrices.getXpPrice(meta)
         val bcCost = ShadowBrokerPrices.getBcPrice(meta)
-
-        if (useBioCoins) {
-            if (player.biocoin < bcCost) {
-                log(uid, "❌ [ТЕНЕВОЙ БРОКЕР]: Недостаточно BioCoin для сделки! Требуется: $bcCost BC (У вас: ${player.biocoin} BC).", "error")
-                return
-            }
-            dao.updatePlayer(player.copy(biocoin = player.biocoin - bcCost, state_version = player.state_version + 1))
-            addInventory(uid, itemId, 1)
-            log(uid, "📦 [ТЕНЕВОЙ БРОКЕР]: Приобретен артефакт ${meta.name} за $bcCost BC!", "success")
-        } else {
-            if (player.xp < xpCost) {
-                log(uid, "❌ [ТЕНЕВОЙ БРОКЕР]: Недостаточно XP для болезненной жертвы! Требуется $xpCost XP (У вас: ${player.xp} XP).", "error")
-                return
-            }
-            val newXp = maxOf(0L, player.xp - xpCost)
-            val newLevel = calculateLevelForXp(newXp)
-            val levelLoss = maxOf(0, player.level - newLevel)
-            val hpLoss = levelLoss * 20
-            val atkLoss = levelLoss * 3
-            val defLoss = levelLoss * 2
-            val newMaxHp = maxOf(100, player.max_hp - hpLoss)
-            val newHp = minOf(newMaxHp, player.hp)
-            val newAtk = maxOf(10, player.attack - atkLoss)
-            val newDef = maxOf(5, player.defense - defLoss)
-            val updatedPlayer = player.copy(
-                xp = newXp,
-                level = newLevel,
-                max_hp = newMaxHp,
-                hp = newHp,
-                attack = newAtk,
-                defense = newDef
-            )
-            dao.updatePlayer(updatedPlayer)
-            addInventory(uid, itemId, 1)
-            log(uid, "👁 [ПОЖЕРТВОВАНИЕ ОПЫТА]: Вы пожертвовали -$xpCost XP за ${meta.name}! Нейро-память частично стерта. Уровень Ядра: Level $newLevel.", "loot")
+        if (player.biocoin < bcCost) {
+            log(uid, "❌ [ТЕНЕВОЙ БРОКЕР]: Недостаточно BioCoin для сделки! Требуется: $bcCost BC (У вас: ${player.biocoin} BC).", "error")
+            return
         }
+        dao.updatePlayer(player.copy(biocoin = player.biocoin - bcCost, state_version = player.state_version + 1))
+        addInventory(uid, itemId, 1)
+        log(uid, "📦 [ТЕНЕВОЙ БРОКЕР]: Приобретен артефакт ${meta.name} за $bcCost BC!", "success")
     }
 
     suspend fun gambleHP(uid: Long) {
@@ -1494,12 +1486,16 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             }
         }
 
+        val hasKamikaze = equipped.any { it.item_id == "kamikaze_protocol" && it.durability > 0f }
+        val rawTotalAtk = player.attack + atkBonus
+        val finalAttack = if (hasKamikaze) (rawTotalAtk * 1.35f).toInt() else rawTotalAtk
+
         return PlayerStats(
             hp = player.hp,
             maxHp = player.max_hp + maxHpBonus,
             energy = player.energy,
             maxEnergy = player.max_energy,
-            attack = player.attack + atkBonus,
+            attack = finalAttack,
             defense = player.defense + defBonus,
             luck = player.luck + luckBonus
         )
@@ -1534,14 +1530,24 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             return
         }
 
-        // Unequip current item(s) in targetSlot
+        // Unequip current item(s) in targetSlot (allow up to 4 chips without unequipping others)
         val inventory = dao.getInventoryFlow(uid).first()
-        inventory.forEach { invItem ->
-            if (invItem.is_equipped) {
-                val invMeta = getItemMetadata(invItem.item_id)
-                val invSlot = invItem.slot ?: ItemSlotUtils.getSlotForItem(invItem.item_id, invMeta)
-                if (invSlot == targetSlot) {
-                    dao.updateInventoryItem(invItem.copy(is_equipped = false, slot = null))
+        if (targetSlot == "chip") {
+            val equippedChips = inventory.filter { invItem ->
+                invItem.is_equipped && (invItem.slot == "chip" || ItemSlotUtils.getSlotForItem(invItem.item_id, getItemMetadata(invItem.item_id)) == "chip")
+            }
+            if (equippedChips.size >= 4) {
+                val oldestChip = equippedChips.first()
+                dao.updateInventoryItem(oldestChip.copy(is_equipped = false, slot = null))
+            }
+        } else {
+            inventory.forEach { invItem ->
+                if (invItem.is_equipped) {
+                    val invMeta = getItemMetadata(invItem.item_id)
+                    val invSlot = invItem.slot ?: ItemSlotUtils.getSlotForItem(invItem.item_id, invMeta)
+                    if (invSlot == targetSlot) {
+                        dao.updateInventoryItem(invItem.copy(is_equipped = false, slot = null))
+                    }
                 }
             }
         }
@@ -1602,10 +1608,18 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             }
             "emp_grenade" -> {
                 if (session != null && session.current_enemy_hp > 0) {
-                    val damage = 150
-                    val newEnemyHp = maxOf(0, session.current_enemy_hp - damage)
+                    if (empUsedInCombat[uid] == true) {
+                        log(uid, "❌ [ЭМИ-ГРАНАТА]: Лимит исчерпан — разрешено не более 1 использования за бой!", "error")
+                        return
+                    }
+                    val stats = getActiveStats(uid)
+                    val damage = io.eidos.zerolayer.domain.combat.CombatMath.calculateEmpDamage(session.current_enemy_hp, stats.attack)
+                    empUsedInCombat[uid] = true
                     consumeOneItem(uid, item)
+                    val newEnemyHp = maxOf(0, session.current_enemy_hp - damage)
                     if (newEnemyHp <= 0) {
+                        empUsedInCombat[uid] = false
+                        matterStealUsedInCombat[uid] = false
                         dao.insertRaidSession(session.copy(current_enemy_hp = 0, current_enemy_id = null, kills = session.kills + 1))
                         log(uid, "💣 [ЭМИ-ГРАНАТА]: Врагу нанесено $damage ЧИСТОГО УРОНА! Противник полностью аннигилирован!", "combat")
                     } else {
@@ -1765,22 +1779,23 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             return
         }
 
+        val requiredShards = ZeroLayerEconomy.calculateShardRepairCost(meta.rarity)
         val inventory = dao.getInventoryFlow(uid).first()
         val shards = inventory.find { it.item_id == "eidos_shard" }
-        if (shards == null || shards.quantity < 3) {
-            log(uid, "Недостаточно Осколков Эйдоса. Нужно 3.", "error")
+        if (shards == null || shards.quantity < requiredShards) {
+            log(uid, "Недостаточно Осколков Эйдоса. Нужно $requiredShards💎 (У вас: ${shards?.quantity ?: 0}💎).", "error")
             return
         }
 
-        if (shards.quantity == 3) {
+        if (shards.quantity == requiredShards) {
             dao.deleteInventoryItem(shards)
         } else {
-            dao.updateInventoryItem(shards.copy(quantity = shards.quantity - 3))
+            dao.updateInventoryItem(shards.copy(quantity = shards.quantity - requiredShards))
         }
 
         val newDurability = minOf(100f, item.durability + 25f)
         dao.updateInventoryItem(item.copy(durability = newDurability))
-        log(uid, "Успешно отремонтировано ${meta.name} за 3 Осколка Эйдоса (+25% прочности).", "info")
+        log(uid, "Успешно отремонтировано ${meta.name} за $requiredShards Осколков Эйдоса (+25% прочности).", "info")
     }
 
     suspend fun rechargeEnergy(uid: Long) {
@@ -2038,9 +2053,18 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         val stepGainXp = 5L + (session.depth / 200)
 
-        // Step durability loss (0.1%)
+        // Energy step cost: 15 Energy (30 Energy with architect_eye)
         val inventory = dao.getInventoryFlow(uid).first()
         val equippedItems = inventory.filter { it.is_equipped }
+        val hasArchitectEye = equippedItems.any { it.item_id == "architect_eye" }
+        val stepEnergyCost = if (hasArchitectEye) 30 else 15
+        if (player.energy < stepEnergyCost) {
+            log(uid, "❌ [НЕДОСТАТОЧНО ЭНЕРГИИ]: Для шага требуется $stepEnergyCost⚡ (У вас: ${player.energy}⚡). Восстановите энергию или используйте батарею!", "error")
+            return
+        }
+        val remainingEnergy = player.energy - stepEnergyCost
+
+        // Step durability loss (0.1%)
         equippedItems.forEach { item ->
             if (item.slot in listOf("weapon", "armor", "head")) {
                 val newDurability = maxOf(0f, item.durability - 0.1f)
@@ -2055,9 +2079,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         var workingPlayer = if (hasBloodMiner) {
             val bloodLoss = maxOf(1, (player.hp * 0.02).toInt())
             log(uid, "🩸 [Майнер на Крови]: Получено +50 BC, потеряно -$bloodLoss HP.", "error")
-            player.copy(biocoin = player.biocoin + 50, hp = maxOf(1, player.hp - bloodLoss), xp = player.xp + stepGainXp)
+            player.copy(biocoin = player.biocoin + 50, hp = maxOf(1, player.hp - bloodLoss), xp = player.xp + stepGainXp, energy = remainingEnergy)
         } else {
-            player.copy(xp = player.xp + stepGainXp)
+            player.copy(xp = player.xp + stepGainXp, energy = remainingEnergy)
         }
 
         val equipmentFlags = io.eidos.zerolayer.domain.raid.RaidEventDispatcher.parseEquipmentFlags(equippedItems)
@@ -2337,10 +2361,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 // Cursed weapon credit_slicer logic
                 if (weaponItem?.item_id == "credit_slicer") {
                     if (player.biocoin > 0) {
-                        val burned = maxOf(1, (player.biocoin * 0.01).toLong())
+                        val burned = minOf(250L, maxOf(1L, (player.biocoin * 0.01).toLong()))
                         dao.updatePlayer(player.copy(biocoin = player.biocoin - burned))
-                        baseDamage = (activeStats.attack + burned * 1.5).toInt()
-                        log(uid, "💸 [Кредитный Резак]: Сожжено -$burned BC для форсированного удара!", "combat")
+                        val bonusAtk = (burned * 1.5).toInt()
+                        baseDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateBasePlayerDamage(activeStats.attack + bonusAtk, weaponMultiplier, effectiveEnemyDef)
+                        log(uid, "💸 [Кредитный Резак]: Сожжено -$burned BC для форсированного удара (+$bonusAtk ATK)!", "combat")
                     } else {
                         baseDamage = 5
                     }
@@ -2362,17 +2387,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 val maxwellCritBonus = if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_OVERCLOCK)) 15 else 0
                 val isCrit = (0..100).random() < (finalCritChance + maxwellCritBonus + warpCritBonus)
 
-                var finalPlayerDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateFinalPlayerDamage(baseDamage, isCrit)
+                val hasGlitchBerserk = io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK)
+                var finalPlayerDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateFinalPlayerDamage(baseDamage, isCrit, hasGlitchBerserk)
 
                 // Gain Overdrive Charge on Player Attack
                 val currentCharge = getOverdriveCharge(uid)
                 val chargeGain = if (isCrit) io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_CRIT_HIT else io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_NORMAL_ATTACK
                 setOverdriveCharge(uid, currentCharge + chargeGain)
-
-                // Glitch Berserk Anomaly Buff: +25% player ATK damage
-                if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK)) {
-                    finalPlayerDamage = (finalPlayerDamage * 1.25f).toInt()
-                }
 
                 // Maxwell Blood Overclock Buff: +35% player ATK damage
                 if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_OVERCLOCK)) {
@@ -2742,11 +2763,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
             val player = dao.getPlayer(uid)
             if (player != null) {
-                // Break equipped items (Weapon, Armor, Head) by 10%
+                // Break equipped items (Weapon, Armor, Head) by 5%
                 val inventory = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
                 inventory.forEach {
                     if (it.slot in listOf("weapon", "armor", "head")) {
-                        dao.updateInventoryItem(it.copy(durability = maxOf(0f, it.durability - 10f)))
+                        dao.updateInventoryItem(it.copy(durability = maxOf(0f, it.durability - 5f)))
                     }
                 }
 
@@ -2765,7 +2786,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 }
 
                 // Create a Grave at the depth of death (deduplicate existing grave at this depth)
-                if (session.buffer_coins > 0 || session.buffer_items.isNotEmpty()) {
+                val hasGrave = session.buffer_coins > 0 || session.buffer_items.isNotEmpty()
+                if (hasGrave) {
                     val existingGraves = dao.getAllGraves().filter { it.uid == uid && it.depth == session.depth }
                     existingGraves.forEach { dao.deleteGrave(it) }
                     val cleanItems = session.buffer_items.split(",").map { it.trim() }.filter { it.isNotBlank() }.joinToString(",")
@@ -2779,6 +2801,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     dao.insertGrave(grave)
                     log(uid, "🪦 [ЦЕЛОСТНОСТЬ УТРАЧЕНА]: На глубине ${session.depth}м образовалась ваша Могила с ${session.buffer_coins} BC и предметами: [$cleanItems]. Её могут найти другие игроки!", "error")
                 }
+
+                deathReportFlow.value = DeathReport(
+                    depth = session.depth,
+                    lostCoins = session.buffer_coins,
+                    lostItems = session.buffer_items,
+                    graveCreated = hasGrave
+                )
 
                 dao.updatePlayer(player.copy(
                     max_depth = maxOf(player.max_depth, session.depth),
@@ -2794,6 +2823,19 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val player = dao.getPlayer(uid) ?: return
         val now = System.currentTimeMillis()
 
+        // Kamikaze protocol durability penalty if leaving before step 10
+        val stepsTaken = session.depth / 50
+        val equippedItems = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
+        val hasKamikaze = equippedItems.any { it.item_id == "kamikaze_protocol" }
+        if (hasKamikaze && stepsTaken < 10) {
+            equippedItems.forEach { eqItem ->
+                if (eqItem.slot in listOf("weapon", "armor", "head")) {
+                    dao.updateInventoryItem(eqItem.copy(durability = maxOf(0f, eqItem.durability - 20f)))
+                }
+            }
+            log(uid, "💥 [ПРОТОКОЛ КАМИКАДЗЕ]: Экстренный выход до 10-го шага вызвал перегрузку (-20% прочности экипировки)!", "error")
+        }
+
         // 15% bot attack roll upon return IF NOT SHIELDED
         var currentBiocoin = player.biocoin
         val isShielded = player.pvp_shield_until > now
@@ -2808,7 +2850,6 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val calculatedXp = (session.buffer_xp * bonusXpMult).toLong()
         
         // Holo Poverty limit check (max 500 BC extracted)
-        val equippedItems = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
         val hasHoloPoverty = equippedItems.any { it.item_id == "holo_poverty" }
         val finalCoins = if (hasHoloPoverty) minOf(500L, session.buffer_coins) else session.buffer_coins
         if (hasHoloPoverty && session.buffer_coins > 500L) {
@@ -2918,10 +2959,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 dao.insertRaidSession(currentSession.copy(next_event_type = "scan"))
             }
             "memory_sacrifice" -> {
-                // Deducts 250 XP, restores 100% energy, grants 1x abyssal_key
-                val newXp = maxOf(0L, player.xp - 250L)
+                // Deducts 250 BC, restores 100% energy, grants 1x abyssal_key. XP is strictly non-deductible!
+                val costBc = minOf(250L, player.biocoin)
                 dao.updatePlayer(player.copy(
-                    xp = newXp,
+                    biocoin = player.biocoin - costBc,
                     energy = player.max_energy
                 ))
                 val newBuffer = if (session.buffer_items.isEmpty()) "abyssal_key" else "${session.buffer_items},abyssal_key"
@@ -2929,7 +2970,39 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     buffer_items = newBuffer,
                     next_event_type = "scan"
                 ))
-                log(uid, "🧠 [ДЕМОН МАКСВЕЛЛА]: Жертва Памяти принята (-250 XP). Энергия восстановлена на 100%, получен [Ключ Бездны]!", "heal")
+                log(uid, "🧠 [ДЕМОН МАКСВЕЛЛА]: Жертва принята (-$costBc BC). Энергия восстановлена на 100%, получен [Ключ Бездны]!", "heal")
+            }
+            "loot_gamble" -> {
+                val hasEquip = session.buffer_items.split(",").any { it.isNotBlank() }
+                if (session.buffer_coins < 250L && !hasEquip) {
+                    log(uid, "❌ [ДЕМОН МАКСВЕЛЛА]: Требуется накопить минимум 250 BC или предмет лута в буфере!", "error")
+                    return
+                }
+                val isWin = kotlin.random.Random.nextBoolean()
+                if (isWin) {
+                    val doubledCoins = session.buffer_coins * 2L
+                    val doubledItems = if (session.buffer_items.isNotBlank()) {
+                        "${session.buffer_items},${session.buffer_items}"
+                    } else session.buffer_items
+                    dao.insertRaidSession(session.copy(
+                        buffer_coins = doubledCoins,
+                        buffer_items = doubledItems,
+                        next_event_type = "scan"
+                    ))
+                    log(uid, "🎰 [ДЕМОН МАКСВЕЛЛА: ПОБЕДА!]: Энтропия на вашей стороне! Лут и монеты буфера УДВОЕНЫ (+${session.buffer_coins} BC)!", "loot")
+                } else {
+                    val coinsToDeduct = kotlin.math.ceil(session.buffer_coins / 2.0).toLong()
+                    val remainingCoins = maxOf(0L, session.buffer_coins - coinsToDeduct)
+                    val itemsList = session.buffer_items.split(",").filter { it.isNotBlank() }
+                    val itemsToDrop = kotlin.math.ceil(itemsList.size / 2.0).toInt()
+                    val remainingItems = itemsList.drop(itemsToDrop).joinToString(",")
+                    dao.insertRaidSession(session.copy(
+                        buffer_coins = remainingCoins,
+                        buffer_items = remainingItems,
+                        next_event_type = "scan"
+                    ))
+                    log(uid, "💀 [ДЕМОН МАКСВЕЛЛА: ПРОИГРЫШ!]: Демон забрал 50% вынесенного: -$coinsToDeduct BC и -$itemsToDrop предметов!", "error")
+                }
             }
             "entropy_shield" -> {
                 // Glitch effect on UI for 30 mins, 100% immunity to traps in raid
@@ -3168,8 +3241,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         when (player.faction) {
             "МАТЕРИЯ" -> {
                 extraDamage = (baseAtk * 2.2f).toInt()
-                lootedCoins = (20..55).random()
-                abilityLog = "⚡ [ЗОЛОТОЙ ИМПУЛЬС // МАТЕРИЯ]: Нанесено $extraDamage урона! Дренировано +$lootedCoins BC из ядра цели!"
+                if (matterStealUsedInCombat[uid] != true) {
+                    lootedCoins = (20..55).random()
+                    matterStealUsedInCombat[uid] = true
+                    abilityLog = "⚡ [ЗОЛОТОЙ ИМПУЛЬС // МАТЕРИЯ]: Нанесено $extraDamage урона! Дренировано +$lootedCoins BC из ядра цели!"
+                } else {
+                    lootedCoins = 0
+                    abilityLog = "⚡ [ЗОЛОТОЙ ИМПУЛЬС // МАТЕРИЯ]: Нанесено $extraDamage урона! (Ядро противника уже опустошено)"
+                }
             }
             "РАЗУМ" -> {
                 extraDamage = (baseAtk * 1.6f).toInt()
@@ -4083,6 +4162,21 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         return true
     }
 
+    suspend fun searchPvpTarget(uid: Long): Boolean {
+        val player = dao.getPlayer(uid) ?: return false
+        if (player.level < PvpEngine.MIN_PVP_LEVEL) {
+            log(uid, "🔒 [СЕТЕВАЯ ВОЙНА]: Доступ запрещен! Требуется 4 уровень Ядра.", "error")
+            return false
+        }
+        if (player.biocoin < 50L) {
+            log(uid, "❌ [СКАНИРОВАНИЕ СЕТИ]: Недостаточно BioCoin (требуется 50 BC)!", "error")
+            return false
+        }
+        dao.updatePlayer(player.copy(biocoin = player.biocoin - 50L))
+        log(uid, "📡 [СКАНИРОВАНИЕ СЕТИ]: Списано 50 BC. Обнаружены новые уязвимые узлы!", "info")
+        return true
+    }
+
     suspend fun executePvpRaid(
         attackerUid: Long,
         targetPlayer: SupabasePlayer,
@@ -4091,6 +4185,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     ): PvpMatchResult {
         val attacker = dao.getPlayer(attackerUid) ?: throw IllegalStateException("Player not found")
         
+        if (attacker.level < PvpEngine.MIN_PVP_LEVEL) {
+            log(attackerUid, "🔒 [СЕТЕВАЯ ВОЙНА]: Доступ запрещен! Требуется 4 уровень Ядра.", "error")
+            throw IllegalStateException("Сетевая Война доступна строго с 4 уровня!")
+        }
+
         if (targetPlayer.pvp_proxy_until > System.currentTimeMillis()) {
             log(attackerUid, "🌐 [ПРОКСИ-СЕРВЕР]: Узел цели '${targetPlayer.username ?: "Аноним"}' защищен активным Прокси-Сервером!", "error")
             throw IllegalStateException("Узел цели защищен Прокси-Сервером (анонимность 24ч)!")
@@ -4136,17 +4235,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             }
             log(attackerUid, "🏆 [СЕТЕВОЙ ВЗЛОМ: ПОБЕДА]: Сервер ${targetPlayer.username ?: "Анонима"} взломан! Похищено: +${matchResult.stolenCoins} BC, +${matchResult.attackerXpGained} XP!", "combat")
         } else {
-            val finalXp = maxOf(0L, attacker.xp - matchResult.xpBurnedByIceTrap)
             val updatedAttacker = attacker.copy(
                 biocoin = maxOf(0, attacker.biocoin - matchResult.coinsLost),
-                xp = finalXp,
                 losses_pvp = attacker.losses_pvp + 1,
                 installed_hardware = updatedHw
             )
             dao.updatePlayer(updatedAttacker)
-            if (matchResult.iceTrapTriggered) {
-                log(attackerUid, "❄️ [ICE-ЛОВУШКА]: Защитный лед узла выжег -${matchResult.xpBurnedByIceTrap} XP из вашей системы!", "error")
-            }
             log(attackerUid, "☠️ [СЕТЕВОЙ ВЗЛОМ: ПРОВАЛ]: Защитный лед цели отразил атаку! Контрудар: -${matchResult.coinsLost} BC.", "error")
         }
         

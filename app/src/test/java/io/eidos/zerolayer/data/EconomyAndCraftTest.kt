@@ -20,14 +20,31 @@ class EconomyAndCraftTest {
         // Negligible damage under 5% should be 0
         assertEquals(0L, ZeroLayerEconomy.calculateRepairFee(0.04f, "common"))
 
-        // Common rarity: missing 50% = 50 * 2 * 1.0 = 100 BC
-        assertEquals(100L, ZeroLayerEconomy.calculateRepairFee(50.0f, "common"))
+        // Common: missing 50% = 50 * 1 BC = 50 BC
+        assertEquals(50L, ZeroLayerEconomy.calculateRepairFee(50.0f, "common"))
 
-        // Legendary rarity: missing 50% = 50 * 2 * 4.0 = 400 BC
-        assertEquals(400L, ZeroLayerEconomy.calculateRepairFee(50.0f, "legendary"))
+        // Uncommon: missing 50% = 50 * 2 BC = 100 BC
+        assertEquals(100L, ZeroLayerEconomy.calculateRepairFee(50.0f, "uncommon"))
 
-        // Cursed rarity: missing 10% = 10 * 2 * 6.0 = 120 BC
-        assertEquals(120L, ZeroLayerEconomy.calculateRepairFee(10.0f, "cursed"))
+        // Rare: missing 50% = 50 * 3 BC = 150 BC
+        assertEquals(150L, ZeroLayerEconomy.calculateRepairFee(50.0f, "rare"))
+
+        // Epic: missing 50% = 50 * 8 BC = 400 BC
+        assertEquals(400L, ZeroLayerEconomy.calculateRepairFee(50.0f, "epic"))
+
+        // Legendary: missing 50% = 50 * 20 BC = 1000 BC
+        assertEquals(1000L, ZeroLayerEconomy.calculateRepairFee(50.0f, "legendary"))
+
+        // Cursed: missing 10% = 10 * 40 BC = 400 BC
+        assertEquals(400L, ZeroLayerEconomy.calculateRepairFee(10.0f, "cursed"))
+
+        // Shard repair costs
+        assertEquals(1, ZeroLayerEconomy.calculateShardRepairCost("common"))
+        assertEquals(1, ZeroLayerEconomy.calculateShardRepairCost("uncommon"))
+        assertEquals(2, ZeroLayerEconomy.calculateShardRepairCost("rare"))
+        assertEquals(3, ZeroLayerEconomy.calculateShardRepairCost("epic"))
+        assertEquals(4, ZeroLayerEconomy.calculateShardRepairCost("legendary"))
+        assertEquals(5, ZeroLayerEconomy.calculateShardRepairCost("cursed"))
     }
 
     @Test

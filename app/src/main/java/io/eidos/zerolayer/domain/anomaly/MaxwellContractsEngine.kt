@@ -42,10 +42,18 @@ object MaxwellContractsEngine {
     val CONTRACT_MEMORY_SACRIFICE = MaxwellContractInfo(
         id = "memory_sacrifice",
         title = "ЖЕРТВА ПАМЯТИ",
-        conditionText = "Списывает 250 XP оператора",
+        conditionText = "Списывает 250 BC оператора",
         rewardText = "100% Энергии + 1x Ключ Бездны (abyssal_key)",
         icon = "🧠",
-        isApplicable = { player -> (player?.xp ?: 0L) >= 250L }
+        isApplicable = { player -> (player?.biocoin ?: 0L) >= 250L }
+    )
+
+    val CONTRACT_LOOT_GAMBLE = MaxwellContractInfo(
+        id = "loot_gamble",
+        title = "СТАВКА: 50% ЛУТА",
+        conditionText = "Требуется от 250 BC или предмет экипировки в рюкзаке",
+        rewardText = "50%: Удвоение буфера // 50%: Потеря половины монет и предметов",
+        icon = "🎰"
     )
 
     val CONTRACT_ENTROPY_SHIELD = MaxwellContractInfo(
@@ -61,6 +69,7 @@ object MaxwellContractsEngine {
         CONTRACT_FORTUNE_INVERSION,
         CONTRACT_SOCKET_MUTATION,
         CONTRACT_MEMORY_SACRIFICE,
+        CONTRACT_LOOT_GAMBLE,
         CONTRACT_ENTROPY_SHIELD
     )
 }

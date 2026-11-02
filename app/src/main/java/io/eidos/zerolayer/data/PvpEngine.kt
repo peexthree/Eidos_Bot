@@ -59,7 +59,7 @@ enum class HardwareType(
         icon = "🌐",
         description = "Скрывает узел из поиска целей на 24 часа и блокирует атаки по Вендетте.",
         priceBc = 500L,
-        priceXp = 500L
+        priceXp = 0L
     );
 
     val displayName: String get() = label
@@ -91,7 +91,8 @@ data class PvpMatchResult(
 )
 
 object PvpEngine {
-    const val SEARCH_COST_XP = 50L
+    const val SEARCH_COST_BC = 50L
+    const val SEARCH_COST_XP = 0L
     const val MIN_PVP_LEVEL = 4
     const val MIN_TARGET_COINS = 500L
     const val SHIELD_DURATION_MS = 4 * 60 * 60 * 1000L // 4 hours
@@ -163,11 +164,11 @@ object PvpEngine {
             lost = minOf(attacker.biocoin, (attacker.biocoin * 0.10f).toLong().coerceIn(25L, 1000L))
             xpGained = 20L
 
-            // Defender ICE-Trap: burns 300 XP from attacker
+            // Defender ICE-Trap: does not burn XP (XP is non-deductible progression counter)
             val defHw = defender.installed_hardware ?: ""
             if (defHw.contains("ice_trap", ignoreCase = true)) {
                 iceTrapTriggered = true
-                xpBurned = minOf(300L, attacker.xp)
+                xpBurned = 0L
             }
         }
 

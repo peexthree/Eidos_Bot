@@ -102,7 +102,9 @@ fun RaidScreen(
     onIgnoreDemon: () -> Unit = {},
     onResolveHardGlitch: (chosenIndex: Int, correctIndex: Int) -> Unit = { _, _ -> },
     onResolveRiddle: (Boolean) -> Unit = {},
-    onFlee: () -> Unit = {}
+    onFlee: () -> Unit = {},
+    deathReport: io.eidos.zerolayer.data.GameRepository.DeathReport? = null,
+    onClearDeathReport: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = remember { HapticFeedbackManager.getInstance(context) }
@@ -343,9 +345,13 @@ fun RaidScreen(
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
                     // Unified Cyber Telemetry Strip
+                    val hasOblivionChip = remember(inventory) { inventory.any { it.is_equipped && it.item_id == "oblivion_chip" } }
+                    val hasTacticalScanner = remember(inventory) { inventory.any { it.item_id == "tactical_scanner" } }
                     RaidHUD(
                         session = session,
                         player = player,
+                        hasOblivionChip = hasOblivionChip,
+                        hasTacticalScanner = hasTacticalScanner,
                         overchargeTier = overchargeTier,
                         onOpenBuffer = { showBufferModal = true }
                     )
@@ -432,6 +438,7 @@ fun RaidScreen(
                             session = session,
                             player = player,
                             anomalyData = anomalyData,
+                            inventory = inventory,
                             overdriveCharge = overdriveCharge,
                             overchargeTier = overchargeTier,
                             onNextStep = onNextStep,
@@ -443,6 +450,9 @@ fun RaidScreen(
                             onUseAbility = onUseAbility,
                             onTriggerOverdrive = onTriggerOverdrive,
                             onBoostOvercharge = onBoostOvercharge,
+                            onUseConsumable = { itemId ->
+                                inventory.find { it.item_id == itemId }?.let { onUseConsumable(it) }
+                            },
                             onFlee = onFlee
                         )
                     }
@@ -515,11 +525,13 @@ fun RaidScreen(
 
     // Maxwell's Demon Encounter Modal (Isolated strictly to RaidScreen at depth 50+)
     if (session?.next_event_type == "maxwells_demon") {
+        val hasEquipInBuffer = session.buffer_items.split(",").any { it.isNotBlank() }
         io.eidos.zerolayer.ui.components.MaxwellDemonModal(
             currentHp = player?.hp ?: 100,
             bufferCoins = session.buffer_coins,
             playerCoins = player?.biocoin ?: 0L,
             playerXp = player?.xp ?: 0L,
+            hasEquipInBuffer = hasEquipInBuffer,
             onAcceptContract = onAcceptMaxwellContract,
             onIgnore = onIgnoreDemon
         )
@@ -564,6 +576,116 @@ fun RaidScreen(
             onDismiss = { showCombatLogModal = false }
         )
     }
+
+    if (deathReport != null) {
+        DeathReportModal(
+            report = deathReport,
+            onDismiss = onClearDeathReport
+        )
+    }
+}
+
+@Composable
+fun DeathReportModal(
+    report: io.eidos.zerolayer.data.GameRepository.DeathReport,
+    onDismiss: () -> Unit
+) {
+    val itemsCount = report.lostItems.split(",").filter { it.isNotBlank() }.size
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = Color(0xFF0D0305),
+            border = BorderStroke(2.dp, Color(0xFFFF003C)),
+            shape = CutCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "💀 НЕЙРО-СБОЙ // СИГНАЛ УТРАЧЕН",
+                    color = Color(0xFFFF003C),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Связь с оператором разорвана на глубине ${report.depth}м.",
+                    color = Color.LightGray,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Surface(
+                    color = Color(0xFF16060A),
+                    border = BorderStroke(1.dp, Color(0xFFFF003C).copy(alpha = 0.4f)),
+                    shape = CutCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("🪙 ПОТЕРЯНО В БУФЕРЕ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("-${report.lostCoins} BC", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("🎒 СБРОШЕНО ПРЕДМЕТОВ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("$itemsCount шт.", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("🪦 МОГИЛА В СЛОЕ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text(
+                                if (report.graveCreated) "СОХРАНЕНА" else "РАССЕЯНА",
+                                color = if (report.graveCreated) Color(0xFF00E5FF) else Color.Gray,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("🛠 ИЗНОС СНАРЯЖЕНИЯ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("-5% ПРОЧНОСТИ", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF003C)),
+                    shape = CutCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth().height(44.dp)
+                ) {
+                    Text(
+                        "ВОССТАНОВИТЬ СВЯЗЬ (В ХАБ)",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -571,6 +693,7 @@ fun RaidHUD(
     session: RaidSession?,
     player: io.eidos.zerolayer.data.Player? = null,
     hasOblivionChip: Boolean = false,
+    hasTacticalScanner: Boolean = false,
     overchargeTier: Int = 0,
     onOpenBuffer: () -> Unit = {}
 ) {
@@ -588,13 +711,43 @@ fun RaidHUD(
         val hasOvercharge = overchargeTier > 0
         val hasOverdrive = overdriveTurns > 0
         val hasBuff = player != null && player.anomalyBuffType != null && nowSec < player.anomalyBuffExpiry
+        val isCombat = session?.current_enemy_id != null
+        val showScanner = hasTacticalScanner && isCombat
 
-        if (hasOvercharge || hasOverdrive || hasBuff) {
+        if (hasOvercharge || hasOverdrive || hasBuff || showScanner) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (showScanner) {
+                    val pHp = player?.hp ?: 100
+                    val eHp = session?.current_enemy_hp ?: 50
+                    val pAtk = player?.attack ?: 20
+                    val eAtk = maxOf(10, ((session?.depth ?: 0) / 10))
+                    val pTurns = kotlin.math.ceil(eHp.toDouble() / maxOf(1, pAtk)).toInt()
+                    val eTurns = kotlin.math.ceil(pHp.toDouble() / maxOf(1, eAtk)).toInt()
+                    val winRate = if (pTurns <= eTurns) {
+                        ((1.0 - (pTurns.toDouble() / (eTurns + 2))) * 100).toInt().coerceIn(55, 99)
+                    } else {
+                        ((eTurns.toDouble() / (pTurns + 2)) * 100).toInt().coerceIn(5, 49)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(CutCornerShape(4.dp))
+                            .background(EidosNeon.copy(alpha = 0.2f))
+                            .border(1.dp, EidosNeon, CutCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "📊 WIN: $winRate%",
+                            color = EidosNeon,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
                 if (hasOvercharge) {
                     val lootMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeLootMultiplier(overchargeTier)
                     Box(
@@ -1410,6 +1563,7 @@ fun RaidControls(
     session: RaidSession?,
     player: Player? = null,
     anomalyData: io.eidos.zerolayer.data.GameRepository.AnomalyEvent?,
+    inventory: List<InventoryItem> = emptyList(),
     overdriveCharge: Int = 0,
     overchargeTier: Int = 0,
     onNextStep: () -> Unit,
@@ -1421,6 +1575,7 @@ fun RaidControls(
     onUseAbility: () -> Unit = {},
     onTriggerOverdrive: () -> Unit = {},
     onBoostOvercharge: () -> Unit = {},
+    onUseConsumable: (String) -> Unit = {},
     onFlee: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -1506,6 +1661,72 @@ fun RaidControls(
                 "ТЕХНО", "Технократы" -> "КВАНТОВЫЙ ВЗРЫВ"
                 "АРХИТЕКТОРЫ" -> "ПРОТОКОЛ УДАЛЕНИЯ"
                 else -> "СПЕЦУДАР ЯДРА"
+            }
+
+            // QuickUseRow (32.dp) with Available Consumables
+            val quickConsumables = listOf(
+                Triple("battery", "⚡ БАТАРЕЯ", Color(0xFF00E5FF)),
+                Triple("neural_stimulator", "💉 СТИМ", Color(0xFF00E676)),
+                Triple("emp_grenade", "💣 ЭМИ", Color(0xFFFF9100)),
+                Triple("stealth_spray", "🌫 ТУМАН", Color(0xFFB388FF))
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(32.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                quickConsumables.forEach { (itemId, label, accentColor) ->
+                    val qty = inventory.find { it.item_id == itemId }?.quantity ?: 0
+                    val isUsable = qty > 0
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable(enabled = isUsable) {
+                                haptics.click()
+                                onUseConsumable(itemId)
+                            },
+                        shape = CutCornerShape(4.dp),
+                        color = if (isUsable) accentColor.copy(alpha = 0.15f) else Color(0xFF101319),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isUsable) accentColor.copy(alpha = 0.6f) else Color.DarkGray.copy(alpha = 0.4f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isUsable) accentColor else Color.Gray,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(CutCornerShape(2.dp))
+                                    .background(if (isUsable) accentColor.copy(alpha = 0.3f) else Color.Transparent)
+                                    .padding(horizontal = 3.dp, vertical = 1.dp)
+                            ) {
+                                Text(
+                                    text = "x$qty",
+                                    color = if (isUsable) Color.White else Color.Gray,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Tactical 2x2 Combat Matrix

@@ -45,6 +45,7 @@ fun PvpScreen(
     onBuyHardware: (HardwareType) -> Unit = {},
     onActivateShield: (Int) -> Unit = {},
     onActivateProxy: (Int) -> Unit = {},
+    onSearchTarget: () -> Unit = {},
     onExecuteRaid: (target: SupabasePlayer, programs: List<PvpProgram>, isRevenge: Boolean, onResult: (PvpMatchResult) -> Unit) -> Unit = { _, _, _, _ -> },
     onBack: () -> Unit
 ) {
@@ -227,12 +228,25 @@ fun PvpScreen(
                                         borderColor = io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
                                         modifier = Modifier.padding(bottom = 8.dp)
                                     ) {
-                                        Text(
-                                            "📡 ТАКТИЧЕСКАЯ СЕТКА КИБЕР-УЗЛОВ: Выберите узел цели для неврального взлома. Награда: до 15% BioCoins цели и +100 XP.",
-                                            color = io.eidos.zerolayer.ui.theme.ZzzTextBody,
-                                            fontSize = 11.5.sp,
-                                            fontFamily = FontFamily.SansSerif
-                                        )
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text(
+                                                "📡 ТАКТИЧЕСКАЯ СЕТКА КИБЕР-УЗЛОВ: Выберите узел цели для неврального взлома. Награда: до 15% BioCoins цели и +100 XP.",
+                                                color = io.eidos.zerolayer.ui.theme.ZzzTextBody,
+                                                fontSize = 11.5.sp,
+                                                fontFamily = FontFamily.SansSerif
+                                            )
+                                            io.eidos.zerolayer.ui.components.ZzzMainButton(
+                                                text = "🔍 СКАНИРОВАТЬ СЕТЬ (-50 BC)",
+                                                onClick = {
+                                                    haptics.click()
+                                                    onSearchTarget()
+                                                },
+                                                primaryColor = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
+                                                borderColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
+                                                textColor = Color.Black,
+                                                modifier = Modifier.fillMaxWidth().height(38.dp)
+                                            )
+                                        }
                                     }
                                 }
 

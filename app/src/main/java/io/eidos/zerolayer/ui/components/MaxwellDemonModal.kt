@@ -33,6 +33,7 @@ fun MaxwellDemonModal(
     bufferCoins: Long,
     playerCoins: Long = 0L,
     playerXp: Long = 0L,
+    hasEquipInBuffer: Boolean = false,
     onAcceptContract: (String) -> Unit,
     onIgnore: () -> Unit
 ) {
@@ -100,12 +101,13 @@ fun MaxwellDemonModal(
 
                 Spacer(Modifier.height(12.dp))
 
-                // Render 5 Contracts
+                // Render Contracts
                 MaxwellContractsEngine.ALL_CONTRACTS.forEach { contract ->
                     val isAvailable = when (contract.id) {
                         "socket_mutation" -> (playerCoins + bufferCoins) >= 1500L
-                        "memory_sacrifice" -> playerXp >= 250L
+                        "memory_sacrifice" -> playerCoins >= 250L
                         "blood_overclock" -> currentHp > 20
+                        "loot_gamble" -> (bufferCoins >= 250L || hasEquipInBuffer)
                         else -> true
                     }
 

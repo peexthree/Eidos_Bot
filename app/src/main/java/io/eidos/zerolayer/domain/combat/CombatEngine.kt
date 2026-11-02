@@ -47,35 +47,45 @@ object CombatEngine {
 
     /**
      * Calculates the probability of a critical hit based on player attributes and gear.
+     * critChance = (5f + playerLuck * 0.25f).coerceIn(0f, 75f)
      */
     fun calculateCritChance(
         baseLuck: Int,
-        hasBerserk1: Boolean,
-        hasOverclockCrown: Boolean
+        hasBerserk1: Boolean = false,
+        hasOverclockCrown: Boolean = false
     ): Float {
-        val critChance = (baseLuck * 0.5f) + (if (hasBerserk1) 5f else 0f)
-        return if (hasOverclockCrown) critChance * 2f else critChance
+        return CombatMath.calculateCritChance(baseLuck, hasBerserk1, hasOverclockCrown)
     }
 
     /**
-     * Calculates raw player damage on a physical hit, prior to critical strike or special gear modifications.
+     * Calculates raw player damage on a physical hit with hyperbolic mitigation:
+     * mitigation = 100f / (100f + max(0, targetDef))
+     * finalDamage = max(1, (rawAtk * mitigation).toInt())
      */
     fun calculateBasePlayerDamage(
         playerAttack: Int,
         weaponMultiplier: Float,
         villainDef: Int
     ): Int {
-        return (playerAttack * weaponMultiplier).toInt() - villainDef
+        val rawAtk = playerAttack * weaponMultiplier
+        return CombatMath.calculateDamage(rawAtk, villainDef)
     }
 
     /**
      * Calculates final player damage applying critical hit scaling.
+     * Crit multiplier: 1.75x base (+25% / 2.0x with glitch_berserk).
      */
     fun calculateFinalPlayerDamage(
         baseDamage: Int,
-        isCrit: Boolean
+        isCrit: Boolean,
+        hasGlitchBerserk: Boolean = false
     ): Int {
-        return if (isCrit) (maxOf(1, baseDamage) * 1.5f).toInt() else maxOf(1, baseDamage)
+        return if (isCrit) {
+            val mult = CombatMath.calculateCritMultiplier(hasGlitchBerserk)
+            maxOf(1, (baseDamage * mult).toInt())
+        } else {
+            maxOf(1, baseDamage)
+        }
     }
 
     /**
@@ -106,15 +116,14 @@ object CombatEngine {
     }
 
     /**
-     * Calculates incoming enemy damage against player defenses.
-     * Player defense mitigates damage by def / 2, minimum 1 damage.
+     * Calculates incoming enemy damage against player defenses using hyperbolic mitigation:
+     * mitigation = 100f / (100f + max(0, playerDef))
      */
     fun calculateBaseEnemyDamage(
         scaledEnemyAtk: Int,
         playerDefense: Int
     ): Int {
-        val mitigation = playerDefense / 2
-        return maxOf(1, scaledEnemyAtk - mitigation)
+        return CombatMath.calculateDamage(scaledEnemyAtk.toFloat(), playerDefense)
     }
 
     /**

@@ -95,6 +95,18 @@ class MainViewModel(
     val bestiaryList: StateFlow<List<BestiaryEntry>> = repository.getBestiaryFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val deathReport: StateFlow<io.eidos.zerolayer.data.GameRepository.DeathReport?> = repository.deathReportFlow
+    fun clearDeathReport() { repository.clearDeathReport() }
+
+    fun searchPvpTarget(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val res = repository.searchPvpTarget(_uid.value)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                onResult(res)
+            }
+        }
+    }
+
     private val _topPlayers = MutableStateFlow<List<SupabasePlayer>>(emptyList())
     val topPlayers: StateFlow<List<SupabasePlayer>> = _topPlayers.asStateFlow()
 
@@ -1058,7 +1070,7 @@ class MainViewModel(
                     }
                     "ТЕХНО" -> {
                         dao.insertInventoryItem(InventoryItem(uid = _uid.value, item_id = "shock_baton", quantity = 1, durability = 100f, is_equipped = true, slot = "weapon"))
-                        dao.insertInventoryItem(InventoryItem(uid = _uid.value, item_id = "nomad_goggles", quantity = 1, durability = 100f, is_equipped = true, slot = "head"))
+                        dao.insertInventoryItem(InventoryItem(uid = _uid.value, item_id = "scavenger_coat", quantity = 1, durability = 100f, is_equipped = true, slot = "armor"))
                         dao.insertInventoryItem(InventoryItem(uid = _uid.value, item_id = "master_key", quantity = 4))
                         dao.insertInventoryItem(InventoryItem(uid = _uid.value, item_id = "battery", quantity = 2))
                     }

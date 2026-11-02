@@ -569,7 +569,7 @@ fun SocketModdingTab(
                 // Track locked affixes locally for this specific card
                 var lockedIndices by remember { mutableStateOf(setOf<Int>()) }
                 val baseCost = 250L
-                val lockedSurcharge = (baseCost * (1.0 + lockedIndices.size * 0.5)).toLong()
+                val (slicerBcCost, slicerShardCost) = io.eidos.zerolayer.data.ZeroLayerEconomy.calculateSlicerLockCost(baseCost, lockedIndices.size)
 
                 Card(
                     colors = CardDefaults.cardColors(containerColor = EidosGlass),
@@ -819,8 +819,9 @@ fun SocketModdingTab(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     // Data Slicer Button ZZZ
+                                    val slicerLabel = if (slicerShardCost > 0) "🎲 СЛАЙСЕР ($slicerBcCost BC+${slicerShardCost}💎)" else "🎲 СЛАЙСЕР ($slicerBcCost BC)"
                                     io.eidos.zerolayer.ui.components.ZzzMainButton(
-                                        text = "🎲 СЛАЙСЕР ($lockedSurcharge BC)",
+                                        text = slicerLabel,
                                         onClick = {
                                             val nextProspective = io.eidos.zerolayer.data.PoECraftEngine.applyDataSlicerWithLocking(
                                                 eq,
@@ -831,10 +832,11 @@ fun SocketModdingTab(
                                                 item,
                                                 eq,
                                                 nextProspective,
-                                                lockedSurcharge,
+                                                slicerBcCost,
                                                 rarity
                                             )
                                         },
+                                        enabled = shardsCount >= slicerShardCost,
                                         primaryColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
                                         borderColor = Color.White,
                                         textColor = Color.Black,

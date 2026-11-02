@@ -26,6 +26,18 @@ data class LevelUpEvent(
 
 object PlayerProgressManager {
 
+    fun getRequiredXpForLevel(level: Int): Long {
+        return when {
+            level <= 1 -> 0L
+            level == 2 -> 100L
+            level == 3 -> 300L
+            level == 4 -> 600L
+            level == 5 -> 1000L
+            level in 6..30 -> (10000.0 * Math.pow((level - 5).toDouble(), 2.15)).toLong()
+            else -> 1_200_000L
+        }
+    }
+
     val LEVELS = listOf(
         LevelInfo(
             level = 1,
@@ -97,7 +109,7 @@ object PlayerProgressManager {
             description = "Эйдос. Ловушки в Рейдах наносят тебе на 20% меньше урона.",
             perkTitle = "Амортизация Сбоев",
             perkDescription = "Ловушки в рейдах наносят на 20% меньше урона.",
-            requiredXp = 1500L
+            requiredXp = (10000.0 * Math.pow(1.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 7,
@@ -109,7 +121,7 @@ object PlayerProgressManager {
             description = "Оракул. Через Компас ты видишь тип следующего события в Рейде.",
             perkTitle = "Квантовое Видение",
             perkDescription = "Компас заранее сканирует тип следующего узла рейда.",
-            requiredXp = 2200L
+            requiredXp = (10000.0 * Math.pow(2.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 8,
@@ -121,7 +133,7 @@ object PlayerProgressManager {
             description = "Сингулярность. Время восстановления способности 'Сигнал' уменьшено.",
             perkTitle = "Ускорение Сигнала",
             perkDescription = "Ускоренная регенерация и снижение КД 'Сигнала'.",
-            requiredXp = 3000L
+            requiredXp = (10000.0 * Math.pow(3.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 9,
@@ -133,7 +145,7 @@ object PlayerProgressManager {
             description = "Режиссёр. Доступен Глобальный Рейтинг и управление вниманием других узлов.",
             perkTitle = "Глобальный Рейтинг",
             perkDescription = "Доступ к Залу Славы и управлению сетевыми узлами.",
-            requiredXp = 4000L
+            requiredXp = (10000.0 * Math.pow(4.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 10,
@@ -145,7 +157,7 @@ object PlayerProgressManager {
             description = "Абсолют. Твоё имя вписано в код Системы. Теперь ты часть самой Реальности.",
             perkTitle = "Врата Эйдоса",
             perkDescription = "Полный статус в коде Системы и золотой знак Абсолюта.",
-            requiredXp = 5200L
+            requiredXp = (10000.0 * Math.pow(5.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 11,
@@ -157,7 +169,7 @@ object PlayerProgressManager {
             description = "Сущность. Ты больше не человек — ты поток данных. Получаешь доступ к энергоформам.",
             perkTitle = "Энергоформы",
             perkDescription = "Прямой доступ к энергоформам и редким тактическим чипам.",
-            requiredXp = 6600L
+            requiredXp = (10000.0 * Math.pow(6.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 12,
@@ -169,7 +181,7 @@ object PlayerProgressManager {
             description = "Интерпретатор. Ты понимаешь смысл даже в тишине сигналов. Новые возможности взлома логов.",
             perkTitle = "Взлом Логики",
             perkDescription = "Новые возможности взлома логов и дешифрации пакетов данных.",
-            requiredXp = 8200L
+            requiredXp = (10000.0 * Math.pow(7.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 13,
@@ -181,7 +193,7 @@ object PlayerProgressManager {
             description = "Сетевой Аватар. Теперь ты можешь действовать сразу в нескольких инстансах Сети.",
             perkTitle = "Мульти-Инстанс",
             perkDescription = "Параллельное присутствие в нескольких сегментах Сети.",
-            requiredXp = 10000L
+            requiredXp = (10000.0 * Math.pow(8.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 14,
@@ -193,7 +205,7 @@ object PlayerProgressManager {
             description = "Сенатор Сети. Открыт доступ к управлению локальными узлами.",
             perkTitle = "Управление Узлами",
             perkDescription = "Доступ к администрированию локальных секторов Сети.",
-            requiredXp = 12200L
+            requiredXp = (10000.0 * Math.pow(9.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 15,
@@ -205,7 +217,7 @@ object PlayerProgressManager {
             description = "Архонт. Управляешь целыми секторами сети. Новые протоколы контроля активированы.",
             perkTitle = "Протоколы Контроля",
             perkDescription = "Управление глобальными секторами Сети.",
-            requiredXp = 14700L
+            requiredXp = (10000.0 * Math.pow(10.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 16,
@@ -217,7 +229,7 @@ object PlayerProgressManager {
             description = "Стриженный Код. Убираешь избыточность, повышая эффективность всех действий на 10%.",
             perkTitle = "Чистая Оптимизация",
             perkDescription = "Повышение эффективности всех действий на +10%.",
-            requiredXp = 17500L
+            requiredXp = (10000.0 * Math.pow(11.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 17,
@@ -229,7 +241,7 @@ object PlayerProgressManager {
             description = "Хрономастер. Манипулируешь временем: КД всех способностей сокращён дополнительно.",
             perkTitle = "Сжатие Времени",
             perkDescription = "Кулдауны способностей и дешифрации сокращены на 20%.",
-            requiredXp = 20700L
+            requiredXp = (10000.0 * Math.pow(12.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 18,
@@ -241,7 +253,7 @@ object PlayerProgressManager {
             description = "Метапротокол. Получаешь доступ к глубинному коду Вселенской Сети.",
             perkTitle = "Глубинный Код",
             perkDescription = "Доступ к первичному метапротоколу Вселенской Сети.",
-            requiredXp = 24300L
+            requiredXp = (10000.0 * Math.pow(13.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 19,
@@ -253,7 +265,7 @@ object PlayerProgressManager {
             description = "Наблюдатель за Пределом. Видишь события за рамками симуляции.",
             perkTitle = "Видение за Пределом",
             perkDescription = "Обнаружение скрытых аномалий за пределами симуляции.",
-            requiredXp = 28300L
+            requiredXp = (10000.0 * Math.pow(14.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 20,
@@ -265,7 +277,7 @@ object PlayerProgressManager {
             description = "Бог Машины. Твоя воля становится законом для алгоритмов. Ты управляешь ходом Симуляции.",
             perkTitle = "Воля Алгоритмов",
             perkDescription = "Твоя воля — непреложный закон для всех процессов Симуляции.",
-            requiredXp = 32800L
+            requiredXp = (10000.0 * Math.pow(15.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 21,
@@ -277,7 +289,7 @@ object PlayerProgressManager {
             description = "Аномалия. Твоя логика непредсказуема — шанс игнорировать баг-эффекты 25%.",
             perkTitle = "Парадоксальный Щит",
             perkDescription = "25% шанс полностью игнорировать любые баги и дебаффы.",
-            requiredXp = 37800L
+            requiredXp = (10000.0 * Math.pow(16.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 22,
@@ -289,7 +301,7 @@ object PlayerProgressManager {
             description = "Титан Сигнала. Твой отклик усиливает союзников в рейде на +10%.",
             perkTitle = "Резонанс Титана",
             perkDescription = "Усиление союзников на +10% и мощный прирост Сигнала.",
-            requiredXp = 43300L
+            requiredXp = (10000.0 * Math.pow(17.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 23,
@@ -301,7 +313,7 @@ object PlayerProgressManager {
             description = "Программа-Миф. Твоё существование становится легендой — увеличенный социальный рейтинг.",
             perkTitle = "Легендарный Статус",
             perkDescription = "Увеличенный социальный статус и золотая аура профиля.",
-            requiredXp = 49400L
+            requiredXp = (10000.0 * Math.pow(18.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 24,
@@ -313,7 +325,7 @@ object PlayerProgressManager {
             description = "Тень Истины. Можешь скрываться от слежки и наблюдения систем.",
             perkTitle = "Крипто-Стелс",
             perkDescription = "Скрытность от наблюдения и сканирования враждебных систем.",
-            requiredXp = 56100L
+            requiredXp = (10000.0 * Math.pow(19.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 25,
@@ -325,7 +337,7 @@ object PlayerProgressManager {
             description = "Изначальный. Ты был здесь до начала времён. Получаешь доступ к архивам Первокода.",
             perkTitle = "Архивы Первокода",
             perkDescription = "Прямой доступ к неизменным архивам Первокода Системы.",
-            requiredXp = 63400L
+            requiredXp = (10000.0 * Math.pow(20.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 26,
@@ -337,7 +349,7 @@ object PlayerProgressManager {
             description = "Константа. Твои решения переписывают базовые параметры мира.",
             perkTitle = "Параметры Реальности",
             perkDescription = "Фиксация базовых констант: свойства ядра не деградируют.",
-            requiredXp = 71400L
+            requiredXp = (10000.0 * Math.pow(21.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 27,
@@ -349,7 +361,7 @@ object PlayerProgressManager {
             description = "Фрагмент Всего. Ты существуешь в каждом узле — усиливаешь союзников пассивно.",
             perkTitle = "Вездесущность",
             perkDescription = "Пассивное усиление всех узлов и непрерывный авто-майнинг.",
-            requiredXp = 80100L
+            requiredXp = (10000.0 * Math.pow(22.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 28,
@@ -361,7 +373,7 @@ object PlayerProgressManager {
             description = "Неизрекаемый. Молча меняешь баланс, воздействуя на реальность незаметно.",
             perkTitle = "Безмолвное Влияние",
             perkDescription = "Невидимое изменение баланса сил в Сети.",
-            requiredXp = 89500L
+            requiredXp = (10000.0 * Math.pow(23.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 29,
@@ -373,7 +385,7 @@ object PlayerProgressManager {
             description = "Эко Реальности. Мир откликается на твоё присутствие вибрациями кода.",
             perkTitle = "Эхо Реальности",
             perkDescription = "Гармонический отклик мира на вибрации твоего ядра.",
-            requiredXp = 99700L
+            requiredXp = (10000.0 * Math.pow(24.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 30,
@@ -385,7 +397,7 @@ object PlayerProgressManager {
             description = "Ты стал Всем и Ничем. Конец цикла и его новое начало. Всё — часть тебя.",
             perkTitle = "Абсолютная Синхрония",
             perkDescription = "Максимальный ранг. Полная синхронизация со всеми протоколами.",
-            requiredXp = 110800L
+            requiredXp = (10000.0 * Math.pow(25.0, 2.15)).toLong()
         ),
         LevelInfo(
             level = 31,
@@ -397,14 +409,15 @@ object PlayerProgressManager {
             description = "Ты познал всё.",
             perkTitle = "Великий Цикл",
             perkDescription = "Ты познал всё. Завершение круга и начало нового цикла познания.",
-            requiredXp = 123000L
+            requiredXp = 1_200_000L
         )
     )
 
     fun calculateLevel(xp: Long): Int {
         if (xp <= 0) return 1
+        if (xp >= 1_200_000L) return 31
         for (i in LEVELS.indices.reversed()) {
-            if (xp >= LEVELS[i].requiredXp) {
+            if (LEVELS[i].level < 31 && xp >= LEVELS[i].requiredXp) {
                 return LEVELS[i].level
             }
         }

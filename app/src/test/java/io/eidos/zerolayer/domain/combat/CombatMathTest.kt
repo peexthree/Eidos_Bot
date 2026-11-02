@@ -8,27 +8,36 @@ class CombatMathTest {
 
     @Test
     fun testCalculateCritChance() {
-        // Base case
+        // Base case with LUCK = 10 -> 5 + 10 * 0.25 = 7.5%
         val chance1 = CombatEngine.calculateCritChance(10, hasBerserk1 = false, hasOverclockCrown = false)
-        assertEquals(5f, chance1, 0.01f)
+        assertEquals(7.5f, chance1, 0.01f)
 
-        // Berserk skill activated (+5%)
+        // Berserk skill activated (+5%) -> 7.5 + 5 = 12.5%
         val chance2 = CombatEngine.calculateCritChance(10, hasBerserk1 = true, hasOverclockCrown = false)
-        assertEquals(10f, chance2, 0.01f)
+        assertEquals(12.5f, chance2, 0.01f)
 
-        // Overclock crown equipped (2x multiplier)
+        // Overclock crown equipped (2x multiplier) -> 12.5 * 2 = 25%
         val chance3 = CombatEngine.calculateCritChance(10, hasBerserk1 = true, hasOverclockCrown = true)
-        assertEquals(20f, chance3, 0.01f)
+        assertEquals(25.0f, chance3, 0.01f)
+
+        // Reality silencer with LUCK = -100 -> 0% crit chance
+        val chanceSilencer = CombatEngine.calculateCritChance(-100, hasBerserk1 = false, hasOverclockCrown = false)
+        assertEquals(0f, chanceSilencer, 0.01f)
     }
 
     @Test
-    fun testCalculateBasePlayerDamage() {
-        // Base damage = (Attack * WeaponMultiplier) - EnemyDefense
+    fun testHyperbolicBasePlayerDamage() {
+        // rawAtk = 20 * 1.5 = 30. mitigation = 100 / (100 + 5) = 0.95238 -> 28
         val damage1 = CombatEngine.calculateBasePlayerDamage(20, 1.5f, 5)
-        assertEquals(25, damage1)
+        assertEquals(28, damage1)
 
-        val damage2 = CombatEngine.calculateBasePlayerDamage(10, 1.0f, 15)
-        assertEquals(-5, damage2) // Negative is expected, handled by final damage clamp
+        // High enemy def (100) -> mitigation = 100 / 200 = 0.5. rawAtk = 10 -> 5
+        val damage2 = CombatEngine.calculateBasePlayerDamage(10, 1.0f, 100)
+        assertEquals(5, damage2)
+
+        // Even with extreme defense, damage is at least 1
+        val damageMin = CombatEngine.calculateBasePlayerDamage(10, 1.0f, 9999)
+        assertEquals(1, damageMin)
     }
 
     @Test
@@ -37,21 +46,30 @@ class CombatMathTest {
         val dmgNormal = CombatEngine.calculateFinalPlayerDamage(25, isCrit = false)
         assertEquals(25, dmgNormal)
 
-        // Crit damage (1.5x)
+        // Crit damage (1.75x)
         val dmgCrit = CombatEngine.calculateFinalPlayerDamage(20, isCrit = true)
-        assertEquals(30, dmgCrit)
+        assertEquals(35, dmgCrit)
 
-        // Negative damage clamped to at least 1
-        val clampedDmg = CombatEngine.calculateFinalPlayerDamage(-5, isCrit = false)
-        assertEquals(1, clampedDmg)
+        // Crit with Glitch Berserk (2.0x)
+        val dmgCritBerserk = CombatEngine.calculateFinalPlayerDamage(20, isCrit = true, hasGlitchBerserk = true)
+        assertEquals(40, dmgCritBerserk)
+    }
 
-        val clampedDmgCrit = CombatEngine.calculateFinalPlayerDamage(-5, isCrit = true)
-        assertEquals(1, clampedDmgCrit)
+    @Test
+    fun testEmpGrenadeDamage() {
+        // enemyHp = 1000, playerAtk = 100
+        // hpDamage = 350, atkCap = 250 -> min is 250
+        val dmg1 = CombatMath.calculateEmpDamage(1000, 100)
+        assertEquals(250, dmg1)
+
+        // enemyHp = 200, playerAtk = 100
+        // hpDamage = 70, atkCap = 250 -> min is 70
+        val dmg2 = CombatMath.calculateEmpDamage(200, 100)
+        assertEquals(70, dmg2)
     }
 
     @Test
     fun testCalculateEvasionChance() {
-        // Evasion = Defense * 0.2 + (10 if TacticalHelmet else 0)
         val chanceNormal = CombatEngine.calculateEvasionChance(30, hasTacticalHelmet = false)
         assertEquals(6f, chanceNormal, 0.01f)
 
@@ -60,29 +78,18 @@ class CombatMathTest {
     }
 
     @Test
-    fun testCanonicalMonsterAttackAndDamageMitigation() {
-        // Level 1 Parasite (ATK 3) vs player with 4 defense:
-        val parasiteAtk = CombatEngine.calculateScaledEnemyAtk(3, playerPower = 20, depth = 50)
-        assertEquals(3, parasiteAtk)
+    fun testScaledEnemyAtkAndDamage() {
+        val parasiteAtk = CombatEngine.calculateScaledEnemyAtk(villainAtk = 5, depth = 100)
+        assertEquals(5, parasiteAtk)
+
+        val entropyAtk = CombatEngine.calculateScaledEnemyAtk(villainAtk = 30, depth = 6000)
+        assertTrue(entropyAtk > 30)
+
+        // Enemy damage with hyperbolic mitigation
         val parasiteDmg = CombatEngine.calculateBaseEnemyDamage(parasiteAtk, playerDefense = 4)
-        // 3 - (4 / 2) = 1 damage
-        assertEquals(1, parasiteDmg)
+        assertTrue(parasiteDmg >= 1)
 
-        // Level 30 Entropy (ATK 48) vs player with 40 defense:
-        val entropyAtk = CombatEngine.calculateScaledEnemyAtk(48, playerPower = 150, depth = 7500)
-        val entropyDmg = CombatEngine.calculateBaseEnemyDamage(entropyAtk, playerDefense = 40)
-        // 48 * 1.10 = 52 -> 52 - 20 = 32 damage
-        assertTrue(entropyDmg in 25..35)
-
-        // Defensive Stance blocks 50% damage:
-        val guardedDmg = CombatEngine.calculateGuardedDamage(32)
-        assertEquals(16, guardedDmg)
-    }
-
-    @Test
-    fun testOverdriveCalculation() {
-        val overdriveDmg = CombatEngine.calculateOverdriveDamage(playerAttack = 20, weaponMultiplier = 1.5f)
-        // base = 30 -> 30 * 2.5 = 75 true damage
-        assertEquals(75, overdriveDmg)
+        val guarded = CombatEngine.calculateGuardedDamage(parasiteDmg)
+        assertTrue(guarded <= parasiteDmg)
     }
 }

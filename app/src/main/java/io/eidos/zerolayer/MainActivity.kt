@@ -125,6 +125,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
     val levelUpEvent by mainViewModel.levelUpEvent.collectAsStateWithLifecycle()
     val activeLoot by mainViewModel.activeLoot.collectAsStateWithLifecycle()
     val toasts by mainViewModel.toasts.collectAsStateWithLifecycle()
+    val deathReport by mainViewModel.deathReport.collectAsStateWithLifecycle()
 
     if (syncConflict != null) {
         androidx.compose.material3.AlertDialog(
@@ -171,6 +172,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                     }
                     CyberHubBottomBar(
                         selectedTab = selectedTab,
+                        isPvpUnlocked = (player?.level ?: 1) >= 4,
                         onTabSelected = { tab ->
                             when (tab) {
                                 "hub" -> {
@@ -347,7 +349,9 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onBetDemonBuffer = { mainViewModel.betMaxwellDemonBuffer() },
                         onIgnoreDemon = { mainViewModel.ignoreMaxwellDemon() },
                         onResolveHardGlitch = { chosen, correct -> mainViewModel.resolveHardGlitch(chosen, correct) },
-                        onResolveRiddle = { mainViewModel.resolveRiddle(it) }
+                        onResolveRiddle = { mainViewModel.resolveRiddle(it) },
+                        deathReport = deathReport,
+                        onClearDeathReport = { mainViewModel.clearDeathReport() }
                     )
                 }
                 composable<Forge> {
@@ -399,6 +403,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onBuyHardware = { hw -> mainViewModel.buyPvpHardware(hw) },
                         onActivateShield = { hours -> mainViewModel.activatePvpShield(hours) },
                         onActivateProxy = { hours -> mainViewModel.activatePvpProxy(hours) },
+                        onSearchTarget = { mainViewModel.searchPvpTarget { } },
                         onExecuteRaid = { target, progs, isRevenge, onResult -> mainViewModel.executePvpRaid(target, progs, isRevenge, onResult) },
                         onBack = { navController.popBackStack() }
                     )
