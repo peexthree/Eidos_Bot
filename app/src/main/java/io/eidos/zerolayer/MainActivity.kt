@@ -88,6 +88,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
     val unclaimedRadioMessagesCount by mainViewModel.unclaimedRadioMessagesCount.collectAsStateWithLifecycle()
     val overdriveCharge by mainViewModel.overdriveChargeFlow.collectAsStateWithLifecycle()
     val overchargeTier by mainViewModel.overchargeTierFlow.collectAsStateWithLifecycle()
+    val activeStats by mainViewModel.activeStats.collectAsStateWithLifecycle()
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val audioManager = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
@@ -177,9 +178,8 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                             when (tab) {
                                 "hub" -> {
                                     navController.navigate(Hub) {
-                                        popUpTo(Hub) { saveState = true }
+                                        popUpTo(Hub) { inclusive = false }
                                         launchSingleTop = true
-                                        restoreState = true
                                     }
                                 }
                                 "inventory" -> {
@@ -284,6 +284,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                     ProfileScreen(
                         player = player,
                         inventory = inventory,
+                        activeStats = activeStats,
                         radioMessages = radioMessages,
                         unclaimedRadioMessagesCount = unclaimedRadioMessagesCount,
                         onClaimRadioMessage = { mainViewModel.claimRadioMessageReward(it) },
@@ -302,6 +303,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         player = player,
                         inventory = inventory,
                         allItemsMetadata = mainViewModel.getAllItemsMetadata(),
+                        activeStats = activeStats,
                         activeRaidSession = raidSession,
                         onReturnToRaid = { navController.navigate(Raid) { launchSingleTop = true } },
                         onEvacuateRaid = {
@@ -328,7 +330,9 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         overdriveCharge = overdriveCharge,
                         overchargeTier = overchargeTier,
                         combatEventFlow = mainViewModel.combatEventFlow,
+                        activeStats = activeStats,
                         onNextStep = { mainViewModel.nextStep() },
+                        onAttack = { mainViewModel.attackCombat() },
                         onAnomalyChoice = { mainViewModel.handleAnomaly(it) },
                         onOpenInventory = { navController.navigate(Inventory) },
                         onExitRaid = { 

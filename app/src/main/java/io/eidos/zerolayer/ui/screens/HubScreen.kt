@@ -1822,7 +1822,7 @@ fun CyberHubBottomBar(
             BottomNavItem(
                 iconRes = io.eidos.zerolayer.R.drawable.ic_nav_hub,
                 fallbackEmoji = "🏠",
-                label = "ТЕРМИНАЛ",
+                label = "ХАБ",
                 isSelected = selectedTab == "hub",
                 onClick = { onTabSelected("hub") }
             )

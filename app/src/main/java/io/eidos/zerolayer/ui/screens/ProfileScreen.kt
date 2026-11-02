@@ -86,6 +86,7 @@ private fun getXpForLevel(level: Int): Long {
 fun ProfileScreen(
     player: Player?,
     inventory: List<InventoryItem>,
+    activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
     radioMessages: List<RadioMessageEntity> = emptyList(),
     unclaimedRadioMessagesCount: Int = 0,
     onClaimRadioMessage: (Long) -> Unit = {},
@@ -607,9 +608,9 @@ fun ProfileScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            StatCard("АТАКА", "${player?.attack}", Color.White, Modifier.weight(1f))
-                            StatCard("ЗАЩИТА", "${player?.defense}", Color.White, Modifier.weight(1f))
-                            StatCard("УДАЧА", "${player?.luck}", EidosCyan, Modifier.weight(1f))
+                            StatCard("АТАКА", "${activeStats?.attack ?: player?.attack ?: 10}", Color.White, Modifier.weight(1f))
+                            StatCard("ЗАЩИТА", "${activeStats?.defense ?: player?.defense ?: 5}", Color.White, Modifier.weight(1f))
+                            StatCard("УДАЧА", "${activeStats?.luck ?: player?.luck ?: 5}", EidosCyan, Modifier.weight(1f))
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))

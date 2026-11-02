@@ -2145,11 +2145,16 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         var session = initialSession
         val player = dao.getPlayer(uid) ?: return
 
-        if (session.current_anomaly_id != null) {
+        if (session.current_enemy_id != null) {
+            val cleanSession = if (session.current_anomaly_id != null) {
+                val updated = session.copy(current_anomaly_id = null)
+                dao.insertRaidSession(updated)
+                updated
+            } else session
+            handleCombatTurn(uid, cleanSession, player, isGuarding = false)
             return
         }
-        if (session.current_enemy_id != null) {
-            handleCombatTurn(uid, session, player, isGuarding = false)
+        if (session.current_anomaly_id != null) {
             return
         }
 
@@ -2339,6 +2344,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     next_event_type = "combat",
                     current_enemy_id = dispatchResult.enemyName,
                     current_enemy_hp = dispatchResult.enemyHp,
+                    current_anomaly_id = null,
                     combat_turn = 0,
                     damage_buffer = 0,
                     is_scanned = false
@@ -2385,6 +2391,21 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             ))
             dao.updatePlayer(player.copy(hp = newHp))
             log(uid, "🧩 [СФИНКС]: Ошибка в логике! Разряд искажения нанес -$penaltyDmg урона.", "error")
+        }
+    }
+
+    suspend fun attackCombat(uid: Long) = dbMutex.withLock {
+        val session = dao.getRaidSession(uid) ?: return@withLock
+        val player = dao.getPlayer(uid) ?: return@withLock
+        if (session.current_enemy_id != null) {
+            val cleanSession = if (session.current_anomaly_id != null) {
+                val updated = session.copy(current_anomaly_id = null)
+                dao.insertRaidSession(updated)
+                updated
+            } else session
+            handleCombatTurn(uid, cleanSession, player, isGuarding = false)
+        } else {
+            processStep(uid)
         }
     }
 

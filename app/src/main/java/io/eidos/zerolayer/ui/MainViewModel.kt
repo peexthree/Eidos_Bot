@@ -95,6 +95,10 @@ class MainViewModel(
     val bestiaryList: StateFlow<List<BestiaryEntry>> = repository.getBestiaryFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val activeStats: StateFlow<GameRepository.PlayerStats> = combine(_uid, player, inventory) { id, _, _ ->
+        repository.getActiveStats(id)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GameRepository.PlayerStats(100, 100, 100, 100, 10, 5, 5))
+
     val deathReport: StateFlow<io.eidos.zerolayer.data.GameRepository.DeathReport?> = repository.deathReportFlow
     fun clearDeathReport() { repository.clearDeathReport() }
 
@@ -507,6 +511,14 @@ class MainViewModel(
         audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
         viewModelScope.launch {
             repository.processStep(_uid.value)
+        }
+    }
+
+    fun attackCombat() {
+        haptics.criticalHit()
+        audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
+        viewModelScope.launch {
+            repository.attackCombat(_uid.value)
         }
     }
 

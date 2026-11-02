@@ -84,7 +84,9 @@ fun RaidScreen(
     overdriveCharge: Int = 0,
     overchargeTier: Int = 0,
     combatEventFlow: kotlinx.coroutines.flow.SharedFlow<io.eidos.zerolayer.data.CombatVisualEvent>? = null,
+    activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
     onNextStep: () -> Unit,
+    onAttack: () -> Unit = onNextStep,
     onAnomalyChoice: (String) -> Unit,
     onOpenInventory: () -> Unit,
     onExitRaid: () -> Unit,
@@ -324,11 +326,11 @@ fun RaidScreen(
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("АТАКА", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                                    Text("${player?.attack ?: 10}", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("${activeStats?.attack ?: player?.attack ?: 10}", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("ЗАЩИТА", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                                    Text("${player?.defense ?: 5}", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("${activeStats?.defense ?: player?.defense ?: 5}", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                             }
 
@@ -459,7 +461,9 @@ fun RaidScreen(
                             inventory = inventory,
                             overdriveCharge = overdriveCharge,
                             overchargeTier = overchargeTier,
+                            activeStats = activeStats,
                             onNextStep = onNextStep,
+                            onAttack = onAttack,
                             onAnomalyChoice = onAnomalyChoice,
                             onOpenInventory = onOpenInventory,
                             onOpenBuffer = { showBufferModal = true },
@@ -1351,15 +1355,14 @@ fun CombatArenaCard(
                 }
             }
 
-            // Prominent Clickable Monster Art (Takes major center stage)
+            // Prominent Clickable Monster Art (Takes major center stage, scales to width without cropping)
             Box(
                 modifier = Modifier
-                    .weight(1f, fill = false)
-                    .sizeIn(minWidth = 150.dp, minHeight = 150.dp, maxWidth = 195.dp, maxHeight = 195.dp)
-                    .aspectRatio(1f)
+                    .fillMaxWidth()
+                    .heightIn(min = 140.dp, max = 220.dp)
                     .clip(CutCornerShape(8.dp))
                     .background(Color(0xFF14080B))
-                    .border(1.5.dp, EidosRed, CutCornerShape(8.dp))
+                    .border(1.5.dp, EidosRed.copy(alpha = 0.8f), CutCornerShape(8.dp))
                     .clickable { onInspectVillain(villain) },
                 contentAlignment = Alignment.Center
             ) {
@@ -1367,8 +1370,10 @@ fun CombatArenaCard(
                     resName = enemyImageName,
                     fallbackIcon = Icons.Default.Warning,
                     borderColor = Color.Transparent,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                 )
 
                 // Pop-up animated banner for triggered perk
@@ -1881,7 +1886,9 @@ fun RaidControls(
     inventory: List<InventoryItem> = emptyList(),
     overdriveCharge: Int = 0,
     overchargeTier: Int = 0,
+    activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
     onNextStep: () -> Unit,
+    onAttack: () -> Unit = onNextStep,
     onAnomalyChoice: (String) -> Unit,
     onOpenInventory: () -> Unit,
     onOpenBuffer: () -> Unit = {},
@@ -2058,7 +2065,7 @@ fun RaidControls(
                         onClick = {
                             haptics.criticalHit()
                             audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-                            onNextStep()
+                            onAttack()
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -2069,7 +2076,7 @@ fun RaidControls(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("⚔️ АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                            Text("УДАР (${player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                            Text("УДАР (${activeStats?.attack ?: player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
 

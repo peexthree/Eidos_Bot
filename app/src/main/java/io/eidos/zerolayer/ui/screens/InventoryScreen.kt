@@ -57,6 +57,7 @@ fun InventoryScreen(
     player: Player?,
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
+    activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
     activeRaidSession: RaidSession? = null,
     onReturnToRaid: (() -> Unit)? = null,
     onEvacuateRaid: (() -> Unit)? = null,
@@ -288,7 +289,7 @@ fun InventoryScreen(
                     letterSpacing = 0.5.sp,
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
-                EquipDollSection(inventory, allItemsMetadata, player, onUnequip)
+                EquipDollSection(inventory, allItemsMetadata, player, activeStats, onUnequip)
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -842,14 +843,16 @@ fun OperatorEquipmentDeck(
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     player: Player? = null,
+    activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
     onUnequip: (InventoryItem) -> Unit
-) = EquipDollSection(inventory, allItemsMetadata, player, onUnequip)
+) = EquipDollSection(inventory, allItemsMetadata, player, activeStats, onUnequip)
 
 @Composable
 fun EquipDollSection(
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     player: Player? = null,
+    activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
     onUnequip: (InventoryItem) -> Unit
 ) {
     val head = inventory.find { it.is_equipped && (it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "head") }
@@ -859,6 +862,10 @@ fun EquipDollSection(
 
     val playerLvl = (player?.level ?: 1).coerceIn(1, 31)
     val avatarRes = "lvl_$playerLvl"
+
+    val currentAtk = activeStats?.attack ?: player?.attack ?: 10
+    val currentDef = activeStats?.defense ?: player?.defense ?: 5
+    val currentLuck = activeStats?.luck ?: player?.luck ?: 5
 
     Box(
         modifier = Modifier
@@ -901,21 +908,21 @@ fun EquipDollSection(
                 )
             }
 
-            // CENTER: MODERN CYBER OPERATOR ART CARD
+            // CENTER: MODERN CYBER OPERATOR ART RIG (Full-body cyber-doll)
             Box(
                 modifier = Modifier
                     .weight(1.15f)
-                    .height(180.dp)
+                    .height(205.dp)
                     .clip(CutCornerShape(8.dp))
                     .background(Color(0xFF091219))
                     .border(1.5.dp, EidosCyan.copy(alpha = 0.6f), CutCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 EidosImage(
-                    resName = avatarRes,
+                    resName = "doll_operator_rig",
                     fallbackIcon = Icons.Default.Person,
                     borderColor = Color.Transparent,
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
                 )
 
@@ -926,7 +933,7 @@ fun EquipDollSection(
                             Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    Color(0xFF001F2D).copy(alpha = 0.3f),
+                                    Color(0xFF001F2D).copy(alpha = 0.15f),
                                     Color(0xFF000910).copy(alpha = 0.85f)
                                 )
                             )
@@ -970,10 +977,18 @@ fun EquipDollSection(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "⚔️ ${player?.attack ?: 10} ATK  |  🛡️ ${player?.defense ?: 5} DEF",
+                        text = "⚔️ $currentAtk ATK | 🛡️ $currentDef DEF",
                         color = EidosNeon,
-                        fontSize = 8.sp,
+                        fontSize = 7.8.sp,
                         fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Text(
+                        text = "🍀 УДАЧА: $currentLuck",
+                        color = Color(0xFFFFD54F),
+                        fontSize = 7.2.sp,
+                        fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                 }

@@ -65,6 +65,10 @@ fun ShopScreen(
     var sortBy by remember { mutableStateOf("price_asc") } // "price_asc", "price_desc", "name"
     var selectedInspectItem by remember { mutableStateOf<ItemMetadata?>(null) }
     var buyQuantity by remember { mutableStateOf(1) }
+    var pendingConfirmItem by remember { mutableStateOf<ItemMetadata?>(null) }
+    var pendingConfirmCost by remember { mutableLongStateOf(0L) }
+    var pendingConfirmQuantity by remember { mutableIntStateOf(1) }
+    var acquiredCelebrationItem by remember { mutableStateOf<ItemMetadata?>(null) }
 
     val categories = listOf(
         "all" to "ВСЕ ТОВАРЫ",
@@ -660,7 +664,11 @@ fun ShopScreen(
                                 val canBuy = canAfford && meetsLevel
 
                                 Button(
-                                    onClick = { onBuy(item.id) },
+                                    onClick = {
+                                        pendingConfirmItem = item
+                                        pendingConfirmCost = effectivePrice.toLong()
+                                        pendingConfirmQuantity = 1
+                                    },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = if (canBuy) amberColor.copy(alpha = 0.25f) else Color.DarkGray.copy(alpha = 0.15f),
                                         disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
@@ -854,9 +862,10 @@ fun ShopScreen(
                 val totalCost = effectiveInspectPrice * buyQuantity.toLong()
                 Button(
                     onClick = {
-                        repeat(buyQuantity) { onBuy(inspect.id) }
+                        pendingConfirmItem = inspect
+                        pendingConfirmCost = totalCost
+                        pendingConfirmQuantity = buyQuantity
                         selectedInspectItem = null
-                        buyQuantity = 1
                     },
                     enabled = (player?.biocoin ?: 0L) >= totalCost,
                     colors = ButtonDefaults.buttonColors(containerColor = amberColor),
@@ -872,4 +881,272 @@ fun ShopScreen(
             }
         )
     }
+
+    // Modal: Confirmation Dialog for Spending Currency
+    if (pendingConfirmItem != null) {
+        val item = pendingConfirmItem!!
+        CurrencySpendConfirmDialog(
+            itemName = if (pendingConfirmQuantity > 1) "${item.name} (${pendingConfirmQuantity} шт)" else item.name,
+            cost = pendingConfirmCost,
+            currencyName = "BioCoins",
+            currentBalance = player?.biocoin ?: 0L,
+            onConfirm = {
+                repeat(pendingConfirmQuantity) { onBuy(item.id) }
+                pendingConfirmItem = null
+                acquiredCelebrationItem = item
+            },
+            onDismiss = {
+                pendingConfirmItem = null
+                pendingConfirmQuantity = 1
+            }
+        )
+    }
+
+    // Modal: Dopamine Celebration Dialog on Acquired Item
+    if (acquiredCelebrationItem != null) {
+        ItemAcquiredCelebrationDialog(
+            item = acquiredCelebrationItem!!,
+            onDismiss = { acquiredCelebrationItem = null }
+        )
+    }
+}
+
+@Composable
+fun CurrencySpendConfirmDialog(
+    itemName: String,
+    cost: Long,
+    currencyName: String = "BioCoins",
+    currentBalance: Long,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val remaining = currentBalance - cost
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "⚠ ПОДТВЕРЖДЕНИЕ ТРАНЗАКЦИИ",
+                    color = Color(0xFFFFB300),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "Вы действительно хотите списать средства со счета терминала?",
+                    color = Color.LightGray,
+                    fontSize = 11.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(CutCornerShape(4.dp))
+                        .background(Color(0xFF0F151C))
+                        .border(1.dp, Color(0xFFFFB300).copy(alpha = 0.5f), CutCornerShape(4.dp))
+                        .padding(10.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("ОБЪЕКТ: $itemName", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f), thickness = 0.5.dp)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Текущий баланс:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("$currentBalance $currencyName", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Стоимость:", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("-$cost $currencyName", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Остаток:", color = if (remaining >= 0) EidosNeon else Color(0xFFFF5252), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("$remaining $currencyName", color = if (remaining >= 0) EidosNeon else Color(0xFFFF5252), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = remaining >= 0,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
+                shape = CutCornerShape(4.dp)
+            ) {
+                Text("ПОДТВЕРДИТЬ", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("ОТМЕНА", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            }
+        },
+        containerColor = Color(0xFF090E14),
+        shape = CutCornerShape(8.dp)
+    )
+}
+
+@Composable
+fun ItemAcquiredCelebrationDialog(
+    item: ItemMetadata,
+    onDismiss: () -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val haptics = remember { io.eidos.zerolayer.ui.utils.HapticFeedbackManager.getInstance(context) }
+    val audio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
+
+    LaunchedEffect(item.id) {
+        haptics.lootLegendary()
+        audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.ITEM_LOOT)
+    }
+
+    val itemRarityColor = rarityColor(item.rarity)
+    val infiniteTransition = rememberInfiniteTransition(label = "dopamine_pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "✨ ПРЕДМЕТ ПОЛУЧЕН! ✨",
+                    color = itemRarityColor,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    "РАСПАКОВКА И ЗАПИСЬ В БАЗУ ДАННЫХ DECK_OS",
+                    color = Color.Gray,
+                    fontSize = 8.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Dopamine Big Item Visual with glowing border
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .graphicsLayer(scaleX = pulseScale, scaleY = pulseScale)
+                        .clip(CutCornerShape(8.dp))
+                        .background(Color(0xFF0A0F16))
+                        .border(2.dp, itemRarityColor.copy(alpha = glowAlpha), CutCornerShape(8.dp))
+                        .shadow(elevation = 12.dp, shape = CutCornerShape(8.dp), ambientColor = itemRarityColor, spotColor = itemRarityColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EidosImage(
+                        resName = item.id,
+                        fallbackIcon = Icons.Default.Star,
+                        borderColor = Color.Transparent,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(10.dp)
+                    )
+                }
+
+                // Item Name & Rarity Badge
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        item.name.uppercase(),
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    EidosRarityBadge(rarity = item.rarity)
+                }
+
+                // Stats preview box
+                if (item.bonusAttack > 0 || item.bonusDefense > 0 || item.bonusLuck > 0) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(CutCornerShape(4.dp))
+                            .background(Color(0xFF101820))
+                            .border(1.dp, itemRarityColor.copy(alpha = 0.3f), CutCornerShape(4.dp))
+                            .padding(vertical = 6.dp, horizontal = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        if (item.bonusAttack > 0) {
+                            Text("⚔️ +${item.bonusAttack} ATK", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        if (item.bonusDefense > 0) {
+                            Text("🛡️ +${item.bonusDefense} DEF", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        if (item.bonusLuck > 0) {
+                            Text("🍀 +${item.bonusLuck} LUCK", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+
+                // Description & Lore
+                Text(
+                    text = item.description,
+                    color = Color.LightGray,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = itemRarityColor),
+                shape = CutCornerShape(4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+            ) {
+                Text(
+                    "📦 ПРИНЯТЬ В ИНВЕНТАРЬ",
+                    color = Color.Black,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        },
+        containerColor = Color(0xFF070B10),
+        shape = CutCornerShape(10.dp),
+        modifier = Modifier.border(1.5.dp, itemRarityColor.copy(alpha = 0.8f), CutCornerShape(10.dp))
+    )
 }

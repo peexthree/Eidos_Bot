@@ -68,6 +68,7 @@ fun PvpScreen(
     var def1 by remember(player) { mutableStateOf(PvpProgram.fromString(player?.defense_program_1)) }
     var def2 by remember(player) { mutableStateOf(PvpProgram.fromString(player?.defense_program_2)) }
     var def3 by remember(player) { mutableStateOf(PvpProgram.fromString(player?.defense_program_3)) }
+    var showSearchConfirmDialog by remember { mutableStateOf(false) }
 
     val amberColor = Color(0xFFFFB300)
     val installedHw = player?.installed_hardware?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
@@ -239,7 +240,7 @@ fun PvpScreen(
                                                 text = "🔍 СКАНИРОВАТЬ СЕТЬ (-50 BC)",
                                                 onClick = {
                                                     haptics.click()
-                                                    onSearchTarget()
+                                                    showSearchConfirmDialog = true
                                                 },
                                                 primaryColor = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
                                                 borderColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
@@ -692,5 +693,19 @@ fun PvpScreen(
                 }
             }
         }
+    }
+
+    if (showSearchConfirmDialog) {
+        CurrencySpendConfirmDialog(
+            itemName = "Сканирование PvP-сети на поиск уязвимого узла",
+            cost = 50L,
+            currencyName = "BioCoins",
+            currentBalance = player?.biocoin ?: 0L,
+            onConfirm = {
+                showSearchConfirmDialog = false
+                onSearchTarget()
+            },
+            onDismiss = { showSearchConfirmDialog = false }
+        )
     }
 }

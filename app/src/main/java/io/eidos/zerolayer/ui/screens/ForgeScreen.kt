@@ -323,6 +323,7 @@ fun SynthesisTab(
     onCraft: (String) -> Unit
 ) {
     var subTab by remember { mutableIntStateOf(0) } // 0: РАЗБОР И СЛИЯНИЕ, 1: КОВКА РЕЦЕПТОВ
+    var pendingCraftRecipe by remember { mutableStateOf<Recipe?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Sub-navigation pills
@@ -508,7 +509,7 @@ fun SynthesisTab(
                                 }
                             }
                             Button(
-                                onClick = { onCraft(recipe.id) },
+                                onClick = { pendingCraftRecipe = recipe },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (hasAllIngredients) EidosCyan.copy(alpha = 0.25f) else Color.DarkGray.copy(alpha = 0.3f)
                                 ),
@@ -531,6 +532,44 @@ fun SynthesisTab(
                 }
             }
         }
+    }
+
+    val activeRecipeToCraft = pendingCraftRecipe
+    if (activeRecipeToCraft != null) {
+        val recipe = activeRecipeToCraft
+        AlertDialog(
+            onDismissRequest = { pendingCraftRecipe = null },
+            title = {
+                Text("⚠ ПОДТВЕРЖДЕНИЕ СИНТЕЗА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+            },
+            text = {
+                Text(
+                    "Вы действительно хотите синтезировать «${recipe.name}» и списать требуемые компоненты со склада?",
+                    color = Color.LightGray,
+                    fontSize = 11.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onCraft(recipe.id)
+                        pendingCraftRecipe = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
+                    shape = CutCornerShape(4.dp)
+                ) {
+                    Text("СИНТЕЗИРОВАТЬ", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCraftRecipe = null }) {
+                    Text("ОТМЕНА", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+            },
+            containerColor = Color(0xFF090E14),
+            shape = CutCornerShape(8.dp)
+        )
     }
 }
 
@@ -694,7 +733,7 @@ fun SocketModdingTab(
                                     }
                                 }
                                 LinearProgressIndicator(
-                                    progress = pct,
+                                    progress = { pct },
                                     color = if (isLocked) EidosCyan else if (isPerfect) EidosNeon else EidosCyan,
                                     trackColor = Color.DarkGray,
                                     modifier = Modifier.fillMaxWidth().height(4.dp).padding(top = 2.dp)
