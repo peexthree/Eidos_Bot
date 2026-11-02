@@ -29,6 +29,8 @@ import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
+import io.eidos.zerolayer.ui.components.VideoBackground
+import androidx.compose.ui.draw.alpha
 import io.eidos.zerolayer.ui.components.CyberParticleOverlay
 import io.eidos.zerolayer.ui.components.ParticlePreset
 import io.eidos.zerolayer.ui.utils.EidosAudioManager
@@ -128,11 +130,12 @@ fun PvpScreen(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            // Layer 0: New PNG Background
+            // Layer 0: Hexagonal Cyber Grid Live Video & PNG Fallback
+            VideoBackground(resName = "bg_pvp", modifier = Modifier.fillMaxSize())
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_pvp),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().alpha(0.25f),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 alignment = Alignment.Center
             )

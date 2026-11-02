@@ -62,6 +62,8 @@ import io.eidos.zerolayer.ui.theme.EidosOrange
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
 import io.eidos.zerolayer.ui.components.EidosStatBar
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
+import io.eidos.zerolayer.ui.components.VideoBackground
+import androidx.compose.ui.draw.alpha
 import io.eidos.zerolayer.ui.components.CyberParticleOverlay
 import io.eidos.zerolayer.ui.components.ParticlePreset
 import io.eidos.zerolayer.ui.utils.AbyssSeedRng
@@ -130,6 +132,17 @@ fun RaidScreen(
     var prevCoins by remember { mutableLongStateOf(session?.buffer_coins ?: 0L) }
     var prevXp by remember { mutableLongStateOf(session?.buffer_xp ?: 0L) }
     var prevItemsStr by remember { mutableStateOf(session?.buffer_items ?: "") }
+    var prevKills by remember { mutableIntStateOf(session?.kills ?: 0) }
+    var showVictoryCinematic by remember { mutableStateOf(false) }
+    var showOverdriveCinematic by remember { mutableStateOf(false) }
+
+    LaunchedEffect(session?.kills) {
+        val currentKills = session?.kills ?: 0
+        if (currentKills > prevKills && currentKills > 0) {
+            showVictoryCinematic = true
+        }
+        prevKills = currentKills
+    }
 
     // Visual Combat Juice: Card Shake, Screen Flash, Floating Damage
     val cardShakeX = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -266,10 +279,11 @@ fun RaidScreen(
         containerColor = Color.Black
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
+            VideoBackground(resName = "bg_abyss", modifier = Modifier.fillMaxSize())
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_null_layer),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().alpha(0.35f),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 alignment = Alignment.Center
             )
@@ -470,7 +484,10 @@ fun RaidScreen(
                             onScanSector = onScanSector,
                             onDefend = onDefend,
                             onUseAbility = onUseAbility,
-                            onTriggerOverdrive = onTriggerOverdrive,
+                            onTriggerOverdrive = {
+                                showOverdriveCinematic = true
+                                onTriggerOverdrive()
+                            },
                             onBoostOvercharge = onBoostOvercharge,
                             onUseConsumable = { itemId ->
                                 inventory.find { it.item_id == itemId }?.let { onUseConsumable(it) }
@@ -585,6 +602,80 @@ fun RaidScreen(
         )
     }
 
+    if (showVictoryCinematic) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(2200)
+            showVictoryCinematic = false
+        }
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showVictoryCinematic = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .clickable { showVictoryCinematic = false },
+                contentAlignment = Alignment.Center
+            ) {
+                VideoBackground(resName = "combat_victory", modifier = Modifier.fillMaxSize())
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 56.dp)
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .border(1.dp, EidosNeon, CutCornerShape(4.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "💥 ЦЕЛЬ НЕЙТРАЛИЗОВАНА // СИГНАЛ ВРАГА РАСТВОРЕН 💥",
+                        color = EidosNeon,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
+
+    if (showOverdriveCinematic) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(2200)
+            showOverdriveCinematic = false
+        }
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showOverdriveCinematic = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .clickable { showOverdriveCinematic = false },
+                contentAlignment = Alignment.Center
+            ) {
+                VideoBackground(resName = "overdrive_activation", modifier = Modifier.fillMaxSize())
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 56.dp)
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .border(1.dp, Color(0xFFFFD700), CutCornerShape(4.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "⚡ ОВЕРДРАЙВ 100%: ВСПЛЕСК МОЩНОСТИ ЯДРА ⚡",
+                        color = Color(0xFFFFD700),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
+
     if (inspectVillain != null) {
         EnemyInspectModal(
             villain = inspectVillain!!,
@@ -647,6 +738,14 @@ fun DeathScreenOverlay(
                     .border(BorderStroke(3.dp, Color(0xFFFF0055).copy(alpha = 0.85f)))
                     .padding(20.dp)
             ) {
+                // Neural Interface Critical Signal Failure Video
+                VideoBackground(resName = "death_glitch", modifier = Modifier.fillMaxSize())
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.65f))
+                )
+
                 // CRT Scanlines Canvas Overlay
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val lineSpacing = 6.dp.toPx()

@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -146,13 +147,15 @@ fun HubScreen(
                     )
                 )
         ) {
+            VideoBackground(resName = "bg_hub", modifier = Modifier.fillMaxSize())
+
             val bgPainter = runCatching { androidx.compose.ui.res.painterResource(id = R.drawable.bg_main) }.getOrNull()
 
             if (bgPainter != null) {
                 androidx.compose.foundation.Image(
                     painter = bgPainter,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().alpha(0.25f),
                     contentScale = ContentScale.Crop,
                     alignment = Alignment.Center
                 )

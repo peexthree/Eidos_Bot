@@ -39,6 +39,7 @@ import io.eidos.zerolayer.ui.theme.*
 import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
+import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.EidosGlassCard
 import io.eidos.zerolayer.ui.components.EidosRarityBadge
@@ -1052,11 +1053,15 @@ fun ItemAcquiredCelebrationDialog(
             }
         },
         text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                VideoBackground(resName = "gacha_open", modifier = Modifier.matchParentSize())
+                Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.70f)))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                 // Dopamine Big Item Visual with glowing border
                 Box(
                     modifier = Modifier
@@ -1126,8 +1131,9 @@ fun ItemAcquiredCelebrationDialog(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
-        },
-        confirmButton = {
+        }
+    },
+    confirmButton = {
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(containerColor = itemRarityColor),

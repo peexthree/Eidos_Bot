@@ -33,6 +33,8 @@ import io.eidos.zerolayer.ui.theme.EidosRed
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
+import io.eidos.zerolayer.ui.components.VideoBackground
+import androidx.compose.ui.draw.alpha
 import io.eidos.zerolayer.ui.components.CyberParticleOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.ParticlePreset
@@ -124,11 +126,12 @@ fun ForgeScreen(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            // Background and VFX
+            // Background and VFX: Living Plasma Reactor
+            VideoBackground(resName = "bg_forge", modifier = Modifier.fillMaxSize())
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_forge),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().alpha(0.35f),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 alignment = Alignment.Center
             )

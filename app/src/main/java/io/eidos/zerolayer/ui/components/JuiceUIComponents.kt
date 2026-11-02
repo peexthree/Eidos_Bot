@@ -638,6 +638,13 @@ fun LevelUpModalDialog(
                 .clickable(onClick = {}),
             contentAlignment = Alignment.Center
         ) {
+            VideoBackground(resName = "level_up", modifier = Modifier.fillMaxSize())
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.65f))
+            )
+
             // Rotating Cosmic Aura / Starburst
             Canvas(
                 modifier = Modifier
