@@ -541,6 +541,33 @@ object SupabaseClientManager {
     }
 
     /**
+     * Update `is_equipped` flag for an item in Supabase `app_inventory`.
+     */
+    suspend fun updateInventoryItemEquipped(playerId: String, itemId: String, isEquipped: Boolean): Boolean = withContext(Dispatchers.IO) {
+        if (!isConfigured()) return@withContext false
+        val validPlayerId = if (playerId.length == 36 && playerId.contains("-")) playerId else cachedPlayerUuid
+        if (validPlayerId.isNullOrBlank()) return@withContext false
+        try {
+            val url = "$baseUrl/rest/v1/app_inventory?player_id=eq.$validPlayerId&item_id=eq.$itemId"
+            val updateJson = """{"is_equipped":$isEquipped}"""
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", apiKey)
+                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .patch(updateJson.toRequestBody("application/json".toMediaType()))
+                .build()
+            httpClient.newCall(request).execute().use { resp ->
+                return@withContext resp.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("SUPABASE", "updateInventoryItemEquipped Exception: ${e.message}")
+        }
+        return@withContext false
+    }
+
+    /**
      * Fetch player inventory items from `app_inventory`.
      */
     suspend fun fetchInventory(playerId: String): List<SupabaseInventoryItem> = withContext(Dispatchers.IO) {

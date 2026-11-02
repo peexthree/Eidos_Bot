@@ -25,6 +25,10 @@ CREATE POLICY "Players can read and manage their own inventory"
     USING (auth.uid()::text = player_id)
     WITH CHECK (auth.uid()::text = player_id);
 
+-- Explicit public update policy for equipment status synchronization
+DROP POLICY IF EXISTS "Allow public update app_inventory" ON public.app_inventory;
+CREATE POLICY "Allow public update app_inventory" ON public.app_inventory FOR UPDATE USING (true);
+
 CREATE POLICY "Players can manage their own raid logs"
     ON public.app_raid_logs
     FOR ALL

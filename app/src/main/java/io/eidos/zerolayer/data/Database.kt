@@ -111,6 +111,15 @@ interface EidosDao {
 
     @Query("SELECT COUNT(*) FROM radio_messages WHERE uid = :uid AND isClaimed = 0")
     fun getUnclaimedMessagesCountFlow(uid: Long): Flow<Int>
+
+    @Query("SELECT * FROM user_equipment WHERE player_uid = :uid")
+    suspend fun getUserEquipment(uid: Long): UserEquipment?
+
+    @Query("SELECT * FROM user_equipment WHERE player_uid = :uid")
+    fun getUserEquipmentFlow(uid: Long): Flow<UserEquipment?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveUserEquipment(equipment: UserEquipment)
 }
 
 val MIGRATION_10_11 = object : Migration(10, 11) {
@@ -120,9 +129,15 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
     }
 }
 
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS user_equipment (player_uid INTEGER NOT NULL PRIMARY KEY, head TEXT, armor TEXT, weapon TEXT, chip TEXT, eidos_shard TEXT)")
+    }
+}
+
 @Database(
-    entities = [Player::class, InventoryItem::class, RaidSession::class, GameLog::class, VillainStatic::class, GameContent::class, Grave::class, BestiaryEntry::class, RadioMessageEntity::class],
-    version = 11,
+    entities = [Player::class, InventoryItem::class, RaidSession::class, GameLog::class, VillainStatic::class, GameContent::class, Grave::class, BestiaryEntry::class, RadioMessageEntity::class, UserEquipment::class],
+    version = 12,
     exportSchema = false
 )
 abstract class EidosDatabase : RoomDatabase() {
@@ -139,7 +154,7 @@ abstract class EidosDatabase : RoomDatabase() {
                     EidosDatabase::class.java,
                     "eidos_database"
                 )
-                .addMigrations(MIGRATION_10_11)
+                .addMigrations(MIGRATION_10_11, MIGRATION_11_12)
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 INSTANCE = instance

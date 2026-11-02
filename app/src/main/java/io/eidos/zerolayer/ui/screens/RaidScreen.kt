@@ -135,9 +135,24 @@ fun RaidScreen(
     var floatingDamageText by remember { mutableStateOf<String?>(null) }
     var floatingDamageColor by remember { mutableStateOf(EidosCyan) }
     var floatingDamageScale by remember { mutableFloatStateOf(1f) }
+    var activeProcs by remember { mutableStateOf<List<io.eidos.zerolayer.data.EquipmentProcEvent>>(emptyList()) }
+    var latestProc by remember { mutableStateOf<io.eidos.zerolayer.data.EquipmentProcEvent?>(null) }
+
+    LaunchedEffect(activeProcs) {
+        if (activeProcs.isNotEmpty()) {
+            kotlinx.coroutines.delay(2500)
+            activeProcs = emptyList()
+            latestProc = null
+        }
+    }
 
     LaunchedEffect(combatEventFlow) {
         combatEventFlow?.collect { event ->
+            if (event.triggeredProcs.isNotEmpty()) {
+                activeProcs = event.triggeredProcs
+                latestProc = event.triggeredProcs.lastOrNull()
+                haptics.glitchPulse()
+            }
             if (event.isPlayerHit) {
                 screenFlashAlpha.snapTo(0.6f)
                 screenFlashAlpha.animateTo(0f, tween(300))
@@ -412,6 +427,9 @@ fun RaidScreen(
                                 player = player,
                                 anomalyData = anomalyData,
                                 logs = logs,
+                                equippedItems = inventory.filter { it.is_equipped },
+                                activeProcs = activeProcs,
+                                latestProc = latestProc,
                                 onTriggerHack = { showMinigame = true },
                                 onInspectVillain = { villain -> inspectVillain = villain }
                             )
@@ -578,7 +596,7 @@ fun RaidScreen(
     }
 
     if (deathReport != null) {
-        DeathReportModal(
+        DeathScreenOverlay(
             report = deathReport,
             onDismiss = onClearDeathReport
         )
@@ -586,102 +604,283 @@ fun RaidScreen(
 }
 
 @Composable
-fun DeathReportModal(
+fun DeathScreenOverlay(
     report: io.eidos.zerolayer.data.GameRepository.DeathReport,
     onDismiss: () -> Unit
 ) {
     val itemsCount = report.lostItems.split(",").filter { it.isNotBlank() }.size
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            color = Color(0xFF0D0305),
-            border = BorderStroke(2.dp, Color(0xFFFF003C)),
-            shape = CutCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().padding(12.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(18.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "💀 НЕЙРО-СБОЙ // СИГНАЛ УТРАЧЕН",
-                    color = Color(0xFFFF003C),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Связь с оператором разорвана на глубине ${report.depth}м.",
-                    color = Color.LightGray,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(14.dp))
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val haptics = remember { io.eidos.zerolayer.ui.utils.HapticFeedbackManager.getInstance(context) }
+    val audio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
 
-                Surface(
-                    color = Color(0xFF16060A),
-                    border = BorderStroke(1.dp, Color(0xFFFF003C).copy(alpha = 0.4f)),
-                    shape = CutCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("🪙 ПОТЕРЯНО В БУФЕРЕ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                            Text("-${report.lostCoins} BC", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("🎒 СБРОШЕНО ПРЕДМЕТОВ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                            Text("$itemsCount шт.", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("🪦 МОГИЛА В СЛОЕ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                            Text(
-                                if (report.graveCreated) "СОХРАНЕНА" else "РАССЕЯНА",
-                                color = if (report.graveCreated) Color(0xFF00E5FF) else Color.Gray,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("🛠 ИЗНОС СНАРЯЖЕНИЯ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                            Text("-5% ПРОЧНОСТИ", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        }
+    LaunchedEffect(Unit) {
+        audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.ERROR_GLITCH)
+        haptics.glitchPulse()
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "crt_flicker")
+    val crtFlicker by infiniteTransition.animateFloat(
+        initialValue = 0.88f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(120, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "crt"
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            color = Color(0xFF020304).copy(alpha = crtFlicker),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(BorderStroke(3.dp, Color(0xFFFF0055).copy(alpha = 0.85f)))
+                    .padding(20.dp)
+            ) {
+                // CRT Scanlines Canvas Overlay
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val lineSpacing = 6.dp.toPx()
+                    var y = 0f
+                    while (y < size.height) {
+                        drawLine(
+                            color = Color(0xFFFF0055).copy(alpha = 0.04f),
+                            start = androidx.compose.ui.geometry.Offset(0f, y),
+                            end = androidx.compose.ui.geometry.Offset(size.width, y),
+                            strokeWidth = 1.5f
+                        )
+                        y += lineSpacing
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF003C)),
-                    shape = CutCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth().height(44.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        "ВОССТАНОВИТЬ СВЯЗЬ (В ХАБ)",
-                        color = Color.White,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Large Monospace Title
+                        Text(
+                            text = "[ 💀 СИГНАЛ ПОТЕРЯН // АВАРИЙНЫЙ СБРОС СОЗНАНИЯ ]",
+                            color = Color(0xFFFF0055),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 24.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Subtitle EVA-09
+                        Text(
+                            text = "EVA-09: «Критическая десинхронизация. Аварийный сброс сознания в Хаб...»",
+                            color = Color(0xFFFF5252).copy(alpha = 0.85f),
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Digital disintegration art
+                        Box(
+                            modifier = Modifier
+                                .size(105.dp)
+                                .clip(CutCornerShape(8.dp))
+                                .background(Color(0xFF140207))
+                                .border(1.5.dp, Color(0xFFFF0055), CutCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EidosImage(
+                                resName = "raid_death",
+                                fallbackIcon = Icons.Default.Warning,
+                                borderColor = Color.Transparent,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 4-STEP PENALTY REPORT
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // 1. Buffer Incineration
+                            Surface(
+                                color = Color(0xFF130408),
+                                border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "1. БУФЕР РЕЙДА:",
+                                            color = Color.LightGray,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .background(Color(0xFFFF0055).copy(alpha = 0.25f))
+                                                .border(1.dp, Color(0xFFFF0055), CutCornerShape(2.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                "[ БУФЕР УНИЧТОЖЕН: -100% ]",
+                                                color = Color(0xFFFF0055),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "🪙 -${report.lostCoins} BC   ⚡ -${report.lostXp} XP   🎒 -${itemsCount} предметов",
+                                        color = Color.Gray,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                                    )
+                                }
+                            }
+
+                            // 2. EMP Durability Strike
+                            Surface(
+                                color = Color(0xFF130408),
+                                border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            "2. ЭМИ-УДАР ПО СНАРЯЖЕНИЮ:",
+                                            color = Color.LightGray,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Text(
+                                            "-${report.durabilityPenaltyPercent}% ПРОЧНОСТИ",
+                                            color = Color(0xFFFF0055),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                    if (report.brokenItems.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "🚨 [CRITICAL ERROR: ${report.brokenItems.joinToString()} СЛОМАНО] — урон снижен до базовых 5 ATK!",
+                                            color = Color(0xFFFF5252),
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 3. Grave creation
+                            Surface(
+                                color = Color(0xFF041218),
+                                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.4f)),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        "3. МОГИЛА ОПЕРАТОРА (СЛОЙ ${report.depth}м):",
+                                        color = Color(0xFF00E5FF),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (report.graveCreated) {
+                                            "Ваше цифровое тело осталось на глубине ${report.depth}м. Другие Операторы могут разграбить ваши останки."
+                                        } else {
+                                            "Останки рассеяны в информационном шуме Нулевого Слоя."
+                                        },
+                                        color = Color.LightGray,
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+
+                            // 4. Critical Rollback to Hub
+                            Surface(
+                                color = Color(0xFF130408),
+                                border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        "4. АВАРИЙНЫЙ ОТКАТ В ХАБ:",
+                                        color = Color.LightGray,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "⚡ Сигнал восстановлен до 1%. Овердрайв сброшен до 0%.",
+                                        color = Color.Gray,
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Full-width Return Button
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF0055)),
+                        shape = CutCornerShape(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text(
+                            text = "[ ⚡ АВАРИЙНАЯ ПЕРЕЗАГРУЗКА В ХАБ ]",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
             }
         }
@@ -995,6 +1194,9 @@ fun CombatArenaCard(
     session: RaidSession?,
     player: io.eidos.zerolayer.data.Player?,
     enemyId: String,
+    equippedItems: List<InventoryItem> = emptyList(),
+    activeProcs: List<io.eidos.zerolayer.data.EquipmentProcEvent> = emptyList(),
+    latestProc: io.eidos.zerolayer.data.EquipmentProcEvent? = null,
     onInspectVillain: (io.eidos.zerolayer.data.GameVillainData) -> Unit
 ) {
     val enemyHp = session?.current_enemy_hp ?: 0
@@ -1030,6 +1232,29 @@ fun CombatArenaCard(
             .replace("🧠", "").replace("⬛", "").replace("💀", "").replace("🏗", "")
             .replace("🍽", "").replace("🛡", "").replace("⚛️", "").replace("🤖", "")
             .replace("🌌", "").replace("🌀", "").trim()
+    }
+
+    val passiveDefMap = remember {
+        mapOf(
+            "vampire_visor" to ("🩸 ВИЗОР ВАМПИРА" to Color(0xFF00FFCC)),
+            "relic_vampire" to ("👑 КОРОНА КРОВИ" to Color(0xFF00FFCC)),
+            "architect_mask" to ("🛡️ ЛИЦО АРХИТЕКТОРА" to Color(0xFF00E5FF)),
+            "tactical_helmet" to ("⚡ ТАКТИЧЕСКИЙ ШЛЕМ" to Color(0xFF00E5FF)),
+            "cyber_halo" to ("✨ КИБЕР-НИМБ" to Color(0xFFFFD700)),
+            "aegis" to ("🛡️ ЭГИДА" to Color(0xFF00E5FF)),
+            "overclock_crown" to ("⚡ ВЕНЕЦ РАЗГОНА" to Color(0xFFFF0055)),
+            "credit_slicer" to ("💳 РЕЗАК КРЕДИТОВ" to Color(0xFFFFD700)),
+            "grandfather_paradox" to ("⏳ ПАРАДОКС ДЕДА" to Color(0xFFFF0055)),
+            "thermonuclear_shroud" to ("💥 ТЕРМОЯДЕРНЫЙ САВАН" to Color(0xFFFF0055))
+        )
+    }
+
+    val activeEquippedPassives = remember(equippedItems) {
+        equippedItems.mapNotNull { item ->
+            passiveDefMap[item.item_id]?.let { (title, color) ->
+                Triple(item.item_id, title, color)
+            }
+        }
     }
 
     Box(
@@ -1079,6 +1304,53 @@ fun CombatArenaCard(
                 }
             }
 
+            // 22.dp Micro-Badges Row for Active Passives
+            if (activeEquippedPassives.isNotEmpty()) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(22.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items(activeEquippedPassives.size) { idx ->
+                        val (itemId, title, color) = activeEquippedPassives[idx]
+                        val isTriggered = activeProcs.any { it.itemName == itemId }
+                        val infiniteTransition = rememberInfiniteTransition(label = "pulse_$itemId")
+                        val glowAlpha by infiniteTransition.animateFloat(
+                            initialValue = 0.35f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(350, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "alpha_$itemId"
+                        )
+                        val currentBorder = if (isTriggered) color.copy(alpha = glowAlpha) else color.copy(alpha = 0.35f)
+                        val currentBg = if (isTriggered) color.copy(alpha = 0.25f * glowAlpha) else Color.Black.copy(alpha = 0.6f)
+
+                        Box(
+                            modifier = Modifier
+                                .height(20.dp)
+                                .padding(horizontal = 2.dp)
+                                .clip(CutCornerShape(3.dp))
+                                .background(currentBg)
+                                .border(1.dp, currentBorder, CutCornerShape(3.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = title,
+                                color = if (isTriggered) color else color.copy(alpha = 0.8f),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+            }
+
             // Prominent Clickable Monster Art (Takes major center stage)
             Box(
                 modifier = Modifier
@@ -1098,6 +1370,43 @@ fun CombatArenaCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
+
+                // Pop-up animated banner for triggered perk
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = latestProc != null,
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 22.dp)
+                        .fillMaxWidth()
+                ) {
+                    latestProc?.let { proc ->
+                        val (bannerBg, bannerBorder) = when (proc.colorType) {
+                            io.eidos.zerolayer.data.ProcColorType.HEAL_NEON -> Color(0xFF00382B) to Color(0xFF00FFCC)
+                            io.eidos.zerolayer.data.ProcColorType.CURSED_RED -> Color(0xFF38000F) to Color(0xFFFF0055)
+                            io.eidos.zerolayer.data.ProcColorType.SHIELD_CYAN -> Color(0xFF002B3D) to Color(0xFF00E5FF)
+                            io.eidos.zerolayer.data.ProcColorType.GOLD_CRIT -> Color(0xFF3D3200) to Color(0xFFFFD700)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(bannerBg.copy(alpha = 0.95f))
+                                .border(1.dp, bannerBorder)
+                                .padding(vertical = 4.dp, horizontal = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = proc.effectText,
+                                color = bannerBorder,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
 
                 // Bottom Holographic Badge: Tap to Inspect
                 Box(
@@ -1304,6 +1613,9 @@ fun EventCard(
     player: io.eidos.zerolayer.data.Player?,
     anomalyData: io.eidos.zerolayer.data.GameRepository.AnomalyEvent?,
     logs: List<GameLog>,
+    equippedItems: List<InventoryItem> = emptyList(),
+    activeProcs: List<io.eidos.zerolayer.data.EquipmentProcEvent> = emptyList(),
+    latestProc: io.eidos.zerolayer.data.EquipmentProcEvent? = null,
     onTriggerHack: () -> Unit = {},
     onInspectVillain: (io.eidos.zerolayer.data.GameVillainData) -> Unit = {}
 ) {
@@ -1313,6 +1625,9 @@ fun EventCard(
             session = session,
             player = player,
             enemyId = enemyId,
+            equippedItems = equippedItems,
+            activeProcs = activeProcs,
+            latestProc = latestProc,
             onInspectVillain = onInspectVillain
         )
     } else {

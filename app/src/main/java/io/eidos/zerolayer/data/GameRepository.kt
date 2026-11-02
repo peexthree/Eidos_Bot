@@ -60,8 +60,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     data class DeathReport(
         val depth: Int,
         val lostCoins: Long,
-        val lostItems: String,
-        val graveCreated: Boolean
+        val lostXp: Long = 0L,
+        val lostItems: String = "",
+        val graveCreated: Boolean = false,
+        val brokenItems: List<String> = emptyList(),
+        val durabilityPenaltyPercent: Int = 10
     )
     val deathReportFlow = MutableStateFlow<DeathReport?>(null)
     fun clearDeathReport() { deathReportFlow.value = null }
@@ -1340,6 +1343,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun getPlayerSync(uid: Long): Player? {
         val player = dao.getPlayer(uid)
         if (player != null) {
+            loadEquipment(uid)
             if (!overdriveChargeMap.containsKey(uid)) {
                 overdriveChargeMap[uid] = player.overdriveCharge
                 _overdriveChargeFlow.value = player.overdriveCharge
@@ -1523,6 +1527,69 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
+    suspend fun syncUserEquipmentToDb(uid: Long) {
+        val inventory = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
+        val head = inventory.find { it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "head" }?.item_id
+        val armor = inventory.find { it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "armor" }?.item_id
+        val weapon = inventory.find { it.slot == "weapon" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "weapon" }?.item_id
+        val chips = inventory.filter { it.slot == "chip" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "chip" }
+        val chipStr = if (chips.isNotEmpty()) chips.joinToString(",") { it.item_id } else null
+        val shard = inventory.find { it.slot == "eidos_shard" || it.item_id == "eidos_shard" }?.item_id
+
+        val equipment = UserEquipment(
+            player_uid = uid,
+            head = head,
+            armor = armor,
+            weapon = weapon,
+            chip = chipStr,
+            eidos_shard = shard
+        )
+        dao.saveUserEquipment(equipment)
+    }
+
+    suspend fun loadEquipment(uid: Long): UserEquipment? {
+        val userEq = dao.getUserEquipment(uid)
+        if (userEq != null) {
+            val inventory = dao.getInventoryFlow(uid).first()
+            val chipList = userEq.chip?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+            inventory.forEach { invItem ->
+                val shouldBeEquipped = invItem.item_id == userEq.head ||
+                        invItem.item_id == userEq.armor ||
+                        invItem.item_id == userEq.weapon ||
+                        invItem.item_id == userEq.eidos_shard ||
+                        chipList.contains(invItem.item_id)
+                if (invItem.is_equipped != shouldBeEquipped) {
+                    val targetSlot = when {
+                        invItem.item_id == userEq.head -> "head"
+                        invItem.item_id == userEq.armor -> "armor"
+                        invItem.item_id == userEq.weapon -> "weapon"
+                        invItem.item_id == userEq.eidos_shard -> "eidos_shard"
+                        chipList.contains(invItem.item_id) -> "chip"
+                        else -> null
+                    }
+                    dao.updateInventoryItem(invItem.copy(is_equipped = shouldBeEquipped, slot = if (shouldBeEquipped) targetSlot else null))
+                }
+            }
+        }
+        return userEq
+    }
+
+    suspend fun unequipSlot(uid: Long, slot: String) {
+        val inventory = dao.getInventoryFlow(uid).first()
+        val itemsInSlot = inventory.filter {
+            it.is_equipped && (it.slot == slot || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == slot)
+        }
+        val player = dao.getPlayer(uid)
+        itemsInSlot.forEach { item ->
+            dao.updateInventoryItem(item.copy(is_equipped = false, slot = null))
+            SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), item.item_id, false)
+        }
+        syncUserEquipmentToDb(uid)
+        if (player != null) dao.updatePlayer(player.copy(state_version = player.state_version + 1))
+        log(uid, "Слот $slot очищен.", "info")
+        capPlayerHp(uid)
+    }
+
     suspend fun equipItem(uid: Long, item: InventoryItem) {
         val player = dao.getPlayer(uid) ?: return
         val meta = getItemMetadata(item.item_id)
@@ -1560,6 +1627,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             if (equippedChips.size >= 4) {
                 val oldestChip = equippedChips.first()
                 dao.updateInventoryItem(oldestChip.copy(is_equipped = false, slot = null))
+                SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), oldestChip.item_id, false)
             }
         } else {
             inventory.forEach { invItem ->
@@ -1568,12 +1636,15 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     val invSlot = invItem.slot ?: ItemSlotUtils.getSlotForItem(invItem.item_id, invMeta)
                     if (invSlot == targetSlot) {
                         dao.updateInventoryItem(invItem.copy(is_equipped = false, slot = null))
+                        SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), invItem.item_id, false)
                     }
                 }
             }
         }
 
         dao.updateInventoryItem(item.copy(is_equipped = true, slot = targetSlot))
+        syncUserEquipmentToDb(uid)
+        SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), item.item_id, true)
         dao.updatePlayer(player.copy(state_version = player.state_version + 1))
         log(uid, "Надето: ${meta?.name ?: item.item_id} в слот $targetSlot (Lvl $reqLevel).", "info")
         capPlayerHp(uid)
@@ -1582,6 +1653,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun unequipItem(uid: Long, item: InventoryItem) {
         val player = dao.getPlayer(uid)
         dao.updateInventoryItem(item.copy(is_equipped = false, slot = null))
+        syncUserEquipmentToDb(uid)
+        SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), item.item_id, false)
         if (player != null) dao.updatePlayer(player.copy(state_version = player.state_version + 1))
         log(uid, "Предмет снят.", "info")
         capPlayerHp(uid)
@@ -2363,6 +2436,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val isCursedWeapon = weaponItem != null && getItemMetadata(weaponItem.item_id)?.rarity == "cursed"
 
         val nextTurn = session.combat_turn + 1
+        val turnProcs = mutableListOf<EquipmentProcEvent>()
+
         val aiAction = io.eidos.zerolayer.domain.combat.CombatEngine.evaluateMonsterAi(
             villainId = villain.id,
             combatTurn = nextTurn,
@@ -2376,8 +2451,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         if (!isGuarding) {
             if (aiAction.isPhaseEvading) {
                 log(uid, aiAction.logMessage ?: "Враг уклонился от физического удара!", "info")
-                _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true))
+                _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true, triggeredProcs = turnProcs.toList()))
             } else {
+                val isWeaponBroken = weaponItem != null && weaponItem.durability <= 0f
                 val weaponMultiplier = if (weaponItem != null && weaponItem.durability > 0f) {
                     getItemMetadata(weaponItem.item_id)?.multiplier ?: 1.0f
                 } else {
@@ -2385,7 +2461,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 }
 
                 val effectiveEnemyDef = villain.def + aiAction.selfDefBonus
-                var baseDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateBasePlayerDamage(activeStats.attack, weaponMultiplier, effectiveEnemyDef)
+                var baseDamage = if (isWeaponBroken) {
+                    log(uid, "🚨 [CRITICAL ERROR: ОРУЖИЕ СЛОМАНО]: Урон снижен до базовых 5 ATK!", "error")
+                    5
+                } else {
+                    io.eidos.zerolayer.domain.combat.CombatEngine.calculateBasePlayerDamage(activeStats.attack, weaponMultiplier, effectiveEnemyDef)
+                }
 
                 // Cursed weapon credit_slicer logic
                 if (weaponItem?.item_id == "credit_slicer") {
@@ -2395,6 +2476,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         val bonusAtk = (burned * 1.5).toInt()
                         baseDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateBasePlayerDamage(activeStats.attack + bonusAtk, weaponMultiplier, effectiveEnemyDef)
                         log(uid, "💸 [Кредитный Резак]: Сожжено -$burned BC для форсированного удара (+$bonusAtk ATK)!", "combat")
+                        turnProcs.add(EquipmentProcEvent("credit_slicer", "💳 РЕЗАК КРЕДИТОВ: -$burned BC [+$bonusAtk ATK]", ProcColorType.GOLD_CRIT))
                     } else {
                         baseDamage = 5
                     }
@@ -2439,15 +2521,6 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 val critTag = if (isCrit) " [CRITICAL_HIT]" else ""
                 log(uid, "НЕЙРО-ВСПЛЕСК: -$finalPlayerDamage Сигнала у ${villain.name}$critTag.", "combat")
 
-                // Emit combat visual event for player hit
-                _combatEventFlow.tryEmit(CombatVisualEvent(
-                    damage = finalPlayerDamage,
-                    isCrit = isCrit,
-                    isOverdrive = false,
-                    isDodge = false,
-                    isPlayerHit = false
-                ))
-
                 // Core Guardian reflection
                 if (villain.id == 398 && finalPlayerDamage > 0) {
                     val reflected = maxOf(1, (finalPlayerDamage * 0.15f).toInt())
@@ -2474,6 +2547,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     val costHp = maxOf(1, (player.hp * 0.02).toInt())
                     dao.updatePlayer(player.copy(hp = maxOf(1, player.hp - costHp)))
                     log(uid, "⚡ [Венец Разгона]: Крит стоил -$costHp Сигнала.", "error")
+                    turnProcs.add(EquipmentProcEvent("overclock_crown", "⚡ ВЕНЕЦ РАЗГОНА: x2 КРИТ [-2% HP]", ProcColorType.CURSED_RED))
                 }
 
                 // Weapon durability reduction
@@ -2492,14 +2566,26 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     val newSig = minOf(100, session.signal + healSignal)
                     dao.insertRaidSession(session.copy(signal = newSig))
                     log(uid, "👑 [Корона Истинной Крови]: Восстановлено +2% ($healSignal HP) Сигнала при ударе!", "info")
+                    turnProcs.add(EquipmentProcEvent("relic_vampire", "🩸 КОРОНА КРОВИ: +2% (+$healSignal HP) СИГНАЛА", ProcColorType.HEAL_NEON))
                 }
                 if (player.skill_berserk_3 == 1) {
                     val heal = maxOf(1, (finalPlayerDamage * 0.05).toInt())
                     dao.updatePlayer(player.copy(hp = minOf(player.max_hp, player.hp + heal)))
                     log(uid, "🧛 [Вампиризм]: Восстановлено +$heal Сигнала.", "info")
                 }
+
+                // Emit combat visual event for player hit
+                _combatEventFlow.tryEmit(CombatVisualEvent(
+                    damage = finalPlayerDamage,
+                    isCrit = isCrit,
+                    isOverdrive = false,
+                    isDodge = false,
+                    isPlayerHit = false,
+                    triggeredProcs = turnProcs.toList()
+                ))
             }
         }
+
 
         if (newEnemyHp <= 0) {
             log(uid, "УСПЕХ: Цель ${villain.name} нейтрализована.", "loot")
@@ -2511,6 +2597,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             val rawCoins = if (weaponItem?.item_id == "cache_wiper") 0L else villain.coin
             val baseCoins = if (isDoubleDrop) rawCoins * 2 else rawCoins
             val tax = if (hasMaxwellsDemon) (baseCoins * 0.1).toLong() else 0L
+
+            if (headItem?.item_id == "vampire_visor") {
+                val healVisor = maxOf(1, (session.signal * 0.05).toInt())
+                val newSig = minOf(100, session.signal + healVisor)
+                dao.insertRaidSession(session.copy(signal = newSig))
+                log(uid, "🩸 [Визор Вампира]: Уничтожение врага восстановило +5% ($healVisor HP) Сигнала!", "info")
+                turnProcs.add(EquipmentProcEvent("vampire_visor", "🩸 ВИЗОР ВАМПИРА: +5% СИГНАЛА [KILL]", ProcColorType.HEAL_NEON))
+            }
 
             val activeOverchargeTier = getOverchargeTier(uid)
             val ocLootMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeLootMultiplier(activeOverchargeTier)
@@ -2582,7 +2676,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             if (isEvaded) {
                 val dodgeCharge = getOverdriveCharge(uid) + io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_DODGE
                 setOverdriveCharge(uid, dodgeCharge)
-                _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true))
+                if (headItem?.item_id == "tactical_helmet") {
+                    turnProcs.add(EquipmentProcEvent("tactical_helmet", "⚡ ТАКТИЧЕСКИЙ ШЛЕМ: УКЛОНЕНИЕ!", ProcColorType.SHIELD_CYAN))
+                }
+                _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true, triggeredProcs = turnProcs.toList()))
 
                 log(uid, "УКЛОНЕНИЕ: Сдвиг сигнала. Атака от ${villain.name} промахнулась (+25% Овердрайв).", "info")
                 dao.insertRaidSession(session.copy(
@@ -2630,12 +2727,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 if (hasParadox && nextTurn <= 3) {
                     val newDmgBuf = session.damage_buffer + enemyDamage
                     log(uid, "⏳ [Парадокс Деда]: Отражен входящий удар (-$enemyDamage) в буфер ($newDmgBuf/3 ходов).", "info")
+                    turnProcs.add(EquipmentProcEvent("grandfather_paradox", "⏳ ПАРАДОКС ДЕДА: БУФЕР $newDmgBuf DMG [$nextTurn/3]", ProcColorType.CURSED_RED))
                     dao.insertRaidSession(session.copy(
                         current_enemy_hp = newEnemyHp,
                         buffer_coins = workingCoins,
                         combat_turn = nextTurn,
                         damage_buffer = newDmgBuf
                     ))
+                    _combatEventFlow.tryEmit(CombatVisualEvent(triggeredProcs = turnProcs.toList()))
                 } else {
                     var totalIncoming = enemyDamage
                     if (hasParadox && nextTurn == 4) {
@@ -2643,12 +2742,21 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         log(uid, "💥 [Парадокс Деда]: Временной барьер лопнул! Накопленный урон ($totalIncoming) ударил по вам!", "error")
                     }
 
-                    _combatEventFlow.tryEmit(CombatVisualEvent(isPlayerHit = true, incomingDamage = totalIncoming))
+                    // Architect mask reflection (30%)
+                    if (headItem?.item_id == "architect_mask" && totalIncoming > 0) {
+                        val reflected = maxOf(1, (totalIncoming * 0.30f).toInt())
+                        newEnemyHp = maxOf(0, newEnemyHp - reflected)
+                        log(uid, "🛡 [Лицо Архитектора]: Отражено -$reflected урона обратно во врага!", "combat")
+                        turnProcs.add(EquipmentProcEvent("architect_mask", "🛡 ЛИЦО АРХИТЕКТОРА: ОТРАЖЕНО $reflected УРОНА", ProcColorType.SHIELD_CYAN))
+                    }
+
+                    _combatEventFlow.tryEmit(CombatVisualEvent(isPlayerHit = true, incomingDamage = totalIncoming, triggeredProcs = turnProcs.toList()))
 
                     // Cursed Armor error_404_mirror logic
                     val mirrorRoll = (0..100).random()
                     if (armorItem?.item_id == "error_404_mirror" && mirrorRoll < 50) {
                         log(uid, "🪞 [Зеркало 404]: Входящий урон ($totalIncoming) отражен обратно во врага!", "combat")
+                        turnProcs.add(EquipmentProcEvent("error_404_mirror", "🪞 ЗЕРКАЛО 404: ОТРАЖЕНО $totalIncoming УРОНА", ProcColorType.SHIELD_CYAN))
                         dao.insertRaidSession(session.copy(
                             current_enemy_hp = newEnemyHp - totalIncoming,
                             buffer_coins = workingCoins,
@@ -2661,6 +2769,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         // Cursed Armor thermonuclear_shroud logic
                         if (armorItem?.item_id == "thermonuclear_shroud" && newSignal <= 0) {
                             log(uid, "☢ [Термоядерный Саван]: Инициирован самоподрыв! Враг уничтожен. Буфер рейда сожжен.", "error")
+                            turnProcs.add(EquipmentProcEvent("thermonuclear_shroud", "💥 ТЕРМОЯДЕРНЫЙ САВАН: ВЗРЫВ 999,999 DMG!", ProcColorType.CURSED_RED))
                             dao.insertRaidSession(session.copy(
                                 current_enemy_id = null,
                                 current_enemy_hp = 0,
@@ -2784,6 +2893,16 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 return
             }
 
+            val headItem = inventory.find { it.slot == "head" && it.is_equipped }
+            if (headItem?.item_id == "cyber_halo" && (0..100).random() < 20) {
+                if (player != null) {
+                    dao.updatePlayer(player.copy(hp = 1))
+                }
+                dao.insertRaidSession(session.copy(signal = 1))
+                log(uid, "✨ [ГОЛОГРАФИЧЕСКИЙ НИМБ]: Священный протокол восстановил 1% Сигнала, предотвратив гибель!", "info")
+                return
+            }
+
             io.eidos.zerolayer.ui.utils.EidosTelemetryManager.getInstance(context).logRaidFailedAtAnomaly(
                 session.current_anomaly_id ?: "signal_collapse",
                 session.depth
@@ -2792,22 +2911,19 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
             val player = dao.getPlayer(uid)
             if (player != null) {
-                // Break equipped items (Weapon, Armor, Head) by 5%
-                val inventory = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
-                inventory.forEach {
-                    if (it.slot in listOf("weapon", "armor", "head")) {
-                        dao.updateInventoryItem(it.copy(durability = maxOf(0f, it.durability - 5f)))
+                // Break equipped items (Weapon, Armor, Head) by 10% EMP strike
+                val equippedCombatItems = inventory.filter { it.is_equipped && it.slot in listOf("weapon", "armor", "head") }
+                val brokenList = mutableListOf<String>()
+                equippedCombatItems.forEach { eqItem ->
+                    val newDur = maxOf(0f, eqItem.durability - 10f)
+                    dao.updateInventoryItem(eqItem.copy(durability = newDur))
+                    if (newDur <= 0f) {
+                        val brokenName = getItemMetadata(eqItem.item_id)?.name ?: eqItem.item_id.uppercase()
+                        brokenList.add(brokenName)
+                        log(uid, "🚨 [CRITICAL ERROR: $brokenName СЛОМАН(О)]!", "error")
                     }
                 }
-
-                // Chance to completely break an active equipped item (25% chance)
-                val equippedCombatItems = inventory.filter { it.slot in listOf("weapon", "armor", "head") }
-                if (equippedCombatItems.isNotEmpty() && (0..100).random() < 25) {
-                    val brokenItem = equippedCombatItems.random()
-                    dao.updateInventoryItem(brokenItem.copy(durability = 0f))
-                    val brokenName = getItemMetadata(brokenItem.item_id)?.name ?: brokenItem.item_id.uppercase()
-                    log(uid, "🚨 [СНАРЯЖЕНИЕ СЛОМАНО]: Ваша вещь $brokenName полностью сломалась при экстренной эвакуации!", "error")
-                }
+                syncUserEquipmentToDb(uid)
 
                 val deathMask = dao.getInventoryFlow(uid).first().find { it.item_id == "death_mask" && it.is_equipped } != null
                 if (deathMask) {
@@ -2828,20 +2944,28 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         items = cleanItems
                     )
                     dao.insertGrave(grave)
-                    log(uid, "🪦 [ЦЕЛОСТНОСТЬ УТРАЧЕНА]: На глубине ${session.depth}м образовалась ваша Могила с ${session.buffer_coins} BC и предметами: [$cleanItems]. Её могут найти другие игроки!", "error")
+                    log(uid, "🪦 [ЦЕЛОСТНОСТЬ УТРАЧЕНА]: Ваше цифровое тело осталось на глубине ${session.depth}м с ${session.buffer_coins} BC и предметами: [$cleanItems]. Другие Операторы могут разграбить ваши останки!", "error")
                 }
+
+                // Reset overdrive
+                setOverdriveCharge(uid, 0)
+
+                val onePercentHp = maxOf(1, (player.max_hp * 0.01f).toInt())
+                dao.updatePlayer(player.copy(
+                    max_depth = maxOf(player.max_depth, session.depth),
+                    hp = onePercentHp,
+                    overdriveCharge = 0
+                ))
 
                 deathReportFlow.value = DeathReport(
                     depth = session.depth,
                     lostCoins = session.buffer_coins,
+                    lostXp = session.buffer_xp,
                     lostItems = session.buffer_items,
-                    graveCreated = hasGrave
+                    graveCreated = hasGrave,
+                    brokenItems = brokenList,
+                    durabilityPenaltyPercent = 10
                 )
-
-                dao.updatePlayer(player.copy(
-                    max_depth = maxOf(player.max_depth, session.depth),
-                    hp = 10
-                ))
             }
             dao.deleteRaidSession(uid)
         }

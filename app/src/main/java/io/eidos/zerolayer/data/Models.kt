@@ -245,6 +245,41 @@ data class RadioMessageEntity(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+@Serializable
+@Entity(tableName = "user_equipment")
+data class UserEquipment(
+    @PrimaryKey val player_uid: Long,
+    val head: String? = null,
+    val armor: String? = null,
+    val weapon: String? = null,
+    val chip: String? = null,
+    val eidos_shard: String? = null
+)
+
+enum class ProcColorType {
+    HEAL_NEON,
+    CURSED_RED,
+    SHIELD_CYAN,
+    GOLD_CRIT
+}
+
+@Serializable
+data class EquipmentProcEvent(
+    val itemName: String,
+    val effectText: String,
+    val colorType: ProcColorType
+)
+
+data class CombatTurnResult(
+    val playerDamage: Int = 0,
+    val enemyDamage: Int = 0,
+    val isCrit: Boolean = false,
+    val isDodge: Boolean = false,
+    val enemyDefeated: Boolean = false,
+    val playerDefeated: Boolean = false,
+    val triggeredProcs: List<EquipmentProcEvent> = emptyList()
+)
+
 data class CombatVisualEvent(
     val eventId: Long = System.currentTimeMillis(),
     val damage: Int = 0,
@@ -252,6 +287,7 @@ data class CombatVisualEvent(
     val isOverdrive: Boolean = false,
     val isDodge: Boolean = false,
     val isPlayerHit: Boolean = false,
-    val incomingDamage: Int = 0
+    val incomingDamage: Int = 0,
+    val triggeredProcs: List<EquipmentProcEvent> = emptyList()
 )
 

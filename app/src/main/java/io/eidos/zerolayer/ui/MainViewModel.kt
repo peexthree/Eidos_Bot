@@ -715,6 +715,13 @@ class MainViewModel(
         }
     }
 
+    fun unequipSlot(slot: String) {
+        viewModelScope.launch {
+            repository.unequipSlot(_uid.value, slot)
+            syncWithSupabase()
+        }
+    }
+
     fun useConsumable(item: InventoryItem) {
         viewModelScope.launch {
             repository.useConsumable(_uid.value, item)
