@@ -6,8 +6,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
@@ -110,6 +114,8 @@ fun RaidScreen(
     var evacTurnsLeft by remember { mutableIntStateOf(2) }
     var showEvacSummary by remember { mutableStateOf(false) }
     var showBufferModal by remember { mutableStateOf(false) }
+    var inspectVillain by remember { mutableStateOf<io.eidos.zerolayer.data.GameVillainData?>(null) }
+    var showCombatLogModal by remember { mutableStateOf(false) }
 
     // Dopamine Loot Modal State
     var showDopamineModal by remember { mutableStateOf(false) }
@@ -334,27 +340,17 @@ fun RaidScreen(
                     modifier = Modifier
                         .padding(innerPadding)
                         .fillMaxSize()
-                        .padding(16.dp)
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    // EVA-09 Assistant Guidance Banner (Hidden in combat for optimal combat HUD)
-                    if (session?.current_enemy_id == null) {
-                        io.eidos.zerolayer.ui.components.ZzzHazardBanner(
-                            title = "🌐 ГОЛОС EIDOS // СЕКТОР БЕЗДНЫ",
-                            message = "Обнаружен шлюз в Бездну! Нажимай «СДЕЛАЙТЕ ШАГ В БЕЗДНУ» для сканирования секторов, поиска контейнеров и уничтожения вирусов. Если твой Сигнал критически слаб — немедленно задействуй «ЭВАКУАЦИЮ», чтобы сохранить весь добытый код и лут!",
-                            borderColor = EidosRed,
-                            icon = "🚨",
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-
-                    // HUD
+                    // Unified Cyber Telemetry Strip
                     RaidHUD(
                         session = session,
                         player = player,
+                        overchargeTier = overchargeTier,
                         onOpenBuffer = { showBufferModal = true }
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     if (isEvacuatingHold) {
                         // Unstable Evacuation View
@@ -410,17 +406,25 @@ fun RaidScreen(
                                 player = player,
                                 anomalyData = anomalyData,
                                 logs = logs,
-                                onTriggerHack = { showMinigame = true }
+                                onTriggerHack = { showMinigame = true },
+                                onInspectVillain = { villain -> inspectVillain = villain }
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Logs
-                    TerminalLog(logs)
-
-                    Spacer(modifier = Modifier.height(10.dp))
+                    val isCombat = session.current_enemy_id != null
+                    if (isCombat) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CombatTickerBar(
+                            logs = logs,
+                            onOpenFullLog = { showCombatLogModal = true }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    } else {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        TerminalLog(logs)
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
 
                     // Controls
                     if (!isEvacuatingHold) {
@@ -546,6 +550,20 @@ fun RaidScreen(
             }
         )
     }
+
+    if (inspectVillain != null) {
+        EnemyInspectModal(
+            villain = inspectVillain!!,
+            onDismiss = { inspectVillain = null }
+        )
+    }
+
+    if (showCombatLogModal) {
+        FullCombatLogModal(
+            logs = logs,
+            onDismiss = { showCombatLogModal = false }
+        )
+    }
 }
 
 @Composable
@@ -559,254 +577,473 @@ fun RaidHUD(
     val signal = session?.signal ?: 94
     val depth = session?.depth ?: 1480
     val overdriveTurns = session?.overdrive_turns ?: 0
-    val comboCount = session?.combo_count ?: 0
-    val mutator = session?.active_mutator ?: ""
     val lootCount = session?.buffer_items?.split(",")?.filter { it.isNotBlank() }?.size ?: 0
+    val nowSec = System.currentTimeMillis() / 1000L
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // OVERCHARGE PROTOCOL BANNER
-        if (overchargeTier > 0) {
-            val lootMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeLootMultiplier(overchargeTier)
-            Surface(
-                color = EidosOrange.copy(alpha = 0.25f),
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosOrange),
+        // Active Status Micro-Badges Row
+        val hasOvercharge = overchargeTier > 0
+        val hasOverdrive = overdriveTurns > 0
+        val hasBuff = player != null && player.anomalyBuffType != null && nowSec < player.anomalyBuffExpiry
+
+        if (hasOvercharge || hasOverdrive || hasBuff) {
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        "🔥 OVERCHARGE x$lootMult (+${overchargeTier * 50}% ЛУТ / +${overchargeTier * 20}% АТАКА ВРАГОВ)",
-                        color = EidosOrange,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.Center
-                    )
+                if (hasOvercharge) {
+                    val lootMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeLootMultiplier(overchargeTier)
+                    Box(
+                        modifier = Modifier
+                            .clip(CutCornerShape(4.dp))
+                            .background(EidosOrange.copy(alpha = 0.2f))
+                            .border(1.dp, EidosOrange, CutCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "🔥 x$lootMult (+${overchargeTier * 50}% ЛУТ)",
+                            color = EidosOrange,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+                if (hasOverdrive) {
+                    Box(
+                        modifier = Modifier
+                            .clip(CutCornerShape(4.dp))
+                            .background(Color.Yellow.copy(alpha = 0.2f))
+                            .border(1.dp, Color.Yellow, CutCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "⚡ OVERDRIVE: ${overdriveTurns}Х",
+                            color = Color.Yellow,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+                if (hasBuff) {
+                    val buffName = when (player?.anomalyBuffType) {
+                        io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK -> "⚡ БЕРСЕРК +25%"
+                        io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_OVERLOAD -> "💰 ПЕРЕГРУЗКА +50%"
+                        io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_STEALTH_NIGHT -> "🌙 СКРЫТНОСТЬ 30%"
+                        io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_VISUAL_DISTORTION -> "🌀 ИСКАЖЕНИЕ"
+                        else -> "⚡ БАФФ"
+                    }
+                    val timeLeftSec = ((player?.anomalyBuffExpiry ?: nowSec) - nowSec).coerceAtLeast(0)
+                    Box(
+                        modifier = Modifier
+                            .clip(CutCornerShape(4.dp))
+                            .background(Color(0xFF00FFCC).copy(alpha = 0.2f))
+                            .border(1.dp, Color(0xFF00FFCC), CutCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "$buffName (${timeLeftSec}с)",
+                            color = Color(0xFF00FFCC),
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
             }
         }
-        // Active Anomaly Buff Pill
-        val nowSec = System.currentTimeMillis() / 1000L
-        if (player != null && player.anomalyBuffType != null && nowSec < player.anomalyBuffExpiry) {
-            Surface(
-                color = Color(0xFF00FFCC).copy(alpha = 0.15f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FFCC)),
-                modifier = Modifier.fillMaxWidth(),
-                shape = CutCornerShape(4.dp)
+
+        // Consolidated Telemetry Bar (46dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .clip(CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp))
+                .background(Color(0xFF070D12).copy(alpha = 0.95f))
+                .border(1.dp, EidosCyan.copy(alpha = 0.35f), CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp))
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Compartment 1: Depth (Сектор)
                 Row(
-                    modifier = Modifier.padding(6.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    val buffName = when (player.anomalyBuffType) {
-                        io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK -> "⚡ [ГЛИТЧ-БЕРСЕРК: +25% ATK]"
-                        io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_OVERLOAD -> "💰 [ПЕРЕГРУЗКА ЯДРА: +50% BC]"
-                        io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_STEALTH_NIGHT -> "🌙 [НОЧНАЯ СКРЫТНОСТЬ: 30% ОБХОД]"
-                        io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_VISUAL_DISTORTION -> "🌀 [ИСКАЖЕНИЕ РЕАЛЬНОСТИ]"
-                        else -> "⚡ [АКТИВНАЯ АНОМАЛИЯ]"
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_stat_depth),
+                        contentDescription = "Глубина",
+                        modifier = Modifier.size(18.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
+                        Text("ГЛУБИНА", color = Color(0xFF78909C), fontSize = 7.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text("${depth}м", color = EidosCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                     }
-                    val timeLeftSec = (player.anomalyBuffExpiry - nowSec).coerceAtLeast(0)
+                }
+
+                // Vertical Divider
+                Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFF1E2D3D)))
+
+                // Compartment 2: Signal with integrated gauge
+                val signalColor = when {
+                    signal > 50 -> EidosNeon
+                    signal > 25 -> EidosOrange
+                    else -> EidosRed
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_stat_hp),
+                                contentDescription = "Сигнал",
+                                modifier = Modifier.size(16.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("СИГНАЛ", color = Color(0xFFB0BEC5), fontSize = 7.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                if (hasOblivionChip) "???%" else "${signal}%",
+                                color = signalColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(3.dp))
+                        // Built-in slim progress bar
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .height(3.dp)
+                                .clip(CutCornerShape(1.dp))
+                                .background(Color(0xFF1A1A24))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth((if (hasOblivionChip) 1f else signal / 100f).coerceIn(0f, 1f))
+                                    .fillMaxHeight()
+                                    .background(signalColor)
+                            )
+                        }
+                    }
+                }
+
+                // Vertical Divider
+                Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFF1E2D3D)))
+
+                // Compartment 3: Loot Buffer (Clickable)
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { onOpenBuffer() }
+                        .padding(horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_biocoin),
+                        contentDescription = "Буфер",
+                        modifier = Modifier.size(17.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("БУФЕР", color = Color(0xFF78909C), fontSize = 7.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("🔍", fontSize = 7.sp)
+                        }
+                        Text("$lootCount/100", color = Color(0xFFFF9800), fontSize = 11.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CombatTickerBar(
+    logs: List<GameLog>,
+    onOpenFullLog: () -> Unit
+) {
+    val recentCombat = logs.lastOrNull { it.type == "combat" || it.type == "error" }
+        ?: logs.lastOrNull()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(34.dp)
+            .clip(CutCornerShape(4.dp))
+            .background(Color(0xFF0E0709).copy(alpha = 0.95f))
+            .border(1.dp, EidosRed.copy(alpha = 0.4f), CutCornerShape(4.dp))
+            .clickable { onOpenFullLog() }
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("⚔️", fontSize = 11.sp)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = recentCombat?.message ?: "Инициализация тактического контакта...",
+                    color = if (recentCombat?.type == "error") EidosRed else Color(0xFFE2E8F0),
+                    fontSize = 9.5.sp,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .clip(CutCornerShape(2.dp))
+                    .background(Color(0xFF22080E))
+                    .border(0.5.dp, EidosRed.copy(alpha = 0.7f), CutCornerShape(2.dp))
+                    .padding(horizontal = 5.dp, vertical = 2.dp)
+            ) {
+                Text("📜 ЛОГ", color = EidosRed, fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun CombatArenaCard(
+    session: RaidSession?,
+    player: io.eidos.zerolayer.data.Player?,
+    enemyId: String,
+    onInspectVillain: (io.eidos.zerolayer.data.GameVillainData) -> Unit
+) {
+    val enemyHp = session?.current_enemy_hp ?: 0
+    val villain = remember(enemyId) {
+        io.eidos.zerolayer.data.GameData.VILLAINS.find { it.name == enemyId }
+            ?: io.eidos.zerolayer.data.GameData.VILLAINS.find {
+                val clean1 = it.name.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                val clean2 = enemyId.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                clean1.isNotEmpty() && clean2.isNotEmpty() && (clean1.contains(clean2) || clean2.contains(clean1))
+            }
+            ?: io.eidos.zerolayer.data.GameVillainData(
+                id = 9999,
+                name = enemyId,
+                level = ((session?.depth ?: 0) / 50) + 1,
+                hp = maxOf(10, enemyHp),
+                atk = 18,
+                def = 5,
+                xp = 50,
+                coin = 30,
+                description = "Искаженный фантом, затерянный в коде Нулевого Слоя.",
+                image = "monster_1"
+            )
+    }
+
+    val maxEnemyHp = maxOf(1, villain.hp)
+    val currentEnemyHpClamped = enemyHp.coerceIn(0, maxEnemyHp)
+    val hpPct = (currentEnemyHpClamped * 100 / maxEnemyHp)
+
+    val enemyImageName = villain.image.takeIf { it.isNotBlank() } ?: remember(villain.name) {
+        "villain_" + villain.name
+            .replace("🦠", "").replace("👻", "").replace("🚁", "").replace("💣", "")
+            .replace("⛏", "").replace("🐉", "").replace("❌", "").replace("🗡", "")
+            .replace("🧠", "").replace("⬛", "").replace("💀", "").replace("🏗", "")
+            .replace("🍽", "").replace("🛡", "").replace("⚛️", "").replace("🤖", "")
+            .replace("🌌", "").replace("🌀", "").trim()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(CutCornerShape(8.dp))
+            .background(Color(0xFF0A0608).copy(alpha = 0.95f))
+            .border(1.dp, EidosRed.copy(alpha = 0.5f), CutCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Header: Threat Name & Level Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⚠ ${villain.name.uppercase()}",
+                    color = EidosRed,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(CutCornerShape(4.dp))
+                        .background(EidosRed.copy(alpha = 0.2f))
+                        .border(1.dp, EidosRed, CutCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
                     Text(
-                        "$buffName (${timeLeftSec}с)",
-                        color = Color(0xFF00FFCC),
-                        fontSize = 10.sp,
+                        "УР ${villain.level}",
+                        color = EidosRed,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            // Prominent Clickable Monster Art (Takes major center stage)
+            Box(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .sizeIn(minWidth = 150.dp, minHeight = 150.dp, maxWidth = 195.dp, maxHeight = 195.dp)
+                    .aspectRatio(1f)
+                    .clip(CutCornerShape(8.dp))
+                    .background(Color(0xFF14080B))
+                    .border(1.5.dp, EidosRed, CutCornerShape(8.dp))
+                    .clickable { onInspectVillain(villain) },
+                contentAlignment = Alignment.Center
+            ) {
+                EidosImage(
+                    resName = enemyImageName,
+                    fallbackIcon = Icons.Default.Warning,
+                    borderColor = Color.Transparent,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Bottom Holographic Badge: Tap to Inspect
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .border(BorderStroke(1.dp, EidosRed.copy(alpha = 0.4f)))
+                        .padding(vertical = 3.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "🔍 ДОСЬЕ И ХАРАКТЕРИСТИКИ",
+                        color = Color.White.copy(alpha = 0.95f),
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            // High Visibility Health Bar
+            AnimatedCyberProgressBar(
+                progress = (currentEnemyHpClamped.toFloat() / maxEnemyHp.toFloat()).coerceIn(0f, 1f),
+                color = EidosRed,
+                label = "ЖИВУЧЕСТЬ ЦЕЛИ // HP",
+                valueText = "$currentEnemyHpClamped / $maxEnemyHp HP ($hpPct%)",
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Tactical Stat Comparison Chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Enemy stat chip
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(CutCornerShape(4.dp))
+                        .background(Color(0xFF22080E))
+                        .border(1.dp, EidosRed.copy(alpha = 0.5f), CutCornerShape(4.dp))
+                        .padding(vertical = 4.dp, horizontal = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "ВРАГ: ⚔️ ${villain.atk}  🛡️ ${villain.def}",
+                        color = EidosRed,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                // Player stat chip
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(CutCornerShape(4.dp))
+                        .background(Color(0xFF071922))
+                        .border(1.dp, EidosCyan.copy(alpha = 0.5f), CutCornerShape(4.dp))
+                        .padding(vertical = 4.dp, horizontal = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "ВЫ: ⚔️ ${player?.attack ?: 10}  🛡️ ${player?.defense ?: 5}",
+                        color = EidosCyan,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
         }
-        // OVERDRIVE BANNER
-        if (overdriveTurns > 0) {
-            Surface(
-                color = Color.Yellow.copy(alpha = 0.2f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Yellow),
-                modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        "⚡ HYPER-SYNC OVERDRIVE: ОСТАЛОСЬ $overdriveTurns ХОДА!",
-                        color = Color.Yellow,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
-
-        // 3 Key Info Cards Bar (Matching Cyber HUD)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Card 1: ГЛУБИНА (М)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                    .background(Color(0xFF09161B).copy(alpha = 0.95f))
-                    .border(1.dp, EidosCyan.copy(alpha = 0.5f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                    .cyberHudBorder(color = EidosCyan, cornerLength = 8.dp, strokeWidth = 1.dp)
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_stat_depth),
-                        contentDescription = "Глубина",
-                        modifier = Modifier.size(24.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                    Column {
-                        Text("ГЛУБИНА", color = Color(0xFF78909C), fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                        Text("${depth} м", color = EidosCyan, fontSize = 12.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    }
-                }
-            }
-
-            // Card 2: СИГНАЛ (%)
-            Box(
-                modifier = Modifier
-                    .weight(1.2f)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1B090E).copy(alpha = 0.95f))
-                    .border(1.dp, EidosRed.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                    .cyberHudBorder(color = EidosRed, cornerLength = 8.dp, strokeWidth = 1.dp)
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_stat_hp),
-                        contentDescription = "Сигнал HP",
-                        modifier = Modifier.size(24.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                    Column {
-                        Text("СИГНАЛ", color = Color(0xFFB0BEC5), fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                        Text(if (hasOblivionChip) "???%" else "${signal}%", color = EidosRed, fontSize = 12.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    }
-                }
-            }
-
-            // Card 3: БУФЕР ЛУТА (Clickable to open buffer modal)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1B1309).copy(alpha = 0.95f))
-                    .border(1.dp, Color(0xFFFF9800).copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                    .cyberHudBorder(color = Color(0xFFFF9800), cornerLength = 8.dp, strokeWidth = 1.dp)
-                    .cyberClickable { onOpenBuffer() }
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_biocoin),
-                        contentDescription = "Буфер Лута",
-                        modifier = Modifier.size(22.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("БУФЕР", color = Color(0xFF78909C), fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text("🔍", fontSize = 7.sp)
-                        }
-                        Text("$lootCount/100", color = Color(0xFFFF9800), fontSize = 12.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    }
-                }
-            }
-        }
-
-        // Signal Progress Bar
-        AnimatedCyberProgressBar(
-            progress = if (hasOblivionChip) 1f else signal / 100f,
-            color = if (overdriveTurns > 0) Color.Yellow else EidosRed,
-            label = "СТАБИЛЬНОСТЬ ПОДКЛЮЧЕНИЯ СИГНАЛА",
-            valueText = if (hasOblivionChip) "???%" else "${signal}%",
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 
 @Composable
-fun EventCard(
+fun ExplorationEventCard(
     session: RaidSession?,
     player: io.eidos.zerolayer.data.Player?,
     anomalyData: io.eidos.zerolayer.data.GameRepository.AnomalyEvent?,
-    logs: List<GameLog>,
     onTriggerHack: () -> Unit = {}
 ) {
     val eventType = session?.next_event_type ?: "INITIALIZING"
-    val enemyId = session?.current_enemy_id
-    val enemyHp = session?.current_enemy_hp ?: 0
-    val villain = remember(enemyId) {
-        if (enemyId == null) null
-        else {
-            io.eidos.zerolayer.data.GameData.VILLAINS.find { it.name == enemyId }
-                ?: io.eidos.zerolayer.data.GameData.VILLAINS.find {
-                    val clean1 = it.name.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
-                    val clean2 = enemyId.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
-                    clean1.isNotEmpty() && clean2.isNotEmpty() && (clean1.contains(clean2) || clean2.contains(clean1))
-                }
-                ?: io.eidos.zerolayer.data.GameVillainData(
-                    id = 9999,
-                    name = enemyId,
-                    level = ((session?.depth ?: 0) / 50) + 1,
-                    hp = maxOf(10, enemyHp),
-                    atk = 18,
-                    def = 5,
-                    xp = 50,
-                    coin = 30,
-                    description = "Искаженный фантом, затерянный в коде Нулевого Слоя.",
-                    image = "monster_1"
-                )
-        }
-    }
-
     val isAnomaly = session?.current_anomaly_id != null
 
     val title = when {
-        enemyId != null -> "⚠ ${villain?.name?.uppercase() ?: "ВРАГ"}"
         isAnomaly -> "🌀 ОБНАРУЖЕНА АНОМАЛИЯ"
         eventType == "loot" -> "📦 ОБНАРУЖЕН ТАЙНИК"
         else -> "📡 СКАНИРОВАНИЕ СЛОЯ..."
     }
 
     val description = when {
-        enemyId != null -> villain?.description ?: "Вражеская единица обнаружена."
         isAnomaly -> anomalyData?.text ?: "Сработал протокол безопасности. Целостность сигнала под угрозой."
         eventType == "loot" -> "Зашифрованный контейнер данных излучает слабый сигнал."
         else -> "Нейро-связь стабильна. Продолжение спуска."
     }
 
-    // Glitch animation for anomalies
     val infiniteTransition = rememberInfiniteTransition(label = "glitch")
     val glitchOffset by infiniteTransition.animateFloat(
         initialValue = -2f,
@@ -818,230 +1055,63 @@ fun EventCard(
         label = "offset"
     )
 
-    val borderColor = if (enemyId != null) EidosRed else if (isAnomaly) Color.Yellow else EidosCyan
+    val borderColor = if (isAnomaly) Color.Yellow else EidosCyan
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .offset(x = if (isAnomaly) glitchOffset.dp else 0.dp)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+            .clip(CutCornerShape(8.dp))
             .background(Color(0xFF070B10).copy(alpha = 0.95f))
-            .border(1.dp, borderColor.copy(alpha = 0.5f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .cyberHudBorder(color = borderColor, cornerLength = 10.dp, strokeWidth = 1.dp)
+            .border(1.dp, borderColor.copy(alpha = 0.5f), CutCornerShape(8.dp))
+            .padding(12.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 title,
                 color = borderColor,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
                 fontFamily = FontFamily.Monospace,
                 letterSpacing = 1.sp
             )
 
-            if (enemyId != null && villain != null) {
-                Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-                // Enemy Visual Card
-                val enemyImageName = villain.image.takeIf { it.isNotBlank() } ?: remember(villain.name) {
-                    "villain_" + villain.name
-                        .replace("🦠", "").replace("👻", "").replace("🚁", "").replace("💣", "")
-                        .replace("⛏", "").replace("🐉", "").replace("❌", "").replace("🗡", "")
-                        .replace("🧠", "").replace("⬛", "").replace("💀", "").replace("🏗", "")
-                        .replace("🍽", "").replace("🛡", "").replace("⚛️", "").replace("🤖", "")
-                        .replace("🌌", "").replace("🌀", "").trim()
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(130.dp)
-                        .clip(androidx.compose.foundation.shape.CutCornerShape(8.dp))
-                        .background(Color(0xFF14080B))
-                        .border(1.5.dp, EidosRed, androidx.compose.foundation.shape.CutCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    EidosImage(
-                        resName = enemyImageName,
-                        fallbackIcon = Icons.Default.Warning,
-                        borderColor = Color.Transparent,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Enemy HP Bar with high visibility
-                val maxEnemyHp = maxOf(1, villain.hp)
-                val currentEnemyHpClamped = enemyHp.coerceIn(0, maxEnemyHp)
-                AnimatedCyberProgressBar(
-                    progress = (currentEnemyHpClamped.toFloat() / maxEnemyHp.toFloat()).coerceIn(0f, 1f),
-                    color = EidosRed,
-                    label = "СИГНАЛ ВРАГА // ЖИВУЧЕСТЬ",
-                    valueText = "$currentEnemyHpClamped / $maxEnemyHp HP (${(currentEnemyHpClamped * 100 / maxEnemyHp)}%)",
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Tactical Combat Matrix Chips
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(androidx.compose.foundation.shape.CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp))
-                            .background(Color(0xFF22080E))
-                            .border(1.dp, EidosRed.copy(alpha = 0.5f), androidx.compose.foundation.shape.CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp))
-                            .padding(vertical = 6.dp, horizontal = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("УГРОЗА: ${villain.name.take(14)}", color = EidosRed, fontSize = 9.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                            Text("⚔️ ${villain.atk} ATK  |  🛡️ ${villain.def} DEF", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(androidx.compose.foundation.shape.CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp))
-                            .background(Color(0xFF071922))
-                            .border(1.dp, EidosCyan.copy(alpha = 0.5f), androidx.compose.foundation.shape.CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp))
-                            .padding(vertical = 6.dp, horizontal = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("ОПЕРАТОР: ${player?.username ?: "НЕОФИТ"}", color = EidosCyan, fontSize = 9.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                            Text("⚔️ ${player?.attack ?: 10} ATK  |  🛡️ ${player?.defense ?: 5} DEF", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                // Enemy Description and Threat Dossier
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(androidx.compose.foundation.shape.CutCornerShape(6.dp))
-                        .background(Color(0xFF14080B).copy(alpha = 0.9f))
-                        .border(1.dp, EidosRed.copy(alpha = 0.5f), androidx.compose.foundation.shape.CutCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = 8.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "⚡ [ДОСЬЕ УГРОЗЫ // УР ${villain.level}]",
-                                color = EidosRed,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.Monospace,
-                                letterSpacing = 1.sp
-                            )
-                            Text(
-                                "+${villain.xp} EXP // +${villain.coin} BIO",
-                                color = Color.Yellow,
-                                fontSize = 8.5.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            villain.description,
-                            color = Color(0xFFE2E8F0),
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            lineHeight = 15.sp
-                        )
-                    }
-                }
-
-                // Combat Feedback Banner
-                val combatLogs = logs.filter { it.type == "combat" || it.type == "error" }.takeLast(2)
-                if (combatLogs.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .border(1.dp, EidosRed.copy(alpha = 0.3f), androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
-                            .padding(8.dp)
-                    ) {
-                        Column {
-                            combatLogs.forEach { log ->
-                                Text(
-                                    log.message,
-                                    color = if (log.type == "error") EidosRed else EidosNeon,
-                                    fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    lineHeight = 12.sp
-                                )
-                            }
-                        }
-                    }
-                }
-            } else if (eventType == "loot") {
-                Spacer(modifier = Modifier.height(12.dp))
+            if (eventType == "loot") {
                 EidosImage(
                     resName = "raid_chest",
                     fallbackIcon = Icons.Default.Warning,
                     borderColor = EidosNeon,
                     modifier = Modifier
                         .size(80.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                        .clip(CutCornerShape(8.dp))
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     "ОБНАРУЖЕНЫ ЦИФРОВЫЕ ОСТАТКИ",
                     color = EidosNeon,
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = onTriggerHack,
                     colors = ButtonDefaults.buttonColors(containerColor = EidosCyan.copy(alpha = 0.2f)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                    border = BorderStroke(1.dp, EidosCyan),
+                    shape = CutCornerShape(6.dp)
                 ) {
                     Text("⚡ ВЗЛОМАТЬ ТЕРМИНАЛ [ПРОТОКОЛ ПЕРЕХВАТА]", color = EidosCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
-
-
-                // Show items if available in buffer (for visual interest)
-                val items = session?.buffer_items?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
-                if (items.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items.take(5).forEach { itemCode ->
-                            EidosImage(
-                                resName = itemCode,
-                                fallbackIcon = Icons.Default.Info,
-                                borderColor = EidosNeon,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                    }
-                }
             } else if (isAnomaly) {
-                Spacer(modifier = Modifier.height(16.dp))
                 EidosImage(
                     resName = "raid_anomaly",
                     fallbackIcon = Icons.Default.Info,
@@ -1049,8 +1119,6 @@ fun EventCard(
                     modifier = Modifier.size(90.dp)
                 )
             } else {
-                // TACTICAL CYBER SONAR RADAR (Reference 4)
-                Spacer(modifier = Modifier.height(8.dp))
                 ZzzCyberSonarRadar(
                     anomalyCount = 1,
                     hasEnemy = false,
@@ -1061,18 +1129,279 @@ fun EventCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            val displayedDescription = ghostTyping(description, speed = if (enemyId != null) 5L else 15L)
+            val displayedDescription = ghostTyping(description, speed = 12L)
             Text(
                 displayedDescription,
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 12.sp,
+                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 11.5.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.heightIn(min = 40.dp),
+                modifier = Modifier.heightIn(min = 36.dp),
                 fontFamily = FontFamily.Monospace,
-                lineHeight = 16.sp
+                lineHeight = 15.sp
             )
+        }
+    }
+}
+
+@Composable
+fun EventCard(
+    session: RaidSession?,
+    player: io.eidos.zerolayer.data.Player?,
+    anomalyData: io.eidos.zerolayer.data.GameRepository.AnomalyEvent?,
+    logs: List<GameLog>,
+    onTriggerHack: () -> Unit = {},
+    onInspectVillain: (io.eidos.zerolayer.data.GameVillainData) -> Unit = {}
+) {
+    val enemyId = session?.current_enemy_id
+    if (enemyId != null) {
+        CombatArenaCard(
+            session = session,
+            player = player,
+            enemyId = enemyId,
+            onInspectVillain = onInspectVillain
+        )
+    } else {
+        ExplorationEventCard(
+            session = session,
+            player = player,
+            anomalyData = anomalyData,
+            onTriggerHack = onTriggerHack
+        )
+    }
+}
+
+@Composable
+fun EnemyInspectModal(
+    villain: io.eidos.zerolayer.data.GameVillainData,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable { onDismiss() }
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .clickable(enabled = false) {}
+                    .clip(CutCornerShape(8.dp))
+                    .background(Color(0xFF0C0709))
+                    .border(1.5.dp, EidosRed, CutCornerShape(8.dp))
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "⚡ ДОСЬЕ УГРОЗЫ // БЕЗДНА",
+                                color = EidosRed,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                villain.name.uppercase(),
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(CutCornerShape(4.dp))
+                                .background(EidosRed.copy(alpha = 0.2f))
+                                .border(1.dp, EidosRed, CutCornerShape(4.dp))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text("УР ${villain.level}", color = EidosRed, fontSize = 10.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Large high-res art (190dp)
+                    val enemyImageName = villain.image.takeIf { it.isNotBlank() } ?: "monster_1"
+                    Box(
+                        modifier = Modifier
+                            .size(190.dp)
+                            .clip(CutCornerShape(8.dp))
+                            .background(Color(0xFF14080B))
+                            .border(1.5.dp, EidosRed, CutCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        EidosImage(
+                            resName = enemyImageName,
+                            fallbackIcon = Icons.Default.Warning,
+                            borderColor = Color.Transparent,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Stats Grid
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(Color(0xFF180A0D))
+                                .border(1.dp, EidosRed.copy(alpha = 0.4f), CutCornerShape(4.dp))
+                                .padding(6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("ЗДОРОВЬЕ", color = Color.Gray, fontSize = 7.5.sp, fontFamily = FontFamily.Monospace)
+                                Text("${villain.hp} HP", color = EidosNeon, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(Color(0xFF180A0D))
+                                .border(1.dp, EidosRed.copy(alpha = 0.4f), CutCornerShape(4.dp))
+                                .padding(6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("АТАКА", color = Color.Gray, fontSize = 7.5.sp, fontFamily = FontFamily.Monospace)
+                                Text("${villain.atk} ATK", color = EidosRed, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(Color(0xFF180A0D))
+                                .border(1.dp, EidosRed.copy(alpha = 0.4f), CutCornerShape(4.dp))
+                                .padding(6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("ЗАЩИТА", color = Color.Gray, fontSize = 7.5.sp, fontFamily = FontFamily.Monospace)
+                                Text("${villain.def} DEF", color = EidosCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Reward banner
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF1C1304))
+                            .border(1.dp, Color(0xFFFFB300).copy(alpha = 0.5f), CutCornerShape(4.dp))
+                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("НАГРАДА ЗА УСТРАНЕНИЕ:", color = Color(0xFFFFB300), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text("+${villain.xp} EXP // +${villain.coin} BIO", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Lore
+                    Text(
+                        villain.description,
+                        color = Color(0xFFD0D7DE),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 15.sp,
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Close Button
+                    io.eidos.zerolayer.ui.components.ZzzDangerButton(
+                        text = "ЗАКРЫТЬ ДОСЬЕ [X]",
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 42.dp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FullCombatLogModal(
+    logs: List<GameLog>,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable { onDismiss() }
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(420.dp)
+                    .clickable(enabled = false) {}
+                    .clip(CutCornerShape(8.dp))
+                    .background(Color(0xFF090D12))
+                    .border(1.dp, EidosCyan.copy(alpha = 0.5f), CutCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("ПОЛНЫЙ БОЕВОЙ ЛОГ // ТАКТИКА", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                            Text("✕", color = Color.Gray, fontSize = 14.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.weight(1f)) {
+                        TerminalLog(logs)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    io.eidos.zerolayer.ui.components.EidosButton(
+                        text = "ВЕРНУТЬСЯ В БОЙ",
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        buttonHeight = 40.dp
+                    )
+                }
+            }
         }
     }
 }
@@ -1104,9 +1433,8 @@ fun RaidControls(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // OVERDRIVE COMBAT ULTIMATE BUTTON & OPERATOR STATUS
         if (isCombat) {
             // Operator Live Combat Telemetry
             val curHp = player?.hp ?: 100
@@ -1117,20 +1445,20 @@ fun RaidControls(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(androidx.compose.foundation.shape.CutCornerShape(6.dp))
+                    .clip(CutCornerShape(6.dp))
                     .background(Color(0xFF091219).copy(alpha = 0.9f))
-                    .border(1.dp, EidosCyan.copy(alpha = 0.35f), androidx.compose.foundation.shape.CutCornerShape(6.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                    .border(1.dp, EidosCyan.copy(alpha = 0.35f), CutCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 EidosStatBar(
-                    label = "ЗДОРОВЬЕ ОПЕРАТОРА (HP)",
+                    label = "HP ОПЕРАТОРА",
                     value = curHp,
                     maxValue = maxHp,
                     color = if (curHp < maxHp * 0.3) EidosRed else EidosNeon
                 )
                 EidosStatBar(
-                    label = "НЕЙРО-ЭНЕРГИЯ (EP)",
+                    label = "ЭНЕРГИЯ (EP)",
                     value = curEnergy,
                     maxValue = maxEnergy,
                     color = EidosCyan
@@ -1138,14 +1466,6 @@ fun RaidControls(
             }
 
             val isOverdriveReady = overdriveCharge >= 100
-            AnimatedCyberProgressBar(
-                progress = (overdriveCharge / 100f).coerceIn(0f, 1f),
-                color = if (isOverdriveReady) EidosPurple else EidosCyan,
-                label = if (isOverdriveReady) "⚡ ЯДРО ЗАРЯЖЕНО НА 100% [ГОТОВО]" else "ЗАРЯД ОВЕРДРАЙВА (ЯДРО)",
-                valueText = "$overdriveCharge%",
-                modifier = Modifier.fillMaxWidth()
-            )
-
             if (isOverdriveReady) {
                 Button(
                     onClick = {
@@ -1155,23 +1475,30 @@ fun RaidControls(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
+                        .height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0080)),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD700)),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(8.dp)
+                    border = BorderStroke(2.dp, Color(0xFFFFD700)),
+                    shape = CutCornerShape(6.dp)
                 ) {
                     Text(
                         "⚡ СБРОС ЯДРА (OVERDRIVE) [250% КРИТ // СТАН]",
                         color = Color(0xFFFFE600),
                         fontWeight = FontWeight.Black,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontFamily = FontFamily.Monospace,
                         textAlign = TextAlign.Center
                     )
                 }
+            } else {
+                AnimatedCyberProgressBar(
+                    progress = (overdriveCharge / 100f).coerceIn(0f, 1f),
+                    color = EidosCyan,
+                    label = "ЗАРЯД ОВЕРДРАЙВА (ЯДРО)",
+                    valueText = "$overdriveCharge%",
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
-            // TACTICAL 3-ACTION COMBAT MATRIX (HIGH-IMPACT ZZZ STYLE)
             val playerEnergy = player?.energy ?: 0
             val hasAbilityEnergy = playerEnergy >= 5
             val factionAbilityTitle = when (player?.faction) {
@@ -1182,17 +1509,16 @@ fun RaidControls(
                 else -> "СПЕЦУДАР ЯДРА"
             }
 
-            // TACTICAL 2x2 COMBAT MATRIX (HIGH-EFFICIENCY COMBAT)
+            // Tactical 2x2 Combat Matrix
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // ROW 1: ATTACK + DEFEND
+                // Row 1: Attack + Defend
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // 1. ATTACK BUTTON
                     Button(
                         onClick = {
                             haptics.criticalHit()
@@ -1201,18 +1527,17 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp),
+                            .height(50.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14)),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosRed),
-                        shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 6.dp, bottomEnd = 8.dp)
+                        border = BorderStroke(1.5.dp, EidosRed),
+                        shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("⚔️ АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                            Text("УДАР (${player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            Text("⚔️ АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                            Text("УДАР (${player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
 
-                    // 2. DEFEND BUTTON (GUARD STANCE)
                     Button(
                         onClick = {
                             haptics.step()
@@ -1221,24 +1546,23 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp),
+                            .height(50.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818)),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosNeon),
-                        shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 6.dp, bottomEnd = 8.dp)
+                        border = BorderStroke(1.5.dp, EidosNeon),
+                        shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🛡 ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                            Text("БЛОК 50% // +2 EP", color = Color.White.copy(alpha = 0.9f), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            Text("🛡 ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                            Text("БЛОК 50% // +2 EP", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
 
-                // ROW 2: ABILITY + FLEE
+                // Row 2: Ability + Flee
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // 3. USE ABILITY BUTTON
                     Button(
                         onClick = {
                             haptics.criticalHit()
@@ -1247,35 +1571,35 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp),
+                            .height(50.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38) else Color(0xFF2B1408)
                         ),
-                        border = androidx.compose.foundation.BorderStroke(
+                        border = BorderStroke(
                             1.5.dp,
                             if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80)
                         ),
-                        shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 6.dp, bottomEnd = 8.dp)
+                        shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 if (hasAbilityEnergy) "⚡ НАВЫК [5 EP]" else "⚡ НАВЫК [-5 HP]",
                                 color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80),
                                 fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
+                                fontSize = 11.5.sp,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
                                 factionAbilityTitle,
                                 color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 8.5.sp,
+                                fontSize = 8.sp,
                                 fontFamily = FontFamily.Monospace,
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
 
-                    // 4. FLEE / RETREAT BUTTON
                     Button(
                         onClick = {
                             haptics.step()
@@ -1284,32 +1608,17 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp),
+                            .height(50.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906)),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosOrange),
-                        shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 6.dp, bottomEnd = 8.dp)
+                        border = BorderStroke(1.5.dp, EidosOrange),
+                        shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("🏃 ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                            Text("ШАНС 75%", color = Color.White.copy(alpha = 0.9f), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            Text("ШАНС 75%", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
-            }
-
-            // Secondary: Open Loot Buffer
-            OutlinedButton(
-                onClick = {
-                    haptics.click()
-                    audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
-                    onOpenBuffer()
-                },
-                modifier = Modifier.fillMaxWidth().height(36.dp),
-                shape = androidx.compose.foundation.shape.CutCornerShape(4.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.LightGray),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray)
-            ) {
-                Text("🎒 БУФЕР ЛУТА И ИНВЕНТАРЬ", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
             }
         } else if (isAnomaly && anomalyData != null) {
             Text("ВЫБОР ДЕЙСТВИЯ В НУЛЕВОМ СЛОЕ:", color = Color.Yellow, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
@@ -1329,8 +1638,8 @@ fun RaidControls(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = btnColor.copy(alpha = 0.15f)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, btnColor),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(4.dp)
+                    border = BorderStroke(1.dp, btnColor),
+                    shape = CutCornerShape(4.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 4.dp)) {
                         Text(option.text, color = btnColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -1339,7 +1648,7 @@ fun RaidControls(
                 }
             }
         } else {
-            // OVERCHARGE RISK PROTOCOL BUTTON (Non-combat raid boost)
+            // Overcharge boost button
             if (overchargeTier < io.eidos.zerolayer.domain.combat.CombatEngine.MAX_OVERCHARGE_TIER) {
                 Button(
                     onClick = {
@@ -1347,87 +1656,92 @@ fun RaidControls(
                         audio.playSound(EidosAudioManager.SoundType.LEVEL_UP)
                         onBoostOvercharge()
                     },
-                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                    modifier = Modifier.fillMaxWidth().height(36.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1000)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosOrange),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(6.dp)
+                    border = BorderStroke(1.dp, EidosOrange),
+                    shape = CutCornerShape(6.dp)
                 ) {
                     Text(
                         "🔥 ФОРСИРОВАТЬ СИГНАЛ (+50% ЛУТ / +РИСК) [УР ${overchargeTier + 1}/3]",
                         color = EidosOrange,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 10.5.sp,
+                        fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
+            // Row 1: Step into Abyss + Scan Sector
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Primary Action: Step into Abyss
                 Button(
                     onClick = {
                         haptics.step()
                         audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
                         onNextStep()
                     },
-                    modifier = Modifier.weight(1.2f).height(50.dp),
+                    modifier = Modifier.weight(1.3f).height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818)),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosNeon),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(8.dp)
+                    border = BorderStroke(1.5.dp, EidosNeon),
+                    shape = CutCornerShape(8.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🏃 [ ШАГ В БЕЗДНУ ]", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("СЛЕДУЮЩИЙ ШАГ [ЭНЕРГИЯ]", color = Color.LightGray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text("🏃 ШАГ В БЕЗДНУ", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text("СЛЕДУЮЩИЙ СЕКТОР", color = Color.LightGray, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
 
-                // Secondary Action: Open Inventory Buffer
-                OutlinedButton(
-                    onClick = {
-                        haptics.click()
-                        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
-                        onOpenBuffer()
-                    },
-                    modifier = Modifier.weight(0.8f).height(50.dp),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF1F080C)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosRed)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🎒 ИНВЕНТАРЬ", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("БУФЕР ЛУТА", color = Color.Gray, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
+                Button(
                     onClick = {
                         haptics.click()
                         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                         onScanSector()
                     },
-                    modifier = Modifier.weight(1f),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(4.dp)
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A2433)),
+                    border = BorderStroke(1.dp, EidosCyan),
+                    shape = CutCornerShape(8.dp)
                 ) {
-                    Text("СКАН [5 ЭНЕРГИИ]", fontSize = 12.sp)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📡 СКАН СЕКТОРА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text("5 ЭНЕРГИИ", color = Color.LightGray, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    }
                 }
+            }
+
+            // Row 2: Loot Buffer + Full Inventory (No duplicates!)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(
                     onClick = {
                         haptics.click()
                         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                         onOpenBuffer()
                     },
-                    modifier = Modifier.weight(1f),
-                    shape = androidx.compose.foundation.shape.CutCornerShape(4.dp)
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = CutCornerShape(6.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF1F1206)),
+                    border = BorderStroke(1.dp, Color(0xFFFF9800))
                 ) {
-                    Text("ИНВЕНТАРЬ", fontSize = 12.sp)
+                    Text("🎒 БУФЕР ЛУТА", color = Color(0xFFFF9800), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        haptics.click()
+                        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                        onOpenInventory()
+                    },
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = CutCornerShape(6.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF1F080C)),
+                    border = BorderStroke(1.dp, EidosRed)
+                ) {
+                    Text("🛡️ ИНВЕНТАРЬ", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }
