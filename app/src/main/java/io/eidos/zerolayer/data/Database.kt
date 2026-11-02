@@ -13,11 +13,14 @@ interface EidosDao {
     @Query("SELECT * FROM players WHERE uid = :uid")
     fun getPlayerFlow(uid: Long): Flow<Player?>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPlayer(player: Player)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPlayer(player: Player): Long
 
     @Update
     suspend fun updatePlayer(player: Player)
+
+    @Upsert
+    suspend fun upsertPlayer(player: Player)
 
     @Query("SELECT * FROM inventory WHERE uid = :uid")
     fun getInventoryFlow(uid: Long): Flow<List<InventoryItem>>

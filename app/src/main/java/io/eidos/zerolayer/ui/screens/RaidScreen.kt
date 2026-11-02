@@ -1397,8 +1397,7 @@ fun FullCombatLogModal(
                     io.eidos.zerolayer.ui.components.EidosButton(
                         text = "ВЕРНУТЬСЯ В БОЙ",
                         onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth(),
-                        buttonHeight = 40.dp
+                        modifier = Modifier.fillMaxWidth().height(40.dp)
                     )
                 }
             }

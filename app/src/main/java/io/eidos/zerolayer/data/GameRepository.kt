@@ -24,12 +24,12 @@ import kotlinx.coroutines.sync.withLock
 class GameRepository(private val context: Context, private val originalDao: EidosDao) {
 
     private val dao = object : EidosDao by originalDao {
-        override suspend fun insertPlayer(player: Player) {
+        override suspend fun insertPlayer(player: Player): Long {
             val updated = player.copy(
                 state_version = player.state_version + 1,
                 updated_at = System.currentTimeMillis()
             )
-            originalDao.insertPlayer(updated)
+            return originalDao.insertPlayer(updated)
         }
 
         override suspend fun updatePlayer(player: Player) {
@@ -38,6 +38,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 updated_at = System.currentTimeMillis()
             )
             originalDao.updatePlayer(updated)
+        }
+
+        override suspend fun upsertPlayer(player: Player) {
+            val updated = player.copy(
+                state_version = player.state_version + 1,
+                updated_at = System.currentTimeMillis()
+            )
+            originalDao.upsertPlayer(updated)
         }
     }
 
@@ -1338,7 +1346,38 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         return player
     }
 
-    suspend fun savePlayer(player: Player) = dao.insertPlayer(player)
+    suspend fun savePlayer(player: Player) = dbMutex.withLock {
+        val existing = originalDao.getPlayer(player.uid)
+        if (existing != null) {
+            dao.updatePlayer(player)
+        } else {
+            dao.insertPlayer(player)
+        }
+    }
+
+    suspend fun addInventoryDirect(
+        uid: Long,
+        itemId: String,
+        quantity: Int,
+        isEquipped: Boolean = false,
+        slot: String? = null
+    ) = dbMutex.withLock {
+        val meta = getItemMetadata(itemId)
+        val defaultEq = if (meta != null) PoECraftEngine.generateDefaultEquipment(meta.rarity) else null
+        val serialized = if (defaultEq != null) PoECraftEngine.serializeEquipment(defaultEq) else null
+        val effectiveSlot = slot ?: ItemSlotUtils.getSlotForItem(itemId, meta)
+        dao.insertInventoryItem(
+            InventoryItem(
+                uid = uid,
+                item_id = itemId,
+                quantity = quantity,
+                durability = 100f,
+                is_equipped = isEquipped,
+                slot = effectiveSlot,
+                custom_data = serialized
+            )
+        )
+    }
 
     fun getInventory(uid: Long): Flow<List<InventoryItem>> = dao.getInventoryFlow(uid)
 
@@ -4241,7 +4280,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 defense_program_3 = cloudPlayer.defense_program_3,
                 updated_at = System.currentTimeMillis()
             )
-            dao.insertPlayer(restored)
+            if (localPlayer != null) {
+                dao.updatePlayer(restored)
+            } else {
+                dao.insertPlayer(restored)
+            }
             log(target, "☁️ [НЕЙРО-СИНХРОНИЗАЦИЯ]: Профиль оператора ${cloudPlayer.username} (Уровень ${cloudPlayer.level}) загружен из облака!", "loot")
         } else if (localPlayer != null) {
             val updated = localPlayer.copy(username = res.username, first_name = res.username)

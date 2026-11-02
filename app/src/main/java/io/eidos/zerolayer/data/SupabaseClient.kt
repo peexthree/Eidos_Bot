@@ -480,6 +480,12 @@ object SupabaseClientManager {
 
         }
 
+        if (items.isEmpty()) {
+            // Safety guard: never wipe remote inventory if passed an empty list,
+            // as that indicates an uninitialized or transient local state!
+            return@withContext true
+        }
+
         try {
             // Delete existing for player and insert current list
             val deleteUrl = "$baseUrl/rest/v1/app_inventory?player_id=eq.$validPlayerId"
@@ -491,27 +497,51 @@ object SupabaseClientManager {
                 .build()
             httpClient.newCall(deleteRequest).execute().close()
 
-            if (items.isNotEmpty()) {
-                val insertUrl = "$baseUrl/rest/v1/app_inventory"
-                val safeItems = items.map { it.copy(playerId = validPlayerId) }
+            val insertUrl = "$baseUrl/rest/v1/app_inventory"
+            val safeItems = items.map { it.copy(playerId = validPlayerId) }
 
-                val bodyJson = json.encodeToString(safeItems)
-                val insertRequest = Request.Builder()
-                    .url(insertUrl)
-                    .addHeader("apikey", apiKey)
-                    .addHeader("Authorization", "Bearer $apiKey")
-                    .addHeader("Content-Type", "application/json")
-                    .post(bodyJson.toRequestBody("application/json".toMediaType()))
-                    .build()
-                httpClient.newCall(insertRequest).execute().use { resp ->
-                    return@withContext resp.isSuccessful
-                }
+            val bodyJson = json.encodeToString(safeItems)
+            val insertRequest = Request.Builder()
+                .url(insertUrl)
+                .addHeader("apikey", apiKey)
+                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Content-Type", "application/json")
+                .post(bodyJson.toRequestBody("application/json".toMediaType()))
+                .build()
+            httpClient.newCall(insertRequest).execute().use { resp ->
+                return@withContext resp.isSuccessful
             }
-            return@withContext true
         } catch (e: Exception) {
             Log.e("SUPABASE", "syncInventory Exception: ${e.message}")
         }
         return@withContext false
+    }
+
+    /**
+     * Fetch player inventory items from `app_inventory`.
+     */
+    suspend fun fetchInventory(playerId: String): List<SupabaseInventoryItem> = withContext(Dispatchers.IO) {
+        if (!isConfigured()) return@withContext emptyList()
+        val validPlayerId = if (playerId.length == 36 && playerId.contains("-")) playerId else cachedPlayerUuid
+        if (validPlayerId.isNullOrBlank()) return@withContext emptyList()
+        try {
+            val url = "$baseUrl/rest/v1/app_inventory?player_id=eq.$validPlayerId"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", apiKey)
+                .addHeader("Authorization", "Bearer $apiKey")
+                .get()
+                .build()
+            httpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val respStr = response.body?.string() ?: ""
+                    return@withContext json.decodeFromString<List<SupabaseInventoryItem>>(respStr)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SUPABASE", "fetchInventory Exception: ${e.message}")
+        }
+        return@withContext emptyList()
     }
 
     /**

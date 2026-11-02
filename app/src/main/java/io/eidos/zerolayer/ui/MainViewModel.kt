@@ -326,8 +326,17 @@ class MainViewModel(
                 state_version = remote.stateVersion,
                 updated_at = System.currentTimeMillis()
             ))
+            val targetUuid = remote.id ?: SupabaseClientManager.cachedPlayerUuid
+            if (targetUuid != null) {
+                val cloudInv = SupabaseClientManager.fetchInventory(targetUuid)
+                if (cloudInv.isNotEmpty()) {
+                    cloudInv.forEach { item ->
+                        repository.addInventoryDirect(conflict.local.uid, item.itemId, item.quantity, item.isEquipped)
+                    }
+                }
+            }
             syncConflict.value = null
-            repository.log(conflict.local.uid, "🔄 [СИНХРОНИЗАЦИЯ]: Прогресс восстановлен из облака (версия ${remote.stateVersion}).", "info")
+            repository.log(conflict.local.uid, "🔄 [СИНХРОНИЗАЦИЯ]: Прогресс и инвентарь восстановлены из облака (версия ${remote.stateVersion}).", "info")
         }
     }
 
@@ -395,15 +404,25 @@ class MainViewModel(
                     if (targetUuid != null) {
                         SupabaseClientManager.cachedPlayerUuid = targetUuid
                         val currentInv = repository.getInventory(_uid.value).first()
-                        val supabaseInvList = currentInv.map { item ->
-                            SupabaseInventoryItem(
-                                playerId = targetUuid,
-                                itemId = item.item_id,
-                                quantity = item.quantity,
-                                isEquipped = item.is_equipped
-                            )
+                        if (currentInv.isEmpty()) {
+                            val remoteInv = SupabaseClientManager.fetchInventory(targetUuid)
+                            if (remoteInv.isNotEmpty()) {
+                                remoteInv.forEach { item ->
+                                    repository.addInventoryDirect(_uid.value, item.itemId, item.quantity, item.isEquipped)
+                                }
+                                repository.log(localPlayer.uid, "📦 [ОБЛАКО]: Инвентарь восстановлен из EIDOS Cloud (${remoteInv.size} предм.).", "loot")
+                            }
+                        } else {
+                            val supabaseInvList = currentInv.map { item ->
+                                SupabaseInventoryItem(
+                                    playerId = targetUuid,
+                                    itemId = item.item_id,
+                                    quantity = item.quantity,
+                                    isEquipped = item.is_equipped
+                                )
+                            }
+                            SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
                         }
-                        SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
                     }
                 }
             } else {
@@ -428,15 +447,25 @@ class MainViewModel(
                 if (targetUuid != null) {
                     SupabaseClientManager.cachedPlayerUuid = targetUuid
                     val currentInv = repository.getInventory(_uid.value).first()
-                    val supabaseInvList = currentInv.map { item ->
-                        SupabaseInventoryItem(
-                            playerId = targetUuid,
-                            itemId = item.item_id,
-                            quantity = item.quantity,
-                            isEquipped = item.is_equipped
-                        )
+                    if (currentInv.isEmpty()) {
+                        val remoteInv = SupabaseClientManager.fetchInventory(targetUuid)
+                        if (remoteInv.isNotEmpty()) {
+                            remoteInv.forEach { item ->
+                                repository.addInventoryDirect(_uid.value, item.itemId, item.quantity, item.isEquipped)
+                            }
+                            repository.log(localPlayer.uid, "📦 [ОБЛАКО]: Инвентарь восстановлен из EIDOS Cloud (${remoteInv.size} предм.).", "loot")
+                        }
+                    } else {
+                        val supabaseInvList = currentInv.map { item ->
+                            SupabaseInventoryItem(
+                                playerId = targetUuid,
+                                itemId = item.item_id,
+                                quantity = item.quantity,
+                                isEquipped = item.is_equipped
+                            )
+                        }
+                        SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
                     }
-                    SupabaseClientManager.syncInventory(targetUuid, supabaseInvList)
                     repository.log(localPlayer.uid, "🌐 [СИНХРОНИЗАЦИЯ]: Профиль оператора '${synced?.username ?: localPlayer.username}' успешно зарегистрирован в базе данных EIDOS Cloud.", "info")
                 }
             }

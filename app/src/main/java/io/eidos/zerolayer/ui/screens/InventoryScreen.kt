@@ -288,7 +288,7 @@ fun InventoryScreen(
                     letterSpacing = 0.5.sp,
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
-                EquipDollSection(inventory, allItemsMetadata, onUnequip)
+                EquipDollSection(inventory, allItemsMetadata, player, onUnequip)
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -835,6 +835,7 @@ fun ProfileSection(player: Player?) {
 fun EquipDollSection(
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
+    player: Player? = null,
     onUnequip: (InventoryItem) -> Unit
 ) {
     val head = inventory.find { it.is_equipped && (it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "head") }
@@ -842,28 +843,265 @@ fun EquipDollSection(
     val weapon = inventory.find { it.is_equipped && (it.slot == "weapon" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "weapon") }
     val chips = inventory.filter { it.is_equipped && (it.slot == "chip" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "chip") }
 
-    val headName = head?.let { allItemsMetadata.find { meta -> meta.id == it.item_id }?.name ?: getItemName(it.item_id) }
-    val armorName = armor?.let { allItemsMetadata.find { meta -> meta.id == it.item_id }?.name ?: getItemName(it.item_id) }
-    val weaponName = weapon?.let { allItemsMetadata.find { meta -> meta.id == it.item_id }?.name ?: getItemName(it.item_id) }
-    val chipNames = chips.map { allItemsMetadata.find { meta -> meta.id == it.item_id }?.name ?: getItemName(it.item_id) }
+    val playerLvl = (player?.level ?: 1).coerceIn(1, 31)
+    val avatarRes = "lvl_$playerLvl"
 
-    io.eidos.zerolayer.ui.components.zzz.ZzzCyberMannequinDeck(
-        equippedHead = headName,
-        equippedTorso = armorName,
-        equippedWeapon = weaponName,
-        equippedChips = chipNames,
-        onSlotClick = { slot ->
-            when (slot) {
-                "head" -> head?.let { onUnequip(it) }
-                "torso" -> armor?.let { onUnequip(it) }
-                "weapon" -> weapon?.let { onUnequip(it) }
-                else -> {
-                    val index = slot.removePrefix("chip_").toIntOrNull() ?: 0
-                    chips.getOrNull(index)?.let { onUnequip(it) }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CutCornerShape(8.dp))
+            .background(Color(0xFF060B11).copy(alpha = 0.95f))
+            .border(1.dp, EidosCyan.copy(alpha = 0.35f), CutCornerShape(8.dp))
+            .padding(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // LEFT COLUMN: Head, Weapon, Armor
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                EquipSlotTile(
+                    slotLabel = "ШЛЕМ",
+                    item = head,
+                    meta = head?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
+                    defaultAccent = EidosCyan,
+                    onUnequip = onUnequip
+                )
+                EquipSlotTile(
+                    slotLabel = "ОРУЖИЕ",
+                    item = weapon,
+                    meta = weapon?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
+                    defaultAccent = Color(0xFFFF9800),
+                    onUnequip = onUnequip
+                )
+                EquipSlotTile(
+                    slotLabel = "БРОНЯ",
+                    item = armor,
+                    meta = armor?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
+                    defaultAccent = EidosPurple,
+                    onUnequip = onUnequip
+                )
+            }
+
+            // CENTER: MODERN CYBER OPERATOR ART CARD
+            Box(
+                modifier = Modifier
+                    .weight(1.15f)
+                    .height(180.dp)
+                    .clip(CutCornerShape(8.dp))
+                    .background(Color(0xFF091219))
+                    .border(1.5.dp, EidosCyan.copy(alpha = 0.6f), CutCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                EidosImage(
+                    resName = avatarRes,
+                    fallbackIcon = Icons.Default.Person,
+                    borderColor = Color.Transparent,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color(0xFF001F2D).copy(alpha = 0.3f),
+                                    Color(0xFF000910).copy(alpha = 0.85f)
+                                )
+                            )
+                        )
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .border(0.5.dp, EidosCyan.copy(alpha = 0.5f))
+                        .padding(vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "⚡ ОПЕРАТОР [УР $playerLvl]",
+                        color = EidosCyan,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .border(0.5.dp, EidosCyan.copy(alpha = 0.5f))
+                        .padding(vertical = 3.dp, horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = player?.username ?: "НЕОФИТ",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "⚔️ ${player?.attack ?: 10} ATK  |  🛡️ ${player?.defense ?: 5} DEF",
+                        color = EidosNeon,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            // RIGHT COLUMN: 4 Mod Chips
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                for (i in 0..3) {
+                    val chip = chips.getOrNull(i)
+                    EquipSlotTile(
+                        slotLabel = "ЧИП ${i + 1}",
+                        item = chip,
+                        meta = chip?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
+                        defaultAccent = EidosNeon,
+                        isCompact = true,
+                        onUnequip = onUnequip
+                    )
                 }
             }
         }
-    )
+    }
+}
+
+@Composable
+private fun EquipSlotTile(
+    slotLabel: String,
+    item: InventoryItem?,
+    meta: io.eidos.zerolayer.data.GameRepository.ItemMetadata?,
+    defaultAccent: Color,
+    isCompact: Boolean = false,
+    onUnequip: (InventoryItem) -> Unit
+) {
+    val rarity = meta?.rarity ?: (item?.let { getItemRarity(it.item_id) } ?: "common")
+    val rarityColor = when (rarity) {
+        "cursed", "relic" -> EidosRed
+        "legendary" -> EidosOrange
+        "epic" -> EidosPurple
+        "rare" -> EidosCyan
+        "uncommon" -> EidosNeon
+        else -> defaultAccent
+    }
+
+    val tileHeight = if (isCompact) 40.dp else 54.dp
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(tileHeight)
+            .clip(CutCornerShape(4.dp))
+            .background(if (item != null) Color(0xFF0B141D) else Color(0xFF070B10))
+            .border(
+                width = 1.dp,
+                color = if (item != null) rarityColor.copy(alpha = 0.85f) else Color(0xFF1E2D3D),
+                shape = CutCornerShape(4.dp)
+            )
+            .clickable(enabled = item != null) { item?.let { onUnequip(it) } }
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        if (item != null) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(if (isCompact) 26.dp else 34.dp)
+                        .clip(CutCornerShape(2.dp))
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .border(0.5.dp, rarityColor, CutCornerShape(2.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EidosImage(
+                        resName = item.item_id,
+                        borderColor = Color.Transparent,
+                        borderWidth = 0.dp,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        slotLabel,
+                        color = rarityColor,
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        meta?.name ?: getItemName(item.item_id),
+                        color = Color.White,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(if (isCompact) 22.dp else 28.dp)
+                        .clip(CutCornerShape(2.dp))
+                        .background(Color(0xFF0F1722))
+                        .border(0.5.dp, Color(0xFF1E2D3D), CutCornerShape(2.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+", color = Color(0xFF455A64), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Column {
+                    Text(
+                        slotLabel,
+                        color = defaultAccent.copy(alpha = 0.6f),
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        "ПУСТО",
+                        color = Color(0xFF546E7A),
+                        fontSize = 8.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
