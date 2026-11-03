@@ -467,45 +467,6 @@ fun HubScreen(
                     }
                 }
 
-                // Meta-Hub Tree Card
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Color.Yellow.copy(alpha = 0.6f), CutCornerShape(8.dp))
-                        .clickable { showMetaTreeDialog = true },
-                    colors = CardDefaults.cardColors(containerColor = EidosGlass),
-                    shape = CutCornerShape(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🏛️", fontSize = 24.sp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "ДЕРЕВО МЕТА-УЛУЧШЕНИЙ ХАБА",
-                                    color = Color.Yellow,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                                Text(
-                                    text = "Постоянные баффы за Осколки Эйдоса (Сигнал, Ключи, Удача, Сила)",
-                                    color = Color.Gray,
-                                    fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                        }
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Open Meta Tree", tint = Color.Yellow)
-                    }
-                }
-
                 // Primary Events (Daily Supply Drop & World Boss)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -515,16 +476,16 @@ fun HubScreen(
                     Card(
                         modifier = Modifier
                             .weight(1f)
-                            .height(100.dp)
-                            .border(1.dp, EidosNeon.copy(alpha = 0.4f), CutCornerShape(8.dp))
-                            .clickable { showSupplyDropDialog = true },
+                            .height(90.dp)
+                            .border(1.dp, EidosNeon.copy(alpha = 0.5f), CutCornerShape(8.dp))
+                            .cyberClickable { showSupplyDropDialog = true },
                         colors = CardDefaults.cardColors(containerColor = EidosGlass),
                         shape = CutCornerShape(8.dp)
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(12.dp),
+                                .padding(10.dp),
                             verticalArrangement = Arrangement.SpaceBetween,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
@@ -532,16 +493,16 @@ fun HubScreen(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Supply Drop",
                                 tint = EidosNeon,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                             Text(
-                                text = "СИНХРОНИЗАЦИЯ\nДЕПО",
+                                text = "СИНХРОНИЗАЦИЯ ДЕПО\n[ЗАРЯДКА + ПРИПАСЫ]",
                                 color = EidosNeon,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
                                 fontFamily = FontFamily.Monospace,
-                                lineHeight = 14.sp
+                                lineHeight = 13.sp
                             )
                         }
                     }
@@ -550,16 +511,16 @@ fun HubScreen(
                     Card(
                         modifier = Modifier
                             .weight(1f)
-                            .height(100.dp)
-                            .border(1.dp, EidosRed.copy(alpha = 0.4f), CutCornerShape(8.dp))
-                            .clickable { showBossDialog = true },
+                            .height(90.dp)
+                            .border(1.dp, EidosRed.copy(alpha = 0.5f), CutCornerShape(8.dp))
+                            .cyberClickable { showBossDialog = true },
                         colors = CardDefaults.cardColors(containerColor = EidosGlass),
                         shape = CutCornerShape(8.dp)
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(12.dp),
+                                .padding(10.dp),
                             verticalArrangement = Arrangement.SpaceBetween,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
@@ -567,41 +528,19 @@ fun HubScreen(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = "World Boss",
                                 tint = EidosRed,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                             Text(
                                 text = "МИРОВОЙ БОСС\nEIDOS-CORE",
                                 color = EidosRed,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
                                 fontFamily = FontFamily.Monospace,
-                                lineHeight = 14.sp
+                                lineHeight = 13.sp
                             )
                         }
                     }
-                }
-
-                // Core Modules Sector (Main Gameplay Entries)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "ОПЕРАЦИОННЫЕ МОДУЛИ // РЕЖИМЫ ИГРЫ",
-                        color = Color.Gray,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                    Text(
-                        text = "💡 Выберите действие",
-                        color = EidosCyan,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
                 }
 
                 // Central Sci-Fi Title Block
@@ -627,18 +566,18 @@ fun HubScreen(
                     )
                 }
 
-                // ZZZ MASSIVE CENTRAL BANNER "СПУСК В НУЛЕВОЙ СЛОЙ"
+                // ONLY ONE CENTRAL BANNER FOR RAID ENTRY
                 io.eidos.zerolayer.ui.components.ZzzMainButton(
                     text = ">>> СПУСК В НУЛЕВОЙ СЛОЙ >>>",
                     onClick = onNavigateToRaid,
                     primaryColor = ZzzAcidYellow,
                     borderColor = ZzzElectricCyan,
                     textColor = Color.Black,
-                    height = 52.dp,
+                    height = 54.dp,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 3x3 Grid Menu (9 Cyber Frame Buttons) with ZZZ Kinetic Header
+                // 2x2 Tactical Grid Menu
                 ZzzHeaderBadge(
                     title = "ТАКТИЧЕСКИЕ ОПЕРАЦИИ",
                     codeTag = "GRID-OPS",
@@ -648,25 +587,11 @@ fun HubScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Row 1
+                    // Row 1: Forge & Market
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        CyberGridMenuItem(
-                            title = "РЕЙД // ВЫЛАЗКА",
-                            emojiIcon = "◈",
-                            borderColor = ZzzDesignSystem.SignalCyan,
-                            onClick = onNavigateToRaid,
-                            modifier = Modifier.weight(1f)
-                        )
-                        CyberGridMenuItem(
-                            title = "ИНВЕНТАРЬ И СЛОТЫ",
-                            emojiIcon = "▨",
-                            borderColor = ZzzDesignSystem.VoltYellow,
-                            onClick = onNavigateToInventory,
-                            modifier = Modifier.weight(1f)
-                        )
                         CyberGridMenuItem(
                             title = "КУЗНИЦА И СИНТЕЗ",
                             emojiIcon = "⚡",
@@ -674,9 +599,16 @@ fun HubScreen(
                             onClick = onNavigateToForge,
                             modifier = Modifier.weight(1f)
                         )
+                        CyberGridMenuItem(
+                            title = "ЧЕРНЫЙ РЫНОК",
+                            emojiIcon = "🥷",
+                            borderColor = Color(0xFF9C27B0),
+                            onClick = onNavigateToShop,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
 
-                    // Row 2
+                    // Row 2: PvP & Codex
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -697,100 +629,36 @@ fun HubScreen(
                             modifier = Modifier.weight(1f)
                         )
                         CyberGridMenuItem(
-                            title = "ЧЕРНЫЙ РЫНОК",
-                            emojiIcon = "🥷",
-                            borderColor = Color(0xFF9C27B0),
-                            onClick = onNavigateToShop,
-                            modifier = Modifier.weight(1f)
-                        )
-                        CyberGridMenuItem(
-                            title = if (isBrokerActive) "ТЕНЕВОЙ БРОКЕР" else "ТЕНЕВОЙ БРОКЕР 🔴",
-                            emojiIcon = "💻",
-                            borderColor = if (isBrokerActive) EidosNeon else Color.Gray,
-                            onClick = {
-                                if (isBrokerActive) {
-                                    if (activity != null && BiometricHelper.isBiometricAvailable(context)) {
-                                        BiometricHelper.authenticateOperator(
-                                            activity = activity,
-                                            title = "EIDOS // НЕЙРО-ИДЕНТИФИКАЦИЯ",
-                                            subtitle = "Подтвердите биометрический профиль для доступа к Теневому Брокеру",
-                                            onSuccess = { onNavigateToShadowBroker() },
-                                            onError = { onNavigateToShadowBroker() }
-                                        )
-                                    } else {
-                                        onNavigateToShadowBroker()
-                                    }
-                                } else {
-                                    showBrokerOfflineDialog = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // Row 3
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        CyberGridMenuItem(
-                            title = "ВРАТА ЭЙДОСА",
-                            emojiIcon = "⛩️",
-                            borderColor = EidosCyan,
-                            onClick = onNavigateToEidosGates,
-                            modifier = Modifier.weight(1f)
-                        )
-                        CyberGridMenuItem(
-                            title = "КОДЕКС И БЕСТИАРИЙ",
+                            title = "📚 КОДЕКС / БАЗА ЗНАНИЙ",
                             emojiIcon = "📖",
                             borderColor = Color(0xFFFFD700),
                             onClick = onNavigateToCodex,
                             modifier = Modifier.weight(1f)
                         )
+                    }
+
+                    // Optional Broker Row if active
+                    if (isBrokerActive) {
                         CyberGridMenuItem(
-                            title = "ПРОФИЛЬ И СИНДИКАТ",
-                            emojiIcon = "👤",
+                            title = "ТЕНЕВОЙ БРОКЕР [ONLINE]",
+                            emojiIcon = "💻",
                             borderColor = EidosNeon,
-                            onClick = onNavigateToProfile,
-                            modifier = Modifier.weight(1f)
+                            onClick = {
+                                if (activity != null && BiometricHelper.isBiometricAvailable(context)) {
+                                    BiometricHelper.authenticateOperator(
+                                        activity = activity,
+                                        title = "EIDOS // НЕЙРО-ИДЕНТИФИКАЦИЯ",
+                                        subtitle = "Подтвердите биометрический профиль для доступа к Теневому Брокеру",
+                                        onSuccess = { onNavigateToShadowBroker() },
+                                        onError = { onNavigateToShadowBroker() }
+                                    )
+                                } else {
+                                    onNavigateToShadowBroker()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                }
-
-                // Secondary System Actions
-                Text(
-                    text = "СИСТЕМНЫЕ СЕРВИСЫ // SERVICES",
-                    color = Color.Gray,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    ServiceMiniButton(
-                        title = "РЕЙТИНГ",
-                        icon = Icons.Default.Star,
-                        onClick = { showRatingDialog = true },
-                        modifier = Modifier.weight(1f)
-                    )
-                    ServiceMiniButton(
-                        title = "СПРАВКА",
-                        icon = Icons.Default.Info,
-                        onClick = { showGuideDialog = true },
-                        modifier = Modifier.weight(1f),
-                        color = EidosCyan
-                    )
-                    ServiceMiniButton(
-                        title = "ТЕНЕВОЙ РЫНОК",
-                        icon = Icons.Default.Lock,
-                        onClick = { showShadowShopDialog = true },
-                        modifier = Modifier.weight(1.2f),
-                        color = EidosRed
-                    )
                 }
 
                 // Live Terminal logs Panel

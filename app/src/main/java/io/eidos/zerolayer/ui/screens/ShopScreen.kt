@@ -12,6 +12,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,6 +47,7 @@ import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.cyberClickable
+import io.eidos.zerolayer.ui.components.cyberHudBorder
 import io.eidos.zerolayer.ui.components.EidosGlassCard
 import io.eidos.zerolayer.ui.components.EidosRarityBadge
 import io.eidos.zerolayer.ui.components.rarityColor
@@ -149,7 +156,14 @@ fun ShopScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-            // Balance Panel
+            // Balance Panel with animated BioCoins counter
+            val targetBioCoins = (player?.biocoin ?: 0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            val animatedBioCoins by animateIntAsState(
+                targetValue = targetBioCoins,
+                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+                label = "animatedBioCoins"
+            )
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -177,7 +191,7 @@ fun ShopScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("БАЛАНС ТЕРМИНАЛА:", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     }
-                    Text("${player?.biocoin ?: 0} BC", color = amberColor, fontWeight = FontWeight.Bold, fontSize = 18.sp, fontFamily = FontFamily.Monospace)
+                    Text("$animatedBioCoins BC", color = amberColor, fontWeight = FontWeight.Bold, fontSize = 18.sp, fontFamily = FontFamily.Monospace)
                 }
             }
 
@@ -552,10 +566,12 @@ fun ShopScreen(
                     }
                 }
             } else {
-                LazyColumn(
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredItems, key = { it.id }) { item ->
                         val itemRarityColor = rarityColor(item.rarity)
@@ -569,101 +585,136 @@ fun ShopScreen(
                             else -> 100
                         }
 
-                        EidosGlassCard(
-                            glowColor = itemRarityColor,
+                        val canAfford = (player?.biocoin ?: 0L) >= effectivePrice.toLong()
+                        val meetsLevel = (player?.level ?: 1) >= item.reqLevel
+                        val canBuy = canAfford && meetsLevel
+
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { selectedInspectItem = item }
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF090F17))
+                                .border(1.dp, itemRarityColor.copy(alpha = 0.65f), RoundedCornerShape(8.dp))
+                                .cyberHudBorder(
+                                    color = itemRarityColor.copy(alpha = 0.85f),
+                                    cornerLength = 8.dp,
+                                    strokeWidth = 1.5.dp
+                                )
+                                .cyberClickable { selectedInspectItem = item }
+                                .padding(8.dp)
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                // Item Thumbnail with Rarity Frame
+                                // Large 110.dp Showcase Art Container
                                 Box(
                                     modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(CutCornerShape(4.dp))
-                                        .background(Color(0xFF070B12))
-                                        .border(1.dp, itemRarityColor, CutCornerShape(4.dp)),
+                                        .fillMaxWidth()
+                                        .height(110.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(
+                                                    itemRarityColor.copy(alpha = 0.12f),
+                                                    Color(0xFF04070C)
+                                                )
+                                            )
+                                        )
+                                        .border(1.dp, itemRarityColor.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                                        .padding(4.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     EidosImage(
                                         resName = item.id,
                                         borderColor = Color.Transparent,
                                         borderWidth = 0.dp,
-                                        modifier = Modifier.fillMaxSize()
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.size(100.dp)
                                     )
-                                }
 
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                // Item Info Column
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    // Rarity Badge top-end
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(3.dp))
+                                            .border(0.5.dp, itemRarityColor, RoundedCornerShape(3.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
                                     ) {
                                         Text(
-                                            item.name,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            maxLines = 1
+                                            item.rarity.uppercase(),
+                                            color = itemRarityColor,
+                                            fontSize = 7.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace
                                         )
-                                        EidosRarityBadge(item.rarity)
                                     }
+                                }
 
-                                    Spacer(modifier = Modifier.height(3.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
 
-                                    // Stat Badges
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        if (item.bonusAttack > 0) {
-                                            Text("+${item.bonusAttack} ATK", color = EidosRed, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                                        }
-                                        if (item.bonusDefense > 0) {
-                                            Text("+${item.bonusDefense} DEF", color = EidosCyan, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                                        }
-                                        if (item.bonusLuck > 0) {
-                                            Text("+${item.bonusLuck} LUCK", color = EidosGold, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                                        }
+                                // Item Name
+                                Text(
+                                    item.name,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(3.dp))
+
+                                // Stat Badges
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (item.bonusAttack > 0) {
+                                        Text("+${item.bonusAttack} ATK", color = EidosRed, fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                                     }
+                                    if (item.bonusDefense > 0) {
+                                        Text("+${item.bonusDefense} DEF", color = EidosCyan, fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (item.bonusLuck > 0) {
+                                        Text("+${item.bonusLuck} LUCK", color = EidosGold, fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                                    }
+                                }
 
-                                    Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
 
-                                    // Price & Level Tag
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
+                                // Price & Requirements
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text("🪙", fontSize = 10.sp)
                                         Text(
                                             "$effectivePrice BC",
                                             color = amberColor,
-                                            fontSize = 12.sp,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                    if (item.reqLevel > 1) {
+                                        Text(
+                                            "LVL ${item.reqLevel}",
+                                            color = if (meetsLevel) EidosCyan else Color(0xFFFF5252),
+                                            fontSize = 8.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             fontFamily = FontFamily.Monospace
                                         )
-                                        if (item.reqLevel > 1) {
-                                            val hasLevel = (player?.level ?: 1) >= item.reqLevel
-                                            Text(
-                                                "УР ${item.reqLevel}",
-                                                color = if (hasLevel) EidosCyan else Color(0xFFFF5252),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
 
-                                // Buy Button
-                                val canAfford = (player?.biocoin ?: 0L) >= effectivePrice.toLong()
-                                val meetsLevel = (player?.level ?: 1) >= item.reqLevel
-                                val canBuy = canAfford && meetsLevel
-
+                                // Instant Buy Button
                                 Button(
                                     onClick = {
                                         pendingConfirmItem = item
@@ -677,8 +728,10 @@ fun ShopScreen(
                                     enabled = canBuy,
                                     border = androidx.compose.foundation.BorderStroke(1.dp, if (canBuy) amberColor else Color.DarkGray),
                                     shape = CutCornerShape(4.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                    modifier = Modifier.heightIn(min = 38.dp)
+                                    contentPadding = PaddingValues(vertical = 4.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(34.dp)
                                 ) {
                                     val btnText = when {
                                         !meetsLevel -> "УР ${item.reqLevel}"
@@ -695,12 +748,12 @@ fun ShopScreen(
                                 }
                             }
                         }
+                    }
                 }
             }
         }
     }
-    }
-    }
+}
 
     // Holographic Item Inspection Modal
     selectedInspectItem?.let { inspect ->

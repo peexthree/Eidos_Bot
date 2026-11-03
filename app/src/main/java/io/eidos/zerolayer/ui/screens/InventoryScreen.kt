@@ -1,5 +1,9 @@
 package io.eidos.zerolayer.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -134,156 +138,11 @@ fun InventoryScreen(
                     .fillMaxSize()
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                // Active Raid Navigation Banner
-                if (activeRaidSession != null && onReturnToRaid != null) {
-                    Surface(
-                        color = Color(0xFF2A0808),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, EidosRed),
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 10.dp)
-                            .cyberClickable { onReturnToRaid() }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("🚨", fontSize = 14.sp)
-                                Column {
-                                    Text(
-                                        "АКТИВНО ПОГРУЖЕНИЕ В БЕЗДНУ",
-                                        color = EidosRed,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Black,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                    Text(
-                                        "ГЛУБИНА: ${activeRaidSession.depth}м | СИГНАЛ: ${activeRaidSession.signal}%",
-                                        color = Color.LightGray,
-                                        fontSize = 8.5.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
-                            }
-                            Text(
-                                "➔ В РЕЙД",
-                                color = EidosNeon,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
-                }
-
-                // Raid Buffer Section: Shows loot gathered during active dive awaiting extraction
-                if (activeRaidSession != null) {
-                    val bufferItems = remember(activeRaidSession.buffer_items) {
-                        activeRaidSession.buffer_items.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                    }
-                    val bufferCoins = activeRaidSession.buffer_coins
-                    val bufferXp = activeRaidSession.buffer_xp
-
-                    if (bufferItems.isNotEmpty() || bufferCoins > 0L) {
-                        Surface(
-                            color = Color(0xFF140D1E),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, EidosPurple),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 10.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("🎒", fontSize = 14.sp)
-                                        Column {
-                                            Text(
-                                                "ПОЛЕВОЙ БУФЕР // НАГРАДЫ РЕЙДА",
-                                                color = EidosPurple,
-                                                fontSize = 10.5.sp,
-                                                fontWeight = FontWeight.Black,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                            Text(
-                                                "ТРОФЕИ: ${bufferItems.size} шт. | +$bufferCoins BC | +$bufferXp XP",
-                                                color = Color(0xFFB39DDB),
-                                                fontSize = 8.5.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                    }
-                                    if (onEvacuateRaid != null) {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(EidosNeon)
-                                                .cyberClickable { onEvacuateRaid() }
-                                                .padding(horizontal = 8.dp, vertical = 5.dp)
-                                        ) {
-                                            Text(
-                                                "ЭВАКУАЦИЯ",
-                                                color = Color.Black,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Black,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                    }
-                                }
-
-                                if (bufferItems.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    LazyRow(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        items(bufferItems) { rawItemId ->
-                                            val meta = allItemsMetadata.find { it.id == rawItemId }
-                                            val rarity = meta?.rarity ?: getItemRarity(rawItemId)
-                                            val itemColor = when (rarity) {
-                                                "cursed", "relic" -> EidosRed
-                                                "legendary" -> EidosOrange
-                                                "epic" -> EidosPurple
-                                                "rare" -> EidosCyan
-                                                "uncommon" -> EidosNeon
-                                                else -> Color(0xFF546E7A)
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(44.dp)
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(Color(0xFF090B10))
-                                                    .border(1.dp, itemColor, RoundedCornerShape(4.dp))
-                                                    .padding(2.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                EidosImage(resName = rawItemId, borderColor = itemColor, modifier = Modifier.size(26.dp))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Player Core Stats Row
-                ProfileSection(player)
-
-                Spacer(modifier = Modifier.height(10.dp))
-
                 // Interactive Equipment Doll
                 Text(
                     "АКТИВНАЯ ЭКИПИРОВКА [СЛОТЫ ЯДРА]",
                     color = EidosCyan,
-                    fontSize = 10.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 0.5.sp,
@@ -359,25 +218,26 @@ fun InventoryScreen(
                     )
                 }
 
-                // Filter inventory
-                val filteredInventory = remember(inventory, allItemsMetadata, selectedCategory) {
-                    inventory.filter { item ->
-                        val itemMeta = allItemsMetadata.find { it.id == item.item_id }
-                        val slot = ItemSlotUtils.getSlotForItem(item.item_id, itemMeta)
-                        when (selectedCategory) {
-                            "all" -> true
-                            "weapon" -> slot == "weapon"
-                            "armor" -> slot == "armor" || slot == "head"
-                            "chip" -> slot == "chip"
-                            "consumable" -> isConsumable(item.item_id, itemMeta)
-                            else -> true
+                // Item Grid Section with Crossfade animation
+                Crossfade(targetState = selectedCategory, animationSpec = tween(220), label = "catCrossfade") { currentCat ->
+                    val filteredInventory = remember(inventory, allItemsMetadata, currentCat) {
+                        inventory.filter { item ->
+                            val itemMeta = allItemsMetadata.find { it.id == item.item_id }
+                            val slot = ItemSlotUtils.getSlotForItem(item.item_id, itemMeta)
+                            when (currentCat) {
+                                "all" -> true
+                                "weapon" -> slot == "weapon"
+                                "armor" -> slot == "armor" || slot == "head"
+                                "chip" -> slot == "chip"
+                                "consumable" -> isConsumable(item.item_id, itemMeta)
+                                else -> true
+                            }
                         }
                     }
-                }
 
-                // Item Grid Section
-                ItemListSection(filteredInventory, allItemsMetadata) { item ->
-                    selectedItem = item
+                    ItemListSection(filteredInventory, allItemsMetadata) { item ->
+                        selectedItem = item
+                    }
                 }
             }
         }
@@ -412,32 +272,35 @@ fun InventoryScreen(
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Full-width Image Banner
+                    // Full-width Large Showcase Art Banner (260.dp)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
+                            .height(260.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color.Black)
-                            .border(1.dp, rarityColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .background(Color(0xFF05080E))
+                            .border(1.dp, rarityColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
                         EidosImage(
                             resName = item.item_id,
                             borderColor = Color.Transparent,
                             borderWidth = 0.dp,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp)
                         )
 
-                        // Dark gradient overlay
+                        // Dark gradient overlay at bottom
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(70.dp)
+                                .height(80.dp)
                                 .align(Alignment.BottomCenter)
                                 .background(
                                     Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, Color(0xFF090F16))
+                                        colors = listOf(Color.Transparent, Color(0xFF090F16).copy(alpha = 0.95f))
                                     )
                                 )
                         )
@@ -859,6 +722,8 @@ fun EquipDollSection(
     val armor = inventory.find { it.is_equipped && (it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "armor") }
     val weapon = inventory.find { it.is_equipped && (it.slot == "weapon" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "weapon") }
     val chips = inventory.filter { it.is_equipped && (it.slot == "chip" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "chip") }
+        .distinctBy { it.item_id }
+        .take(4)
 
     val playerLvl = (player?.level ?: 1).coerceIn(1, 31)
     val avatarRes = "lvl_$playerLvl"
@@ -880,7 +745,7 @@ fun EquipDollSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // LEFT COLUMN: Head, Weapon, Armor
+            // LEFT COLUMN: Head, Weapon, Armor (74.dp large tiles)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -908,22 +773,24 @@ fun EquipDollSection(
                 )
             }
 
-            // CENTER: MODERN CYBER OPERATOR ART RIG (Full-body cyber-doll)
+            // CENTER: LARGE 265.dp CYBER OPERATOR ART RIG
             Box(
                 modifier = Modifier
-                    .weight(1.15f)
-                    .height(205.dp)
+                    .weight(1.3f)
+                    .height(265.dp)
                     .clip(CutCornerShape(8.dp))
                     .background(Color(0xFF091219))
                     .border(1.5.dp, EidosCyan.copy(alpha = 0.6f), CutCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 EidosImage(
-                    resName = "doll_operator_rig",
+                    resName = avatarRes,
                     fallbackIcon = Icons.Default.Person,
                     borderColor = Color.Transparent,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 18.dp, bottom = 44.dp)
                 )
 
                 Box(
@@ -944,15 +811,15 @@ fun EquipDollSection(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.7f))
+                        .background(Color.Black.copy(alpha = 0.75f))
                         .border(0.5.dp, EidosCyan.copy(alpha = 0.5f))
-                        .padding(vertical = 2.dp),
+                        .padding(vertical = 3.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         "⚡ ОПЕРАТОР [УР $playerLvl]",
                         color = EidosCyan,
-                        fontSize = 8.sp,
+                        fontSize = 8.5.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace
                     )
@@ -962,39 +829,46 @@ fun EquipDollSection(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.8f))
+                        .background(Color.Black.copy(alpha = 0.85f))
                         .border(0.5.dp, EidosCyan.copy(alpha = 0.5f))
-                        .padding(vertical = 3.dp, horizontal = 4.dp),
+                        .padding(vertical = 4.dp, horizontal = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = player?.username ?: "НЕОФИТ",
                         color = Color.White,
-                        fontSize = 9.sp,
+                        fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        text = "⚔️ $currentAtk ATK | 🛡️ $currentDef DEF",
-                        color = EidosNeon,
-                        fontSize = 7.8.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Text(
-                        text = "🍀 УДАЧА: $currentLuck",
-                        color = Color(0xFFFFD54F),
-                        fontSize = 7.2.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("⚔️ ", fontSize = 8.sp)
+                        AnimatedContent(targetState = currentAtk, label = "atkAnim") { atk ->
+                            Text("$atk ATK", color = EidosNeon, fontSize = 8.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                        }
+                        Text(" | 🛡️ ", fontSize = 8.sp)
+                        AnimatedContent(targetState = currentDef, label = "defAnim") { def ->
+                            Text("$def DEF", color = EidosCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("🍀 УДАЧА: ", color = Color(0xFFFFD54F), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        AnimatedContent(targetState = currentLuck, label = "luckAnim") { luck ->
+                            Text("$luck", color = Color(0xFFFFD54F), fontSize = 8.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                        }
+                    }
                 }
             }
 
-            // RIGHT COLUMN: 4 Mod Chips
+            // RIGHT COLUMN: 4 Mod Chips (58.dp tiles)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -1034,7 +908,14 @@ private fun EquipSlotTile(
         else -> defaultAccent
     }
 
-    val tileHeight = if (isCompact) 40.dp else 54.dp
+    val tileHeight = if (isCompact) 58.dp else 74.dp
+    val iconSize = if (isCompact) 40.dp else 48.dp
+
+    val itemScale by animateFloatAsState(
+        targetValue = if (item != null) 1f else 0.85f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "slotScale"
+    )
 
     Box(
         modifier = Modifier
@@ -1047,7 +928,7 @@ private fun EquipSlotTile(
                 color = if (item != null) rarityColor.copy(alpha = 0.85f) else Color(0xFF1E2D3D),
                 shape = CutCornerShape(4.dp)
             )
-            .clickable(enabled = item != null) { item?.let { onUnequip(it) } }
+            .cyberClickable(enabled = item != null) { item?.let { onUnequip(it) } }
             .padding(horizontal = 4.dp, vertical = 2.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -1058,22 +939,28 @@ private fun EquipSlotTile(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(if (isCompact) 26.dp else 34.dp)
-                        .clip(CutCornerShape(2.dp))
+                        .size(iconSize)
+                        .clip(CutCornerShape(4.dp))
                         .background(Color.Black.copy(alpha = 0.5f))
-                        .border(0.5.dp, rarityColor, CutCornerShape(2.dp)),
+                        .border(1.dp, rarityColor, CutCornerShape(4.dp))
+                        .graphicsLayer {
+                            scaleX = itemScale
+                            scaleY = itemScale
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     EidosImage(
                         resName = item.item_id,
                         borderColor = Color.Transparent,
                         borderWidth = 0.dp,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(2.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
                 Column(
                     modifier = Modifier.weight(1f),
@@ -1082,14 +969,14 @@ private fun EquipSlotTile(
                     Text(
                         slotLabel,
                         color = rarityColor,
-                        fontSize = 7.sp,
+                        fontSize = 7.5.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
                         meta?.name ?: getItemName(item.item_id),
                         color = Color.White,
-                        fontSize = 8.5.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
                         maxLines = 1,
@@ -1104,27 +991,27 @@ private fun EquipSlotTile(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(if (isCompact) 22.dp else 28.dp)
-                        .clip(CutCornerShape(2.dp))
+                        .size(iconSize)
+                        .clip(CutCornerShape(4.dp))
                         .background(Color(0xFF0F1722))
-                        .border(0.5.dp, Color(0xFF1E2D3D), CutCornerShape(2.dp)),
+                        .border(1.dp, Color(0xFF1E2D3D), CutCornerShape(4.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("+", color = Color(0xFF455A64), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("+", color = Color(0xFF455A64), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Column {
                     Text(
                         slotLabel,
                         color = defaultAccent.copy(alpha = 0.6f),
-                        fontSize = 7.sp,
+                        fontSize = 7.5.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
                         "ПУСТО",
                         color = Color(0xFF546E7A),
-                        fontSize = 8.sp,
+                        fontSize = 8.5.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -1300,10 +1187,10 @@ fun ItemListSection(
         }
     } else {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(4),
+            columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(inventory, key = { it.id }) { item ->
                 val itemMeta = allItemsMetadata.find { it.id == item.item_id }
@@ -1321,51 +1208,110 @@ fun ItemListSection(
 
                 Box(
                     modifier = Modifier
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(6.dp))
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF0A121C))
                         .border(
                             1.dp,
-                            if (isEquipped) EidosNeon else rarityColor.copy(alpha = 0.5f),
-                            RoundedCornerShape(6.dp)
+                            if (isEquipped) EidosNeon else rarityColor.copy(alpha = 0.6f),
+                            RoundedCornerShape(8.dp)
                         )
                         .cyberHudBorder(
-                            color = if (isEquipped) EidosNeon else rarityColor.copy(alpha = 0.7f),
-                            cornerLength = 5.dp,
-                            strokeWidth = 1.dp
+                            color = if (isEquipped) EidosNeon else rarityColor.copy(alpha = 0.8f),
+                            cornerLength = 8.dp,
+                            strokeWidth = 1.5.dp
                         )
                         .cyberClickable { onItemClick(item) }
-                        .padding(4.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(8.dp)
                 ) {
                     Column(
+                        modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        EidosImage(
-                            resName = item.item_id,
-                            borderColor = if (isEquipped) EidosNeon else rarityColor,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            itemMeta?.name ?: getItemName(item.item_id),
-                            fontSize = 7.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        if (item.quantity > 1) {
+                        // Large 98.dp Art Container with ContentScale.Fit
+                        Box(
+                            modifier = Modifier
+                                .size(98.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF05090F))
+                                .border(1.dp, rarityColor.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                                .padding(4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EidosImage(
+                                resName = item.item_id,
+                                borderColor = Color.Transparent,
+                                borderWidth = 0.dp,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
+                            )
+
+                            if (isEquipped) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .background(EidosNeon, RoundedCornerShape(3.dp))
+                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        "НАДЕТО",
+                                        fontSize = 7.sp,
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+
+                        // Bottom Title & Status
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text(
-                                "x${item.quantity}",
-                                fontSize = 7.5.sp,
-                                color = EidosCyan,
+                                itemMeta?.name ?: getItemName(item.item_id),
+                                fontSize = 9.5.sp,
+                                color = Color.White,
                                 fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 fontFamily = FontFamily.Monospace
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    rarity.uppercase(),
+                                    fontSize = 7.5.sp,
+                                    color = rarityColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                if (item.quantity > 1) {
+                                    Text(
+                                        "x${item.quantity}",
+                                        fontSize = 8.5.sp,
+                                        color = EidosCyan,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                } else if (item.durability >= 0 && isEquippable(item.item_id, itemMeta)) {
+                                    Text(
+                                        "${item.durability.toInt()}%",
+                                        fontSize = 7.5.sp,
+                                        color = if (item.durability < 30) EidosRed else EidosNeon,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
                         }
                     }
                 }

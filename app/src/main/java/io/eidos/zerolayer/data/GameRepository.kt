@@ -1411,7 +1411,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun getActiveStats(uid: Long): PlayerStats {
         val player = dao.getPlayer(uid) ?: return PlayerStats(100, 100, 100, 100, 10, 5, 5)
         val inventory = dao.getInventoryFlow(uid).first()
-        val equipped = inventory.filter { it.is_equipped }
+        val head = inventory.find { it.is_equipped && (it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "head") }
+        val armor = inventory.find { it.is_equipped && (it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "armor") }
+        val weapon = inventory.find { it.is_equipped && (it.slot == "weapon" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "weapon") }
+        val chips = inventory.filter { it.is_equipped && (it.slot == "chip" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "chip") }
+            .distinctBy { it.item_id }
+            .take(4)
+        val shard = inventory.find { it.is_equipped && (it.slot == "eidos_shard" || it.item_id == "eidos_shard") }
+        val equipped = listOfNotNull(head, armor, weapon, shard) + chips
 
         var atkBonus = 0
         var defBonus = 0
@@ -1538,6 +1545,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val armor = inventory.find { it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "armor" }?.item_id
         val weapon = inventory.find { it.slot == "weapon" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "weapon" }?.item_id
         val chips = inventory.filter { it.slot == "chip" || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == "chip" }
+            .distinctBy { it.item_id }
+            .take(4)
         val chipStr = if (chips.isNotEmpty()) chips.joinToString(",") { it.item_id } else null
         val shard = inventory.find { it.slot == "eidos_shard" || it.item_id == "eidos_shard" }?.item_id
 
@@ -1556,20 +1565,34 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val userEq = dao.getUserEquipment(uid)
         if (userEq != null) {
             val inventory = dao.getInventoryFlow(uid).first()
-            val chipList = userEq.chip?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+            val chipList = userEq.chip?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.distinct()?.take(4) ?: emptyList()
+            val equippedChipIds = mutableSetOf<String>()
+            var headEquipped = false
+            var armorEquipped = false
+            var weaponEquipped = false
+            var shardEquipped = false
+
             inventory.forEach { invItem ->
-                val shouldBeEquipped = invItem.item_id == userEq.head ||
-                        invItem.item_id == userEq.armor ||
-                        invItem.item_id == userEq.weapon ||
-                        invItem.item_id == userEq.eidos_shard ||
-                        chipList.contains(invItem.item_id)
+                val isHead = !headEquipped && invItem.item_id == userEq.head
+                val isArmor = !armorEquipped && invItem.item_id == userEq.armor
+                val isWeapon = !weaponEquipped && invItem.item_id == userEq.weapon
+                val isShard = !shardEquipped && invItem.item_id == userEq.eidos_shard
+                val isChip = chipList.contains(invItem.item_id) && !equippedChipIds.contains(invItem.item_id) && equippedChipIds.size < 4
+
+                if (isHead) headEquipped = true
+                if (isArmor) armorEquipped = true
+                if (isWeapon) weaponEquipped = true
+                if (isShard) shardEquipped = true
+                if (isChip) equippedChipIds.add(invItem.item_id)
+
+                val shouldBeEquipped = isHead || isArmor || isWeapon || isShard || isChip
                 if (invItem.is_equipped != shouldBeEquipped) {
                     val targetSlot = when {
-                        invItem.item_id == userEq.head -> "head"
-                        invItem.item_id == userEq.armor -> "armor"
-                        invItem.item_id == userEq.weapon -> "weapon"
-                        invItem.item_id == userEq.eidos_shard -> "eidos_shard"
-                        chipList.contains(invItem.item_id) -> "chip"
+                        isHead -> "head"
+                        isArmor -> "armor"
+                        isWeapon -> "weapon"
+                        isShard -> "eidos_shard"
+                        isChip -> "chip"
                         else -> null
                     }
                     dao.updateInventoryItem(invItem.copy(is_equipped = shouldBeEquipped, slot = if (shouldBeEquipped) targetSlot else null))
@@ -1619,20 +1642,19 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         // Unequip current item(s) in targetSlot (allow up to 4 chips without unequipping others)
         val inventory = dao.getInventoryFlow(uid).first()
         if (targetSlot == "chip") {
-            val isDuplicate = inventory.any { invItem ->
-                invItem.is_equipped && invItem.item_id == item.item_id && invItem.id != item.id
-            }
-            if (isDuplicate) {
-                log(uid, "❌ [ПРОТОКОЛ ЧИПОВ]: Чип [${meta?.name ?: item.item_id}] уже установлен в один из слотов! Нельзя экипировать одинаковые чипы.", "error")
-                return
-            }
             val equippedChips = inventory.filter { invItem ->
                 invItem.is_equipped && (invItem.slot == "chip" || ItemSlotUtils.getSlotForItem(invItem.item_id, getItemMetadata(invItem.item_id)) == "chip")
             }
+            val isDuplicate = equippedChips.any { it.item_id == item.item_id }
+            if (isDuplicate) {
+                log(uid, "❌ [ПРОТОКОЛ ЧИПОВ]: Чип [${meta?.name ?: item.item_id}] уже установлен! Нельзя экипировать одинаковые чипы.", "error")
+                return
+            }
             if (equippedChips.size >= 4) {
-                val oldestChip = equippedChips.first()
-                dao.updateInventoryItem(oldestChip.copy(is_equipped = false, slot = null))
-                SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), oldestChip.item_id, false)
+                val chipToReplace = equippedChips.last()
+                dao.updateInventoryItem(chipToReplace.copy(is_equipped = false, slot = null))
+                SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), chipToReplace.item_id, false)
+                log(uid, "⚠️ Все 4 слота чипов заняты: чип [${getItemMetadata(chipToReplace.item_id)?.name ?: chipToReplace.item_id}] в слоте 4 заменен и возвращен в инвентарь.", "warn")
             }
         } else {
             inventory.forEach { invItem ->
