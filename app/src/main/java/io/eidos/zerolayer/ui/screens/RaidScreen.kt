@@ -1324,7 +1324,11 @@ fun CombatArenaCard(
             )
     }
 
-    val maxEnemyHp = maxOf(1, villain.hp)
+    var initialMaxHp by remember(enemyId) { mutableIntStateOf(maxOf(villain.hp, enemyHp)) }
+    if (enemyHp > initialMaxHp) {
+        initialMaxHp = enemyHp
+    }
+    val maxEnemyHp = maxOf(1, initialMaxHp)
     val currentEnemyHpClamped = enemyHp.coerceIn(0, maxEnemyHp)
     val hpPct = (currentEnemyHpClamped * 100 / maxEnemyHp)
 

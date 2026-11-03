@@ -3358,10 +3358,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    suspend fun useActiveAbility(uid: Long) {
-        val player = dao.getPlayer(uid) ?: return
-        val session = dao.getRaidSession(uid) ?: return
-        val enemyId = session.current_enemy_id ?: return
+    suspend fun useActiveAbility(uid: Long) = dbMutex.withLock {
+        val player = dao.getPlayer(uid) ?: return@withLock
+        val session = dao.getRaidSession(uid) ?: return@withLock
+        val enemyId = session.current_enemy_id ?: return@withLock
 
         // Tactical ability energy cost: 5 EP (or emergency health drain if low EP)
         val hasEnergy = player.energy >= 5
@@ -3485,10 +3485,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    suspend fun fleeCombat(uid: Long) {
-        val session = dao.getRaidSession(uid) ?: return
-        val player = dao.getPlayer(uid) ?: return
-        val enemyName = session.current_enemy_id ?: return
+    suspend fun fleeCombat(uid: Long) = dbMutex.withLock {
+        val session = dao.getRaidSession(uid) ?: return@withLock
+        val player = dao.getPlayer(uid) ?: return@withLock
+        val enemyName = session.current_enemy_id ?: return@withLock
 
         // 75% escape probability, 100% with tactical fog
         val roll = (1..100).random()
