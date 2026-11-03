@@ -545,6 +545,47 @@ class EidosAudioManager private constructor(private val context: Context) {
         }
     }
 
+    private var voicePlayer: MediaPlayer? = null
+    var isVoicePlaying: Boolean = false
+        private set
+
+    fun playVoice(resId: Int, onComplete: () -> Unit = {}) {
+        stopVoice()
+        try {
+            duckMusic(true)
+            voicePlayer = MediaPlayer.create(context, resId)?.apply {
+                isLooping = false
+                setVolume(1.0f, 1.0f)
+                setOnCompletionListener {
+                    isVoicePlaying = false
+                    duckMusic(false)
+                    onComplete()
+                }
+                setOnErrorListener { _, _, _ ->
+                    isVoicePlaying = false
+                    duckMusic(false)
+                    true
+                }
+                start()
+                isVoicePlaying = true
+            }
+        } catch (e: Exception) {
+            Log.e("EidosAudio", "Error playing voice $resId", e)
+            isVoicePlaying = false
+            duckMusic(false)
+        }
+    }
+
+    fun stopVoice() {
+        try {
+            voicePlayer?.stop()
+            voicePlayer?.release()
+            voicePlayer = null
+            isVoicePlaying = false
+            duckMusic(false)
+        } catch (_: Exception) {}
+    }
+
     fun release() {
         stopMusic()
         soundPool?.release()

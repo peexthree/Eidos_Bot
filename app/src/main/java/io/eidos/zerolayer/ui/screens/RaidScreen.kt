@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import io.eidos.zerolayer.R
+import io.eidos.zerolayer.ui.components.CyberdeckVisorOverlay
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosRed
@@ -269,38 +271,42 @@ fun RaidScreen(
 
     val currentSeed = remember { AbyssSeedRng.generateRandomSeed() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("НУЛЕВОЙ СЛОЙ // БЕЗДНА", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text("СИД // $currentSeed", color = Color.Gray, fontSize = 9.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosRed)
-                    }
-                },
-                actions = {
-                    if (session != null && session.current_enemy_id == null && session.current_anomaly_id == null && !isEvacuatingHold) {
-                        io.eidos.zerolayer.ui.components.ZzzDangerButton(
-                            text = "ЭВАКУАЦИЯ",
-                            onClick = {
-                                haptics.evacuationWarning()
-                                audio.playSound(EidosAudioManager.SoundType.EVAC_WARNING)
-                                isEvacuatingHold = true
-                            },
-                            height = 36.dp
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
-            )
-        },
-        containerColor = Color.Black
-    ) { innerPadding ->
+    CyberdeckVisorOverlay(
+        showGrid = true,
+        showScanlines = true
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("НУЛЕВОЙ СЛОЙ // БЕЗДНА", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("СИД // $currentSeed", color = Color.Gray, fontSize = 9.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosRed)
+                        }
+                    },
+                    actions = {
+                        if (session != null && session.current_enemy_id == null && session.current_anomaly_id == null && !isEvacuatingHold) {
+                            io.eidos.zerolayer.ui.components.ZzzDangerButton(
+                                text = "ЭВАКУАЦИЯ",
+                                onClick = {
+                                    haptics.evacuationWarning()
+                                    audio.playSound(EidosAudioManager.SoundType.EVAC_WARNING)
+                                    isEvacuatingHold = true
+                                },
+                                height = 36.dp
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                )
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
             VideoBackground(resName = "bg_abyss", modifier = Modifier.fillMaxSize())
             androidx.compose.foundation.Image(
@@ -770,6 +776,7 @@ fun RaidScreen(
     val maxPlayerHp = maxOf(1, player?.max_hp ?: 100)
     val isLowHp = curPlayerHp in 1..(maxPlayerHp * 0.20f).toInt()
     LowHpPulseVignette(isLowHp = isLowHp)
+    }
 }
 
 @Composable
@@ -1118,6 +1125,37 @@ fun RaidHUD(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
+        // Top Network Ping & Link Telemetry Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_hud_signal_ping),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (depth > 250) "PING 240ms // UNSTABLE" else "LINK 12ms // SYNC OK",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = if (depth > 250) Color(0xFFFF0055) else Color(0xFF00FFF6)
+                )
+            }
+            Text(
+                text = "DEPTH ${depth}M // ZERO_LAYER",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF78909C)
+            )
+        }
+
         // Active Status Micro-Badges Row
         val hasOvercharge = overchargeTier > 0
         val hasOverdrive = overdriveTurns > 0
@@ -1648,6 +1686,27 @@ fun CombatArenaCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 6.dp)
+                )
+
+                // Голографический прицел захвата цели
+                val infiniteTransition = rememberInfiniteTransition(label = "hud_crosshair")
+                val rotation by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(24000, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "crosshair_rotation"
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.ic_hud_crosshair),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .align(Alignment.Center)
+                        .rotate(rotation)
+                        .alpha(0.65f)
                 )
 
                 // Pop-up animated banner for triggered perk

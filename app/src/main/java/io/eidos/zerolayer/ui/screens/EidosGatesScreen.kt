@@ -32,6 +32,7 @@ import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
+import io.eidos.zerolayer.ui.components.EvaSpeechBanner
 import io.eidos.zerolayer.ui.utils.ghostTyping
 import kotlinx.coroutines.launch
 
@@ -230,7 +231,13 @@ fun EidosGatesScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    EvaSpeechBanner(
+                        text = if (isLoading) "Инициирую квантовый анализ базы данных EIDOS-CORE..." else if (aiResponse.isNotEmpty()) "Синтез завершен. Результаты анализа выведены на тактический терминал." else "Голосовой канал связи стабилен. Выберите модуль или задайте вопрос.",
+                        isSpeaking = isLoading || aiResponse.isNotEmpty(),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
 
                     // Display AI Output Panel
                     Box(

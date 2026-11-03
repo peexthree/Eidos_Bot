@@ -55,6 +55,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import io.eidos.zerolayer.R
+import io.eidos.zerolayer.ui.components.EvaSpeechBanner
 import io.eidos.zerolayer.ui.theme.*
 
 @OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -97,29 +98,19 @@ fun OnboardingScreen(
         }
     }
 
-    // Automatic Voice Playback for each Step using MediaPlayer
-    var activeMediaPlayer by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
+    // Automatic Voice Playback for each Step using EidosAudioManager
     var isAudioPlaying by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         onDispose {
-            try {
-                activeMediaPlayer?.stop()
-                activeMediaPlayer?.release()
-                activeMediaPlayer = null
-                audioManager.duckMusic(false)
-            } catch (_: Exception) {}
+            audioManager.stopVoice()
+            isAudioPlaying = false
         }
     }
 
     LaunchedEffect(currentStep, showVideoIntro, isVoiceMuted, replayTrigger) {
-        try {
-            activeMediaPlayer?.stop()
-            activeMediaPlayer?.release()
-            activeMediaPlayer = null
-            isAudioPlaying = false
-            audioManager.duckMusic(false)
-        } catch (_: Exception) {}
+        audioManager.stopVoice()
+        isAudioPlaying = false
 
         if (showVideoIntro || isVoiceMuted) {
             return@LaunchedEffect
@@ -135,29 +126,9 @@ fun OnboardingScreen(
         }
 
         if (soundRes != null) {
-            try {
-                audioManager.duckMusic(true)
-                val mp = android.media.MediaPlayer.create(context, soundRes)
-                if (mp != null) {
-                    mp.isLooping = false
-                    mp.setVolume(1.0f, 1.0f)
-                    mp.setOnCompletionListener {
-                        isAudioPlaying = false
-                        audioManager.duckMusic(false)
-                    }
-                    mp.setOnErrorListener { _, _, _ ->
-                        isAudioPlaying = false
-                        audioManager.duckMusic(false)
-                        true
-                    }
-                    mp.start()
-                    isAudioPlaying = true
-                    activeMediaPlayer = mp
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            isAudioPlaying = true
+            audioManager.playVoice(soundRes) {
                 isAudioPlaying = false
-                audioManager.duckMusic(false)
             }
         }
     }
@@ -260,11 +231,10 @@ fun OnboardingScreen(
                     else -> "Синхронизация профиля завершена. Стартовый набор доставлен в буфер. Шлюз открыт. Инициирую погружение!"
                 }
 
-                ZzzSpeechBubbleTerminal(
-                    stepTag = stepTitle,
-                    dialogueText = stepDialogue,
-                    isAudioPlaying = isAudioPlaying,
-                    onReplayVoice = { replayTrigger++ }
+                EvaSpeechBanner(
+                    text = stepDialogue,
+                    isSpeaking = isAudioPlaying,
+                    onReplayClick = { replayTrigger++ }
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -754,7 +724,7 @@ private fun ZzzTelemetryHud(
             // SYNC 72%
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("⚙️ SYNC ", color = Color.Gray, fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    Text("SYNC ", color = Color.Gray, fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                     Text("72%", color = ZzzHotMagenta, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.ExtraBold)
                 }
                 Box(
@@ -772,10 +742,10 @@ private fun ZzzTelemetryHud(
                 shape = CircleShape,
                 border = androidx.compose.foundation.BorderStroke(1.dp, if (isAudioPlaying) ZzzToxicGreen else Color.Gray)
             ) {
-                Text(
-                    text = if (isAudioPlaying) "🎙️🎶" else "🎙️",
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(4.dp)
+                Image(
+                    painter = painterResource(id = if (isAudioPlaying) R.drawable.ic_eva_wave_active else R.drawable.ic_eva_wave_idle),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp).padding(3.dp)
                 )
             }
         }

@@ -35,6 +35,7 @@ import io.eidos.zerolayer.R
 import io.eidos.zerolayer.data.Player
 import io.eidos.zerolayer.data.GameLog
 import io.eidos.zerolayer.ui.components.VideoBackground
+import io.eidos.zerolayer.ui.components.CyberdeckVisorOverlay
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
@@ -133,11 +134,15 @@ fun HubScreen(
     var bossHp by remember { mutableStateOf(984124510L) }
     var personalDamage by remember { mutableStateOf(1540200L) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
+    CyberdeckVisorOverlay(
+        showGrid = true,
+        showScanlines = false
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
         // Layer 0: Cyberpunk gradient / Safe WebP background
         Box(
             modifier = Modifier
@@ -1224,6 +1229,7 @@ fun HubScreen(
             onDismiss = { showRelicShowcaseDialog = false }
         )
     }
+    }
 }
 
 @Composable
@@ -1522,14 +1528,32 @@ fun CyberHubHeader(
                     )
                 }
                 Column {
-                    Text(
-                        text = player?.username ?: "ОПЕРАТОР",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        maxLines = 1
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = player?.username ?: "ОПЕРАТОР",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_hud_signal_ping),
+                                contentDescription = null,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "NET // ONLINE",
+                                color = Color(0xFF00FFF6),
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                     Text(
                         text = "УР ${player?.level ?: 1} // ${player?.faction ?: "НЕОФИТ"}",
                         color = Color(0xFF64748B),
