@@ -26,6 +26,8 @@ import io.eidos.zerolayer.data.AuthSession
 import io.eidos.zerolayer.data.Player
 import io.eidos.zerolayer.ui.components.AuthDialogMode
 import io.eidos.zerolayer.ui.components.ZzzAuthDialog
+import io.eidos.zerolayer.ui.components.ZzzIcon
+import io.eidos.zerolayer.R
 import io.eidos.zerolayer.ui.theme.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -123,7 +125,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(if (isLoggedIn) "🛡" else "☁️", fontSize = 22.sp)
+                            ZzzIcon(if (isLoggedIn) R.drawable.ic_action_defense else R.drawable.ic_event_unknown, size = 22.dp)
                             Column {
                                 Text(
                                     text = if (isLoggedIn) "ОПЕРАТОР: ${authSession?.username?.uppercase() ?: "ONLINE"}" else "SUPABASE CLOUD AUTH",
@@ -186,11 +188,11 @@ fun SettingsScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, ZzzElectricCyan),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("☁ СИНХРОНИЗАЦИЯ", color = ZzzElectricCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("СИНХРОНИЗАЦИЯ", color = ZzzElectricCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
 
                             io.eidos.zerolayer.ui.components.ZzzDangerButton(
-                                text = "⏏ ВЫЙТИ",
+                                text = "ВЫЙТИ",
                                 onClick = {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onLogout()
@@ -222,7 +224,7 @@ fun SettingsScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, ZzzElectricCyan),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("🔓 ВОЙТИ", color = ZzzElectricCyan, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                                Text("ВОЙТИ", color = ZzzElectricCyan, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                             }
 
                             Button(
@@ -236,7 +238,7 @@ fun SettingsScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, ZzzAcidYellow),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("🛡 СОЗДАТЬ АККАУНТ", color = ZzzAcidYellow, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                                Text("СОЗДАТЬ АККАУНТ", color = ZzzAcidYellow, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                             }
                         }
                     }
@@ -255,7 +257,7 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     if (isPremium) {
                         Text(
-                            "★ СТАТУС: PREMIUM ОПЕРАТОР ★",
+                            "СТАТУС: PREMIUM ОПЕРАТОР",
                             color = EidosNeon,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
@@ -269,7 +271,7 @@ fun SettingsScreen(
                         )
                     } else {
                         Text(
-                            "★ СТАТУС: БАЗОВЫЙ ОПЕРАТОР ★",
+                            "СТАТУС: БАЗОВЫЙ ОПЕРАТОР",
                             color = Color.Gray,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
@@ -326,7 +328,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("⚡ Частота обновления экрана", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Частота обновления экрана", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text("120 Гц High Refresh Rate & Particle Canvas", color = EidosNeon, fontSize = 11.sp)
                         }
                         Badge(containerColor = EidosNeon.copy(alpha = 0.2f), contentColor = EidosNeon) {
@@ -342,7 +344,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("🌌 AGSL Glitch Shaders & 3D Gyro Tilt", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("AGSL Glitch Shaders & 3D Gyro Tilt", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text("Аппаратный шейдерный движок и датчик наклона", color = EidosCyan, fontSize = 11.sp)
                         }
                         Badge(containerColor = EidosCyan.copy(alpha = 0.2f), contentColor = EidosCyan) {
@@ -359,7 +361,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("🎵 Фоновое Музыкальное Сопровождение", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Фоновое Музыкальное Сопровождение", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text("Цикличная музыка в меню и Нулевом Слое", color = EidosNeon, fontSize = 11.sp)
                         }
                         Switch(
@@ -379,7 +381,7 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("🔊 Громкость Музыки", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Громкость Музыки", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Text("${(musicVolume * 100).toInt()}%", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                             }
                             Slider(
@@ -406,7 +408,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("🔊 Звуковые Эффекты (SFX)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Звуковые Эффекты (SFX)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text("Низколатентный аудиосинтез в реальном времени", color = Color.Gray, fontSize = 11.sp)
                         }
                         Switch(
@@ -427,7 +429,7 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("🔊 Громкость Эффектов", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Громкость Эффектов", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Text("${(effectsVolume * 100).toInt()}%", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                             }
                             Slider(
@@ -454,7 +456,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("📳 Продвинутая Вибрация (Haptics)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Продвинутая Вибрация (Haptics)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text("VibratorManager с пресетами кликов и шагов", color = Color.Gray, fontSize = 11.sp)
                         }
                         Switch(
@@ -489,7 +491,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("👑", fontSize = 18.sp, modifier = Modifier.padding(end = 8.dp))
+                            ZzzIcon(R.drawable.ic_res_overdrive, size = 18.dp, modifier = Modifier.padding(end = 8.dp))
                             Column {
                                 Text("GOD MODE ПРАВА", color = if (isAdmin) Color(0xFFFFD700) else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                                 Text(if (isAdmin) "АДМИНИСТРАТОР СЕТИ АКТИВЕН" else "ТЕСТОВЫЙ РЕЖИМ ОТКЛЮЧЕН", color = if (isAdmin) EidosNeon else Color.DarkGray, fontSize = 10.sp)
@@ -511,7 +513,7 @@ fun SettingsScreen(
                                 modifier = Modifier.weight(1f).height(36.dp),
                                 contentPadding = PaddingValues(2.dp)
                             ) {
-                                Text("+100k BC & 1k 💎", color = Color(0xFFFFD700), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("+100k BC & 1k Осколков", color = Color(0xFFFFD700), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = onGrantGodKit,
@@ -521,7 +523,11 @@ fun SettingsScreen(
                                 modifier = Modifier.weight(1f).height(36.dp),
                                 contentPadding = PaddingValues(2.dp)
                             ) {
-                                Text("⚔️ ВЫДАТЬ GOD KIT", color = EidosCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(R.drawable.ic_action_attack, size = 10.dp)
+                                    Spacer(Modifier.width(3.dp))
+                                    Text("ВЫДАТЬ GOD KIT", color = EidosCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

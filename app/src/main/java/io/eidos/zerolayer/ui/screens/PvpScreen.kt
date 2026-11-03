@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.data.*
+import io.eidos.zerolayer.R
+import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
@@ -168,14 +170,28 @@ fun PvpScreen(
                             Text("СТАТУС СЕТИ:", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                             val shieldActive = (player?.pvp_shield_until ?: 0) > System.currentTimeMillis()
                             val proxyActive = (player?.pvp_proxy_until ?: 0) > System.currentTimeMillis()
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                 if (shieldActive) {
-                                    Text("🛡 ЩИТ АКТИВЕН", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_action_defense, size = 12.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("ЩИТ АКТИВЕН", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 } else {
-                                    Text("⚠️ УЗЕЛ ОТКРЫТ", color = EidosRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_event_danger, size = 12.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("УЗЕЛ ОТКРЫТ", color = EidosRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                                 if (proxyActive) {
-                                    Text("• 🕶 ПРОКСИ", color = EidosNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("•", color = Color.Gray, fontSize = 11.sp)
+                                        Spacer(Modifier.width(4.dp))
+                                        ZzzIcon(R.drawable.ic_event_unknown, size = 12.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("ПРОКСИ", color = EidosNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -196,21 +212,39 @@ fun PvpScreen(
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0; haptics.click() },
-                        text = { Text("⚔️ ВЗЛОМ СЕТИ", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace) },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_action_attack, size = 12.dp)
+                                Spacer(Modifier.width(4.dp))
+                                Text("ВЗЛОМ СЕТИ", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+                        },
                         selectedContentColor = EidosRed,
                         unselectedContentColor = Color.Gray
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1; haptics.click() },
-                        text = { Text("🛡 ДЕКА & ЗАЩИТА", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace) },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_action_defense, size = 12.dp)
+                                Spacer(Modifier.width(4.dp))
+                                Text("ДЕКА & ЗАЩИТА", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+                        },
                         selectedContentColor = EidosCyan,
                         unselectedContentColor = Color.Gray
                     )
                     Tab(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2; haptics.click() },
-                        text = { Text("🩸 ВЕНДЕТТА", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace) },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_action_blood_overdrive, size = 12.dp)
+                                Spacer(Modifier.width(4.dp))
+                                Text("ВЕНДЕТТА", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+                        },
                         selectedContentColor = amberColor,
                         unselectedContentColor = Color.Gray
                     )
@@ -234,13 +268,13 @@ fun PvpScreen(
                                     ) {
                                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Text(
-                                                "📡 ТАКТИЧЕСКАЯ СЕТКА КИБЕР-УЗЛОВ: Выберите узел цели для неврального взлома. Награда: до 15% BioCoins цели и +100 XP.",
+                                                "ТАКТИЧЕСКАЯ СЕТКА КИБЕР-УЗЛОВ: Выберите узел цели для неврального взлома. Награда: до 15% BioCoins цели и +100 XP.",
                                                 color = io.eidos.zerolayer.ui.theme.ZzzTextBody,
                                                 fontSize = 11.5.sp,
                                                 fontFamily = FontFamily.SansSerif
                                             )
                                             io.eidos.zerolayer.ui.components.ZzzMainButton(
-                                                text = "🔍 СКАНИРОВАТЬ СЕТЬ (-50 BC)",
+                                                text = "СКАНИРОВАТЬ СЕТЬ (-50 BC)",
                                                 onClick = {
                                                     haptics.click()
                                                     showSearchConfirmDialog = true
@@ -299,7 +333,11 @@ fun PvpScreen(
                                             }
                                             Column(horizontalAlignment = Alignment.End) {
                                                 Text("ХРАНИЛИЩЕ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                                                Text("${target.biocoins} BC 🪙", color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text("${target.biocoins} BC", color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                                                    Spacer(Modifier.width(3.dp))
+                                                    ZzzIcon(R.drawable.ic_res_biocoin, size = 12.dp)
+                                                }
                                             }
                                         }
                                     }
@@ -419,7 +457,7 @@ fun PvpScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    if (res.isWin) "🏆 СЕРВЕР ВЗЛОМАН: ПОБЕДА!" else "☠️ АТАКА ОТРАЖЕНА: ПОРАЖЕНИЕ",
+                                    if (res.isWin) "СЕРВЕР ВЗЛОМАН: ПОБЕДА!" else "АТАКА ОТРАЖЕНА: ПОРАЖЕНИЕ",
                                     color = if (res.isWin) EidosNeon else EidosRed,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 18.sp
@@ -454,10 +492,23 @@ fun PvpScreen(
 
                                 Spacer(modifier = Modifier.height(20.dp))
                                 if (res.isWin) {
-                                    Text("💰 Похищено: +${res.stolenCoins} BC", color = amberColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                    Text("⚡ Получено: +${res.attackerXpGained} XP", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_res_biocoin, size = 14.dp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Похищено: +${res.stolenCoins} BC", color = amberColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_res_energy, size = 14.dp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Получено: +${res.attackerXpGained} XP", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
                                 } else {
-                                    Text("💸 Контрудар: -${res.coinsLost} BC", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_event_danger, size = 14.dp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Контрудар: -${res.coinsLost} BC", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.weight(1f))
@@ -493,7 +544,11 @@ fun PvpScreen(
                                     shape = CutCornerShape(4.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
-                                        Text("🛡 ПАССИВНАЯ ЗАЩИТНАЯ МАТРИЦА УЗЛА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            ZzzIcon(R.drawable.ic_action_defense, size = 14.dp)
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("ПАССИВНАЯ ЗАЩИТНАЯ МАТРИЦА УЗЛА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        }
                                         Text("Этот порядок программ автоматически срабатывает, когда на ваш сервер нападают другие игроки в оффлайне.", color = Color.Gray, fontSize = 10.sp)
                                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -564,7 +619,11 @@ fun PvpScreen(
                             }
 
                             item {
-                                Text("💾 ЖЕЛЕЗО КИБЕР-ДЕКИ (HARDWARE):", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(R.drawable.ic_action_skill, size = 12.dp)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("ЖЕЛЕЗО КИБЕР-ДЕКИ (HARDWARE):", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
                             }
 
                             items(HardwareType.values()) { hw ->
@@ -601,7 +660,11 @@ fun PvpScreen(
                             }
 
                             item {
-                                Text("🛡 КИБЕР-ЩИТ & МАСКИРОВКА:", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(R.drawable.ic_action_defense, size = 12.dp)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("КИБЕР-ЩИТ & МАСКИРОВКА:", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
                             }
 
                             item {
@@ -648,7 +711,7 @@ fun PvpScreen(
                                     shape = CutCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        "🩸 ЛОГ ВЕНДЕТТЫ: Список операторов, атаковавших ваш узел. Нажмите КРОВАВАЯ ВЕНДЕТТА для контрудара с бонусом +20% к похищаемому луту!",
+                                        "ЛОГ ВЕНДЕТТЫ: Список операторов, атаковавших ваш узел. Нажмите КРОВАВАЯ ВЕНДЕТТА для контрудара с бонусом +20% к похищаемому луту!",
                                         color = Color.White,
                                         fontSize = 11.sp,
                                         modifier = Modifier.padding(10.dp)
@@ -686,7 +749,11 @@ fun PvpScreen(
                                             border = androidx.compose.foundation.BorderStroke(1.dp, EidosRed),
                                             shape = CutCornerShape(4.dp)
                                         ) {
-                                            Text("ВЕНДЕТТА ⚔️", color = EidosRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                ZzzIcon(R.drawable.ic_action_attack, size = 10.dp)
+                                                Spacer(Modifier.width(3.dp))
+                                                Text("ВЕНДЕТТА", color = EidosRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
                                         }
                                     }
                                 }

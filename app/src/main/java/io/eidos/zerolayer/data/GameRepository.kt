@@ -3293,12 +3293,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     )
                     dao.insertGrave(grave)
                     val owner = player.username ?: player.first_name ?: "Оператор"
-                    log(uid, "🪦 [ЦЕЛОСТНОСТЬ УТРАЧЕНА]: Ваше цифровое тело осталось на глубине ${session.depth}м с ${session.buffer_coins} BC и предметами: [$cleanItems]. Дойдите до ${session.depth}м в следующем рейде, чтобы вернуть лут!", "error")
+                    log(uid, "[ЦЕЛОСТНОСТЬ УТРАЧЕНА]: Ваше цифровое тело осталось на глубине ${session.depth}м с ${session.buffer_coins} BC и предметами: [$cleanItems]. Дойдите до ${session.depth}м в следующем рейде, чтобы вернуть лут!", "error")
                     val alertMsg = RadioMessageEntity(
                         uid = uid,
                         sender = "СЕТЬ НУЛЕВОГО СЛОЯ",
                         title = "ПАДЕНИЕ ОПЕРАТОРА",
-                        body = "⚠️ Оператор $owner пал на глубине ${session.depth}м! Цифровая Могила зафиксирована в Бездне.",
+                        body = "Оператор $owner пал на глубине ${session.depth}м! Цифровая Могила зафиксирована в Бездне.",
                         timestamp = System.currentTimeMillis()
                     )
                     dao.insertRadioMessage(alertMsg)
@@ -3568,7 +3568,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     isClaimed = false
                 )
             )
-            log(uid, "📟 [ТЕРМИНАЛ СВЯЗИ]: Получено новое входящее сообщение от Теневого Брокера!", "info")
+            log(uid, "[ТЕРМИНАЛ СВЯЗИ]: Получено новое входящее сообщение от Теневого Брокера!", "info")
         }
 
         // 2. SOS Shard trigger (max_depth >= 100)
@@ -3584,7 +3584,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     isClaimed = false
                 )
             )
-            log(uid, "📟 [ТЕРМИНАЛ СВЯЗИ]: Перехвачен сигнал бедствия из глубины Нулевого Слоя!", "info")
+            log(uid, "[ТЕРМИНАЛ СВЯЗИ]: Перехвачен сигнал бедствия из глубины Нулевого Слоя!", "info")
         }
 
         // 3. EIDOS Core trigger (streak >= 3)
@@ -3600,7 +3600,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     isClaimed = false
                 )
             )
-            log(uid, "📟 [ТЕРМИНАЛ СВЯЗИ]: Начислена награда от Центрального Ядра EIDOS!", "loot")
+            log(uid, "[ТЕРМИНАЛ СВЯЗИ]: Начислена награда от Центрального Ядра EIDOS!", "loot")
         }
     }
 

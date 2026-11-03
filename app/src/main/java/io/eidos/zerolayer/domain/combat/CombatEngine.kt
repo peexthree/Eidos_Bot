@@ -1,5 +1,8 @@
 package io.eidos.zerolayer.domain.combat
 
+import androidx.annotation.DrawableRes
+import io.eidos.zerolayer.R
+
 object CombatEngine {
 
     const val AFFIX_THORNS = "affix_thorns"           // 🪞 Отражение урона (20%)
@@ -188,19 +191,19 @@ object CombatEngine {
         return rarePool.random()
     }
 
-    // --- 👾 3. TACTICAL MONSTER AI & CANONICAL ABILITIES ---
+    // --- 3. TACTICAL MONSTER AI & CANONICAL ABILITIES ---
     enum class EnemyIntentType {
-        ATTACK,         // ⚔️ Обычная атака: стандартный урон
-        POWER_CHARGE,   // ⚠️ Силовой заряд (x2.5 урона!): можно сбить Овердрайвом / ЭМИ-гранатой или уйти в Защиту
-        SHIELD,         // 🛡️ Энерго-Щит: блокирует 80% обычного урона, уязвим к Навыку фракции (+50% DMG)
-        STUNNED         // 💫 Оглушен: пропускает ход (после сбития заряда ЭМИ или Овердрайвом)
+        ATTACK,         // Обычная атака: стандартный урон
+        POWER_CHARGE,   // Силовой заряд (x2.5 урона!): можно сбить Овердрайвом / ЭМИ-гранатой или уйти в Защиту
+        SHIELD,         // Энерго-Щит: блокирует 80% обычного урона, уязвим к Навыку фракции (+50% DMG)
+        STUNNED         // Оглушен: пропускает ход (после сбития заряда ЭМИ или Овердрайвом)
     }
 
     data class EnemyIntent(
         val type: EnemyIntentType,
         val title: String,
         val description: String,
-        val icon: String,
+        @DrawableRes val iconRes: Int,
         val damageMultiplier: Float = 1.0f,
         val damageMitigation: Float = 0.0f
     )
@@ -211,7 +214,7 @@ object CombatEngine {
                 type = EnemyIntentType.STUNNED,
                 title = "ОГЛУШЕН",
                 description = "Системы дезориентированы ЭМИ / Овердрайвом! Враг пропускает ход.",
-                icon = "💫",
+                iconRes = R.drawable.ic_status_stun,
                 damageMultiplier = 0f
             )
         }
@@ -223,7 +226,7 @@ object CombatEngine {
                     type = EnemyIntentType.POWER_CHARGE,
                     title = "СИЛОВОЙ ЗАРЯД (x2.5)",
                     description = "Враг готовит сокрушительный гипер-удар! Встаньте в Защиту (-60%) или сбейте ЭМИ/Овердрайвом!",
-                    icon = "⚠️",
+                    iconRes = R.drawable.ic_action_crit,
                     damageMultiplier = 2.5f
                 )
             }
@@ -233,7 +236,7 @@ object CombatEngine {
                     type = EnemyIntentType.SHIELD,
                     title = "ЭНЕРГО-ЩИТ (-80%)",
                     description = "Враг окружен барьером (-80% физ. урона). Пробейте Навыком фракции (+50% бонусного урона)!",
-                    icon = "🛡️",
+                    iconRes = R.drawable.ic_action_defense,
                     damageMultiplier = 0.6f,
                     damageMitigation = 0.80f
                 )
@@ -243,7 +246,7 @@ object CombatEngine {
                     type = EnemyIntentType.ATTACK,
                     title = "ОБЫЧНАЯ АТАКА",
                     description = "Стандартная атака врага.",
-                    icon = "⚔️",
+                    iconRes = R.drawable.ic_action_attack,
                     damageMultiplier = 1.0f
                 )
             }

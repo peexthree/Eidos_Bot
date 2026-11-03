@@ -58,6 +58,7 @@ import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.cyberHudBorder
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
+import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.EidosTerminalDialog
@@ -217,7 +218,7 @@ fun ProfileScreen(
                 },
                 actions = {
                     IconButton(onClick = { showTerminalDialog = true }) {
-                        Text("💻", fontSize = 18.sp)
+                        ZzzIcon(iconRes = R.drawable.ic_menu_codex, size = 18.dp, tint = EidosCyan)
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = EidosCyan)
@@ -338,13 +339,17 @@ fun ProfileScreen(
                                         }
                                         .padding(horizontal = 8.dp, vertical = 6.dp)
                                 ) {
-                                    Text(
-                                        "⚡ ТЕСТ LEVEL UP",
-                                        color = EidosCyan,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_res_energy, size = 10.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text(
+                                            "ТЕСТ LEVEL UP",
+                                            color = EidosCyan,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
                                 }
 
                                 // Core Level Badge
@@ -375,16 +380,20 @@ fun ProfileScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            "⚡ LEVEL UP DETECTED ⚡",
-                                            color = EidosNeon,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Black,
-                                            fontFamily = FontFamily.Monospace
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            ZzzIcon(R.drawable.ic_res_overdrive, size = 14.dp)
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                "LEVEL UP DETECTED",
+                                                color = EidosNeon,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Black,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            "CORE UPGRADE: LVL $prevLevel ➔ LVL $currentDisplayLevel",
+                                            "CORE UPGRADE: LVL $prevLevel > LVL $currentDisplayLevel",
                                             color = Color.White,
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
@@ -422,7 +431,7 @@ fun ProfileScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text("🧬", fontSize = 10.sp)
+                                    ZzzIcon(R.drawable.ic_event_anomaly, size = 10.dp)
                                     Text(
                                         "ДОСЬЕ ЭВОЛЮЦИИ",
                                         color = EidosCyan,
@@ -459,37 +468,37 @@ fun ProfileScreen(
                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     TabButton(
-                        text = "📊 ИНФО",
+                        text = "ИНФО",
                         selected = activeTab == 0,
                         onClick = { activeTab = 0 },
                         modifier = Modifier.weight(0.9f)
                     )
                     TabButton(
-                        text = "🏆 АЧИВКИ",
+                        text = "АЧИВКИ",
                         selected = activeTab == 1,
                         onClick = { activeTab = 1 },
                         modifier = Modifier.weight(1f)
                     )
                     TabButton(
-                        text = "⚡ НАВЫКИ",
+                        text = "НАВЫКИ",
                         selected = activeTab == 2,
                         onClick = { activeTab = 2 },
                         modifier = Modifier.weight(1f)
                     )
                     TabButton(
-                        text = "🌐 ТОП",
+                        text = "ТОП",
                         selected = activeTab == 3,
                         onClick = { activeTab = 3 },
                         modifier = Modifier.weight(0.8f)
                     )
                     TabButton(
-                        text = "🤝 АЛЬЯНС",
+                        text = "АЛЬЯНС",
                         selected = activeTab == 4,
                         onClick = { activeTab = 4 },
                         modifier = Modifier.weight(1f)
                     )
                     TabButton(
-                        text = if (unclaimedRadioMessagesCount > 0) "📟 ($unclaimedRadioMessagesCount)" else "📟 РАДИО",
+                        text = if (unclaimedRadioMessagesCount > 0) "РАДИО ($unclaimedRadioMessagesCount)" else "РАДИО",
                         selected = activeTab == 5,
                         onClick = { activeTab = 5 },
                         modifier = Modifier.weight(1.1f)
@@ -522,7 +531,7 @@ fun ProfileScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(currentLevelInfo.icon, fontSize = 22.sp)
+                                        ZzzIcon(R.drawable.ic_res_overdrive, size = 22.dp)
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Column {
                                             Text(
@@ -580,7 +589,8 @@ fun ProfileScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("🔓", fontSize = 14.sp, modifier = Modifier.padding(end = 6.dp))
+                                    ZzzIcon(R.drawable.ic_ui_unlocked, size = 14.dp, tint = EidosCyan)
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         "${currentLevelInfo.perkTitle}: ${currentLevelInfo.perkDescription}",
                                         color = EidosCyan,
@@ -632,24 +642,24 @@ fun ProfileScreen(
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
                         ) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                MetricRow(icon = "🚀", label = "Рейдов Пройдено:", value = "${player?.raids_done ?: 0} рейдов")
-                                MetricRow(icon = "🎯", label = "Идеальных Рейдов (без урона):", value = "${player?.perfect_raids ?: 0}")
+                                MetricRow(drawableRes = R.drawable.ic_event_evac, label = "Рейдов Пройдено:", value = "${player?.raids_done ?: 0} рейдов")
+                                MetricRow(drawableRes = R.drawable.ic_action_defense, label = "Идеальных Рейдов (без урона):", value = "${player?.perfect_raids ?: 0}")
                                 MetricRow(drawableRes = R.drawable.ic_stat_depth, label = "Макс. Глубина Погружения:", value = "${player?.max_depth ?: 0} метров", valueColor = EidosCyan)
-                                MetricRow(icon = "👾", label = "Уничтожено Вирусов:", value = "${player?.kills ?: 0} сушностей")
+                                MetricRow(drawableRes = R.drawable.ic_event_danger, label = "Уничтожено Вирусов:", value = "${player?.kills ?: 0} сушностей")
 
                                 HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
                                 val totalPvp = (player?.wins_pvp ?: 0) + (player?.losses_pvp ?: 0)
                                 val winrate = if (totalPvp > 0) String.format(java.util.Locale.US, "%.1f%%", ((player?.wins_pvp ?: 0).toFloat() / totalPvp) * 100) else "0.0%"
-                                MetricRow(icon = "⚔️", label = "PvP Дуэли:", value = "${player?.wins_pvp ?: 0} W / ${player?.losses_pvp ?: 0} L")
-                                MetricRow(icon = "📊", label = "Процент Побед (Winrate):", value = winrate, valueColor = EidosNeon)
+                                MetricRow(drawableRes = R.drawable.ic_action_attack, label = "PvP Дуэли:", value = "${player?.wins_pvp ?: 0} W / ${player?.losses_pvp ?: 0} L")
+                                MetricRow(drawableRes = R.drawable.ic_action_scan, label = "Процент Побед (Winrate):", value = winrate, valueColor = EidosNeon)
 
                                 HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
-                                MetricRow(icon = "🔥", label = "Серия Входов (Стрик):", value = "${player?.streak ?: 1} дн.")
-                                MetricRow(icon = "💎", label = "Осколки Эйдоса:", value = "$shardsCount шт.", valueColor = EidosCyan)
-                                MetricRow(drawableRes = R.drawable.ic_biocoin, label = "Крипто-Баланс:", value = "${player?.biocoin ?: 0} BC", valueColor = Color(0xFFFFB300))
-                                MetricRow(drawableRes = R.drawable.ic_neural_exp, label = "Накопленный Опыт:", value = "${player?.xp ?: 0} XP", valueColor = EidosNeon)
+                                MetricRow(drawableRes = R.drawable.ic_res_overdrive, label = "Серия Входов (Стрик):", value = "${player?.streak ?: 1} дн.")
+                                MetricRow(drawableRes = R.drawable.ic_res_eidos_shard, label = "Осколки Эйдоса:", value = "$shardsCount шт.", valueColor = EidosCyan)
+                                MetricRow(drawableRes = R.drawable.ic_res_biocoin, label = "Крипто-Баланс:", value = "${player?.biocoin ?: 0} BC", valueColor = Color(0xFFFFB300))
+                                MetricRow(drawableRes = R.drawable.ic_res_energy, label = "Накопленный Опыт:", value = "${player?.xp ?: 0} XP", valueColor = EidosNeon)
                             }
                         }
 
@@ -669,7 +679,8 @@ fun ProfileScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Text("📟", fontSize = 20.sp, modifier = Modifier.padding(end = 10.dp))
+                                    ZzzIcon(R.drawable.ic_menu_codex, size = 20.dp, tint = EidosCyan)
+                                    Spacer(Modifier.width(10.dp))
                                     Column {
                                         Text(
                                             "ТЕРМИНАЛ ПЕРЕХВАТА РАДИОЧАСТОТ",
@@ -680,7 +691,7 @@ fun ProfileScreen(
                                         )
                                         Text(
                                             if (unclaimedRadioMessagesCount > 0)
-                                                "⚡ Обнаружено $unclaimedRadioMessagesCount невостребованных пакетов данных!"
+                                                "Обнаружено $unclaimedRadioMessagesCount невостребованных пакетов данных!"
                                             else
                                                 "Входящие трансляции от Синдикатов и Ядра",
                                             color = if (unclaimedRadioMessagesCount > 0) EidosNeon else Color.LightGray,
@@ -703,13 +714,17 @@ fun ProfileScreen(
                             shape = CutCornerShape(6.dp)
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text(
-                                    text = "🏆 НЕЙРО-ДОСТИЖЕНИЯ СЕТИ EIDOS",
-                                    color = Color(0xFFFFD700),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(R.drawable.ic_menu_codex, size = 14.dp)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = "НЕЙРО-ДОСТИЖЕНИЯ СЕТИ EIDOS",
+                                        color = Color(0xFFFFD700),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
                                 Text(
                                     text = "Открыто: $unlockedAchCount/${achievements.size} • Забрано наград: $claimedAchCount/${achievements.size}",
                                     color = Color.White,
@@ -784,7 +799,8 @@ fun ProfileScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                                Text(ach.icon, fontSize = 22.sp, modifier = Modifier.padding(end = 10.dp))
+                                                ZzzIcon(R.drawable.ic_event_chest, size = 22.dp)
+                                                Spacer(modifier = Modifier.width(10.dp))
                                                 Column {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Text(
@@ -830,8 +846,8 @@ fun ProfileScreen(
                                             ) {
                                                 Text(
                                                     when {
-                                                        isClaimed -> "🟢 ПОЛУЧЕНО"
-                                                        isDone -> "✨ ВЫПОЛНЕНО"
+                                                        isClaimed -> "ПОЛУЧЕНО"
+                                                        isDone -> "ВЫПОЛНЕНО"
                                                         else -> "${ach.current.coerceAtMost(ach.target)}/${ach.target}"
                                                     },
                                                     color = when {
@@ -890,13 +906,17 @@ fun ProfileScreen(
                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF0055)),
                                                 shape = CutCornerShape(4.dp)
                                             ) {
-                                                Text(
-                                                    "⚡️ ЗАБРАТЬ НАГРАДУ (+${ach.xpReward} XP)",
-                                                    color = Color.White,
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontFamily = FontFamily.Monospace
-                                                )
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    ZzzIcon(R.drawable.ic_res_energy, size = 12.dp)
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Text(
+                                                        "ЗАБРАТЬ НАГРАДУ (+${ach.xpReward} XP)",
+                                                        color = Color.White,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -916,7 +936,11 @@ fun ProfileScreen(
                         ) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Text("РЕЗЕРВНЫЙ ЗАПАС ОСКОЛКОВ:", color = Color.Gray, fontSize = 11.sp)
-                                Text("$shardsCount 💎", color = EidosCyan, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("$shardsCount", color = EidosCyan, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.width(4.dp))
+                                    ZzzIcon(R.drawable.ic_res_eidos_shard, size = 14.dp)
+                                }
                             }
                         }
 
@@ -983,14 +1007,17 @@ fun ProfileScreen(
                     }
                     3 -> {
                         // TAB 3: Global Leaderboard
-                        Text(
-                            "🌐 ГЛОБАЛЬНЫЙ РЕЙТИНГ ОПЕРАТОРОВ [SUPABASE NETWORK]",
-                            color = EidosCyan,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                            ZzzIcon(R.drawable.ic_event_unknown, size = 14.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "ГЛОБАЛЬНЫЙ РЕЙТИНГ ОПЕРАТОРОВ [SUPABASE NETWORK]",
+                                color = EidosCyan,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
 
                         if (isLeaderboardLoading) {
                             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
@@ -1003,7 +1030,11 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("📡 СЕТЬ АВТОНОМНА", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_action_scan, size = 14.dp, tint = Color.Gray)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("СЕТЬ АВТОНОМНА", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text("Глобальные данные загружаются. Проверьте подключение к базе Supabase.", color = Color.LightGray, fontSize = 10.sp, textAlign = TextAlign.Center)
                                 }
@@ -1025,12 +1056,7 @@ fun ProfileScreen(
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    text = when (index) {
-                                                        0 -> "🥇"
-                                                        1 -> "🥈"
-                                                        2 -> "🥉"
-                                                        else -> "#${index + 1}"
-                                                    },
+                                                    text = "#${index + 1}",
                                                     color = if (index < 3) Color.Yellow else Color.Gray,
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.Bold,
@@ -1044,7 +1070,7 @@ fun ProfileScreen(
                                                         fontSize = 13.sp
                                                     )
                                                     Text(
-                                                        text = "🎯 ГЛУБИНА: ${if (isMe && (player?.max_depth ?: 0) > p.maxDepth) player?.max_depth else p.maxDepth}м",
+                                                        text = "ГЛУБИНА: ${if (isMe && (player?.max_depth ?: 0) > p.maxDepth) player?.max_depth else p.maxDepth}м",
                                                         color = Color.Gray,
                                                         fontSize = 10.sp,
                                                         fontFamily = FontFamily.Monospace
@@ -1076,7 +1102,11 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
-                                    Text("🔗 ВАШ РЕФЕРАЛЬНЫЙ КОД ОПЕРАТОРА", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_action_skill, size = 12.dp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("ВАШ РЕФЕРАЛЬНЫЙ КОД ОПЕРАТОРА", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                    }
                                     Text("Приглашайте союзников в EIDOS: каждый новый агент получает +250 BC, и вы получаете +250 BC за каждого рекрута!", color = Color.Gray, fontSize = 10.sp)
                                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -1112,7 +1142,11 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
-                                    Text("🎁 АКТИВАЦИЯ КОДА СИНДИКАТА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_event_chest, size = 12.dp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("АКТИВАЦИЯ КОДА СИНДИКАТА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                    }
                                     Text("Введите реферальный или промо-код оператора для начисления бонусных BioCoins.", color = Color.Gray, fontSize = 10.sp)
                                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -1161,7 +1195,11 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
-                                    Text("📡 СЕТЕВОЙ ПЕРЕДАТЧИК (SIGNAL RELAY)", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_action_scan, size = 12.dp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("СЕТЕВОЙ ПЕРЕДАТЧИК (SIGNAL RELAY)", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                    }
                                     Text("Отправка зашифрованного пакета данных другому оператору EIDOS.", color = Color.Gray, fontSize = 10.sp)
                                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -1241,7 +1279,8 @@ fun ProfileScreen(
                                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Text("📡", fontSize = 32.sp, modifier = Modifier.padding(bottom = 8.dp))
+                                        ZzzIcon(R.drawable.ic_event_unknown, size = 32.dp)
+                                        Spacer(Modifier.height(8.dp))
                                         Text(
                                             "ВХОДЯЩИХ ТРАНСЛЯЦИЙ ПОКА НЕТ",
                                             color = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
@@ -1305,7 +1344,7 @@ fun ProfileScreen(
                                                 if (!isClaimed) {
                                                     Spacer(modifier = Modifier.height(10.dp))
                                                     io.eidos.zerolayer.ui.components.ZzzMainButton(
-                                                        text = "ЗАБРАТЬ НАГРАДУ ➔",
+                                                        text = "ЗАБРАТЬ НАГРАДУ >",
                                                         onClick = { onClaimRadioMessage(msg.id) },
                                                         primaryColor = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
                                                         borderColor = Color.White,
@@ -1384,13 +1423,17 @@ fun ProfileScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text(
-                                        "🧬 ДОСЬЕ НЕЙРО-ЭВОЛЮЦИИ",
-                                        color = if (isUnlocked) EidosCyan else Color(0xFFFF5252),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Black,
-                                        fontFamily = FontFamily.Monospace
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_event_anomaly, size = 16.dp)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "ДОСЬЕ НЕЙРО-ЭВОЛЮЦИИ",
+                                            color = if (isUnlocked) EidosCyan else Color(0xFFFF5252),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
                                     Text(
                                         "ХРОНИКА БИОМЕХАНИЧЕСКИХ ТРАНСФОРМАЦИЙ ОПЕРАТОРА",
                                         color = Color.Gray,
@@ -1406,7 +1449,7 @@ fun ProfileScreen(
                                         .clickable { showAvatarInspector = false },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("✕", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text("X", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                                 }
                             }
 
@@ -1463,7 +1506,7 @@ fun ProfileScreen(
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             modifier = Modifier.padding(16.dp)
                                         ) {
-                                            Text("🔒", fontSize = 38.sp)
+                                            ZzzIcon(R.drawable.ic_ui_locked, size = 38.dp, tint = Color(0xFFFF5252))
                                             Spacer(modifier = Modifier.height(6.dp))
                                             Text(
                                                 "СТАДИЯ НЕ ДОСТИГНУТА",
@@ -1517,9 +1560,9 @@ fun ProfileScreen(
                                 ) {
                                     Text(
                                         when {
-                                            isCurrent -> "✨ ТЕКУЩИЙ ОБЛИК"
-                                            isUnlocked -> "📜 ПРОЙДЕННАЯ СТАДИЯ"
-                                            else -> "🔒 ЗАСЕКРЕЧЕНО"
+                                            isCurrent -> "ТЕКУЩИЙ ОБЛИК"
+                                            isUnlocked -> "ПРОЙДЕННАЯ СТАДИЯ"
+                                            else -> "ЗАСЕКРЕЧЕНО"
                                         },
                                         color = when {
                                             isCurrent -> EidosNeon
@@ -1548,7 +1591,7 @@ fun ProfileScreen(
                                 Column(modifier = Modifier.padding(10.dp)) {
                                     if (isUnlocked) {
                                         Text(
-                                            "${stageInfo.icon} ${stageInfo.rankTitle} // ${stageInfo.stageTitle}",
+                                            "${stageInfo.rankTitle} // ${stageInfo.stageTitle}",
                                             color = if (isCurrent) EidosNeon else Color.White,
                                             fontWeight = FontWeight.Black,
                                             fontSize = 13.sp,
@@ -1562,12 +1605,16 @@ fun ProfileScreen(
                                             fontFamily = FontFamily.Monospace
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
-                                        Text(
-                                            "⚡ СПОСОБНОСТЬ: ${stageInfo.perkTitle} — ${stageInfo.perkDescription}",
-                                            color = Color(0xFFFFB300),
-                                            fontSize = 10.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            ZzzIcon(R.drawable.ic_res_energy, size = 12.dp)
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                "СПОСОБНОСТЬ: ${stageInfo.perkTitle} — ${stageInfo.perkDescription}",
+                                                color = Color(0xFFFFB300),
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             "БОНУСЫ ЯДРА: +${stageInfo.bonusHp} HP  •  +${stageInfo.bonusAtk} ATK  •  +${stageInfo.bonusDef} DEF",
@@ -1576,13 +1623,17 @@ fun ProfileScreen(
                                             fontFamily = FontFamily.Monospace
                                         )
                                     } else {
-                                        Text(
-                                            "🔒 СТАДИЯ $inspectedAvatarLvl // [ДАННЫЕ ЗАСЕКРЕЧЕНЫ]",
-                                            color = Color(0xFFFF5252),
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 13.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            ZzzIcon(R.drawable.ic_ui_locked, size = 12.dp, tint = Color(0xFFFF5252))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                "СТАДИЯ $inspectedAvatarLvl // [ДАННЫЕ ЗАСЕКРЕЧЕНЫ]",
+                                                color = Color(0xFFFF5252),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 13.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             "Биомеханическая форма еще не синтезирована. Каждая следующая фаза превосходит предыдущую по боевой мощи и кибер-адаптации.",
@@ -1719,18 +1770,26 @@ fun ProfileScreen(
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = if (isLvlUnlocked) "$lvl" else "🔒",
-                                            color = when {
-                                                isLvlInspected && isLvlUnlocked -> Color.Black
-                                                isLvlActive -> EidosNeon
-                                                isLvlUnlocked -> Color.White
-                                                else -> Color.Gray
-                                            },
-                                            fontSize = if (isLvlUnlocked) 11.sp else 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.Monospace
-                                        )
+                                        if (isLvlUnlocked) {
+                                            Text(
+                                                text = "$lvl",
+                                                color = when {
+                                                    isLvlInspected && isLvlUnlocked -> Color.Black
+                                                    isLvlActive -> EidosNeon
+                                                    isLvlUnlocked -> Color.White
+                                                    else -> Color.Gray
+                                                },
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        } else {
+                                            ZzzIcon(
+                                                iconRes = R.drawable.ic_ui_locked,
+                                                size = 10.dp,
+                                                tint = Color.Gray
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1739,7 +1798,7 @@ fun ProfileScreen(
 
                             // Evolutionary rule notification (no downgrades / active avatar is immutable)
                             Text(
-                                "ℹ️ Кибер-эволюция необратима: ваш активный аватар навсегда закреплен за наивысшей достигнутой ступенью (Уровень $actualLevel). Пройденные стадии сохранены в досье.",
+                                "Кибер-эволюция необратима: ваш активный аватар навсегда закреплен за наивысшей достигнутой ступенью (Уровень $actualLevel). Пройденные стадии сохранены в досье.",
                                 color = Color.Gray,
                                 fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -1831,12 +1890,18 @@ fun SkillNodeRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text(
-                        "${step}. ${skill.name} ${if (isUnlocked) "⭐" else ""}",
-                        color = if (isUnlocked) EidosNeon else Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${step}. ${skill.name}",
+                            color = if (isUnlocked) EidosNeon else Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (isUnlocked) {
+                            Spacer(Modifier.width(4.dp))
+                            ZzzIcon(R.drawable.ic_ui_unlocked, size = 10.dp, tint = EidosNeon)
+                        }
+                    }
                     Text(skill.desc, color = Color.Gray, fontSize = 10.sp)
                 }
 
@@ -1858,12 +1923,16 @@ fun SkillNodeRow(
                         ),
                         modifier = Modifier.height(32.dp)
                     ) {
-                        Text(
-                            "${skill.cost} 💎",
-                            color = if (canUnlock && shardsCount >= skill.cost) Color.Black else Color.Gray,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "${skill.cost}",
+                                color = if (canUnlock && shardsCount >= skill.cost) Color.Black else Color.Gray,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.width(2.dp))
+                            ZzzIcon(R.drawable.ic_res_eidos_shard, size = 10.dp)
+                        }
                     }
                 }
             }

@@ -188,7 +188,7 @@ fun resolveDrawableResourceId(context: Context, resName: String?): Int {
                 cleanName.contains("chip_blue") || cleanName.contains("def") || cleanName.contains("energy") || cleanName == "logic_gate" || cleanName == "neural_link" -> io.eidos.zerolayer.R.drawable.ic_chip_blue
                 cleanName.contains("chip_green") || cleanName.contains("crit") || cleanName.contains("lck") || cleanName.contains("stealth") || cleanName == "glitch_chip" || cleanName == "ai_core" || cleanName == "oblivion_chip" -> io.eidos.zerolayer.R.drawable.ic_chip_green
                 cleanName.contains("chip") || cleanName.contains("module") -> io.eidos.zerolayer.R.drawable.ic_chip_red
-                cleanName.contains("avatar") || cleanName.contains("operator") -> io.eidos.zerolayer.R.drawable.avatar_operator_default
+                cleanName.contains("avatar") || cleanName.contains("operator") -> io.eidos.zerolayer.R.drawable.doll_operator_rig
                 cleanName.contains("lootbox") || cleanName.contains("gacha") || cleanName.contains("cube") -> io.eidos.zerolayer.R.drawable.gacha_cube_lootbox
                 cleanName.contains("lock") || cleanName.contains("locked") -> io.eidos.zerolayer.R.drawable.ic_lock_cyber
                 cleanName.contains("hazard") || cleanName.contains("warning") || cleanName.contains("alert") -> io.eidos.zerolayer.R.drawable.ic_hazard_warning

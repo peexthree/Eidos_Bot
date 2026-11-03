@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.eidos.zerolayer.R
 import io.eidos.zerolayer.domain.combat.ActiveSynergy
 import io.eidos.zerolayer.domain.combat.ChipMatrixSynergyEngine
 import io.eidos.zerolayer.domain.raid.QuantumSector
@@ -61,13 +62,17 @@ fun ActiveSynergiesBar(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState())
         ) {
-            Text(
-                "⚡ МАТРИЦА:",
-                color = EidosCyan,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 13.dp)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "МАТРИЦА:",
+                    color = EidosCyan,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
 
             if (activeSynergies.isEmpty()) {
                 Text(
@@ -88,7 +93,7 @@ fun ActiveSynergiesBar(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(syn.icon, fontSize = 9.sp)
+                        ZzzIcon(iconRes = syn.iconRes, size = 13.dp)
                         Text(
                             "${syn.title} [${syn.tierLabel}]",
                             color = syn.color,
@@ -102,13 +107,17 @@ fun ActiveSynergiesBar(
         }
 
         Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            "📖 ШПАРГАЛКА",
-            color = EidosGold,
-            fontSize = 8.5.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ZzzIcon(iconRes = R.drawable.ic_menu_codex, size = 12.dp)
+            Spacer(Modifier.width(3.dp))
+            Text(
+                "ШПАРГАЛКА",
+                color = EidosGold,
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+        }
     }
 }
 
@@ -150,13 +159,17 @@ fun SynergyCodexModal(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(
-                                "⚡ РЕЗОНАНС МАТРИЦЫ ЧИПОВ",
-                                color = EidosCyan,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 16.dp)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "РЕЗОНАНС МАТРИЦЫ ЧИПОВ",
+                                    color = EidosCyan,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                             Text(
                                 "Каталог синергий (2/4, 4/4, Duo & Cursed)",
                                 color = Color.Gray,
@@ -198,9 +211,9 @@ fun SynergyCodexModal(
                                     verticalAlignment = Alignment.Top,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        info.icon,
-                                        fontSize = 24.sp,
+                                    ZzzIcon(
+                                        iconRes = info.iconRes,
+                                        size = 24.dp,
                                         modifier = Modifier.padding(top = 2.dp)
                                     )
 
@@ -237,13 +250,17 @@ fun SynergyCodexModal(
 
                                         if (isActive) {
                                             Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                "✔ АКТИВНО В БОЮ",
-                                                color = EidosNeon,
-                                                fontSize = 8.sp,
-                                                fontWeight = FontWeight.Black,
-                                                fontFamily = FontFamily.Monospace
-                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                ZzzIcon(iconRes = R.drawable.ic_ui_unlocked, size = 11.dp)
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(
+                                                    "АКТИВНО В БОЮ",
+                                                    color = EidosNeon,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontFamily = FontFamily.Monospace
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -286,13 +303,17 @@ fun QuantumSectorChoicesFork(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "⚡ ВРАТА БЕЗДНЫ // ВЫБЕРИТЕ ВЕКТОР",
-                color = EidosCyan,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 13.dp)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "ВРАТА БЕЗДНЫ // ВЫБЕРИТЕ ВЕКТОР",
+                    color = EidosCyan,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
             Text(
                 "РАСХОД ЭНЕРГИИ",
                 color = Color.Gray,
@@ -331,7 +352,7 @@ fun QuantumSectorChoicesFork(
                     ) {
                         // Icon + Title
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(sector.icon, fontSize = 20.sp)
+                            ZzzIcon(iconRes = sector.iconRes, size = 22.dp)
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = sector.title,
@@ -365,13 +386,19 @@ fun QuantumSectorChoicesFork(
                                 .border(0.8.dp, if (hasEnergy) EidosNeon else Color(0xFFFF5252), CutCornerShape(4.dp))
                                 .padding(horizontal = 4.dp, vertical = 1.dp)
                         ) {
-                            Text(
-                                text = if (hasEnergy) "-${sector.costEnergy} EP" else "🩸 -8% HP",
-                                color = if (hasEnergy) EidosNeon else Color(0xFFFF5252),
-                                fontSize = 7.5.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (!hasEnergy) {
+                                    ZzzIcon(iconRes = R.drawable.ic_action_blood_overdrive, size = 9.dp)
+                                    Spacer(Modifier.width(2.dp))
+                                }
+                                Text(
+                                    text = if (hasEnergy) "-${sector.costEnergy} EP" else "-8% HP",
+                                    color = if (hasEnergy) EidosNeon else Color(0xFFFF5252),
+                                    fontSize = 7.5.sp,
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }

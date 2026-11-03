@@ -14,9 +14,8 @@ object ShadowBrokerPrices {
 
     fun getXpPrice(meta: ItemMetadata): Long {
         val r = meta.rarity.lowercase()
-        val name = meta.name
-        val isCursedOrRelic = r in listOf("cursed", "relic") || name.contains("💀") || name.contains("👁") || name.contains("🔴") || meta.type == "cursed"
-        val isLegendary = r == "legendary" || name.contains("🟠")
+        val isCursedOrRelic = r in listOf("cursed", "relic") || meta.type == "cursed"
+        val isLegendary = r == "legendary"
         val isEpicOrChip = r == "epic" || meta.type == "chip"
 
         val basePrice = when {
@@ -30,9 +29,8 @@ object ShadowBrokerPrices {
 
     fun getBcPrice(meta: ItemMetadata): Long {
         val r = meta.rarity.lowercase()
-        val name = meta.name
-        val isCursedOrRelic = r in listOf("cursed", "relic") || name.contains("💀") || name.contains("👁") || name.contains("🔴") || meta.type == "cursed"
-        val isLegendary = r == "legendary" || name.contains("🟠")
+        val isCursedOrRelic = r in listOf("cursed", "relic") || meta.type == "cursed"
+        val isLegendary = r == "legendary"
         val isEpicOrChip = r == "epic" || meta.type == "chip"
 
         val basePrice = when {

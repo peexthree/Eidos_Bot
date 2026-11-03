@@ -38,6 +38,7 @@ import io.eidos.zerolayer.R
 import io.eidos.zerolayer.data.*
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
+import io.eidos.zerolayer.ui.components.ZzzIcon
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import io.eidos.zerolayer.ui.theme.*
@@ -166,12 +167,12 @@ fun CodexScreen(
     }
 
     val mainCategories = listOf(
-        "lore_story" to "📜 КНИГА СЮЖЕТА",
-        "bestiary" to "👾 БЕСТИАРИЙ",
-        "audio_logs" to "📼 АУДИО-ЛОГИ",
-        "achievements" to "🏆 ДОСТИЖЕНИЯ",
-        "guides" to "📘 СПРАВОЧНИК",
-        "logs" to "📟 ХРОНИКИ И ЛОГИ"
+        "lore_story" to "КНИГА СЮЖЕТА",
+        "bestiary" to "БЕСТИАРИЙ",
+        "audio_logs" to "АУДИО-ЛОГИ",
+        "achievements" to "ДОСТИЖЕНИЯ",
+        "guides" to "СПРАВОЧНИК",
+        "logs" to "ХРОНИКИ И ЛОГИ"
     )
 
     Scaffold(
@@ -215,7 +216,7 @@ fun CodexScreen(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = if (isMuted) "🔇 ВЫКЛ" else "🎵 РАЗБЕЙ ЗЕРКАЛО ЛЖИ",
+                                text = if (isMuted) "САУНДТРЕК: ВЫКЛ" else "РАЗБЕЙ ЗЕРКАЛО ЛЖИ",
                                 color = if (isMuted) Color.LightGray else EidosNeon,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -303,13 +304,17 @@ fun LoreBookSection(player: Player?) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "📖 КНИГА СЮЖЕТА // ХРОНИКИ НУЛЕВОГО СЛОЯ",
-                        color = Color.Yellow,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(R.drawable.ic_menu_codex, size = 16.dp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "КНИГА СЮЖЕТА // ХРОНИКИ НУЛЕВОГО СЛОЯ",
+                            color = Color.Yellow,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                     Surface(
                         color = Color.Yellow.copy(alpha = 0.15f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color.Yellow),
@@ -371,9 +376,10 @@ fun LoreBookSection(player: Player?) {
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = if (unlocked) "📖" else "🔒",
-                                fontSize = 18.sp
+                            ZzzIcon(
+                                iconRes = if (unlocked) R.drawable.ic_menu_codex else R.drawable.ic_ui_locked,
+                                size = 18.dp,
+                                tint = if (unlocked) io.eidos.zerolayer.ui.theme.ZzzElectricCyan else io.eidos.zerolayer.ui.theme.ZzzHotMagenta
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
@@ -395,7 +401,7 @@ fun LoreBookSection(player: Player?) {
                                 )
                             } else {
                                 io.eidos.zerolayer.ui.components.ZzzBadge(
-                                    text = "🔒 ${chapter.unlockConditionText}",
+                                    text = chapter.unlockConditionText,
                                     color = io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
                                     textColor = Color.White
                                 )
@@ -405,7 +411,7 @@ fun LoreBookSection(player: Player?) {
 
                     if (unlocked) {
                         io.eidos.zerolayer.ui.components.ZzzBadge(
-                            text = "ЧИТАТЬ ➔",
+                            text = "ЧИТАТЬ >",
                             color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
                             textColor = Color.Black
                         )
@@ -422,13 +428,17 @@ fun LoreBookSection(player: Player?) {
             shape = CutCornerShape(12.dp),
             title = {
                 Column {
-                    Text(
-                        "📖 ${chapter.title}",
-                        color = Color.Yellow,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(R.drawable.ic_menu_codex, size = 16.dp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            chapter.title,
+                            color = Color.Yellow,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                     Text(
                         chapter.subtitle,
                         color = EidosCyan,
@@ -479,7 +489,7 @@ fun LoreBookSection(player: Player?) {
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text(
-                                text = "⚡ ИТЕРАЦИЯ ФРАКЦИИ: ${player?.faction ?: "НЕЙТРАЛ"}",
+                                text = "ИТЕРАЦИЯ ФРАКЦИИ: ${player?.faction ?: "НЕЙТРАЛ"}",
                                 color = EidosCyan,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp,
@@ -536,13 +546,17 @@ fun BestiaryBookSection(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    "👾 БЕСТИАРИЙ СИСТЕМЫ // БАЗА УГРОЗ",
-                    color = EidosRed,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_event_danger, size = 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "БЕСТИАРИЙ СИСТЕМЫ // БАЗА УГРОЗ",
+                        color = EidosRed,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "Здесь собраны все аномалии, глитчи и вирусные формы жизни, обнаруженные в глубинах Эйдоса. Уничтожайте врагов, чтобы открывать их данные и получать ценные трофеи.",
@@ -596,7 +610,7 @@ fun BestiaryBookSection(
                                         .border(1.dp, Color.DarkGray, androidx.compose.foundation.shape.RoundedCornerShape(6.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("🔒", fontSize = 18.sp)
+                                    ZzzIcon(R.drawable.ic_ui_locked, size = 18.dp, tint = Color.Gray)
                                 }
                             }
                             Spacer(modifier = Modifier.width(10.dp))
@@ -655,7 +669,7 @@ fun BestiaryBookSection(
                     } else {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "🔒 Сектор заблокирован. Уничтожьте хотя бы одну особь этого типа в Бездне, чтобы расшифровать досье.",
+                            text = "Сектор заблокирован. Уничтожьте хотя бы одну особь этого типа в Бездне, чтобы расшифровать досье.",
                             color = Color.Gray,
                             fontSize = 9.sp,
                             fontStyle = FontStyle.Italic
@@ -683,13 +697,17 @@ fun AchievementsSection(player: Player?) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    "🏆 ДОСТИЖЕНИЯ СИСТЕМЫ // НАГРАДЫ ОПЕРАТОРА",
-                    color = Color.Yellow,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_menu_codex, size = 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "ДОСТИЖЕНИЯ СИСТЕМЫ // НАГРАДЫ ОПЕРАТОРА",
+                        color = Color.Yellow,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "Выполняйте боевые и исследовательские задачи в Бездне, чтобы получать постоянные баффы и очки славы.",
@@ -724,13 +742,17 @@ fun AchievementsSection(player: Player?) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (unlocked) "🏆 $title" else "🔒 $title",
-                            color = if (unlocked) Color.White else Color.Gray,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ZzzIcon(if (unlocked) R.drawable.ic_menu_codex else R.drawable.ic_ui_locked, size = 12.dp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = title,
+                                color = if (unlocked) Color.White else Color.Gray,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = desc,
@@ -775,13 +797,17 @@ fun GuidesHubSection() {
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    "📘 СПРАВОЧНИК ОПЕРАТОРА // БАЗОВЫЕ ПРОТОКОЛЫ",
-                    color = EidosCyan,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_menu_codex, size = 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "СПРАВОЧНИК ОПЕРАТОРА // БАЗОВЫЕ ПРОТОКОЛЫ",
+                        color = EidosCyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "Изучите механики выживания в Бездне, управления инвентарем и сражений с ИИ-стражами.",
@@ -844,13 +870,17 @@ fun ChroniclesLogsSection(logs: List<GameLog>) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    "📟 СИСТЕМНЫЕ ЛОГИ // ТЕРМИНАЛ СОБЫТИЙ",
-                    color = EidosNeon,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_menu_codex, size = 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "СИСТЕМНЫЕ ЛОГИ // ТЕРМИНАЛ СОБЫТИЙ",
+                        color = EidosNeon,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "Хронологическая лента всех событий, битв, находок и предупреждений ядра.",
@@ -890,7 +920,7 @@ fun ChroniclesLogsSection(logs: List<GameLog>) {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("📭", fontSize = 32.sp)
+                    ZzzIcon(R.drawable.ic_event_unknown, size = 32.dp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         "Записи в журнале отсутствуют или фильтр скрывает все логи.",
@@ -1036,13 +1066,17 @@ fun ArchitectAudioLogsSection(player: Player?) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    "📼 АУДИО-ЛОГИ АРХИТЕКТОРОВ // РЕЛИКВИИ ПРОШЛОГО",
-                    color = Color.Magenta,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_menu_codex, size = 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "АУДИО-ЛОГИ АРХИТЕКТОРОВ // РЕЛИКВИИ ПРОШЛОГО",
+                        color = Color.Magenta,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "Зашифрованные квантовые записи голосов создателей Эйдоса и Теневого Брокера. Прослушивание этих логов позволяет глубже понять истинную причину Великого Глитча.",
@@ -1081,9 +1115,10 @@ fun ArchitectAudioLogsSection(player: Player?) {
                             modifier = Modifier.weight(1f)
                         ) {
                             if (unlocked) {
-                                Text(
-                                    text = "🎙️",
-                                    fontSize = 22.sp
+                                ZzzIcon(
+                                    iconRes = R.drawable.ic_action_scan,
+                                    size = 22.dp,
+                                    tint = Color.Magenta
                                 )
                             } else {
                                 Image(
@@ -1150,13 +1185,17 @@ fun ArchitectAudioLogsSection(player: Player?) {
             shape = CutCornerShape(12.dp),
             title = {
                 Column {
-                    Text(
-                        "🎙️ ${log.title}",
-                        color = Color.Magenta,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(R.drawable.ic_action_scan, size = 16.dp, tint = Color.Magenta)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            log.title,
+                            color = Color.Magenta,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                     Text(
                         "${log.author} • ${log.frequency}",
                         color = EidosCyan,

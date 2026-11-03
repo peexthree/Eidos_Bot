@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.alpha
 import io.eidos.zerolayer.ui.components.CyberParticleOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.ParticlePreset
+import io.eidos.zerolayer.ui.components.ZzzIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,7 +67,7 @@ fun ForgeScreen(
     val audio = remember { EidosAudioManager.getInstance(context) }
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("🧪 СИНТЕЗ", "⚙️ МОДДИНГ СОКЕТОВ", "☣️ КОРРУПЦИЯ")
+    val tabs = listOf("СИНТЕЗ", "МОДДИНГ СОКЕТОВ", "КОРРУПЦИЯ")
 
     // State for interactive recalibration
     var showComparisonDialog by remember { mutableStateOf(false) }
@@ -82,12 +83,17 @@ fun ForgeScreen(
                 title = {
                     Column {
                         Text("КВАНТОВАЯ КУЗНИЦА EIDOS", color = Color(0xFFFF9800), fontWeight = FontWeight.Black, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
-                        Text(
-                            "Ур. ${player?.level ?: 1} Оператор | 🪙 ${player?.biocoin ?: 0} BC | 💎 ${inventory.find { it.item_id == "eidos_shard" }?.quantity ?: 0} Осколков",
-                            color = Color.LightGray,
-                            fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Ур. ${player?.level ?: 1} Оператор", color = Color.LightGray, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                            Spacer(Modifier.width(6.dp))
+                            ZzzIcon(R.drawable.ic_res_biocoin, size = 10.dp)
+                            Spacer(Modifier.width(2.dp))
+                            Text("${player?.biocoin ?: 0} BC", color = Color.LightGray, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                            Spacer(Modifier.width(6.dp))
+                            ZzzIcon(R.drawable.ic_res_eidos_shard, size = 10.dp)
+                            Spacer(Modifier.width(2.dp))
+                            Text("${inventory.find { it.item_id == "eidos_shard" }?.quantity ?: 0} Осколков", color = Color.LightGray, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                        }
                     }
                 },
                 navigationIcon = {
@@ -113,9 +119,21 @@ fun ForgeScreen(
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("⚒️ КУЗНИЦА", color = Color(0xFFFF9800), fontWeight = FontWeight.Bold, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                    Text("🎒 ИНВЕНТАРЬ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.clickable { onBack() })
-                    Text("⚙️ СИГНАЛ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.clickable { onBack() })
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(R.drawable.ic_menu_forge, size = 12.dp)
+                        Spacer(Modifier.width(4.dp))
+                        Text("КУЗНИЦА", color = Color(0xFFFF9800), fontWeight = FontWeight.Bold, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onBack() }) {
+                        ZzzIcon(R.drawable.ic_nav_inventory, size = 12.dp, tint = Color.Gray)
+                        Spacer(Modifier.width(4.dp))
+                        Text("ИНВЕНТАРЬ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onBack() }) {
+                        ZzzIcon(R.drawable.ic_res_energy, size = 12.dp, tint = Color.Gray)
+                        Spacer(Modifier.width(4.dp))
+                        Text("СИГНАЛ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    }
                 }
             }
         },
@@ -171,9 +189,9 @@ fun ForgeScreen(
                     shape = androidx.compose.foundation.shape.CutCornerShape(4.dp)
                 ) {
                     val bannerText = when (selectedTab) {
-                        0 -> "🧪 СИНТЕЗ: Слияние дубликатов 2-в-1 до высших рангов или крафт снаряжения из осколков Эйдоса."
-                        1 -> "⚙️ МОДДИНГ СОКЕТОВ: Настройка гнезд под чипы. Роллируйте статы с фиксацией 🔒 (макс. 2 заморозки, +50% BC за замок)."
-                        else -> "☣️ КОРРУПЦИЯ: Заражение предметов хаотическим глитч-кодом. Дает мощнейший скрытый бонус, но полностью блокирует модификацию."
+                        0 -> "СИНТЕЗ: Слияние дубликатов 2-в-1 до высших рангов или крафт снаряжения из осколков Эйдоса."
+                        1 -> "МОДДИНГ СОКЕТОВ: Настройка гнезд под чипы. Роллируйте статы с фиксацией замков (макс. 2 заморозки, +50% BC за замок)."
+                        else -> "КОРРУПЦИЯ: Заражение предметов хаотическим глитч-кодом. Дает мощнейший скрытый бонус, но полностью блокирует модификацию."
                     }
                     Text(
                         text = bannerText,
@@ -229,13 +247,17 @@ fun ForgeScreen(
         AlertDialog(
             onDismissRequest = { showComparisonDialog = false },
             title = {
-                Text(
-                    "🎲 [ПЕРЕКАЛИБРОВКА: СРАВНЕНИЕ СТАТОВ]",
-                    color = EidosCyan,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_menu_forge, size = 16.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "[ПЕРЕКАЛИБРОВКА: СРАВНЕНИЕ СТАТОВ]",
+                        color = EidosCyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
             },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -291,7 +313,7 @@ fun ForgeScreen(
                             currentModItem!!,
                             prospectiveEquipment!!,
                             prospectiveCost,
-                            "🎲 [СЛАЙСЕР]: Перекалибровка аффиксов в $itemName успешно завершена! Списано $prospectiveCost BC."
+                            "[СЛАЙСЕР]: Перекалибровка аффиксов в $itemName успешно завершена! Списано $prospectiveCost BC."
                         )
                         showComparisonDialog = false
                     },
@@ -454,14 +476,19 @@ fun SynthesisTab(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
 
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                         .background(EidosGlass)
-                        .padding(8.dp)
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("КРЕДИТНЫЙ БАЛАНС СКОПЛЕНИЯ: $shards 💎 Осколков", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    Text("КРЕДИТНЫЙ БАЛАНС СКОПЛЕНИЯ: $shards", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    Spacer(Modifier.width(4.dp))
+                    ZzzIcon(R.drawable.ic_res_eidos_shard, size = 12.dp)
+                    Spacer(Modifier.width(2.dp))
+                    Text("Осколков", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 }
 
                 LazyColumn(
@@ -497,12 +524,11 @@ fun SynthesisTab(
                                 if (recipe.description.isNotEmpty()) {
                                     Text(recipe.description, color = Color.Gray, fontSize = 9.sp)
                                 }
-                                Text(
-                                    "Требуется: ${recipe.shardCost} 💎 + ${recipe.creditCost} BC",
-                                    color = if (hasEnoughShards) EidosNeon else EidosRed,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Требуется: ${recipe.shardCost} ", color = if (hasEnoughShards) EidosNeon else EidosRed, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    ZzzIcon(R.drawable.ic_res_eidos_shard, size = 10.dp)
+                                    Text(" + ${recipe.creditCost} BC", color = if (hasEnoughShards) EidosNeon else EidosRed, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                }
                                 if (ingStatusList.isNotEmpty()) {
                                     Text(
                                         "Материалы: " + ingStatusList.joinToString(", "),
@@ -543,7 +569,11 @@ fun SynthesisTab(
         AlertDialog(
             onDismissRequest = { pendingCraftRecipe = null },
             title = {
-                Text("⚠ ПОДТВЕРЖДЕНИЕ СИНТЕЗА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_event_danger, size = 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("ПОДТВЕРЖДЕНИЕ СИНТЕЗА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                }
             },
             text = {
                 Text(
@@ -634,7 +664,11 @@ fun SocketModdingTab(
                                 Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 if (eq.isCorrupted) {
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("☣️ СКВЕРНА", color = Color(0xFFFF1744), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_event_danger, size = 10.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("СКВЕРНА", color = Color(0xFFFF1744), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                    }
                                 }
                             }
                             Text(
@@ -674,17 +708,25 @@ fun SocketModdingTab(
                         // Total active bonuses summary (including color synergy)
                         val nonZeroStats = totalStats.filter { it.value > 0 }
                         if (nonZeroStats.isNotEmpty()) {
-                            Text(
-                                "⚡ ИТОГОВЫЙ БОНУС: " + nonZeroStats.entries.joinToString(" | ") { "+${it.value} ${it.key}" },
-                                color = EidosNeon,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_res_energy, size = 10.dp)
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "ИТОГОВЫЙ БОНУС: " + nonZeroStats.entries.joinToString(" | ") { "+${it.value} ${it.key}" },
+                                    color = EidosNeon,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                             Spacer(modifier = Modifier.height(6.dp))
                         }
 
                         // Affixes with locks
-                        Text("📊 АФФИКСЫ (ЗАМОК ПАРАМЕТРА 🔒):", color = EidosCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ZzzIcon(R.drawable.ic_action_scan, size = 10.dp)
+                            Spacer(Modifier.width(4.dp))
+                            Text("АФФИКСЫ (ФИКСАЦИЯ ПАРАМЕТРА):", color = EidosCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
 
                         eq.affixes.forEachIndexed { index, affix ->
@@ -702,7 +744,7 @@ fun SocketModdingTab(
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            "${affix.statType}: +${affix.currentValue} ${if (isPerfect) "✨" else ""}",
+                                            "${affix.statType}: +${affix.currentValue}",
                                             color = if (isLocked) EidosCyan else if (isPerfect) EidosNeon else Color.White,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold
@@ -726,8 +768,14 @@ fun SocketModdingTab(
                                                 }
                                             }
                                         ) {
+                                            ZzzIcon(
+                                                iconRes = if (isLocked) R.drawable.ic_ui_locked else R.drawable.ic_ui_unlocked,
+                                                size = 10.dp,
+                                                tint = if (isLocked) EidosCyan else Color.Gray
+                                            )
+                                            Spacer(Modifier.width(4.dp))
                                             Text(
-                                                if (isLocked) "🔒 ЗАПИСАН" else "🔓 СВОБОДЕН",
+                                                if (isLocked) "ЗАПИСАН" else "СВОБОДЕН",
                                                 color = if (isLocked) EidosCyan else Color.Gray,
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold
@@ -752,7 +800,11 @@ fun SocketModdingTab(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("🔌 СОКЕТЫ И ЧИПЫ:", color = io.eidos.zerolayer.ui.theme.ZzzElectricCyan, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_action_skill, size = 12.dp)
+                                Spacer(Modifier.width(4.dp))
+                                Text("СОКЕТЫ И ЧИПЫ:", color = io.eidos.zerolayer.ui.theme.ZzzElectricCyan, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
+                            }
                             io.eidos.zerolayer.ui.components.ZzzBadge(
                                 text = "+25% РЕЗОНАНС АКТИВЕН!",
                                 color = io.eidos.zerolayer.ui.theme.ZzzToxicGreen,
@@ -840,7 +892,11 @@ fun SocketModdingTab(
 
                                         if (chip != null) {
                                             if (matchedSynergy) {
-                                                Text("⚡ +25%", color = io.eidos.zerolayer.ui.theme.ZzzToxicGreen, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold)
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    ZzzIcon(R.drawable.ic_res_energy, size = 8.dp)
+                                                    Spacer(Modifier.width(2.dp))
+                                                    Text("+25%", color = io.eidos.zerolayer.ui.theme.ZzzToxicGreen, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold)
+                                                }
                                             } else {
                                                 Text("Нет синергии", color = Color.Gray, fontSize = 7.sp)
                                             }
@@ -861,7 +917,7 @@ fun SocketModdingTab(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     // Data Slicer Button ZZZ
-                                    val slicerLabel = if (slicerShardCost > 0) "🎲 СЛАЙСЕР ($slicerBcCost BC+${slicerShardCost}💎)" else "🎲 СЛАЙСЕР ($slicerBcCost BC)"
+                                    val slicerLabel = if (slicerShardCost > 0) "СЛАЙСЕР ($slicerBcCost BC + ${slicerShardCost} Осколков)" else "СЛАЙСЕР ($slicerBcCost BC)"
                                     io.eidos.zerolayer.ui.components.ZzzMainButton(
                                         text = slicerLabel,
                                         onClick = {
@@ -888,7 +944,7 @@ fun SocketModdingTab(
 
                                     // Quantum Tuner ZZZ
                                     io.eidos.zerolayer.ui.components.ZzzMainButton(
-                                        text = "⚖️ ТЮНЕР (500 BC+1💎)",
+                                        text = "ТЮНЕР (500 BC + 1 Осколок)",
                                         onClick = { onQuantumTuner(item) },
                                         enabled = shardsCount >= 1,
                                         primaryColor = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
@@ -916,7 +972,7 @@ fun SocketModdingTab(
                                         modifier = Modifier.weight(1f),
                                         contentPadding = PaddingValues(2.dp)
                                     ) {
-                                        Text("🔌 Гнезда\n(300 BC+1💎)", color = if (shardsCount >= 1) Color(0xFFFF9800) else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        Text("ГНЕЗДА\n(300 BC + 1 Осколок)", color = if (shardsCount >= 1) Color(0xFFFF9800) else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
 
                                     // Chromatic Injector
@@ -928,17 +984,21 @@ fun SocketModdingTab(
                                         modifier = Modifier.weight(1f),
                                         contentPadding = PaddingValues(2.dp)
                                     ) {
-                                        Text("🌈 Спектр\n(150 BC)", color = Color(0xFFE040FB), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        Text("СПЕКТР\n(150 BC)", color = Color(0xFFE040FB), fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                 }
                             }
                         } else {
-                            Text(
-                                "🔒 ПРЕДМЕТ ЗАПЕЧАТАН (СКВЕРНА) - калибровка и сокеты заблокированы!",
-                                color = Color(0xFFFF5252),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_ui_locked, size = 12.dp, tint = Color(0xFFFF5252))
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "ПРЕДМЕТ ЗАПЕЧАТАН (СКВЕРНА) - калибровка и сокеты заблокированы!",
+                                    color = Color(0xFFFF5252),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -968,13 +1028,17 @@ fun DataCorruptionTab(
                 .border(1.dp, Color(0xFFFF1744), CutCornerShape(6.dp))
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    "⚠️ ОПАСНОСТЬ: ИНЪЕКЦИЯ КОДА СКВЕРНЫ",
-                    color = Color(0xFFFF1744),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_event_danger, size = 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "ОПАСНОСТЬ: ИНЪЕКЦИЯ КОДА СКВЕРНЫ",
+                        color = Color(0xFFFF1744),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     "Внедрение хаотического вируса в нейроструктуру предмета дает шанс наложить колоссальный СВЕРХ-БОНУС (напр. +30% вампиризма или критического урона).\n\n" +
@@ -984,12 +1048,11 @@ fun DataCorruptionTab(
                     lineHeight = 14.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "ТРЕБУЕТСЯ: 1000 BC + 2 💎 Осколка Эйдоса",
-                    color = Color.Yellow,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("ТРЕБУЕТСЯ: 1000 BC + 2 ", color = Color.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    ZzzIcon(R.drawable.ic_res_eidos_shard, size = 10.dp)
+                    Text(" Осколка Эйдоса", color = Color.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -1046,10 +1109,18 @@ fun DataCorruptionTab(
                                 shape = CutCornerShape(4.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                             ) {
-                                Text("☣️ ИСКАЗИТЬ", color = if ((player?.biocoin ?: 0L) >= 1000L && shardsCount >= 2) Color(0xFFFF1744) else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(R.drawable.ic_event_danger, size = 10.dp)
+                                    Spacer(Modifier.width(3.dp))
+                                    Text("ИСКАЗИТЬ", color = if ((player?.biocoin ?: 0L) >= 1000L && shardsCount >= 2) Color(0xFFFF1744) else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         } else {
-                            Text("🔒 ЗАПЕЧАТАН", color = Color(0xFFFF1744), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_ui_locked, size = 10.dp, tint = Color(0xFFFF1744))
+                                Spacer(Modifier.width(3.dp))
+                                Text("ЗАПЕЧАТАН", color = Color(0xFFFF1744), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

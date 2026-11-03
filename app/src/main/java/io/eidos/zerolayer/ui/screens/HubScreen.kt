@@ -48,6 +48,7 @@ import io.eidos.zerolayer.ui.components.premiumCyberClickable
 import io.eidos.zerolayer.ui.components.EarthRelic
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.cyber3DTilt
+import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.components.cyberGlitchEffect
 import io.eidos.zerolayer.ui.components.CyberParticleOverlay
 import io.eidos.zerolayer.ui.components.ParticlePreset
@@ -180,7 +181,7 @@ fun HubScreen(
         // Cybernetic Grid & Scanline Background
         CyberGridOverlay()
 
-        // ⚛️ 60/120 FPS Ambient Code Particle Dust Overlay
+        // 60/120 FPS Ambient Code Particle Dust Overlay
         CyberParticleOverlay(preset = ParticlePreset.ABYSS_DUST)
 
         // Layer 2: Main Responsive Content Layout
@@ -214,10 +215,10 @@ fun HubScreen(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("📚", fontSize = 28.sp, modifier = Modifier.padding(end = 10.dp))
+                        ZzzIcon(iconRes = R.drawable.ic_menu_codex, size = 26.dp, modifier = Modifier.padding(end = 10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "📚 АРХИВ & СПРАВОЧНИК // ARCHIVE HUB",
+                                text = "АРХИВ & СПРАВОЧНИК // ARCHIVE HUB",
                                 color = EidosNeon,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
@@ -249,7 +250,7 @@ fun HubScreen(
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🌐", fontSize = 18.sp)
+                                ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 16.dp)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     "ИНСТРУКТАЖ EIDOS",
@@ -280,7 +281,7 @@ fun HubScreen(
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("📼", fontSize = 18.sp)
+                                ZzzIcon(iconRes = R.drawable.ic_item_battery, size = 16.dp)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     "РЕЛИКВИИ ЗЕМЛИ",
@@ -439,13 +440,17 @@ fun HubScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, EidosNeon),
                                 shape = CutCornerShape(4.dp)
                             ) {
-                                Text(
-                                    "🧬 СИНХРОНИЗАЦИЯ",
-                                    color = EidosNeon,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 11.dp)
+                                    Spacer(Modifier.width(3.dp))
+                                    Text(
+                                        "СИНХРОНИЗАЦИЯ",
+                                        color = EidosNeon,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
                             }
 
                             Button(
@@ -455,13 +460,17 @@ fun HubScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, EidosRed),
                                 shape = CutCornerShape(4.dp)
                             ) {
-                                Text(
-                                    "💚 СИГНАЛ",
-                                    color = EidosRed,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(iconRes = R.drawable.ic_res_signal_hp, size = 11.dp)
+                                    Spacer(Modifier.width(3.dp))
+                                    Text(
+                                        "СИГНАЛ",
+                                        color = EidosRed,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
                             }
                         }
                     }
@@ -594,14 +603,14 @@ fun HubScreen(
                     ) {
                         CyberGridMenuItem(
                             title = "КУЗНИЦА И СИНТЕЗ",
-                            emojiIcon = "⚡",
+                            iconRes = R.drawable.ic_menu_forge,
                             borderColor = ZzzDesignSystem.QuantumPurple,
                             onClick = onNavigateToForge,
                             modifier = Modifier.weight(1f)
                         )
                         CyberGridMenuItem(
                             title = "ЧЕРНЫЙ РЫНОК",
-                            emojiIcon = "🥷",
+                            iconRes = R.drawable.ic_menu_market,
                             borderColor = Color(0xFF9C27B0),
                             onClick = onNavigateToShop,
                             modifier = Modifier.weight(1f)
@@ -616,7 +625,7 @@ fun HubScreen(
                         val isPvpAvailable = (player?.level ?: 1) >= 4
                         CyberGridMenuItem(
                             title = if (isPvpAvailable) "СЕТЕВАЯ ВОЙНА" else "СЕТЕВАЯ ВОЙНА [LVL 4]",
-                            emojiIcon = if (isPvpAvailable) "💀" else "🔒",
+                            iconRes = if (isPvpAvailable) R.drawable.ic_action_attack else R.drawable.ic_ui_locked,
                             borderColor = if (isPvpAvailable) EidosRed else Color.Gray,
                             onClick = {
                                 if (isPvpAvailable) {
@@ -629,8 +638,8 @@ fun HubScreen(
                             modifier = Modifier.weight(1f)
                         )
                         CyberGridMenuItem(
-                            title = "📚 КОДЕКС / БАЗА ЗНАНИЙ",
-                            emojiIcon = "📖",
+                            title = "КОДЕКС / БАЗА ЗНАНИЙ",
+                            iconRes = R.drawable.ic_menu_codex,
                             borderColor = Color(0xFFFFD700),
                             onClick = onNavigateToCodex,
                             modifier = Modifier.weight(1f)
@@ -641,7 +650,7 @@ fun HubScreen(
                     if (isBrokerActive) {
                         CyberGridMenuItem(
                             title = "ТЕНЕВОЙ БРОКЕР [ONLINE]",
-                            emojiIcon = "💻",
+                            iconRes = R.drawable.ic_action_scan,
                             borderColor = EidosNeon,
                             onClick = {
                                 if (activity != null && BiometricHelper.isBiometricAvailable(context)) {
@@ -770,8 +779,8 @@ fun HubScreen(
                     Text(
                         text = "ТЕКУЩИЕ ПАРАМЕТРЫ ЯДРА:\n" +
                                 "• Оператор: ${player?.username ?: "GUEST"}\n" +
-                                "• Энергия: ${player?.energy ?: 0}/${player?.max_energy ?: 100} ед. ⚡\n" +
-                                "• Баланс: ${player?.biocoin ?: 0} BC 🪙",
+                                "• Энергия: ${player?.energy ?: 0}/${player?.max_energy ?: 100} EP\n" +
+                                "• Баланс: ${player?.biocoin ?: 0} BC",
                         color = Color.Gray,
                         fontSize = 11.sp,
                         lineHeight = 16.sp,
@@ -780,8 +789,8 @@ fun HubScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "ГРАНТИРОВАННАЯ СУТОЧНАЯ ПОСТАВКА:\n" +
-                                "• +50 Единиц Энергии Ядра ⚡\n" +
-                                "• 1х Случайный Расходник 📦",
+                                "• +50 Единиц Энергии Ядра (EP)\n" +
+                                "• 1х Случайный Расходник",
                         color = EidosNeon,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -844,16 +853,16 @@ fun HubScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     val leaderboard = listOf(
-                        Triple("1. NIGHT_CHASER", "15,400 PTS", "🏆 АУРА [RED_FIRE] // RELIC_VAMPIRE"),
-                        Triple("2. NULL_POINTER", "14,210 PTS", "🥈 АУРА [RED_FIRE] // RELIC_SPEED"),
-                        Triple("3. LOGIC_BOMB", "13,990 PTS", "🥉 АУРА [CYAN_SPARK] // RELIC_VAMPIRE"),
-                        Triple("4. GHOST_IN_SHELL", "12,850 PTS", "⚡ АУРА [CYAN_SPARK] // RELIC_SPEED"),
-                        Triple("5. VOID_WALKER", "12,400 PTS", "⚡ АУРА [CYAN_SPARK]"),
-                        Triple("6. CODE_RUNNER", "11,950 PTS", "🎖 ТОП-10 НАГРАДА"),
-                        Triple("7. NEO_OP", "11,500 PTS", "🎖 ТОП-10 НАГРАДА"),
-                        Triple("8. BUFFER_OVERFLOW", "10,800 PTS", "🎖 ТОП-10 НАГРАДА"),
-                        Triple("9. DEEP_MIND", "10,200 PTS", "🎖 ТОП-10 НАГРАДА"),
-                        Triple("10. EIDOS_DEV", "9,900 PTS", "🎖 ТОП-10 НАГРАДА")
+                        Triple("1. NIGHT_CHASER", "15,400 PTS", "АУРА [RED_FIRE] // RELIC_VAMPIRE"),
+                        Triple("2. NULL_POINTER", "14,210 PTS", "АУРА [RED_FIRE] // RELIC_SPEED"),
+                        Triple("3. LOGIC_BOMB", "13,990 PTS", "АУРА [CYAN_SPARK] // RELIC_VAMPIRE"),
+                        Triple("4. GHOST_IN_SHELL", "12,850 PTS", "АУРА [CYAN_SPARK] // RELIC_SPEED"),
+                        Triple("5. VOID_WALKER", "12,400 PTS", "АУРА [CYAN_SPARK]"),
+                        Triple("6. CODE_RUNNER", "11,950 PTS", "ТОП-10 НАГРАДА"),
+                        Triple("7. NEO_OP", "11,500 PTS", "ТОП-10 НАГРАДА"),
+                        Triple("8. BUFFER_OVERFLOW", "10,800 PTS", "ТОП-10 НАГРАДА"),
+                        Triple("9. DEEP_MIND", "10,200 PTS", "ТОП-10 НАГРАДА"),
+                        Triple("10. EIDOS_DEV", "9,900 PTS", "ТОП-10 НАГРАДА")
                     )
                     leaderboard.forEach { (name, pts, reward) ->
                         Row(
@@ -942,7 +951,7 @@ fun HubScreen(
                         text = "ВАША СТАТИСТИКА:\n" +
                                 "• Базовый урон (АТK): ${player?.attack ?: 5}\n" +
                                 "• Нанесено урона: $personalDamage HP damage\n" +
-                                "• Стоимость атаки: 10 Энергии Ядра ⚡",
+                                "• Стоимость атаки: 10 EP",
                         color = Color.Gray,
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
@@ -990,7 +999,11 @@ fun HubScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = EidosRed),
                     shape = CutCornerShape(4.dp)
                 ) {
-                    Text("НАНЕСТИ УДАР (-10 ⚡)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 13.dp)
+                        Spacer(Modifier.width(4.dp))
+                        Text("НАНЕСТИ УДАР (-10 EP)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    }
                 }
             },
             dismissButton = {
@@ -1144,8 +1157,10 @@ fun HubScreen(
             modifier = Modifier.border(2.dp, Color(0xFF9C27B0), CutCornerShape(8.dp)),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(iconRes = R.drawable.ic_event_danger, size = 16.dp)
+                    Spacer(Modifier.width(6.dp))
                     Text(
-                        "🔴 СИГНАЛ БРОКЕРА ПОТЕРЯН",
+                        "СИГНАЛ БРОКЕРА ПОТЕРЯН",
                         color = Color(0xFF9C27B0),
                         fontWeight = FontWeight.Black,
                         fontSize = 15.sp,
@@ -1156,7 +1171,7 @@ fun HubScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "🌐 ЯДРО EIDOS: Теневой Брокер скрывается в теневых шлюзах от ищейщиков Корпорации!",
+                        "ЯДРО EIDOS: Теневой Брокер скрывается в теневых шлюзах от ищейщиков Корпорации!",
                         color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -1171,7 +1186,7 @@ fun HubScreen(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     )
                     Text(
-                        "💡 В момент подключения у него будет 5 редчайших секретных предметов (реликвии, проклятый шмот, чипы), недоступных в обычном магазине!",
+                        "В момент подключения у него будет 5 редчайших секретных предметов (реликвии, проклятый шмот, чипы), недоступных в обычном магазине!",
                         color = Color.LightGray,
                         fontSize = 10.sp
                     )
@@ -1352,7 +1367,7 @@ fun MetaTreeDialog(
         shape = CutCornerShape(8.dp),
         title = {
             Text(
-                "🏛️ ДЕРЕВО МЕТА-ПРОГРЕССИИ ХАБА",
+                "ДЕРЕВО МЕТА-ПРОГРЕССИИ ХАБА",
                 color = Color.Yellow,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
@@ -1374,7 +1389,7 @@ fun MetaTreeDialog(
 
                 // 1. Signal Level
                 MetaUpgradeRow(
-                    title = "💚 СИГНАЛ ЯДРА (HP)",
+                    title = "СИГНАЛ ЯДРА (HP)",
                     desc = "Стартовое HP в рейде: +${signalLvl * 15} HP",
                     level = signalLvl,
                     cost = (signalLvl + 1) * 5,
@@ -1383,7 +1398,7 @@ fun MetaTreeDialog(
 
                 // 2. Key Level
                 MetaUpgradeRow(
-                    title = "🔑 КАРМАННЫЙ КЛЮЧ",
+                    title = "КАРМАННЫЙ КЛЮЧ",
                     desc = if (keyLvl > 0) "Старт рейда с Мастер-Ключом!" else "Старт без ключа",
                     level = keyLvl,
                     cost = (keyLvl + 1) * 5,
@@ -1392,7 +1407,7 @@ fun MetaTreeDialog(
 
                 // 3. Luck Level
                 MetaUpgradeRow(
-                    title = "🍀 АУРА УДАЧИ БЕЗДНЫ",
+                    title = "АУРА УДАЧИ БЕЗДНЫ",
                     desc = "Бонус к Удаче: +${luckLvl * 5}",
                     level = luckLvl,
                     cost = (luckLvl + 1) * 5,
@@ -1401,7 +1416,7 @@ fun MetaTreeDialog(
 
                 // 4. Power Level
                 MetaUpgradeRow(
-                    title = "⚡ ЗАКАЛКА АВАТАРА",
+                    title = "ЗАКАЛКА АВАТАРА",
                     desc = "Бонус к Атаке и Защите: +${powerLvl * 5}",
                     level = powerLvl,
                     cost = (powerLvl + 1) * 5,
@@ -1454,7 +1469,11 @@ fun MetaUpgradeRow(
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color.Yellow),
                 shape = CutCornerShape(4.dp)
             ) {
-                Text("+$cost 💎", color = Color.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(iconRes = R.drawable.ic_res_eidos_shard, size = 11.dp)
+                    Spacer(Modifier.width(2.dp))
+                    Text("+$cost", color = Color.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -1531,7 +1550,7 @@ fun CyberHubHeader(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("❤️", fontSize = 10.sp)
+                    ZzzIcon(iconRes = R.drawable.ic_res_signal_hp, size = 11.dp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "${player?.hp ?: 100}",
@@ -1554,7 +1573,7 @@ fun CyberHubHeader(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("⚡", fontSize = 10.sp)
+                    ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 11.dp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "${player?.energy ?: 100}",
@@ -1577,7 +1596,7 @@ fun CyberHubHeader(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🪙", fontSize = 10.sp)
+                    ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 11.dp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "${player?.biocoin ?: 0}",
@@ -1600,7 +1619,7 @@ fun CyberHubHeader(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🔥", fontSize = 10.sp)
+                    ZzzIcon(iconRes = R.drawable.ic_res_overdrive, size = 11.dp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "${player?.streak ?: 1}Д",
@@ -1618,7 +1637,7 @@ fun CyberHubHeader(
 @Composable
 fun CyberGridMenuItem(
     title: String,
-    emojiIcon: String,
+    @androidx.annotation.DrawableRes iconRes: Int,
     borderColor: Color = ZzzElectricCyan,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -1648,9 +1667,9 @@ fun CyberGridMenuItem(
                     .border(1.dp, borderColor.copy(alpha = 0.6f), CutCornerShape(4.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = emojiIcon,
-                    fontSize = 20.sp
+                ZzzIcon(
+                    iconRes = iconRes,
+                    size = 22.dp
                 )
             }
             Spacer(modifier = Modifier.height(6.dp))
@@ -1692,21 +1711,18 @@ fun CyberHubBottomBar(
         ) {
             BottomNavItem(
                 iconRes = io.eidos.zerolayer.R.drawable.ic_nav_hub,
-                fallbackEmoji = "🏠",
                 label = "ХАБ",
                 isSelected = selectedTab == "hub",
                 onClick = { onTabSelected("hub") }
             )
             BottomNavItem(
                 iconRes = io.eidos.zerolayer.R.drawable.ic_nav_inventory,
-                fallbackEmoji = "🎒",
                 label = "ИНВЕНТАРЬ",
                 isSelected = selectedTab == "inventory",
                 onClick = { onTabSelected("inventory") }
             )
             BottomNavItem(
                 iconRes = io.eidos.zerolayer.R.drawable.ic_nav_matrix,
-                fallbackEmoji = "⚡",
                 label = "БЕЗДНА",
                 isSelected = selectedTab == "matrix",
                 isHighlight = true,
@@ -1714,7 +1730,6 @@ fun CyberHubBottomBar(
             )
             BottomNavItem(
                 iconRes = io.eidos.zerolayer.R.drawable.ic_nav_pvp,
-                fallbackEmoji = if (isPvpUnlocked) "⚔️" else "🔒",
                 label = if (isPvpUnlocked) "PVP СЕТЬ" else "PVP [УР 4]",
                 isSelected = selectedTab == "pvp",
                 onClick = {
@@ -1727,7 +1742,6 @@ fun CyberHubBottomBar(
             )
             BottomNavItem(
                 iconRes = io.eidos.zerolayer.R.drawable.ic_nav_settings,
-                fallbackEmoji = "⚙️",
                 label = "ПРОФИЛЬ",
                 isSelected = selectedTab == "settings",
                 onClick = { onTabSelected("settings") }
@@ -1739,7 +1753,6 @@ fun CyberHubBottomBar(
 @Composable
 private fun BottomNavItem(
     @androidx.annotation.DrawableRes iconRes: Int,
-    fallbackEmoji: String,
     label: String,
     isSelected: Boolean,
     isHighlight: Boolean = false,

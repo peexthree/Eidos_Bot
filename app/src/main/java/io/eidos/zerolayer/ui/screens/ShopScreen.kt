@@ -53,6 +53,7 @@ import io.eidos.zerolayer.ui.components.EidosRarityBadge
 import io.eidos.zerolayer.ui.components.rarityColor
 import io.eidos.zerolayer.ui.components.EidosButton
 import io.eidos.zerolayer.ui.components.EidosButtonVariant
+import io.eidos.zerolayer.ui.components.ZzzIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,14 +81,14 @@ fun ShopScreen(
 
     val categories = listOf(
         "all" to "ВСЕ ТОВАРЫ",
-        "gacha" to "🎁 ЛУТБОКСЫ",
-        "billing" to "💎 IAP Монетизация",
-        "weapon" to "🗡️ ОРУЖИЕ",
-        "armor" to "🛡️ БРОНЯ",
-        "head" to "🪖 ШЛЕМЫ",
-        "chip" to "💾 ЧИПЫ",
-        "consumable" to "🧪 РАСХОДНИКИ",
-        "material" to "📦 РЕСУРСЫ"
+        "gacha" to "ЛУТБОКСЫ",
+        "billing" to "IAP ДОНАТ",
+        "weapon" to "ОРУЖИЕ",
+        "armor" to "БРОНЯ",
+        "head" to "ШЛЕМЫ",
+        "chip" to "ЧИПЫ",
+        "consumable" to "РАСХОДНИКИ",
+        "material" to "РЕСУРСЫ"
     )
 
     val shopSpecialIds = remember { setOf("scavenger_mask", "nomad_goggles", "aegis") }
@@ -98,8 +99,7 @@ fun ShopScreen(
             .filter {
                 val rarityLower = it.rarity.lowercase()
                 val isShopSpecial = shopSpecialIds.contains(it.id)
-                (isShopSpecial || rarityLower in listOf("common", "uncommon", "rare")) &&
-                (isShopSpecial || (!it.name.contains("💀") && !it.name.contains("👁") && !it.name.contains("🔴") && !it.name.contains("🟠")))
+                (isShopSpecial || rarityLower in listOf("common", "uncommon", "rare"))
             }
             .filter { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             .sortedWith { a, b ->
@@ -177,17 +177,10 @@ fun ShopScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        val bcPainter = runCatching { painterResource(id = R.drawable.ic_biocoin) }.getOrNull()
-                        if (bcPainter != null) {
-                            Image(
-                                painter = bcPainter,
-                                contentDescription = "BioCoins",
-                                modifier = Modifier.size(20.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                        } else {
-                            Text("🪙", fontSize = 16.sp)
-                        }
+                        ZzzIcon(
+                            iconRes = R.drawable.ic_res_biocoin,
+                            size = 20.dp
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("БАЛАНС ТЕРМИНАЛА:", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     }
@@ -197,10 +190,10 @@ fun ShopScreen(
 
             // EVA-09 Assistant Explanation Banner
             io.eidos.zerolayer.ui.components.ZzzHazardBanner(
-                title = "📡 ГОЛОС EIDOS // ТОРГОВЫЙ ШЛЮЗ",
+                title = "ГОЛОС EIDOS // ТОРГОВЫЙ ШЛЮЗ",
                 message = "Корпоративные Архивы открыты! Трать накопленные байты BioCoins на мощное оружие, защитные бронеплиты и восстанавливающие нано-аптечки для повышения Атаки и Защиты в рейдах.",
                 borderColor = amberColor,
-                icon = "📦",
+                iconRes = R.drawable.ic_menu_market,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
             )
 
@@ -320,7 +313,7 @@ fun ShopScreen(
                                             contentScale = ContentScale.Fit
                                         )
                                     } else {
-                                        Text("🎁", fontSize = 64.sp)
+                                        ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 64.dp)
                                     }
                                 }
 
@@ -331,7 +324,11 @@ fun ShopScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("[🎁] ЛУТБОКС", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, fontFamily = FontFamily.SansSerif)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 16.dp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("ЛУТБОКС", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, fontFamily = FontFamily.SansSerif)
+                                    }
                                     Text(
                                         "GACHA ROLL CHANCES:\n1% CURSED | 4% LEGENDARY",
                                         color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
@@ -344,7 +341,7 @@ fun ShopScreen(
                                 Spacer(modifier = Modifier.height(10.dp))
 
                                 io.eidos.zerolayer.ui.components.ZzzMainButton(
-                                    text = "ОТКРЫТЬ (1000 BC) ➔",
+                                    text = "ОТКРЫТЬ (1000 BC) >",
                                     onClick = onRollGacha,
                                     primaryColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
                                     borderColor = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
@@ -366,7 +363,11 @@ fun ShopScreen(
                             shape = CutCornerShape(8.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("⚡ СИНТЕЗАТОР ДАННЫХ (DATA SYNTHESIS)", color = amberColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 16.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("СИНТЕЗАТОР ДАННЫХ (DATA SYNTHESIS)", color = amberColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                }
                                 Text("Объедините 5 Фрагментов Данных в гарантированный ЛЕГЕНДАРНЫЙ предмет!", color = Color.Gray, fontSize = 10.sp)
                                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -429,7 +430,11 @@ fun ShopScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("👑 ПОДПИСКА «НЕЙРО-ЛИНК ПРЕМИУМ»", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(iconRes = R.drawable.ic_res_overdrive, size = 16.dp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("ПОДПИСКА «НЕЙРО-ЛИНК ПРЕМИУМ»", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                    }
                                     Text("SUBSCRIPTION", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
@@ -481,7 +486,11 @@ fun ShopScreen(
                             shape = CutCornerShape(8.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("🪙 ПАКЕТ 1000 BIOCOINS", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 16.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("ПАКЕТ 1000 BIOCOINS", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     "Мгновенное зачисление +1000 BioCoins на баланс терминала для покупки оружия, чипов и ремкомплектов.",
@@ -528,7 +537,11 @@ fun ShopScreen(
                             shape = CutCornerShape(8.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("📦 СТРАХОВКА ГРУЗА БЕЗДНЫ", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 16.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("СТРАХОВКА ГРУЗА БЕЗДНЫ", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     "Автоматическое сокрытие буфера при 0% Сигнала. Вся найденная добыча сохраняется при провале рейда.",
@@ -691,8 +704,8 @@ fun ShopScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        Text("🪙", fontSize = 10.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 12.dp)
                                         Text(
                                             "$effectivePrice BC",
                                             color = amberColor,
@@ -838,7 +851,11 @@ fun ShopScreen(
                     Text(inspect.description, color = Color.LightGray, fontSize = 11.sp, lineHeight = 15.sp, fontFamily = FontFamily.Monospace)
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Text("📊 ХАРАКТЕРИСТИКИ И ПОТЕНЦИАЛ:", color = EidosCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 12.dp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("ХАРАКТЕРИСТИКИ И ПОТЕНЦИАЛ:", color = EidosCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         "• Тип: ${inspect.type.uppercase()}\n" +
@@ -899,7 +916,11 @@ fun ShopScreen(
                         else -> 100
                     }
                     val totalCost = effectiveInspectPrice * buyQuantity.toLong()
-                    Text("🪙 СТОИМОСТЬ ПОКУПКИ:", color = amberColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 12.dp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("СТОИМОСТЬ ПОКУПКИ:", color = amberColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    }
                     Text(if (buyQuantity > 1) "$totalCost BioCoins ($effectiveInspectPrice BC/шт)" else "$effectiveInspectPrice BioCoins", color = amberColor, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                 }
             },
@@ -979,8 +1000,10 @@ fun CurrencySpendConfirmDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                ZzzIcon(iconRes = R.drawable.ic_event_danger, size = 16.dp)
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    "⚠ ПОДТВЕРЖДЕНИЕ ТРАНЗАКЦИИ",
+                    "ПОДТВЕРЖДЕНИЕ ТРАНЗАКЦИИ",
                     color = Color(0xFFFFB300),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Black,
@@ -1089,14 +1112,18 @@ fun ItemAcquiredCelebrationDialog(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    "✨ ПРЕДМЕТ ПОЛУЧЕН! ✨",
-                    color = itemRarityColor,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.sp
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 18.dp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "ПРЕДМЕТ ПОЛУЧЕН!",
+                        color = itemRarityColor,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 1.sp
+                    )
+                }
                 Text(
                     "РАСПАКОВКА И ЗАПИСЬ В БАЗУ ДАННЫХ DECK_OS",
                     color = Color.Gray,
@@ -1163,13 +1190,25 @@ fun ItemAcquiredCelebrationDialog(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         if (item.bonusAttack > 0) {
-                            Text("⚔️ +${item.bonusAttack} ATK", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 12.dp)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("+${item.bonusAttack} ATK", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            }
                         }
                         if (item.bonusDefense > 0) {
-                            Text("🛡️ +${item.bonusDefense} DEF", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(iconRes = R.drawable.ic_action_defense, size = 12.dp)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("+${item.bonusDefense} DEF", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            }
                         }
                         if (item.bonusLuck > 0) {
-                            Text("🍀 +${item.bonusLuck} LUCK", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(iconRes = R.drawable.ic_action_crit, size = 12.dp)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("+${item.bonusLuck} LUCK", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            }
                         }
                     }
                 }
@@ -1195,13 +1234,17 @@ fun ItemAcquiredCelebrationDialog(
                     .fillMaxWidth()
                     .height(44.dp)
             ) {
-                Text(
-                    "📦 ПРИНЯТЬ В ИНВЕНТАРЬ",
-                    color = Color.Black,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(iconRes = R.drawable.ic_nav_inventory, size = 16.dp, tint = Color.Black)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "ПРИНЯТЬ В ИНВЕНТАРЬ",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
             }
         },
         containerColor = Color(0xFF070B10),

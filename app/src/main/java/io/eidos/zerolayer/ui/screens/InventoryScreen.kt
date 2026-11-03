@@ -47,6 +47,8 @@ import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosOrange
 import io.eidos.zerolayer.ui.theme.EidosPurple
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.theme.EidosCyan
+import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.cyberClickable
@@ -363,7 +365,7 @@ fun InventoryScreen(
                     if (isEquippable(item.item_id, itemMeta)) {
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            "ТРЕБОВАНИЕ ЯДРА: Level $reqLevel ${if (!canEquip) "❌ (Ваш уровень: ${player?.level ?: 1})" else "✅"}",
+                            "ТРЕБОВАНИЕ ЯДРА: Level $reqLevel ${if (!canEquip) "[БЛОКИРОВКА: Ваш уровень ${player?.level ?: 1}]" else "[ДОСТУПНО]"}",
                             color = if (canEquip) EidosNeon else EidosRed,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -674,7 +676,7 @@ fun ProfileSection(player: Player?) {
                             contentScale = ContentScale.Fit
                         )
                     } else {
-                        Text("🪙", fontSize = 11.sp)
+                        ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 13.dp)
                     }
                     Text(
                         "${player?.biocoin ?: 0} BC",
@@ -820,13 +822,17 @@ fun EquipDollSection(
                         .padding(vertical = 3.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "⚡ ОПЕРАТОР [УР $playerLvl]",
-                        color = EidosCyan,
-                        fontSize = 8.5.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(iconRes = R.drawable.ic_menu_profile, size = 11.dp)
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "ОПЕРАТОР [УР $playerLvl]",
+                            color = EidosCyan,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
 
                 Column(
@@ -851,11 +857,15 @@ fun EquipDollSection(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("⚔️ ", fontSize = 8.sp)
+                        ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 10.dp)
+                        Spacer(Modifier.width(2.dp))
                         AnimatedContent(targetState = currentAtk, label = "atkAnim") { atk ->
                             Text("$atk ATK", color = EidosNeon, fontSize = 8.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                         }
-                        Text(" | 🛡️ ", fontSize = 8.sp)
+                        Spacer(Modifier.width(4.dp))
+                        Text(" | ", color = Color.Gray, fontSize = 8.sp)
+                        ZzzIcon(iconRes = R.drawable.ic_action_defense, size = 10.dp)
+                        Spacer(Modifier.width(2.dp))
                         AnimatedContent(targetState = currentDef, label = "defAnim") { def ->
                             Text("$def DEF", color = EidosCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                         }
@@ -864,7 +874,7 @@ fun EquipDollSection(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("🍀 УДАЧА: ", color = Color(0xFFFFD54F), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        Text("УДАЧА: ", color = Color(0xFFFFD54F), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         AnimatedContent(targetState = currentLuck, label = "luckAnim") { luck ->
                             Text("$luck", color = Color(0xFFFFD54F), fontSize = 8.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                         }

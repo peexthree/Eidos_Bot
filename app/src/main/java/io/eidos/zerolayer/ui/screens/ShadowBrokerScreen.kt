@@ -74,10 +74,6 @@ object ShadowBrokerManager {
             val r = item.rarity.lowercase()
             r in listOf("epic", "legendary", "relic", "cursed") ||
             item.type == "chip" ||
-            item.name.contains("💀") ||
-            item.name.contains("👁") ||
-            item.name.contains("🔴") ||
-            item.name.contains("🟠") ||
             brokerSpecialIds.contains(item.id)
         }
 
@@ -132,7 +128,7 @@ fun ShadowBrokerScreen(
                             fontFamily = FontFamily.Monospace
                         )
                         Text(
-                            if (isBrokerActive) "🟢 СИГНАЛ АКТИВЕН // ОСТАЛОСЬ: $timeStr" else "🔴 СИГНАЛ ПОТЕРЯН",
+                            if (isBrokerActive) "СИГНАЛ АКТИВЕН // ОСТАЛОСЬ: $timeStr" else "СИГНАЛ ПОТЕРЯН",
                             color = if (isBrokerActive) Color.Green else Color.Red,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
@@ -180,7 +176,7 @@ fun ShadowBrokerScreen(
                         shape = CutCornerShape(4.dp)
                     ) {
                         Text(
-                            if (isBrokerActive) "⏱️ СЕССИЯ: $timeStr" else "🔴 ОФФЛАЙН",
+                            if (isBrokerActive) "СЕССИЯ: $timeStr" else "ОФФЛАЙН",
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -208,9 +204,9 @@ fun ShadowBrokerScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text("🔴 СВЯЗЬ ОБОРВАНА", color = Color.Red, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                            Text("СВЯЗЬ ОБОРВАНА", color = Color.Red, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                             Text(
-                                "📡 ГОЛОС EIDOS: Теневой Брокер отключился от терминала и меняет частоту связи, чтобы избежать отслеживания ИИ Ищейками.\n\n" +
+                                "ГОЛОС EIDOS: Теневой Брокер отключился от терминала и меняет частоту связи, чтобы избежать отслеживания ИИ Ищейками.\n\n" +
                                 "Он появляется случайно несколько раз в день ровно на 1 час. До следующего подключения осталось:",
                                 color = Color.LightGray,
                                 fontSize = 12.sp,
@@ -223,7 +219,7 @@ fun ShadowBrokerScreen(
                                 shape = CutCornerShape(4.dp)
                             ) {
                                 Text(
-                                    "⏳ ПРИБЫТИЕ ЧЕРЕЗ: $timeStr",
+                                    "ПРИБЫТИЕ ЧЕРЕЗ: $timeStr",
                                     color = neonPink,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
@@ -250,7 +246,7 @@ fun ShadowBrokerScreen(
                     shape = CutCornerShape(4.dp)
                 ) {
                     Text(
-                        text = "📡 ГОЛОС EIDOS: Секретный Ассортимент Теневого Брокера!\n💡 Условия сделки: В наличии ровно 5 эксклюзивных предметов (реликвии, проклятый шмот, редкие чипы), недоступных в обычном магазине. Успей приобрести их до закрытия шлюза связи!",
+                        text = "ГОЛОС EIDOS: Секретный Ассортимент Теневого Брокера!\nУсловия сделки: В наличии ровно 5 эксклюзивных предметов (реликвии, проклятый шмот, редкие чипы), недоступных в обычном магазине. Успей приобрести их до закрытия шлюза связи!",
                         color = Color.White,
                         fontSize = 10.sp,
                         lineHeight = 14.sp,
@@ -348,7 +344,7 @@ fun ShadowBrokerScreen(
                                                 coroutineScope.launch {
                                                     SupabaseClientManager.addRaidLog(
                                                         playerId = player.uid.toString(),
-                                                        logText = "🛒 ТЕНЕВАЯ СДЕЛКА: Приобретен [${item.name}] за $xpPrice XP"
+                                                        logText = "ТЕНЕВАЯ СДЕЛКА: Приобретен [${item.name}] за $xpPrice XP"
                                                     )
                                                 }
                                             }
@@ -380,7 +376,7 @@ fun ShadowBrokerScreen(
                                                 coroutineScope.launch {
                                                     SupabaseClientManager.addRaidLog(
                                                         playerId = player.uid.toString(),
-                                                        logText = "🛒 ТЕНЕВАЯ СДЕЛКА: Приобретен [${item.name}] за $bcPrice BC"
+                                                        logText = "ТЕНЕВАЯ СДЕЛКА: Приобретен [${item.name}] за $bcPrice BC"
                                                     )
                                                 }
                                             }
