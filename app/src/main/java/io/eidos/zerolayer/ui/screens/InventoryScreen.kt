@@ -52,6 +52,10 @@ import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.cyberHudBorder
 import io.eidos.zerolayer.ui.components.EidosStatBar
+import io.eidos.zerolayer.ui.components.ActiveSynergiesBar
+import io.eidos.zerolayer.ui.components.SynergyCodexModal
+import io.eidos.zerolayer.domain.combat.ChipMatrixSynergyEngine
+import io.eidos.zerolayer.domain.combat.ChipColor
 
 import io.eidos.zerolayer.data.RaidSession
 
@@ -868,24 +872,67 @@ fun EquipDollSection(
                 }
             }
 
-            // RIGHT COLUMN: 4 Mod Chips (58.dp tiles)
+            // RIGHT COLUMN: 4 Mod Chips (58.dp tiles with Circuit Links)
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 for (i in 0..3) {
                     val chip = chips.getOrNull(i)
+                    val chipColor = chip?.let { ChipMatrixSynergyEngine.getChipColor(it.item_id) } ?: ChipColor.NEUTRAL
+                    val chipAccent = when (chipColor) {
+                        ChipColor.RED -> Color(0xFFFF3D00)
+                        ChipColor.GREEN -> Color(0xFF00E676)
+                        ChipColor.BLUE -> Color(0xFF00E5FF)
+                        ChipColor.CURSED -> Color(0xFFE040FB)
+                        ChipColor.NEUTRAL -> EidosNeon
+                    }
+
                     EquipSlotTile(
                         slotLabel = "ЧИП ${i + 1}",
                         item = chip,
                         meta = chip?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
-                        defaultAccent = EidosNeon,
+                        defaultAccent = chipAccent,
                         isCompact = true,
                         onUnequip = onUnequip
                     )
+
+                    // Circuit trace connector line between chips
+                    if (i < 3) {
+                        Box(
+                            modifier = Modifier
+                                .width(2.dp)
+                                .height(4.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(chipAccent.copy(alpha = 0.8f), EidosCyan.copy(alpha = 0.6f))
+                                    )
+                                )
+                        )
+                    }
                 }
             }
         }
+    }
+
+    // Active Chip Matrix Synergies + Codex
+    val activeSynergies = remember(chips, inventory) {
+        ChipMatrixSynergyEngine.evaluateSynergies(chips, inventory.filter { it.is_equipped })
+    }
+    var showSynergyCodexModal by remember { mutableStateOf(false) }
+
+    Spacer(modifier = Modifier.height(8.dp))
+    ActiveSynergiesBar(
+        activeSynergies = activeSynergies,
+        onOpenCodex = { showSynergyCodexModal = true }
+    )
+
+    if (showSynergyCodexModal) {
+        SynergyCodexModal(
+            activeSynergies = activeSynergies,
+            onDismiss = { showSynergyCodexModal = false }
+        )
     }
 }
 

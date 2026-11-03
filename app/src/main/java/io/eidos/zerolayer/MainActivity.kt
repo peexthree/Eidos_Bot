@@ -89,6 +89,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
     val overdriveCharge by mainViewModel.overdriveChargeFlow.collectAsStateWithLifecycle()
     val overchargeTier by mainViewModel.overchargeTierFlow.collectAsStateWithLifecycle()
     val activeStats by mainViewModel.activeStats.collectAsStateWithLifecycle()
+    val activeSynergies by mainViewModel.activeSynergies.collectAsStateWithLifecycle()
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val audioManager = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
@@ -331,7 +332,11 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         overchargeTier = overchargeTier,
                         combatEventFlow = mainViewModel.combatEventFlow,
                         activeStats = activeStats,
+                        activeSynergies = activeSynergies,
                         onNextStep = { mainViewModel.nextStep() },
+                        onNextStepWithSector = { sector ->
+                            mainViewModel.nextStep(chosenMutatorId = sector.mutator.id, costEnergyOverride = sector.costEnergy)
+                        },
                         onAttack = { mainViewModel.attackCombat() },
                         onAnomalyChoice = { mainViewModel.handleAnomaly(it) },
                         onOpenInventory = { navController.navigate(Inventory) },

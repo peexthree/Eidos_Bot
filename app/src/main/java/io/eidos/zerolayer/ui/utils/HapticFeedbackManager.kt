@@ -170,6 +170,61 @@ class HapticFeedbackManager private constructor(context: Context) {
         } catch (_: Throwable) {}
     }
 
+    fun heartbeatPulse() {
+        if (!isHapticsEnabled || vibrator?.hasVibrator() != true) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Realistic 'lub-dub' dual cardiac pulse
+                val timings = longArrayOf(0, 45, 90, 75)
+                val amplitudes = intArrayOf(0, 160, 0, 245)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 45, 90, 75), -1)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    fun screenShakeImpact() {
+        if (!isHapticsEnabled || vibrator?.hasVibrator() != true) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = longArrayOf(0, 50, 40, 60)
+                val amplitudes = intArrayOf(0, 255, 0, 210)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 50, 40, 60), -1)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    fun synergyResonance() {
+        if (!isHapticsEnabled || vibrator?.hasVibrator() != true) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = longArrayOf(0, 20, 30, 35, 30, 50, 25, 90)
+                val amplitudes = intArrayOf(0, 100, 0, 150, 0, 200, 0, 255)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 20, 30, 35, 30, 50, 25, 90), -1)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    fun salvagePulse() {
+        if (!isHapticsEnabled || vibrator?.hasVibrator() != true) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(35)
+            }
+        } catch (_: Throwable) {}
+    }
+
     fun heavy() {
         criticalHit()
     }

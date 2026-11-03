@@ -18,6 +18,7 @@ import java.text.SimpleDateFormat
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import io.eidos.zerolayer.domain.raid.SectorMutator
 
 
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -58,9 +59,27 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     private val matterStealUsedInCombat = ConcurrentHashMap<Long, Boolean>()
     private val stunnedEnemies = ConcurrentHashMap<Long, Boolean>()
     private val batteryOverclockTurns = ConcurrentHashMap<Long, Int>()
+    private val shadowDanceGuaranteedCrit = ConcurrentHashMap<Long, Boolean>()
+    private val pactResurrectionsUsed = ConcurrentHashMap<Long, Boolean>()
 
     fun isEnemyStunned(uid: Long): Boolean = stunnedEnemies[uid] == true
     fun setEnemyStunned(uid: Long, stunned: Boolean) { stunnedEnemies[uid] = stunned }
+
+    suspend fun getEquippedChips(uid: Long): List<InventoryItem> {
+        val inventory = dao.getInventoryFlow(uid).first()
+        return inventory.filter { invItem ->
+            invItem.is_equipped && (invItem.slot == "chip" || ItemSlotUtils.getSlotForItem(invItem.item_id, getItemMetadata(invItem.item_id)) == "chip")
+        }
+    }
+
+    suspend fun getActiveChipSynergies(uid: Long): List<io.eidos.zerolayer.domain.combat.ActiveSynergy> {
+        val inventory = dao.getInventoryFlow(uid).first()
+        val equippedChips = inventory.filter { invItem ->
+            invItem.is_equipped && (invItem.slot == "chip" || ItemSlotUtils.getSlotForItem(invItem.item_id, getItemMetadata(invItem.item_id)) == "chip")
+        }
+        val allEquipped = inventory.filter { it.is_equipped }
+        return io.eidos.zerolayer.domain.combat.ChipMatrixSynergyEngine.evaluateSynergies(equippedChips, allEquipped)
+    }
 
     data class DeathReport(
         val depth: Int,
@@ -1706,11 +1725,30 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         when (item.item_id) {
             "battery" -> {
+                val synergies = getActiveChipSynergies(uid)
+                val hasDuoRedBlue = synergies.any { it.id == "syn_duo_red_blue" }
+                val hasBlue4 = synergies.any { it.id == "syn_blue_4" }
+
+                val excessEnergy = maxOf(0, (player.energy + 50) - player.max_energy)
                 val newEnergy = minOf(player.max_energy, player.energy + 50)
                 dao.updatePlayer(player.copy(energy = newEnergy))
                 batteryOverclockTurns[uid] = 2
                 consumeOneItem(uid, item)
                 log(uid, "⚡ [ЭНЕРГО-БАТАРЕЯ]: Восстановлено +50 EP! Перегрузка сервоприводов (+15% ATK на 2 хода)!", "heal")
+
+                if (hasDuoRedBlue && session != null && session.current_enemy_id != null) {
+                    val pulseDmg = 35
+                    val newEnemyHp = maxOf(0, session.current_enemy_hp - pulseDmg)
+                    dao.insertRaidSession(session.copy(current_enemy_hp = newEnemyHp))
+                    log(uid, "💥 [РЕАКТОР ВОЗМЕЗДИЯ]: Детонация энерго-ячейки нанесла -$pulseDmg урона врагу!", "combat")
+                    _combatEventFlow.tryEmit(CombatVisualEvent(damage = pulseDmg, textPopup = "💥 РЕАКТОР -$pulseDmg", popupColor = "0xFFFF00FF"))
+                }
+                if (hasBlue4 && excessEnergy > 0) {
+                    val shieldBonus = excessEnergy
+                    val newHp = minOf(player.max_hp + 50, player.hp + shieldBonus)
+                    dao.updatePlayer(player.copy(hp = newHp))
+                    log(uid, "🌀 [СИНГУЛЯРНОСТЬ]: Избыточные +$excessEnergy EP преобразованы в Энерго-Щит!", "info")
+                }
             }
             "neural_stimulator", "medkit_small", "medkit_large" -> {
                 val healAmount = maxOf(1, (player.max_hp * 0.50f).toInt())
@@ -2152,6 +2190,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         setOverdriveCharge(uid, 0)
         setOverchargeTier(uid, 0)
+        shadowDanceGuaranteedCrit[uid] = false
+        pactResurrectionsUsed[uid] = false
 
         io.eidos.zerolayer.ui.utils.EidosTelemetryManager.getInstance(context).logRaidStarted(startDepth, 100)
 
@@ -2166,7 +2206,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         log(uid, "Нейро-связь установлена. Вход в Нулевой Слой на ${startDepth}м ($feeMsg).", "info")
     }
 
-    suspend fun processStep(uid: Long) {
+    suspend fun processStep(uid: Long, chosenMutatorId: String? = null, costEnergyOverride: Int? = null) {
         val initialSession = dao.getRaidSession(uid) ?: return
         var session = initialSession
         val player = dao.getPlayer(uid) ?: return
@@ -2190,7 +2230,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val inventory = dao.getInventoryFlow(uid).first()
         val equippedItems = inventory.filter { it.is_equipped }
         val hasArchitectEye = equippedItems.any { it.item_id == "architect_eye" }
-        val stepEnergyCost = if (hasArchitectEye) 10 else 5
+        
+        // Chip synergies check: Ghost synergy (-2 EP step cost)
+        val activeSynergies = getActiveChipSynergies(uid)
+        val hasGhostSynergy = activeSynergies.any { it.id == "syn_duo_green_blue" }
+
+        val rawStepCost = costEnergyOverride ?: (if (hasArchitectEye) 10 else 5)
+        val stepEnergyCost = if (hasGhostSynergy) maxOf(1, rawStepCost - 2) else rawStepCost
 
         var remainingEnergy = player.energy
         var currentHp = player.hp
@@ -2225,6 +2271,22 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             player.copy(hp = currentHp, xp = player.xp + stepGainXp, energy = remainingEnergy)
         }
 
+        // Handle Vault / Rift instant events
+        if (chosenMutatorId == SectorMutator.LASER_VAULT.id) {
+            val vaultCoins = (120..260).random() * (1 + session.depth / 250)
+            session = session.copy(buffer_coins = session.buffer_coins + vaultCoins)
+            log(uid, "🔓 [ЗАПЕЧАТАННЫЙ БУНКЕР]: Лазерная сеть пройдена сквозь помехи (-$stepEnergyCost EP)! Вскрыт защищенный терминал: +$vaultCoins BC!", "loot")
+        } else if (chosenMutatorId == SectorMutator.MAXWELL_RIFT.id) {
+            val isShardDrop = (0..100).random() < 40
+            if (isShardDrop) {
+                val newBuffer = if (session.buffer_items.isEmpty()) "eidos_shard" else "${session.buffer_items},eidos_shard"
+                session = session.copy(buffer_items = newBuffer)
+                log(uid, "🌀 [РАЗЛОМ МАКСВЕЛЛА]: Квантовая флуктуация сконденсировала +1 Осколок Эйдоса!", "loot")
+            } else {
+                log(uid, "🌀 [РАЗЛОМ МАКСВЕЛЛА]: Пространственный туннель искривляет метрики Бездны!", "info")
+            }
+        }
+
         // Синхронизация единого Здоровья (Сигнала)
         session = session.copy(signal = workingPlayer.hp)
         dao.insertRaidSession(session)
@@ -2257,8 +2319,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val activeStats = getActiveStats(uid)
         val gravesList = dao.getAllGraves()
 
-        // 5000+m Abyssal Singularity room affix handling
-        var currentMutator = session.active_mutator
+        // 5000+m Abyssal Singularity room affix handling or chosen sector mutator
+        var currentMutator = chosenMutatorId ?: session.active_mutator
         if (newDepth >= 5000 && (currentMutator == null || (newDepth % 50 < 15))) {
             currentMutator = io.eidos.zerolayer.domain.combat.CombatEngine.rollSingularityAffix(newDepth)
             val affixName = io.eidos.zerolayer.domain.combat.CombatEngine.getAffixDisplayName(currentMutator)
@@ -2382,12 +2444,17 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 log(uid, dispatchResult.message, "info")
             }
             is io.eidos.zerolayer.domain.raid.RaidEventDispatcher.DispatchResult.CombatEncounter -> {
+                val enemyStartingHp = if (currentMutator == SectorMutator.FRAGILE_CORE.id) {
+                    maxOf(1, (dispatchResult.enemyHp * 0.5f).toInt())
+                } else {
+                    dispatchResult.enemyHp
+                }
                 dao.insertRaidSession(session.copy(
                     depth = newDepth,
                     active_mutator = currentMutator,
                     next_event_type = "combat",
                     current_enemy_id = dispatchResult.enemyName,
-                    current_enemy_hp = dispatchResult.enemyHp,
+                    current_enemy_hp = enemyStartingHp,
                     current_anomaly_id = null,
                     combat_turn = 0,
                     damage_buffer = 0,
@@ -2473,6 +2540,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
     private suspend fun handleCombatTurn(uid: Long, session: RaidSession, player: Player, isGuarding: Boolean = false) {
+        var currentSession = session
         val villainsStatic = io.eidos.zerolayer.data.GameData.VILLAINS
         val villain = villainsStatic.find { it.name == session.current_enemy_id }
             ?: villainsStatic.find {
@@ -2500,6 +2568,25 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         val isCursedWeapon = weaponItem != null && getItemMetadata(weaponItem.item_id)?.rarity == "cursed"
 
+        val activeSynergies = getActiveChipSynergies(uid)
+        val hasRed2 = activeSynergies.any { it.id == "syn_red_2" }
+        val hasRed4 = activeSynergies.any { it.id == "syn_red_4" }
+        val hasGreen2 = activeSynergies.any { it.id == "syn_green_2" }
+        val hasGreen4 = activeSynergies.any { it.id == "syn_green_4" }
+        val hasBlue2 = activeSynergies.any { it.id == "syn_blue_2" }
+        val hasBlue4 = activeSynergies.any { it.id == "syn_blue_4" }
+        val hasDuoRedGreen = activeSynergies.any { it.id == "syn_duo_red_green" }
+        val hasDuoRedBlue = activeSynergies.any { it.id == "syn_duo_red_blue" }
+        val hasDuoGreenBlue = activeSynergies.any { it.id == "syn_duo_green_blue" }
+        val hasCursedPact = activeSynergies.any { it.id == "syn_cursed_pact" }
+
+        // Mutator Cyber-Vampirism: Guard posture costs 5 EP
+        if (isGuarding && session.active_mutator == SectorMutator.CYBER_VAMPIRISM.id) {
+            val costE = maxOf(0, player.energy - 5)
+            dao.updatePlayer(player.copy(energy = costE))
+            log(uid, "🩸 [КИБЕР-ВАМПИРИЗМ]: Защитная стойка потребовала -5 EP!", "info")
+        }
+
         val nextTurn = session.combat_turn + 1
         val turnProcs = mutableListOf<EquipmentProcEvent>()
 
@@ -2517,7 +2604,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         if (!isGuarding) {
             if (aiAction.isPhaseEvading) {
                 log(uid, aiAction.logMessage ?: "Враг уклонился от физического удара!", "info")
-                _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true, triggeredProcs = turnProcs.toList()))
+                _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true, textPopup = "💨 УКЛОНЕНИЕ!", popupColor = "0xFF00FFCC", triggeredProcs = turnProcs.toList()))
             } else {
                 val isWeaponBroken = weaponItem != null && weaponItem.durability <= 0f
                 val weaponMultiplier = if (weaponItem != null && weaponItem.durability > 0f) {
@@ -2532,6 +2619,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     5
                 } else {
                     io.eidos.zerolayer.domain.combat.CombatEngine.calculateBasePlayerDamage(activeStats.attack, weaponMultiplier, effectiveEnemyDef)
+                }
+
+                // Synergy 4 Red: Titan's Rage (damage scales up to +100% on low HP)
+                if (hasRed4) {
+                    val missingHpRatio = (1.0f - (player.hp.toFloat() / maxOf(1, player.max_hp))).coerceIn(0f, 1f)
+                    baseDamage = (baseDamage * (1.0f + missingHpRatio)).toInt()
+                    turnProcs.add(EquipmentProcEvent("syn_red_4", "🔥 ЯРОСТЬ ТИТАНА: +${(missingHpRatio * 100).toInt()}% DMG", ProcColorType.CURSED_RED))
                 }
 
                 // Cursed weapon credit_slicer logic
@@ -2562,14 +2656,27 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     hasOverclockCrown = headItem?.item_id == "overclock_crown"
                 )
                 val maxwellCritBonus = if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_OVERCLOCK)) 15 else 0
-                val isCrit = (0..100).random() < (finalCritChance + maxwellCritBonus + warpCritBonus)
+                
+                // Synergy 4 Green: Shadow Dance guaranteed crit check
+                val isGuaranteedCrit = hasGreen4 && shadowDanceGuaranteedCrit[uid] == true
+                if (isGuaranteedCrit) {
+                    shadowDanceGuaranteedCrit[uid] = false
+                    turnProcs.add(EquipmentProcEvent("syn_green_4", "🥷 ТАНЕЦ ТЕНЕЙ: 100% КРИТ!", ProcColorType.GOLD_CRIT))
+                }
+                val isCrit = isGuaranteedCrit || ((0..100).random() < (finalCritChance + maxwellCritBonus + warpCritBonus))
 
                 val hasGlitchBerserk = io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK)
                 var finalPlayerDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateFinalPlayerDamage(baseDamage, isCrit, hasGlitchBerserk)
 
+                // Synergy 2 Blue: Superconductor ignores shield
                 if (enemyIntent.type == io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.SHIELD) {
-                    finalPlayerDamage = maxOf(1, (finalPlayerDamage * 0.20f).toInt())
-                    log(uid, "🛡 [КВАНТОВЫЙ ЩИТ]: Энерго-щит врага поглотил 80% физ. урона (-$finalPlayerDamage)!", "combat")
+                    if (hasBlue2) {
+                        log(uid, "⚡ [СВЕРХПРОВОДНИК]: Энерго-щит противника пробит без потери урона!", "combat")
+                        turnProcs.add(EquipmentProcEvent("syn_blue_2", "⚡ СВЕРХПРОВОДНИК: ПРОБИТИЕ ЩИТА!", ProcColorType.SHIELD_CYAN))
+                    } else {
+                        finalPlayerDamage = maxOf(1, (finalPlayerDamage * 0.20f).toInt())
+                        log(uid, "🛡 [КВАНТОВЫЙ ЩИТ]: Энерго-щит врага поглотил 80% физ. урона (-$finalPlayerDamage)!", "combat")
+                    }
                 }
                 if ((batteryOverclockTurns[uid] ?: 0) > 0) {
                     finalPlayerDamage = (finalPlayerDamage * 1.15f).toInt()
@@ -2577,10 +2684,19 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     log(uid, "⚡ [ПЕРЕГРУЗКА БАТАРЕИ]: +15% урона от энерго-ячейки!", "info")
                 }
 
-                // Gain Overdrive Charge on Player Attack
+                // Gain Overdrive Charge on Player Attack (Neuro Overload doubles it)
                 val currentCharge = getOverdriveCharge(uid)
-                val chargeGain = if (isCrit) io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_CRIT_HIT else io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_NORMAL_ATTACK
-                setOverdriveCharge(uid, currentCharge + chargeGain)
+                val baseChargeGain = if (isCrit) io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_CRIT_HIT else io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_NORMAL_ATTACK
+                val chargeGain = if (session.active_mutator == SectorMutator.NEURO_OVERLOAD.id) baseChargeGain * 2 else baseChargeGain
+                val nextCharge = currentCharge + chargeGain
+                setOverdriveCharge(uid, nextCharge)
+
+                // Blue 2: Superconductor stuns on 100% overdrive
+                if (hasBlue2 && nextCharge >= 100) {
+                    stunnedEnemies[uid] = true
+                    log(uid, "⚡ [СВЕРХПРОВОДНИК]: 100% Овердрайв вызывает ЭМ-импульс! Враг оглушен на 1 ход!", "combat")
+                    turnProcs.add(EquipmentProcEvent("syn_blue_2", "⚡ СВЕРХПРОВОДНИК: ЭМ-ОГЛУШЕНИЕ!", ProcColorType.SHIELD_CYAN))
+                }
 
                 // Maxwell Blood Overclock Buff: +35% player ATK damage
                 if (io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_MAXWELL_OVERCLOCK)) {
@@ -2650,15 +2766,61 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     log(uid, "🧛 [Вампиризм]: Восстановлено +$heal Сигнала.", "info")
                 }
 
+                // Duo Red+Green (Кровавый Оверклок): 15% vampirism on crits
+                if (hasDuoRedGreen && isCrit) {
+                    val vampHeal = maxOf(1, (finalPlayerDamage * 0.15f).toInt())
+                    val curP = dao.getPlayer(uid) ?: player
+                    dao.updatePlayer(curP.copy(hp = minOf(curP.max_hp, curP.hp + vampHeal)))
+                    log(uid, "🩸 [КРОВАВЫЙ ОВЕРКЛОК]: Крит восстановил +$vampHeal HP (15%)!", "heal")
+                    turnProcs.add(EquipmentProcEvent("syn_duo_red_green", "🩸 КРОВАВЫЙ ОВЕРКЛОК: +$vampHeal HP", ProcColorType.HEAL_NEON))
+                }
+
+                // Mutator Cyber-Vampirism (+25% damage healed)
+                if (session.active_mutator == SectorMutator.CYBER_VAMPIRISM.id) {
+                    val vamp = maxOf(1, (finalPlayerDamage * 0.25f).toInt())
+                    val curP = dao.getPlayer(uid) ?: player
+                    dao.updatePlayer(curP.copy(hp = minOf(curP.max_hp, curP.hp + vamp)))
+                    log(uid, "🩸 [КИБЕР-ВАМПИРИЗМ]: Поглощено +$vamp HP!", "heal")
+                }
+
+                // Mutator Gold Rush (+20..40 BC per hit)
+                if (session.active_mutator == SectorMutator.GOLD_RUSH.id) {
+                    val rushGold = (20..40).random()
+                    currentSession = currentSession.copy(buffer_coins = currentSession.buffer_coins + rushGold)
+                    log(uid, "🪙 [ЗОЛОТАЯ ЛИХОРАДКА]: Удар выбил +$rushGold BC!", "loot")
+                }
+
                 // Emit combat visual event for player hit
+                val playerPopupText = if (isCrit) "⚡ КРИТ -$finalPlayerDamage!" else "-$finalPlayerDamage"
+                val playerPopupColor = if (isCrit) "0xFFFFD700" else "0xFFFFEEEE"
                 _combatEventFlow.tryEmit(CombatVisualEvent(
                     damage = finalPlayerDamage,
                     isCrit = isCrit,
                     isOverdrive = false,
                     isDodge = false,
                     isPlayerHit = false,
+                    textPopup = playerPopupText,
+                    popupColor = playerPopupColor,
                     triggeredProcs = turnProcs.toList()
                 ))
+
+                // Synergy 2 Green: Double Impulse (35% echo attack 50% dmg + 3 EP)
+                if (hasGreen2 && (0..100).random() < 35 && newEnemyHp > 0) {
+                    val echoDmg = maxOf(1, (finalPlayerDamage * 0.50f).toInt())
+                    newEnemyHp = maxOf(0, newEnemyHp - echoDmg)
+                    val curP = dao.getPlayer(uid) ?: player
+                    val newE = minOf(curP.max_energy, curP.energy + 3)
+                    dao.updatePlayer(curP.copy(energy = newE))
+                    log(uid, "⚡ [ДВОЙНОЙ ИМПУЛЬС]: Эхо-атака нанесла -$echoDmg урона и восполнила +3 EP!", "combat")
+                    turnProcs.add(EquipmentProcEvent("syn_green_2", "⚡ ЭХО-УДАР: -$echoDmg [+3 EP]", ProcColorType.SHIELD_CYAN))
+                    _combatEventFlow.tryEmit(CombatVisualEvent(
+                        damage = echoDmg,
+                        isEchoAttack = true,
+                        textPopup = "⚡ ЭХО -$echoDmg",
+                        popupColor = "0xFF00FFCC",
+                        triggeredProcs = turnProcs.toList()
+                    ))
+                }
             }
         }
 
@@ -2669,12 +2831,26 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             val updatedEnergy = minOf(player.max_energy, player.energy + 5)
             dao.updatePlayer(player.copy(energy = updatedEnergy))
             log(uid, "⚡ [ТАКТИЧЕСКИЙ РЕЗОНАНС]: Уничтожение врага вернуло +5 EP!", "info")
+
+            // Synergy 4 Red: Titan's Rage explosion restores 15% max HP
+            if (hasRed4) {
+                val titanHeal = maxOf(1, (player.max_hp * 0.15f).toInt())
+                val curP = dao.getPlayer(uid) ?: player
+                dao.updatePlayer(curP.copy(hp = minOf(curP.max_hp, curP.hp + titanHeal)))
+                log(uid, "💥 [ЯРОСТЬ ТИТАНА]: Взрыв поверженного врага восстановил +$titanHeal HP (15%)!", "heal")
+            }
+
             val equippedAll = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
             val hasMaxwellsDemon = equippedAll.any { it.item_id == "maxwells_demon" }
             val hasOblivionChip = equippedAll.any { it.item_id == "oblivion_chip" }
             val isDoubleDrop = session.active_mutator == io.eidos.zerolayer.domain.combat.CombatEngine.AFFIX_DOUBLE_DROP
             val rawCoins = if (weaponItem?.item_id == "cache_wiper") 0L else villain.coin
-            val baseCoins = if (isDoubleDrop) rawCoins * 2 else rawCoins
+            var baseCoins = if (isDoubleDrop) rawCoins * 2 else rawCoins
+            
+            // Fragile core mutator: 2x BC
+            if (session.active_mutator == SectorMutator.FRAGILE_CORE.id) {
+                baseCoins *= 2
+            }
             val tax = if (hasMaxwellsDemon) (baseCoins * 0.1).toLong() else 0L
 
             if (headItem?.item_id == "vampire_visor") {
@@ -2687,7 +2863,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
             val activeOverchargeTier = getOverchargeTier(uid)
             val ocLootMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeLootMultiplier(activeOverchargeTier)
-            val finalCoins = ((baseCoins - tax) * ocLootMult).toLong()
+            var finalCoins = ((baseCoins - tax) * ocLootMult).toLong()
+
+            // Synergy Cursed Pact: +25% BC
+            if (hasCursedPact) {
+                finalCoins = (finalCoins * 1.25f).toLong()
+                log(uid, "🟣 [ПАКТ БЕЗДНЫ]: Темный контракт увеличил добычу (+25% BC)!", "loot")
+            }
 
             val baseXpGain = if (weaponItem?.item_id == "cache_wiper") 0L else villain.xp
             val multXp = if (isDoubleDrop) baseXpGain * 2 else baseXpGain
@@ -2746,19 +2928,39 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             }
 
             val hasParadox = weaponItem?.item_id == "grandfather_paradox"
-            val evasionChance = io.eidos.zerolayer.domain.combat.CombatEngine.calculateEvasionChance(
+            val baseEvasion = io.eidos.zerolayer.domain.combat.CombatEngine.calculateEvasionChance(
                 playerDefense = activeStats.defense,
                 hasTacticalHelmet = headItem?.item_id == "tactical_helmet"
             )
+            val evasionChance = if (hasDuoGreenBlue) minOf(85f, baseEvasion + 20f) else baseEvasion
             val isEvaded = !isGuarding && ((0..100).random() < evasionChance)
 
             if (isEvaded) {
                 val dodgeCharge = getOverdriveCharge(uid) + io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_DODGE
                 setOverdriveCharge(uid, dodgeCharge)
+                
+                // Synergy 4 Green: Shadow Dance (+50% Overdrive and next hit 100% crit)
+                if (hasGreen4) {
+                    shadowDanceGuaranteedCrit[uid] = true
+                    setOverdriveCharge(uid, getOverdriveCharge(uid) + 50)
+                    log(uid, "🥷 [ТАНЕЦ ТЕНЕЙ]: Уворот разогнал Овердрайв (+50%)! Следующий удар гарантированно КРИТИЧЕСКИЙ!", "info")
+                }
+                // Synergy Duo Green+Blue: Quantum Ghost (+4 EP on dodge)
+                if (hasDuoGreenBlue) {
+                    val p = dao.getPlayer(uid) ?: player
+                    dao.updatePlayer(p.copy(energy = minOf(p.max_energy, p.energy + 4)))
+                    log(uid, "👻 [КВАНТОВЫЙ ПРИЗРАК]: Сдвиг фазы вернул +4 EP!", "info")
+                }
+
                 if (headItem?.item_id == "tactical_helmet") {
                     turnProcs.add(EquipmentProcEvent("tactical_helmet", "⚡ ТАКТИЧЕСКИЙ ШЛЕМ: УКЛОНЕНИЕ!", ProcColorType.SHIELD_CYAN))
                 }
-                _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = true, triggeredProcs = turnProcs.toList()))
+                _combatEventFlow.tryEmit(CombatVisualEvent(
+                    isDodge = true,
+                    textPopup = "💨 УКЛОНЕНИЕ!",
+                    popupColor = "0xFF00FFCC",
+                    triggeredProcs = turnProcs.toList()
+                ))
 
                 log(uid, "УКЛОНЕНИЕ: Сдвиг сигнала. Атака от ${villain.name} промахнулась (+25% Овердрайв).", "info")
                 dao.insertRaidSession(session.copy(
@@ -2768,11 +2970,19 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 ))
             } else {
                 val playerPower = activeStats.attack + activeStats.defense + activeStats.luck
-                val rawVillainAtk = io.eidos.zerolayer.domain.combat.CombatEngine.calculateScaledEnemyAtk(
+                var rawVillainAtk = io.eidos.zerolayer.domain.combat.CombatEngine.calculateScaledEnemyAtk(
                     villainAtk = villain.atk,
                     playerPower = playerPower,
                     depth = session.depth
                 ) + aiAction.extraDamage
+
+                // Mutator enemy attack scaling
+                if (session.active_mutator == SectorMutator.FRAGILE_CORE.id) {
+                    rawVillainAtk = (rawVillainAtk * 1.30f).toInt()
+                }
+                if (session.active_mutator == SectorMutator.NEURO_OVERLOAD.id) {
+                    rawVillainAtk = (rawVillainAtk * 1.20f).toInt()
+                }
 
                 val ocAtkMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeEnemyAtkMultiplier(getOverchargeTier(uid))
                 val scaledVillainAtk = (rawVillainAtk * aiAction.damageMultiplier * ocAtkMult).toInt()
@@ -2798,6 +3008,20 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     }
                 } else if (isGuarding) {
                     enemyDamage = (baseEnemyDamage * 0.40f).toInt()
+                }
+
+                // Synergy 2 Red: Spiked Armor (reflect 100% blocked damage back to enemy)
+                val blockedDmg = baseEnemyDamage - enemyDamage
+                if (hasRed2 && isGuarding && blockedDmg > 0) {
+                    newEnemyHp = maxOf(0, newEnemyHp - blockedDmg)
+                    log(uid, "🛡️ [ШИПОВАННАЯ БРОНЯ]: Отражено -$blockedDmg заблокированного урона обратно атакующему!", "combat")
+                    turnProcs.add(EquipmentProcEvent("syn_red_2", "🛡️ ШИПЫ: -$blockedDmg DMG", ProcColorType.CURSED_RED))
+                    _combatEventFlow.tryEmit(CombatVisualEvent(
+                        damage = blockedDmg,
+                        isReflectBlock = true,
+                        textPopup = "🛡️ ШИПЫ -$blockedDmg",
+                        popupColor = "0xFFFF0055"
+                    ))
                 }
 
                 if (aiAction.strikesTwice && enemyDamage > 0) {
@@ -2841,8 +3065,6 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         turnProcs.add(EquipmentProcEvent("architect_mask", "🛡 ЛИЦО АРХИТЕКТОРА: ОТРАЖЕНО $reflected УРОНА", ProcColorType.SHIELD_CYAN))
                     }
 
-                    _combatEventFlow.tryEmit(CombatVisualEvent(isPlayerHit = true, incomingDamage = totalIncoming, triggeredProcs = turnProcs.toList()))
-
                     // Cursed Armor error_404_mirror logic
                     val mirrorRoll = (0..100).random()
                     if (armorItem?.item_id == "error_404_mirror" && mirrorRoll < 50) {
@@ -2871,28 +3093,61 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                                 damage_buffer = 0
                             ))
                         } else {
-                            val guardSuffix = if (isGuarding) " [ЗАЩИТА -50%]" else ""
-                            log(uid, "УРОН: ${villain.name} атакует! -$totalIncoming Сигнала/HP$guardSuffix.", "combat")
-                            dao.updatePlayer(player.copy(hp = maxOf(0, player.hp - totalIncoming)))
-                            dao.insertRaidSession(session.copy(
-                                current_enemy_hp = newEnemyHp,
-                                buffer_coins = workingCoins,
-                                signal = newSignal,
-                                combat_turn = nextTurn,
-                                damage_buffer = 0
-                            ))
+                            val livePlayer = dao.getPlayer(uid) ?: player
+                            
+                            // Synergy Cursed Pact: Fatal blow resurrection + explosion
+                            if (livePlayer.hp - totalIncoming <= 0 && hasCursedPact && pactResurrectionsUsed[uid] != true) {
+                                pactResurrectionsUsed[uid] = true
+                                val reviveHp = maxOf(1, (livePlayer.max_hp * 0.25f).toInt())
+                                val boomDmg = 150
+                                newEnemyHp = maxOf(0, newEnemyHp - boomDmg)
+                                dao.updatePlayer(livePlayer.copy(hp = reviveHp))
+                                dao.insertRaidSession(session.copy(
+                                    current_enemy_hp = newEnemyHp,
+                                    buffer_coins = workingCoins,
+                                    signal = reviveHp,
+                                    combat_turn = nextTurn,
+                                    damage_buffer = 0
+                                ))
+                                log(uid, "🟣 [ПАКТ БЕЗДНЫ]: Смертельный удар разорвал темную материю! Взрыв -$boomDmg DMG по врагу, оператор воскрес с $reviveHp HP (25%)!", "loot")
+                                turnProcs.add(EquipmentProcEvent("syn_cursed_pact", "🟣 ПАКТ БЕЗДНЫ: ВОСКРЕШЕНИЕ [$reviveHp HP]!", ProcColorType.CURSED_RED))
+                                _combatEventFlow.tryEmit(CombatVisualEvent(
+                                    isPlayerHit = true,
+                                    textPopup = "🟣 ВОСКРЕШЕНИЕ!",
+                                    popupColor = "0xFFE040FB",
+                                    triggeredProcs = turnProcs.toList()
+                                ))
+                            } else {
+                                val guardSuffix = if (isGuarding) " [ЗАЩИТА -50%]" else ""
+                                log(uid, "УРОН: ${villain.name} атакует! -$totalIncoming Сигнала/HP$guardSuffix.", "combat")
+                                dao.updatePlayer(livePlayer.copy(hp = maxOf(0, livePlayer.hp - totalIncoming)))
+                                dao.insertRaidSession(session.copy(
+                                    current_enemy_hp = newEnemyHp,
+                                    buffer_coins = workingCoins,
+                                    signal = newSignal,
+                                    combat_turn = nextTurn,
+                                    damage_buffer = 0
+                                ))
+                                _combatEventFlow.tryEmit(CombatVisualEvent(
+                                    isPlayerHit = true,
+                                    incomingDamage = totalIncoming,
+                                    textPopup = "-$totalIncoming HP",
+                                    popupColor = "0xFFFF1744",
+                                    triggeredProcs = turnProcs.toList()
+                                ))
 
-                            // Armor/helmet durability wear
-                            val loss = maxOf(1f, totalIncoming * 0.1f)
-                            if (armorItem != null) {
-                                val newArmDur = maxOf(0f, armorItem.durability - loss)
-                                dao.updateInventoryItem(armorItem.copy(durability = newArmDur))
-                                if (newArmDur <= 0f) log(uid, "🚨 [СИСТЕМНЫЙ СБОЙ: БРОНЯ ДЕАКТИВИРОВАНА]", "error")
-                            }
-                            if (headItem != null) {
-                                val newHeadDur = maxOf(0f, headItem.durability - loss)
-                                dao.updateInventoryItem(headItem.copy(durability = newHeadDur))
-                                if (newHeadDur <= 0f) log(uid, "🚨 [СИСТЕМНЫЙ СБОЙ: ШЛЕМ ДЕАКТИВИРОВАН]", "error")
+                                // Armor/helmet durability wear
+                                val loss = maxOf(1f, totalIncoming * 0.1f)
+                                if (armorItem != null) {
+                                    val newArmDur = maxOf(0f, armorItem.durability - loss)
+                                    dao.updateInventoryItem(armorItem.copy(durability = newArmDur))
+                                    if (newArmDur <= 0f) log(uid, "🚨 [СИСТЕМНЫЙ СБОЙ: БРОНЯ ДЕАКТИВИРОВАНА]", "error")
+                                }
+                                if (headItem != null) {
+                                    val newHeadDur = maxOf(0f, headItem.durability - loss)
+                                    dao.updateInventoryItem(headItem.copy(durability = newHeadDur))
+                                    if (newHeadDur <= 0f) log(uid, "🚨 [СИСТЕМНЫЙ СБОЙ: ШЛЕМ ДЕАКТИВИРОВАН]", "error")
+                                }
                             }
                         }
                     }
@@ -2934,7 +3189,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             damage = overdriveDmg,
             isCrit = true,
             isOverdrive = true,
-            isPlayerHit = false
+            isPlayerHit = false,
+            textPopup = "💥 ОВЕРДРАЙВ -$overdriveDmg!",
+            popupColor = "0xFFFF0055"
         ))
 
         if (newEnemyHp <= 0) {

@@ -532,12 +532,13 @@ class EidosAudioManager private constructor(private val context: Context) {
         ((s shr 8) and 0xFF).toByte()
     )
 
-    fun playSound(type: SoundType) {
+    fun playSound(type: SoundType, pitch: Float = 1.0f) {
         if (!isSoundEnabled) return
         try {
             soundMap[type]?.let { soundId ->
                 val vol = effectsVolume
-                soundPool?.play(soundId, vol, vol, 1, 0, 1.0f)
+                val clampedPitch = pitch.coerceIn(0.5f, 2.0f)
+                soundPool?.play(soundId, vol, vol, 1, 0, clampedPitch)
             }
         } catch (e: Throwable) {
             Log.e("EidosAudio", "Error playing sound effect $type", e)

@@ -38,6 +38,10 @@ import io.eidos.zerolayer.R
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.components.ActiveSynergiesBar
+import io.eidos.zerolayer.ui.components.SynergyCodexModal
+import io.eidos.zerolayer.ui.components.QuantumSectorChoicesFork
+import io.eidos.zerolayer.ui.components.LowHpPulseVignette
 import io.eidos.zerolayer.ui.theme.EidosNeon
 
 import io.eidos.zerolayer.data.RaidSession
@@ -87,7 +91,9 @@ fun RaidScreen(
     overchargeTier: Int = 0,
     combatEventFlow: kotlinx.coroutines.flow.SharedFlow<io.eidos.zerolayer.data.CombatVisualEvent>? = null,
     activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
+    activeSynergies: List<io.eidos.zerolayer.domain.combat.ActiveSynergy> = emptyList(),
     onNextStep: () -> Unit,
+    onNextStepWithSector: (io.eidos.zerolayer.domain.raid.QuantumSector) -> Unit = { onNextStep() },
     onAttack: () -> Unit = onNextStep,
     onAnomalyChoice: (String) -> Unit,
     onOpenInventory: () -> Unit,
@@ -153,6 +159,19 @@ fun RaidScreen(
     var floatingDamageScale by remember { mutableFloatStateOf(1f) }
     var activeProcs by remember { mutableStateOf<List<io.eidos.zerolayer.data.EquipmentProcEvent>>(emptyList()) }
     var latestProc by remember { mutableStateOf<io.eidos.zerolayer.data.EquipmentProcEvent?>(null) }
+    var showSynergyCodex by remember { mutableStateOf(false) }
+
+    // Pulse on Low-HP (<20% HP): Tactile heartbeat rhythm (lub-dub)
+    LaunchedEffect(player?.hp, player?.max_hp) {
+        val curHp = player?.hp ?: 100
+        val maxHp = maxOf(1, player?.max_hp ?: 100)
+        if (curHp in 1..(maxHp * 0.20f).toInt()) {
+            while (true) {
+                haptics.heartbeatPulse()
+                kotlinx.coroutines.delay(1200)
+            }
+        }
+    }
 
     LaunchedEffect(activeProcs) {
         if (activeProcs.isNotEmpty()) {
@@ -172,38 +191,40 @@ fun RaidScreen(
             if (event.isPlayerHit) {
                 screenFlashAlpha.snapTo(0.6f)
                 screenFlashAlpha.animateTo(0f, tween(300))
-                haptics.glitchPulse()
-                floatingDamageText = "-${event.incomingDamage} HP"
+                haptics.screenShakeImpact()
+                floatingDamageText = event.textPopup ?: "-${event.incomingDamage} HP"
                 floatingDamageColor = EidosRed
                 floatingDamageScale = 1.2f
             } else if (event.isDodge) {
-                floatingDamageText = "DODGE //"
+                floatingDamageText = event.textPopup ?: "💨 УКЛОНЕНИЕ!"
                 floatingDamageColor = EidosCyan
                 floatingDamageScale = 1.0f
             } else {
-                cardShakeX.animateTo(12f, spring(stiffness = Spring.StiffnessHigh))
-                cardShakeX.animateTo(-12f, spring(stiffness = Spring.StiffnessHigh))
+                cardShakeX.animateTo(14f, spring(stiffness = Spring.StiffnessHigh))
+                cardShakeX.animateTo(-14f, spring(stiffness = Spring.StiffnessHigh))
                 cardShakeX.animateTo(0f, spring(stiffness = Spring.StiffnessHigh))
+                haptics.screenShakeImpact()
 
                 if (event.isOverdrive) {
                     screenFlashAlpha.snapTo(0.9f)
                     screenFlashAlpha.animateTo(0f, tween(400))
                     haptics.criticalHit()
-                    audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-                    floatingDamageText = "OVERDRIVE! // -${event.damage}"
+                    audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE, pitch = 1.45f)
+                    floatingDamageText = event.textPopup ?: "OVERDRIVE! // -${event.damage}"
                     floatingDamageColor = EidosPurple
                     floatingDamageScale = 1.8f
                 } else if (event.isCrit) {
                     screenFlashAlpha.snapTo(0.7f)
                     screenFlashAlpha.animateTo(0f, tween(300))
                     haptics.criticalHit()
-                    audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-                    floatingDamageText = "CRIT! // -${event.damage}"
+                    audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE, pitch = 1.25f)
+                    floatingDamageText = event.textPopup ?: "CRIT! // -${event.damage}"
                     floatingDamageColor = EidosGold
                     floatingDamageScale = 1.5f
                 } else {
-                    floatingDamageText = "-${event.damage}"
-                    floatingDamageColor = EidosCyan
+                    audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER, pitch = 1.05f)
+                    floatingDamageText = event.textPopup ?: "-${event.damage}"
+                    floatingDamageColor = if (event.isEchoAttack) Color(0xFF00FFCC) else EidosCyan
                     floatingDamageScale = 1.1f
                 }
             }
@@ -390,6 +411,12 @@ fun RaidScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
+                    ActiveSynergiesBar(
+                        activeSynergies = activeSynergies,
+                        onOpenCodex = { showSynergyCodex = true },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                    )
+
                     if (isEvacuatingHold) {
                         // Unstable Evacuation View
                         CyberCard(
@@ -437,8 +464,12 @@ fun RaidScreen(
                             }
                         }
                     } else {
-                        // Event Display
-                        Box(modifier = Modifier.weight(1f)) {
+                        // Event Display with Hit-Stop Shake & Floating Numbers
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .offset(x = cardShakeX.value.dp)
+                        ) {
                             EventCard(
                                 session = session,
                                 player = player,
@@ -450,6 +481,28 @@ fun RaidScreen(
                                 onTriggerHack = { showMinigame = true },
                                 onInspectVillain = { villain -> inspectVillain = villain }
                             )
+
+                            if (floatingDamageText != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = floatingDamageText ?: "",
+                                        color = floatingDamageColor,
+                                        fontSize = (18 * floatingDamageScale).sp,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace,
+                                        modifier = Modifier
+                                            .clip(CutCornerShape(4.dp))
+                                            .background(Color.Black.copy(alpha = 0.85f))
+                                            .border(1.2.dp, floatingDamageColor, CutCornerShape(4.dp))
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -477,7 +530,9 @@ fun RaidScreen(
                             overdriveCharge = overdriveCharge,
                             overchargeTier = overchargeTier,
                             activeStats = activeStats,
+                            activeSynergies = activeSynergies,
                             onNextStep = onNextStep,
+                            onNextStepWithSector = onNextStepWithSector,
                             onAttack = onAttack,
                             onAnomalyChoice = onAnomalyChoice,
                             onOpenInventory = onOpenInventory,
@@ -698,6 +753,18 @@ fun RaidScreen(
             onDismiss = onClearDeathReport
         )
     }
+
+    if (showSynergyCodex) {
+        SynergyCodexModal(
+            activeSynergies = activeSynergies,
+            onDismiss = { showSynergyCodex = false }
+        )
+    }
+
+    val curPlayerHp = player?.hp ?: 100
+    val maxPlayerHp = maxOf(1, player?.max_hp ?: 100)
+    val isLowHp = curPlayerHp in 1..(maxPlayerHp * 0.20f).toInt()
+    LowHpPulseVignette(isLowHp = isLowHp)
 }
 
 @Composable
@@ -2036,7 +2103,9 @@ fun RaidControls(
     overdriveCharge: Int = 0,
     overchargeTier: Int = 0,
     activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
+    activeSynergies: List<io.eidos.zerolayer.domain.combat.ActiveSynergy> = emptyList(),
     onNextStep: () -> Unit,
+    onNextStepWithSector: (io.eidos.zerolayer.domain.raid.QuantumSector) -> Unit = { onNextStep() },
     onAttack: () -> Unit = onNextStep,
     onAnomalyChoice: (String) -> Unit,
     onOpenInventory: () -> Unit,
@@ -2362,58 +2431,54 @@ fun RaidControls(
                 }
             }
 
-            // Row 1: Step into Abyss + Scan Sector
-            val curEnergy = player?.energy ?: 0
-            val hasStepEnergy = curEnergy >= 5
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = {
-                        haptics.step()
-                        audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
-                        onNextStep()
-                    },
-                    modifier = Modifier.weight(1.3f).height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (hasStepEnergy) Color(0xFF0D2818) else Color(0xFF380C14)
-                    ),
-                    border = BorderStroke(1.5.dp, if (hasStepEnergy) EidosNeon else Color(0xFFFF5252)),
-                    shape = CutCornerShape(8.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            if (hasStepEnergy) "🏃 ШАГ В БЕЗДНУ" else "🩸 КРОВАВЫЙ ШАГ",
-                            color = if (hasStepEnergy) EidosNeon else Color(0xFFFF5252),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Text(
-                            if (hasStepEnergy) "СЕКТОР (-5 EP)" else "ПЕРЕГРУЗКА (-8% HP)",
-                            color = Color.LightGray,
-                            fontSize = 8.5.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
+            // 3 Asymmetric Quantum Sector Choices (Fog of War & Mutators)
+            val choices = remember(session?.depth, session?.is_scanned) {
+                io.eidos.zerolayer.domain.raid.QuantumSectorEngine.generateSectorChoices(
+                    depth = session?.depth ?: 0,
+                    isScanned = session?.is_scanned == true
+                )
+            }
 
-                Button(
-                    onClick = {
-                        haptics.click()
-                        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
-                        onScanSector()
-                    },
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A2433)),
-                    border = BorderStroke(1.dp, EidosCyan),
-                    shape = CutCornerShape(8.dp)
+            QuantumSectorChoicesFork(
+                sectors = choices,
+                currentEnergy = player?.energy ?: 0,
+                onSelectSector = { sector ->
+                    haptics.step()
+                    audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
+                    onNextStepWithSector(sector)
+                }
+            )
+
+            // Scan Sector & Fog of War Action
+            val isScanned = session?.is_scanned == true
+            val hasScanEnergy = (player?.energy ?: 0) >= 5
+            Button(
+                onClick = {
+                    haptics.glitchPulse()
+                    audio.playSound(EidosAudioManager.SoundType.GLITCH_FOUND)
+                    onScanSector()
+                },
+                enabled = !isScanned && hasScanEnergy,
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isScanned) Color(0xFF0A2218) else Color(0xFF0A2433),
+                    disabledContainerColor = Color(0xFF08151D)
+                ),
+                border = BorderStroke(1.dp, if (isScanned) EidosNeon else EidosCyan),
+                shape = CutCornerShape(6.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("📡 СКАН СЕКТОРА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("-5 EP (РАЗВЕДКА)", color = Color.LightGray, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
-                    }
+                    Text(if (isScanned) "✔" else "📡", fontSize = 12.sp)
+                    Text(
+                        if (isScanned) "СЕКТОР РАССКАНИРОВАН (ТУМАН СНЯТ)" else "СКАНИРОВАТЬ СЕКТОР (-5 EP // СНЯТЬ ТУМАН ВОЙНЫ)",
+                        color = if (isScanned) EidosNeon else if (hasScanEnergy) EidosCyan else Color.Gray,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
             }
 

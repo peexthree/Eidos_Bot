@@ -288,6 +288,11 @@ data class CombatVisualEvent(
     val isDodge: Boolean = false,
     val isPlayerHit: Boolean = false,
     val incomingDamage: Int = 0,
-    val triggeredProcs: List<EquipmentProcEvent> = emptyList()
+    val triggeredProcs: List<EquipmentProcEvent> = emptyList(),
+    val textPopup: String? = null,
+    val popupColor: String? = null,
+    val isEchoAttack: Boolean = false,
+    val isVampireHeal: Boolean = false,
+    val isReflectBlock: Boolean = false
 )
 

@@ -99,6 +99,14 @@ class MainViewModel(
         repository.getActiveStats(id)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GameRepository.PlayerStats(100, 100, 100, 100, 10, 5, 5))
 
+    val activeSynergies: StateFlow<List<io.eidos.zerolayer.domain.combat.ActiveSynergy>> = inventory.map { invList ->
+        val equippedChips = invList.filter { invItem ->
+            invItem.is_equipped && (invItem.slot == "chip" || io.eidos.zerolayer.data.ItemSlotUtils.getSlotForItem(invItem.item_id, repository.getItemMetadata(invItem.item_id)) == "chip")
+        }
+        val allEquipped = invList.filter { it.is_equipped }
+        io.eidos.zerolayer.domain.combat.ChipMatrixSynergyEngine.evaluateSynergies(equippedChips, allEquipped)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val deathReport: StateFlow<io.eidos.zerolayer.data.GameRepository.DeathReport?> = repository.deathReportFlow
     fun clearDeathReport() { repository.clearDeathReport() }
 
@@ -506,11 +514,11 @@ class MainViewModel(
         }
     }
 
-    fun nextStep() {
+    fun nextStep(chosenMutatorId: String? = null, costEnergyOverride: Int? = null) {
         haptics.step()
         audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
         viewModelScope.launch {
-            repository.processStep(_uid.value)
+            repository.processStep(_uid.value, chosenMutatorId = chosenMutatorId, costEnergyOverride = costEnergyOverride)
         }
     }
 
