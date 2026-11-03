@@ -530,6 +530,14 @@ class MainViewModel(
         }
     }
 
+    fun salvageBufferItem(index: Int) {
+        haptics.click()
+        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+        viewModelScope.launch {
+            repository.salvageBufferItemForEnergy(_uid.value, index)
+        }
+    }
+
     fun scanSector() {
         haptics.glitchPulse()
         audio.playSound(EidosAudioManager.SoundType.GLITCH_FOUND)

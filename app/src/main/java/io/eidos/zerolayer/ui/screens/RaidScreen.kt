@@ -107,6 +107,7 @@ fun RaidScreen(
     onResolveHardGlitch: (chosenIndex: Int, correctIndex: Int) -> Unit = { _, _ -> },
     onResolveRiddle: (Boolean) -> Unit = {},
     onFlee: () -> Unit = {},
+    onSalvageBufferItem: (Int) -> Unit = {},
     deathReport: io.eidos.zerolayer.data.GameRepository.DeathReport? = null,
     onClearDeathReport: () -> Unit = {}
 ) {
@@ -507,6 +508,7 @@ fun RaidScreen(
             inventory = inventory,
             allItemsMetadata = allItemsMetadata,
             onUseConsumable = onUseConsumable,
+            onSalvageBufferItem = onSalvageBufferItem,
             onDismiss = { showBufferModal = false },
             onOpenFullInventory = {
                 showBufferModal = false
@@ -1411,6 +1413,50 @@ fun CombatArenaCard(
                 }
             }
 
+            // --- 👾 TACTICAL ENEMY INTENT TELEGRAPH ---
+            val enemyIntent = remember(villain.id, session?.combat_turn) {
+                io.eidos.zerolayer.domain.combat.CombatEngine.predictEnemyIntent(villain.id, session?.combat_turn ?: 0)
+            }
+            val intentBorderColor = when (enemyIntent.type) {
+                io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.POWER_CHARGE -> Color(0xFFFF9100)
+                io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.SHIELD -> EidosCyan
+                io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.STUNNED -> EidosNeon
+                else -> Color(0xFFFF5252)
+            }
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                shape = CutCornerShape(4.dp),
+                color = intentBorderColor.copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, intentBorderColor)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(enemyIntent.icon, fontSize = 13.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "НАМЕРЕНИЕ: ${enemyIntent.title}",
+                            color = intentBorderColor,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = enemyIntent.description,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 7.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
             // 22.dp Micro-Badges Row for Active Passives
             if (activeEquippedPassives.isNotEmpty()) {
                 androidx.compose.foundation.lazy.LazyRow(
@@ -2079,7 +2125,7 @@ fun RaidControls(
             }
 
             val playerEnergy = player?.energy ?: 0
-            val hasAbilityEnergy = playerEnergy >= 5
+            val hasAbilityEnergy = playerEnergy >= 10
             val factionAbilityTitle = when (player?.faction) {
                 "МАТЕРИЯ" -> "ЗОЛОТОЙ ИМПУЛЬС"
                 "РАЗУМ" -> "НЕЙРО-ЩИТ"
@@ -2198,7 +2244,7 @@ fun RaidControls(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("🛡 ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                            Text("БЛОК 50% // +2 EP", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                            Text("БЛОК -60% // +8 EP", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
@@ -2218,24 +2264,24 @@ fun RaidControls(
                             .weight(1f)
                             .height(50.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38) else Color(0xFF2B1408)
+                            containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38) else Color(0xFF380C14)
                         ),
                         border = BorderStroke(
                             1.5.dp,
-                            if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80)
+                            if (hasAbilityEnergy) EidosCyan else Color(0xFFFF5252)
                         ),
                         shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                if (hasAbilityEnergy) "⚡ НАВЫК [5 EP]" else "⚡ НАВЫК [-5 HP]",
-                                color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF9E80),
+                                if (hasAbilityEnergy) "⚡ НАВЫК [-10 EP]" else "🩸 НАВЫК [-8% HP]",
+                                color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF5252),
                                 fontWeight = FontWeight.Black,
                                 fontSize = 11.5.sp,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                factionAbilityTitle,
+                                "$factionAbilityTitle // ПРОБИТИЕ",
                                 color = Color.White.copy(alpha = 0.9f),
                                 fontSize = 8.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -2317,6 +2363,8 @@ fun RaidControls(
             }
 
             // Row 1: Step into Abyss + Scan Sector
+            val curEnergy = player?.energy ?: 0
+            val hasStepEnergy = curEnergy >= 5
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -2328,13 +2376,26 @@ fun RaidControls(
                         onNextStep()
                     },
                     modifier = Modifier.weight(1.3f).height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818)),
-                    border = BorderStroke(1.5.dp, EidosNeon),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (hasStepEnergy) Color(0xFF0D2818) else Color(0xFF380C14)
+                    ),
+                    border = BorderStroke(1.5.dp, if (hasStepEnergy) EidosNeon else Color(0xFFFF5252)),
                     shape = CutCornerShape(8.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🏃 ШАГ В БЕЗДНУ", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                        Text("СЛЕДУЮЩИЙ СЕКТОР", color = Color.LightGray, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        Text(
+                            if (hasStepEnergy) "🏃 ШАГ В БЕЗДНУ" else "🩸 КРОВАВЫЙ ШАГ",
+                            color = if (hasStepEnergy) EidosNeon else Color(0xFFFF5252),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            if (hasStepEnergy) "СЕКТОР (-5 EP)" else "ПЕРЕГРУЗКА (-8% HP)",
+                            color = Color.LightGray,
+                            fontSize = 8.5.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 }
 
@@ -2351,7 +2412,7 @@ fun RaidControls(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("📡 СКАН СЕКТОРА", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("5 ЭНЕРГИИ", color = Color.LightGray, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        Text("-5 EP (РАЗВЕДКА)", color = Color.LightGray, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             }
@@ -2719,6 +2780,7 @@ fun RaidBufferModal(
     inventory: List<InventoryItem>,
     allItemsMetadata: List<ItemMetadata>,
     onUseConsumable: (InventoryItem) -> Unit,
+    onSalvageBufferItem: (Int) -> Unit = {},
     onDismiss: () -> Unit,
     onOpenFullInventory: () -> Unit
 ) {
@@ -2894,7 +2956,7 @@ fun RaidBufferModal(
                             }
                         }
                     } else {
-                        itemsList.forEach { itemId ->
+                        itemsList.forEachIndexed { idx, itemId ->
                             val meta = allItemsMetadata.find { it.id == itemId }
                             val itemName = meta?.name ?: getItemNameReadable(itemId)
                             val rarity = meta?.rarity ?: "common"
@@ -2971,18 +3033,20 @@ fun RaidBufferModal(
                                         }
                                     }
 
-                                    Surface(
-                                        color = Color(0xFFFF9800).copy(alpha = 0.15f),
-                                        shape = RoundedCornerShape(3.dp),
-                                        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFFF9800))
+                                    Button(
+                                        onClick = { onSalvageBufferItem(idx) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00382B)),
+                                        border = BorderStroke(1.dp, EidosNeon),
+                                        shape = CutCornerShape(4.dp),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(26.dp)
                                     ) {
                                         Text(
-                                            "БУФЕР",
-                                            color = Color(0xFFFF9800),
-                                            fontSize = 8.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.Monospace,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            "⚡ +15 EP",
+                                            color = EidosNeon,
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace
                                         )
                                     }
                                 }

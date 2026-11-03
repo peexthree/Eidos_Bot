@@ -348,6 +348,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onTriggerOverdrive = { mainViewModel.triggerOverdrive() },
                         onBoostOvercharge = { mainViewModel.boostOvercharge() },
                         onUseConsumable = { mainViewModel.useConsumable(it) },
+                        onSalvageBufferItem = { mainViewModel.salvageBufferItem(it) },
                         onAcceptMaxwellContract = { mainViewModel.acceptMaxwellContract(it) },
                         onBetDemonHp = { mainViewModel.betMaxwellDemonHp() },
                         onBetDemonBuffer = { mainViewModel.betMaxwellDemonBuffer() },

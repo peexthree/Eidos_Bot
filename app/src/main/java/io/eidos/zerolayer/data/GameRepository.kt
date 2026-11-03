@@ -56,6 +56,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     private val overchargeTierMap = ConcurrentHashMap<Long, Int>()
     private val empUsedInCombat = ConcurrentHashMap<Long, Boolean>()
     private val matterStealUsedInCombat = ConcurrentHashMap<Long, Boolean>()
+    private val stunnedEnemies = ConcurrentHashMap<Long, Boolean>()
+    private val batteryOverclockTurns = ConcurrentHashMap<Long, Int>()
+
+    fun isEnemyStunned(uid: Long): Boolean = stunnedEnemies[uid] == true
+    fun setEnemyStunned(uid: Long, stunned: Boolean) { stunnedEnemies[uid] = stunned }
 
     data class DeathReport(
         val depth: Int,
@@ -1679,36 +1684,32 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         when (item.item_id) {
             "battery" -> {
-                val healAmount = (player.max_hp * 0.30f).toInt().coerceAtLeast(30)
-                val newHp = minOf(player.max_hp, player.hp + healAmount)
-                dao.updatePlayer(player.copy(hp = newHp))
-                if (session != null) {
-                    val newSignal = minOf(player.max_hp, session.signal + healAmount)
-                    dao.insertRaidSession(session.copy(signal = newSignal))
-                }
+                val newEnergy = minOf(player.max_energy, player.energy + 50)
+                dao.updatePlayer(player.copy(energy = newEnergy))
+                batteryOverclockTurns[uid] = 2
                 consumeOneItem(uid, item)
-                log(uid, "🔋 [ЭНЕРГО-ЯЧЕЙКА]: Восстановлено +30% Сигнала (+$healAmount HP)!", "heal")
+                log(uid, "⚡ [ЭНЕРГО-БАТАРЕЯ]: Восстановлено +50 EP! Перегрузка сервоприводов (+15% ATK на 2 хода)!", "heal")
             }
-            "neural_stimulator" -> {
-                val healAmount = (player.max_hp * 0.60f).toInt().coerceAtLeast(60)
+            "neural_stimulator", "medkit_small", "medkit_large" -> {
+                val healAmount = maxOf(1, (player.max_hp * 0.50f).toInt())
                 val newHp = minOf(player.max_hp, player.hp + healAmount)
                 dao.updatePlayer(player.copy(hp = newHp))
                 if (session != null) {
-                    val newSignal = minOf(player.max_hp, session.signal + healAmount)
-                    dao.insertRaidSession(session.copy(signal = newSignal))
+                    dao.insertRaidSession(session.copy(signal = newHp))
                 }
                 consumeOneItem(uid, item)
-                log(uid, "💉 [НЕЙРО-СТИМУЛЯТОР]: Нейросеть стабилизирована! Восстановлено +60% Сигнала (+$healAmount HP)!", "heal")
+                log(uid, "💉 [МЕД-МОДУЛЬ]: Целостность Сигнала восстановлена на +50% (+$healAmount HP)!", "heal")
             }
             "emp_grenade" -> {
                 if (session != null && session.current_enemy_hp > 0) {
                     if (empUsedInCombat[uid] == true) {
-                        log(uid, "❌ [ЭМИ-ГРАНАТА]: Лимит исчерпан — разрешено не более 1 использования за бой!", "error")
+                        log(uid, "❌ [ЭМИ-ГРАНАТА]: Разрешено не более 1 использования за бой!", "error")
                         return
                     }
                     val stats = getActiveStats(uid)
                     val damage = io.eidos.zerolayer.domain.combat.CombatMath.calculateEmpDamage(session.current_enemy_hp, stats.attack)
                     empUsedInCombat[uid] = true
+                    stunnedEnemies[uid] = true // Сбивает силовой заряд и оглушает врага!
                     consumeOneItem(uid, item)
                     val newEnemyHp = maxOf(0, session.current_enemy_hp - damage)
                     if (newEnemyHp <= 0) {
@@ -1718,7 +1719,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         log(uid, "💣 [ЭМИ-ГРАНАТА]: Врагу нанесено $damage ЧИСТОГО УРОНА! Противник полностью аннигилирован!", "combat")
                     } else {
                         dao.insertRaidSession(session.copy(current_enemy_hp = newEnemyHp))
-                        log(uid, "💣 [ЭМИ-ГРАНАТА]: Врагу нанесено $damage ЧИСТОГО НЕБЛОКИРУЕМОГО УРОНА! Осталось HP: $newEnemyHp.", "combat")
+                        log(uid, "💣 [ЭМИ-ГРАНАТА]: Силовой контур врага сорван! Нанесено $damage чистых повреждений, цель ОГЛУШЕНА на 1 ход!", "combat")
                     }
                 } else {
                     log(uid, "❌ [ОШИБКА]: ЭМИ-гранату можно применить только во время боя с противником в рейде!", "error")
@@ -2120,9 +2121,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             return
         }
 
-        if (startCostCoins > 0) {
-            dao.updatePlayer(player.copy(biocoin = maxOf(0L, player.biocoin - startCostCoins)))
-        }
+        val feeCoins = if (startCostCoins > 0) maxOf(0L, player.biocoin - startCostCoins) else player.biocoin
+        dao.updatePlayer(player.copy(
+            biocoin = feeCoins,
+            hp = player.max_hp,
+            energy = player.max_energy
+        ))
 
         setOverdriveCharge(uid, 0)
         setOverchargeTier(uid, 0)
@@ -2132,7 +2136,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val session = RaidSession(
             uid = uid,
             depth = startDepth,
-            signal = 100,
+            signal = player.max_hp,
             next_event_type = "scan"
         )
         dao.insertRaidSession(session)
@@ -2160,16 +2164,24 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         val stepGainXp = 5L + (session.depth / 200)
 
-        // Energy step cost: 15 Energy (30 Energy with architect_eye)
+        // Dynamic Energy step cost: 5 EP (10 EP with architect_eye)
         val inventory = dao.getInventoryFlow(uid).first()
         val equippedItems = inventory.filter { it.is_equipped }
         val hasArchitectEye = equippedItems.any { it.item_id == "architect_eye" }
-        val stepEnergyCost = if (hasArchitectEye) 30 else 15
+        val stepEnergyCost = if (hasArchitectEye) 10 else 5
+
+        var remainingEnergy = player.energy
+        var currentHp = player.hp
+
         if (player.energy < stepEnergyCost) {
-            log(uid, "❌ [НЕДОСТАТОЧНО ЭНЕРГИИ]: Для шага требуется $stepEnergyCost⚡ (У вас: ${player.energy}⚡). Восстановите энергию или используйте батарею!", "error")
-            return
+            // Механика «Кровавый Овердрайв» при нехватке EP: шаг ценой 8% HP без блокировок
+            val bloodCost = maxOf(1, (player.max_hp * 0.08f).toInt())
+            currentHp = maxOf(0, player.hp - bloodCost)
+            remainingEnergy = 0
+            log(uid, "🩸 [КРОВАВЫЙ ШАГ]: Энергия исчерпана! Шаг вглубь ценой -$bloodCost HP (8%).", "error")
+        } else {
+            remainingEnergy = player.energy - stepEnergyCost
         }
-        val remainingEnergy = player.energy - stepEnergyCost
 
         // Step durability loss (0.1%)
         equippedItems.forEach { item ->
@@ -2184,11 +2196,21 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         // Blood miner chip check
         val hasBloodMiner = equippedItems.find { it.item_id == "blood_miner" } != null
         var workingPlayer = if (hasBloodMiner) {
-            val bloodLoss = maxOf(1, (player.hp * 0.02).toInt())
+            val bloodLoss = maxOf(1, (currentHp * 0.02).toInt())
             log(uid, "🩸 [Майнер на Крови]: Получено +50 BC, потеряно -$bloodLoss HP.", "error")
-            player.copy(biocoin = player.biocoin + 50, hp = maxOf(1, player.hp - bloodLoss), xp = player.xp + stepGainXp, energy = remainingEnergy)
+            player.copy(biocoin = player.biocoin + 50, hp = maxOf(0, currentHp - bloodLoss), xp = player.xp + stepGainXp, energy = remainingEnergy)
         } else {
-            player.copy(xp = player.xp + stepGainXp, energy = remainingEnergy)
+            player.copy(hp = currentHp, xp = player.xp + stepGainXp, energy = remainingEnergy)
+        }
+
+        // Синхронизация единого Здоровья (Сигнала)
+        session = session.copy(signal = workingPlayer.hp)
+        dao.insertRaidSession(session)
+
+        if (workingPlayer.hp <= 0) {
+            dao.updatePlayer(workingPlayer)
+            checkDeath(uid)
+            return
         }
 
         val equipmentFlags = io.eidos.zerolayer.domain.raid.RaidEventDispatcher.parseEquipmentFlags(equippedItems)
@@ -2418,11 +2440,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val curCharge = getOverdriveCharge(uid)
         setOverdriveCharge(uid, curCharge + io.eidos.zerolayer.domain.combat.CombatEngine.CHARGE_GUARD)
 
-        // Restore +2 EP
-        val newEnergy = minOf(player.max_energy, player.energy + 2)
+        // Restore +8 EP
+        val newEnergy = minOf(player.max_energy, player.energy + 8)
         dao.updatePlayer(player.copy(energy = newEnergy))
 
-        log(uid, "🛡 [ЗАЩИТНАЯ СТОЙКА]: Нейро-барьер активен! Входящий урон снижен на 50% (+25% Овердрайв, +2 EP).", "info")
+        log(uid, "🛡 [ЗАЩИТНАЯ СТОЙКА]: Нейро-барьер активен! Входящий урон снижен на 60% (+25% Овердрайв, +8 EP).", "info")
         _combatEventFlow.tryEmit(CombatVisualEvent(isDodge = false))
 
         handleCombatTurn(uid, session, player, isGuarding = true)
@@ -2467,6 +2489,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         )
 
         var newEnemyHp = session.current_enemy_hp
+        val enemyIntent = io.eidos.zerolayer.domain.combat.CombatEngine.predictEnemyIntent(villain.id, nextTurn, isStunned = stunnedEnemies[uid] == true)
 
         // --- Player Turn (Only if not in defensive guard posture) ---
         if (!isGuarding) {
@@ -2521,6 +2544,16 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
                 val hasGlitchBerserk = io.eidos.zerolayer.domain.anomaly.AnomalyEngine.isBuffActive(player, io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK)
                 var finalPlayerDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateFinalPlayerDamage(baseDamage, isCrit, hasGlitchBerserk)
+
+                if (enemyIntent.type == io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.SHIELD) {
+                    finalPlayerDamage = maxOf(1, (finalPlayerDamage * 0.20f).toInt())
+                    log(uid, "🛡 [КВАНТОВЫЙ ЩИТ]: Энерго-щит врага поглотил 80% физ. урона (-$finalPlayerDamage)!", "combat")
+                }
+                if ((batteryOverclockTurns[uid] ?: 0) > 0) {
+                    finalPlayerDamage = (finalPlayerDamage * 1.15f).toInt()
+                    batteryOverclockTurns[uid] = (batteryOverclockTurns[uid] ?: 1) - 1
+                    log(uid, "⚡ [ПЕРЕГРУЗКА БАТАРЕИ]: +15% урона от энерго-ячейки!", "info")
+                }
 
                 // Gain Overdrive Charge on Player Attack
                 val currentCharge = getOverdriveCharge(uid)
@@ -2611,6 +2644,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         if (newEnemyHp <= 0) {
             log(uid, "УСПЕХ: Цель ${villain.name} нейтрализована.", "loot")
             recordEnemyKill(villain.name)
+            val updatedEnergy = minOf(player.max_energy, player.energy + 5)
+            dao.updatePlayer(player.copy(energy = updatedEnergy))
+            log(uid, "⚡ [ТАКТИЧЕСКИЙ РЕЗОНАНС]: Уничтожение врага вернуло +5 EP!", "info")
             val equippedAll = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
             val hasMaxwellsDemon = equippedAll.any { it.item_id == "maxwells_demon" }
             val hasOblivionChip = equippedAll.any { it.item_id == "oblivion_chip" }
@@ -2726,11 +2762,23 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 )
                 var enemyDamage = baseEnemyDamage
 
-                if (isGuarding) {
-                    enemyDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateGuardedDamage(enemyDamage)
+                if (stunnedEnemies[uid] == true) {
+                    stunnedEnemies[uid] = false
+                    enemyDamage = 0
+                    log(uid, "💫 [ДЕЗОРИЕНТАЦИЯ]: Враг оглушен и пропускает ход!", "info")
+                } else if (enemyIntent.type == io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.POWER_CHARGE) {
+                    if (isGuarding) {
+                        enemyDamage = (baseEnemyDamage * 2.5f * 0.40f).toInt()
+                        log(uid, "🛡 [ИДЕАЛЬНЫЙ БЛОК]: Силовой заряд противника заблокирован нейро-щитом (-60% урона)!", "combat")
+                    } else {
+                        enemyDamage = (baseEnemyDamage * 2.5f).toInt()
+                        log(uid, "⚠️ [СИЛОВОЙ ВСПЛЕСК]: Враг провел сокрушительный удар на x2.5 урона!", "error")
+                    }
+                } else if (isGuarding) {
+                    enemyDamage = (baseEnemyDamage * 0.40f).toInt()
                 }
 
-                if (aiAction.strikesTwice) {
+                if (aiAction.strikesTwice && enemyDamage > 0) {
                     enemyDamage = (enemyDamage * 1.7f).toInt()
                 }
 
@@ -2965,16 +3013,25 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                         items = cleanItems
                     )
                     dao.insertGrave(grave)
-                    log(uid, "🪦 [ЦЕЛОСТНОСТЬ УТРАЧЕНА]: Ваше цифровое тело осталось на глубине ${session.depth}м с ${session.buffer_coins} BC и предметами: [$cleanItems]. Другие Операторы могут разграбить ваши останки!", "error")
+                    val owner = player.username ?: player.first_name ?: "Оператор"
+                    log(uid, "🪦 [ЦЕЛОСТНОСТЬ УТРАЧЕНА]: Ваше цифровое тело осталось на глубине ${session.depth}м с ${session.buffer_coins} BC и предметами: [$cleanItems]. Дойдите до ${session.depth}м в следующем рейде, чтобы вернуть лут!", "error")
+                    val alertMsg = RadioMessageEntity(
+                        uid = uid,
+                        sender = "СЕТЬ НУЛЕВОГО СЛОЯ",
+                        title = "ПАДЕНИЕ ОПЕРАТОРА",
+                        body = "⚠️ Оператор $owner пал на глубине ${session.depth}м! Цифровая Могила зафиксирована в Бездне.",
+                        timestamp = System.currentTimeMillis()
+                    )
+                    dao.insertRadioMessage(alertMsg)
                 }
 
                 // Reset overdrive
                 setOverdriveCharge(uid, 0)
 
-                val onePercentHp = maxOf(1, (player.max_hp * 0.01f).toInt())
                 dao.updatePlayer(player.copy(
                     max_depth = maxOf(player.max_depth, session.depth),
-                    hp = onePercentHp,
+                    hp = player.max_hp,
+                    energy = player.max_energy,
                     overdriveCharge = 0
                 ))
 
@@ -3035,6 +3092,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             biocoin = currentBiocoin + finalCoins,
             max_depth = maxOf(player.max_depth, session.depth),
             raids_done = player.raids_done + 1,
+            hp = player.max_hp,
+            energy = player.max_energy,
             state_version = player.state_version + 1
         )
         val (updatedPlayer, leveledUp) = tempPlayer.checkAndApplyLevelUp()
@@ -3363,24 +3422,24 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val session = dao.getRaidSession(uid) ?: return@withLock
         val enemyId = session.current_enemy_id ?: return@withLock
 
-        // Tactical ability energy cost: 5 EP (or emergency health drain if low EP)
-        val hasEnergy = player.energy >= 5
+        // Tactical ability energy cost: 10 EP (or 8% HP emergency overload if low EP)
+        val hasEnergy = player.energy >= 10
         var workingPlayer = player
         if (hasEnergy) {
-            val newEnergy = maxOf(0, player.energy - 5)
+            val newEnergy = player.energy - 10
             workingPlayer = player.copy(energy = newEnergy)
             dao.updatePlayer(workingPlayer)
-            if (newEnergy < player.max_energy) {
-                val recoveryDelayMs = (player.max_energy - newEnergy).toLong() * 5 * 60 * 1000L
-                io.eidos.zerolayer.ui.utils.EnergyRecoveryWorker.schedule(context, recoveryDelayMs)
-            }
         } else {
-            // Emergency overload: drains 5 HP when energy is exhausted
-            val hpDrain = minOf(workingPlayer.hp - 1, 5)
-            if (hpDrain > 0) {
-                workingPlayer = workingPlayer.copy(hp = workingPlayer.hp - hpDrain)
-                dao.updatePlayer(workingPlayer)
-                log(uid, "⚡ [АВАРИЙНЫЙ СБРОС]: Энергия на нуле! Потреблено -$hpDrain HP для экстренного выстрела ядра!", "error")
+            // Emergency overload: drains 8% Max HP when energy is exhausted
+            val bloodCost = maxOf(1, (player.max_hp * 0.08f).toInt())
+            val newHp = maxOf(0, player.hp - bloodCost)
+            workingPlayer = player.copy(hp = newHp, energy = 0)
+            dao.updatePlayer(workingPlayer)
+            dao.insertRaidSession(session.copy(signal = newHp))
+            log(uid, "🩸 [КРОВАВЫЙ НАВЫК]: Энергия исчерпана! Списано -$bloodCost HP (8%) для форсированного удара!", "error")
+            if (newHp <= 0) {
+                checkDeath(uid)
+                return@withLock
             }
         }
 
@@ -3443,6 +3502,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             }
         }
 
+        val enemyIntent = io.eidos.zerolayer.domain.combat.CombatEngine.predictEnemyIntent(villain.id, session.combat_turn, isStunned = stunnedEnemies[uid] == true)
+        if (enemyIntent.type == io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.SHIELD) {
+            extraDamage = (extraDamage * 1.5f).toInt()
+            log(uid, "💥 [ПРОБИТИЕ БАРЬЕРА]: Квантовый щит цели сокрушен тактическим навыком (+50% DMG)!", "combat")
+        }
+
         // Trigger visual hit event
         _combatEventFlow.tryEmit(CombatVisualEvent(
             damage = extraDamage,
@@ -3457,12 +3522,17 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         setOverdriveCharge(uid, curCharge + 35)
 
         val newEnemyHp = maxOf(0, session.current_enemy_hp - extraDamage)
-        val newSig = minOf(100, session.signal + healSignal)
+        val newSig = minOf(workingPlayer.max_hp, session.signal + healSignal)
+        workingPlayer = workingPlayer.copy(hp = newSig)
+        dao.updatePlayer(workingPlayer)
         log(uid, abilityLog, "combat")
 
         if (newEnemyHp <= 0) {
             log(uid, "🏆 [ЦЕЛЬ УНИЧТОЖЕНА]: ${villain.name} стерт тактической способностью!", "loot")
             recordEnemyKill(villain.name)
+            val updatedEnergy = minOf(workingPlayer.max_energy, workingPlayer.energy + 5)
+            dao.updatePlayer(workingPlayer.copy(energy = updatedEnergy))
+            log(uid, "⚡ [ТАКТИЧЕСКИЙ РЕЗОНАНС]: Уничтожение врага вернуло +5 EP!", "info")
             val updatedSessionDefeated = session.copy(
                 current_enemy_id = null,
                 current_enemy_hp = 0,
@@ -3482,6 +3552,22 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 combat_turn = session.combat_turn + 1
             )
             dao.insertRaidSession(updatedSession)
+        }
+    }
+
+    suspend fun salvageBufferItemForEnergy(uid: Long, itemIndex: Int) = dbMutex.withLock {
+        val session = dao.getRaidSession(uid) ?: return@withLock
+        val player = dao.getPlayer(uid) ?: return@withLock
+        val items = session.buffer_items.split(",").map { it.trim() }.filter { it.isNotBlank() }.toMutableList()
+        if (itemIndex in items.indices) {
+            val removed = items.removeAt(itemIndex)
+            val newItemsStr = items.joinToString(",")
+            val newEnergy = minOf(player.max_energy, player.energy + 15)
+            dao.updatePlayer(player.copy(energy = newEnergy))
+            dao.insertRaidSession(session.copy(buffer_items = newItemsStr))
+            val meta = getItemMetadata(removed)
+            val name = meta?.name ?: removed.uppercase()
+            log(uid, "⚡ [МОЛЕКУЛЯРНОЕ РАСЩЕПЛЕНИЕ]: Предмет [$name] расщеплен на +15 EP!", "info")
         }
     }
 
@@ -3921,6 +4007,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             biocoin = player.biocoin + finalCoins,
             max_depth = maxOf(player.max_depth, session.depth),
             raids_done = player.raids_done + 1,
+            hp = player.max_hp,
+            energy = player.max_energy,
             state_version = player.state_version + 1
         )
         val (updatedPlayer, leveledUp) = tempPlayer.checkAndApplyLevelUp()

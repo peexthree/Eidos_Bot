@@ -189,6 +189,67 @@ object CombatEngine {
     }
 
     // --- 👾 3. TACTICAL MONSTER AI & CANONICAL ABILITIES ---
+    enum class EnemyIntentType {
+        ATTACK,         // ⚔️ Обычная атака: стандартный урон
+        POWER_CHARGE,   // ⚠️ Силовой заряд (x2.5 урона!): можно сбить Овердрайвом / ЭМИ-гранатой или уйти в Защиту
+        SHIELD,         // 🛡️ Энерго-Щит: блокирует 80% обычного урона, уязвим к Навыку фракции (+50% DMG)
+        STUNNED         // 💫 Оглушен: пропускает ход (после сбития заряда ЭМИ или Овердрайвом)
+    }
+
+    data class EnemyIntent(
+        val type: EnemyIntentType,
+        val title: String,
+        val description: String,
+        val icon: String,
+        val damageMultiplier: Float = 1.0f,
+        val damageMitigation: Float = 0.0f
+    )
+
+    fun predictEnemyIntent(villainId: Int, combatTurn: Int, isStunned: Boolean = false): EnemyIntent {
+        if (isStunned) {
+            return EnemyIntent(
+                type = EnemyIntentType.STUNNED,
+                title = "ОГЛУШЕН",
+                description = "Системы дезориентированы ЭМИ / Овердрайвом! Враг пропускает ход.",
+                icon = "💫",
+                damageMultiplier = 0f
+            )
+        }
+        val turnCycle = combatTurn % 3
+        return when {
+            // Каждый 3-й раунд (turn % 3 == 0) враг заряжает сокрушительный гипер-удар (x2.5)
+            combatTurn > 0 && turnCycle == 0 -> {
+                EnemyIntent(
+                    type = EnemyIntentType.POWER_CHARGE,
+                    title = "СИЛОВОЙ ЗАРЯД (x2.5)",
+                    description = "Враг готовит сокрушительный гипер-удар! Встаньте в Защиту (-60%) или сбейте ЭМИ/Овердрайвом!",
+                    icon = "⚠️",
+                    damageMultiplier = 2.5f
+                )
+            }
+            // Каждый 2-й раунд цикла - враг ставит квантовый барьер (-80% обычного урона)
+            combatTurn > 0 && turnCycle == 2 -> {
+                EnemyIntent(
+                    type = EnemyIntentType.SHIELD,
+                    title = "ЭНЕРГО-ЩИТ (-80%)",
+                    description = "Враг окружен барьером (-80% физ. урона). Пробейте Навыком фракции (+50% бонусного урона)!",
+                    icon = "🛡️",
+                    damageMultiplier = 0.6f,
+                    damageMitigation = 0.80f
+                )
+            }
+            else -> {
+                EnemyIntent(
+                    type = EnemyIntentType.ATTACK,
+                    title = "ОБЫЧНАЯ АТАКА",
+                    description = "Стандартная атака врага.",
+                    icon = "⚔️",
+                    damageMultiplier = 1.0f
+                )
+            }
+        }
+    }
+
     data class MonsterAiAction(
         val extraDamage: Int = 0,
         val damageMultiplier: Float = 1.0f,

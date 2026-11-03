@@ -105,7 +105,14 @@ object RaidEventDispatcher {
             )
         }
 
-        // 3. Player Graves Check (30% base, 80% if Death Mask is equipped)
+        // 3. Player Graves Check (Guaranteed Corpse Run if grave is at this exact depth, else randomized)
+        val exactGrave = gravesList.find { it.depth == depth }
+        if (exactGrave != null) {
+            return DispatchResult.GraveFound(
+                grave = exactGrave,
+                message = "🪦 [ВОЗВРАТ ЛУТА // CORPSE RUN]: Обнаружена Цифровая Могила оператора ${exactGrave.owner_name} на ${exactGrave.depth}м!"
+            )
+        }
         val graveChance = if (flags.hasDeathMask) 80 else 30
         if (gravesList.isNotEmpty() && Random.nextInt(100) < graveChance) {
             val grave = gravesList.random()
