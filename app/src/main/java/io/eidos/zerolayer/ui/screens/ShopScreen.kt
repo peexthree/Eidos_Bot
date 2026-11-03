@@ -606,7 +606,7 @@ fun ShopScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF090F17))
+                                .background(Color(0xFF090F17).copy(alpha = 0.70f))
                                 .border(1.dp, itemRarityColor.copy(alpha = 0.65f), RoundedCornerShape(8.dp))
                                 .cyberHudBorder(
                                     color = itemRarityColor.copy(alpha = 0.85f),
@@ -643,7 +643,7 @@ fun ShopScreen(
                                         borderColor = Color.Transparent,
                                         borderWidth = 0.dp,
                                         contentScale = ContentScale.Fit,
-                                        modifier = Modifier.size(100.dp)
+                                        modifier = Modifier.fillMaxSize()
                                     )
 
                                     // Rarity Badge top-end

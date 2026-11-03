@@ -275,18 +275,30 @@ fun RaidScreen(
         showGrid = true,
         showScanlines = true
     ) {
+        VideoBackground(resName = "bg_abyss", modifier = Modifier.fillMaxSize())
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_null_layer),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize().alpha(0.35f),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            alignment = Alignment.Center
+        )
+        CyberParticleOverlay(
+            preset = if (isEvacuatingHold) ParticlePreset.EVACUATION_VORTEX else ParticlePreset.ABYSS_DUST
+        )
+
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = {
                         Column {
-                            Text("НУЛЕВОЙ СЛОЙ // БЕЗДНА", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("СИД // $currentSeed", color = Color.Gray, fontSize = 9.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            Text("НУЛЕВОЙ СЛОЙ // БЕЗДНА", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("СИД // $currentSeed", color = Color.Gray, fontSize = 10.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }
                     },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosRed)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosRed, modifier = Modifier.size(24.dp))
                         }
                     },
                     actions = {
@@ -302,24 +314,16 @@ fun RaidScreen(
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Black.copy(alpha = 0.25f),
+                        scrolledContainerColor = Color.Black.copy(alpha = 0.40f)
+                    )
                 )
             },
             containerColor = Color.Transparent
         ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            VideoBackground(resName = "bg_abyss", modifier = Modifier.fillMaxSize())
-            androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_null_layer),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize().alpha(0.35f),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                alignment = Alignment.Center
-            )
             CyberGridOverlay(modifier = Modifier.fillMaxSize())
-            CyberParticleOverlay(
-                preset = if (isEvacuatingHold) ParticlePreset.EVACUATION_VORTEX else ParticlePreset.ABYSS_DUST
-            )
 
             if (session == null) {
                 // Gateway Ready State: Enter Abyss
@@ -1282,7 +1286,7 @@ fun RaidHUD(
                 .fillMaxWidth()
                 .height(46.dp)
                 .clip(CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp))
-                .background(Color(0xFF070D12).copy(alpha = 0.95f))
+                .background(Color(0xFF070D12).copy(alpha = 0.72f))
                 .border(1.dp, EidosCyan.copy(alpha = 0.35f), CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp))
         ) {
             Row(
@@ -1301,7 +1305,7 @@ fun RaidHUD(
                     Image(
                         painter = painterResource(id = R.drawable.ic_stat_depth),
                         contentDescription = "Глубина",
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(22.dp),
                         contentScale = ContentScale.Fit
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -1335,7 +1339,7 @@ fun RaidHUD(
                             Image(
                                 painter = painterResource(id = R.drawable.ic_stat_hp),
                                 contentDescription = "Сигнал",
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(20.dp),
                                 contentScale = ContentScale.Fit
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -1530,7 +1534,7 @@ fun CombatArenaCard(
         modifier = Modifier
             .fillMaxSize()
             .clip(CutCornerShape(8.dp))
-            .background(Color(0xFF0A0608).copy(alpha = 0.95f))
+            .background(Color(0xFF0A0608).copy(alpha = 0.72f))
             .border(1.dp, EidosRed.copy(alpha = 0.5f), CutCornerShape(8.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
@@ -1546,8 +1550,8 @@ fun CombatArenaCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    ZzzIcon(iconRes = R.drawable.ic_event_danger, size = 14.dp)
-                    Spacer(Modifier.width(4.dp))
+                    ZzzIcon(iconRes = R.drawable.ic_event_danger, size = 20.dp)
+                    Spacer(Modifier.width(6.dp))
                     Text(
                         text = villain.name.uppercase(),
                         color = EidosRed,
@@ -1599,7 +1603,7 @@ fun CombatArenaCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    ZzzIcon(iconRes = enemyIntent.iconRes, size = 15.dp)
+                    ZzzIcon(iconRes = enemyIntent.iconRes, size = 22.dp)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "НАМЕРЕНИЕ: ${enemyIntent.title}",
@@ -2334,7 +2338,7 @@ fun RaidControls(
                 else -> "СПЕЦУДАР ЯДРА"
             }
 
-            // QuickUseRow (32.dp) with Available Consumables
+            // QuickUseRow (36.dp) with Available Consumables
             data class QuickConsumableInfo(val id: String, val label: String, val iconRes: Int, val color: Color)
             val quickConsumables = listOf(
                 QuickConsumableInfo("battery", "БАТАРЕЯ", R.drawable.ic_item_battery, Color(0xFF00E5FF)),
@@ -2345,7 +2349,7 @@ fun RaidControls(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(32.dp),
+                    .height(36.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 quickConsumables.forEach { itemInfo ->
@@ -2374,12 +2378,12 @@ fun RaidControls(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(iconRes = itemInfo.iconRes, size = 11.dp)
+                                ZzzIcon(iconRes = itemInfo.iconRes, size = 18.dp)
                                 Spacer(Modifier.width(3.dp))
                                 Text(
                                     text = itemInfo.label,
                                     color = if (isUsable) itemInfo.color else Color.Gray,
-                                    fontSize = 8.sp,
+                                    fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Black,
                                     fontFamily = FontFamily.Monospace,
                                     maxLines = 1,
@@ -2395,7 +2399,7 @@ fun RaidControls(
                                 Text(
                                     text = "x$qty",
                                     color = if (isUsable) Color.White else Color.Gray,
-                                    fontSize = 8.sp,
+                                    fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace
                                 )
@@ -2423,16 +2427,16 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14)),
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14).copy(alpha = 0.85f)),
                         border = BorderStroke(1.5.dp, EidosRed),
                         shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 15.dp)
-                                Spacer(Modifier.width(4.dp))
-                                Text("АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 22.dp)
+                                Spacer(Modifier.width(5.dp))
+                                Text("АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                             }
                             Text("УДАР (${activeStats?.attack ?: player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }
@@ -2446,16 +2450,16 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818)),
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818).copy(alpha = 0.85f)),
                         border = BorderStroke(1.5.dp, EidosNeon),
                         shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(iconRes = R.drawable.ic_action_defense, size = 15.dp)
-                                Spacer(Modifier.width(4.dp))
-                                Text("ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                ZzzIcon(iconRes = R.drawable.ic_action_defense, size = 22.dp)
+                                Spacer(Modifier.width(5.dp))
+                                Text("ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                             }
                             Text("БЛОК -60% // +8 EP", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }
@@ -2475,9 +2479,9 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp),
+                            .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38) else Color(0xFF380C14)
+                            containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38).copy(alpha = 0.85f) else Color(0xFF380C14).copy(alpha = 0.85f)
                         ),
                         border = BorderStroke(
                             1.5.dp,
@@ -2489,14 +2493,14 @@ fun RaidControls(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 ZzzIcon(
                                     iconRes = if (hasAbilityEnergy) R.drawable.ic_action_skill else R.drawable.ic_action_blood_overdrive,
-                                    size = 14.dp
+                                    size = 20.dp
                                 )
-                                Spacer(Modifier.width(4.dp))
+                                Spacer(Modifier.width(5.dp))
                                 Text(
                                     if (hasAbilityEnergy) "НАВЫК [-10 EP]" else "НАВЫК [-8% HP]",
                                     color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF5252),
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 11.5.sp,
+                                    fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
                             }
@@ -2519,16 +2523,16 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906)),
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906).copy(alpha = 0.85f)),
                         border = BorderStroke(1.5.dp, EidosOrange),
                         shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(iconRes = R.drawable.ic_action_flee, size = 15.dp)
-                                Spacer(Modifier.width(4.dp))
-                                Text("ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                ZzzIcon(iconRes = R.drawable.ic_action_flee, size = 22.dp)
+                                Spacer(Modifier.width(5.dp))
+                                Text("ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                             }
                             Text("ШАНС 75%", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }

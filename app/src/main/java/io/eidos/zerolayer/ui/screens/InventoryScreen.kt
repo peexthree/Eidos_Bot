@@ -26,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -58,8 +59,8 @@ import io.eidos.zerolayer.ui.components.ActiveSynergiesBar
 import io.eidos.zerolayer.ui.components.SynergyCodexModal
 import io.eidos.zerolayer.domain.combat.ChipMatrixSynergyEngine
 import io.eidos.zerolayer.domain.combat.ChipColor
-
 import io.eidos.zerolayer.data.RaidSession
+import io.eidos.zerolayer.ui.components.VideoBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,68 +82,77 @@ fun InventoryScreen(
 ) {
     var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
     var selectedCategory by remember { mutableStateOf("all") }
+    var stackInspectorItems by remember { mutableStateOf<List<InventoryItem>?>(null) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            "ИНВЕНТАРЬ // DECK_OS",
-                            color = EidosCyan,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 1.sp
-                        )
-                        Text(
-                            if (activeRaidSession != null) "ПОЛЕВОЙ ДОСТУП В НУЛЕВОМ СЛОЕ" else "СНАРЯЖЕНИЕ & МОДИФИКАЦИИ ЯДРА",
-                            color = if (activeRaidSession != null) EidosRed else Color(0xFF78909C),
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosCyan)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF070C12))
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF05080C))
+    ) {
+        // Layer 0: Looped live video background
+        VideoBackground(resName = "bg_hub", modifier = Modifier.fillMaxSize())
+
+        val bgPainter = runCatching {
+            androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_inventory)
+        }.getOrNull()
+
+        if (bgPainter != null) {
+            androidx.compose.foundation.Image(
+                painter = bgPainter,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().alpha(0.20f),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                alignment = androidx.compose.ui.Alignment.Center
             )
-        },
-        containerColor = Color(0xFF05080C)
-    ) { innerPadding ->
+        }
+
+        // Layer 1: Semi-transparent glass tint overlay (allows video to show through)
         Box(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
-        ) {
-            // Layer 0: Safe Background with solid fallback
-            val bgPainter = runCatching {
-                androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_inventory)
-            }.getOrNull()
+                .background(Color.Black.copy(alpha = 0.55f))
+        )
 
-            if (bgPainter != null) {
-                androidx.compose.foundation.Image(
-                    painter = bgPainter,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    alignment = androidx.compose.ui.Alignment.Center
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                "ИНВЕНТАРЬ // DECK_OS",
+                                color = EidosCyan,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                if (activeRaidSession != null) "ПОЛЕВОЙ ДОСТУП В НУЛЕВОМ СЛОЕ" else "СНАРЯЖЕНИЕ & МОДИФИКАЦИИ ЯДРА",
+                                color = if (activeRaidSession != null) EidosRed else Color(0xFF78909C),
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosCyan)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF070C12).copy(alpha = 0.75f))
                 )
-            }
-            // Dark Overlay
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
             Box(
                 modifier = Modifier
+                    .padding(innerPadding)
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.82f))
-            )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 // Interactive Equipment Doll
                 Text(
@@ -241,9 +251,12 @@ fun InventoryScreen(
                         }
                     }
 
-                    ItemListSection(filteredInventory, allItemsMetadata) { item ->
-                        selectedItem = item
-                    }
+                    ItemListSection(
+                        inventory = filteredInventory,
+                        allItemsMetadata = allItemsMetadata,
+                        onItemClick = { item -> selectedItem = item },
+                        onStackClick = { stack -> stackInspectorItems = stack }
+                    )
                 }
             }
         }
@@ -705,6 +718,17 @@ fun ProfileSection(player: Player?) {
             }
         }
     }
+
+    // Stack Inspector Dialog
+    stackInspectorItems?.let { stack ->
+        StackInspectorDialog(
+            items = stack,
+            allItemsMetadata = allItemsMetadata,
+            onSelectVariant = { selectedItem = it },
+            onDismiss = { stackInspectorItems = null }
+        )
+    }
+}
 }
 
 @Composable
@@ -742,7 +766,7 @@ fun EquipDollSection(
         modifier = Modifier
             .fillMaxWidth()
             .clip(CutCornerShape(8.dp))
-            .background(Color(0xFF060B11).copy(alpha = 0.95f))
+            .background(Color(0xFF060B11).copy(alpha = 0.70f))
             .border(1.dp, EidosCyan.copy(alpha = 0.35f), CutCornerShape(8.dp))
             .padding(8.dp)
     ) {
@@ -785,18 +809,17 @@ fun EquipDollSection(
                     .weight(1.3f)
                     .height(265.dp)
                     .clip(CutCornerShape(8.dp))
-                    .background(Color(0xFF091219))
+                    .background(Color(0xFF091219).copy(alpha = 0.65f))
                     .border(1.5.dp, EidosCyan.copy(alpha = 0.6f), CutCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                EidosImage(
-                    resName = avatarRes,
-                    fallbackIcon = Icons.Default.Person,
-                    borderColor = Color.Transparent,
-                    contentScale = ContentScale.Fit,
+                Image(
+                    painter = painterResource(id = R.drawable.doll_operator_rig),
+                    contentDescription = "Operator Rig Doll",
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 18.dp, bottom = 44.dp)
+                        .padding(top = 16.dp, bottom = 44.dp),
+                    contentScale = ContentScale.Fit
                 )
 
                 Box(
@@ -1213,7 +1236,8 @@ fun EquipSlot(
 fun ItemListSection(
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
-    onItemClick: (InventoryItem) -> Unit
+    onItemClick: (InventoryItem) -> Unit,
+    onStackClick: ((List<InventoryItem>) -> Unit)? = null
 ) {
     if (inventory.isEmpty()) {
         Box(
@@ -1221,7 +1245,7 @@ fun ItemListSection(
                 .fillMaxWidth()
                 .height(180.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF091118))
+                .background(Color(0xFF091118).copy(alpha = 0.70f))
                 .border(1.dp, Color(0xFF1E2E3E), RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
@@ -1243,16 +1267,24 @@ fun ItemListSection(
             }
         }
     } else {
+        val groupedItems = remember(inventory) {
+            inventory.groupBy { it.item_id }.values.map { items ->
+                val totalCount = items.sumOf { it.quantity.coerceAtLeast(1) }
+                val representative = items.find { it.is_equipped } ?: items.first()
+                Triple(representative, totalCount, items)
+            }
+        }
+
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(inventory, key = { it.id }) { item ->
+            items(groupedItems, key = { it.first.id }) { (item, totalCount, stack) ->
                 val itemMeta = allItemsMetadata.find { it.id == item.item_id }
                 val rarity = itemMeta?.rarity ?: getItemRarity(item.item_id)
-                val isEquipped = item.is_equipped
+                val isEquipped = item.is_equipped || stack.any { it.is_equipped }
 
                 val rarityColor = when (rarity) {
                     "cursed", "relic" -> EidosRed
@@ -1266,9 +1298,9 @@ fun ItemListSection(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(180.dp)
+                        .height(185.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF0A121C))
+                        .background(Color(0xFF0A121C).copy(alpha = 0.70f))
                         .border(
                             1.dp,
                             if (isEquipped) EidosNeon else rarityColor.copy(alpha = 0.6f),
@@ -1279,7 +1311,13 @@ fun ItemListSection(
                             cornerLength = 8.dp,
                             strokeWidth = 1.5.dp
                         )
-                        .cyberClickable { onItemClick(item) }
+                        .cyberClickable {
+                            if (stack.size > 1 && onStackClick != null) {
+                                onStackClick(stack)
+                            } else {
+                                onItemClick(item)
+                            }
+                        }
                         .padding(8.dp)
                 ) {
                     Column(
@@ -1287,12 +1325,13 @@ fun ItemListSection(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Large 98.dp Art Container with ContentScale.Fit
+                        // Large Full-Width Art Container with ContentScale.Fit
                         Box(
                             modifier = Modifier
-                                .size(98.dp)
+                                .fillMaxWidth()
+                                .height(105.dp)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF05090F))
+                                .background(Color(0xFF05090F).copy(alpha = 0.55f))
                                 .border(1.dp, rarityColor.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
                                 .padding(4.dp),
                             contentAlignment = Alignment.Center
@@ -1304,6 +1343,24 @@ fun ItemListSection(
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize()
                             )
+
+                            if (totalCount > 1) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
+                                        .border(1.dp, EidosCyan, RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        "x$totalCount",
+                                        fontSize = 9.sp,
+                                        color = EidosCyan,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
 
                             if (isEquipped) {
                                 Box(
@@ -1351,7 +1408,15 @@ fun ItemListSection(
                                     fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace
                                 )
-                                if (item.quantity > 1) {
+                                if (stack.size > 1) {
+                                    Text(
+                                        "${stack.size} шт.",
+                                        fontSize = 8.sp,
+                                        color = EidosCyan,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                } else if (item.quantity > 1) {
                                     Text(
                                         "x${item.quantity}",
                                         fontSize = 8.5.sp,
@@ -1366,6 +1431,171 @@ fun ItemListSection(
                                         color = if (item.durability < 30) EidosRed else EidosNeon,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StackInspectorDialog(
+    items: List<InventoryItem>,
+    allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata>,
+    onSelectVariant: (InventoryItem) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val firstItem = items.firstOrNull() ?: return
+    val itemMeta = allItemsMetadata.find { it.id == firstItem.item_id }
+    val rarity = itemMeta?.rarity ?: getItemRarity(firstItem.item_id)
+    val rarityColor = when (rarity) {
+        "cursed", "relic" -> EidosRed
+        "legendary" -> EidosOrange
+        "epic" -> EidosPurple
+        "rare" -> EidosCyan
+        "uncommon" -> EidosNeon
+        else -> Color(0xFF546E7A)
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.70f)
+                .border(1.5.dp, rarityColor, CutCornerShape(8.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF080D14).copy(alpha = 0.94f)),
+            shape = CutCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(14.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "СТЕК ПРЕДМЕТОВ // ${items.size} ВАРИАНТОВ",
+                            color = Color.Gray,
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = itemMeta?.name ?: getItemName(firstItem.item_id),
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                    }
+                }
+
+                HorizontalDivider(
+                    color = rarityColor.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+
+                // List of item variants
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(items, key = { it.id }) { variant ->
+                        val isEquipped = variant.is_equipped
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(CutCornerShape(6.dp))
+                                .background(
+                                    if (isEquipped) EidosNeon.copy(alpha = 0.12f) else Color(0xFF0F1722)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isEquipped) EidosNeon else Color(0xFF1E2E3E),
+                                    CutCornerShape(6.dp)
+                                )
+                                .clickable {
+                                    onSelectVariant(variant)
+                                    onDismiss()
+                                }
+                                .padding(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "ID #${variant.id}",
+                                            color = EidosCyan,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        if (isEquipped) {
+                                            Spacer(Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(EidosNeon, RoundedCornerShape(3.dp))
+                                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                                            ) {
+                                                Text(
+                                                    "НАДЕТО",
+                                                    color = Color.Black,
+                                                    fontSize = 7.5.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontFamily = FontFamily.Monospace
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = if (variant.durability >= 0) "ПРОЧНОСТЬ: ${variant.durability.toInt()}%" else "КОЛИЧЕСТВО: ${variant.quantity}",
+                                        color = if (variant.durability < 30) EidosRed else Color.LightGray,
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        onSelectVariant(variant)
+                                        onDismiss()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isEquipped) EidosNeon.copy(alpha = 0.3f) else EidosCyan.copy(alpha = 0.2f)
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (isEquipped) EidosNeon else EidosCyan
+                                    ),
+                                    shape = CutCornerShape(4.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isEquipped) "СНЯТЬ / ОСМОТР" else "ВЫБРАТЬ",
+                                        color = if (isEquipped) EidosNeon else EidosCyan,
+                                        fontSize = 9.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }

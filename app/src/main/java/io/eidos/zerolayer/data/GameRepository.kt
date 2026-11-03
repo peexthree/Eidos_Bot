@@ -325,7 +325,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     hpRestore = if (jsonItem.desc.contains("Восстанавливает")) 50 else 0,
                     energyRestore = if (jsonItem.desc.contains("энергии")) 50 else 0,
                     price = finalPrice,
-                    description = jsonItem.desc,
+                    description = jsonItem.desc
+                        .replace(Regex("\\[(МЕХАНИКА|ЛОР|механика|лор)\\]:?\\s*", RegexOption.IGNORE_CASE), "")
+                        .trim(),
                     reqLevel = calculatedReqLevel
                 )
             }

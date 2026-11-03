@@ -296,7 +296,8 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onClaimAchievement = { mainViewModel.claimAchievement(it) },
                         onTriggerTestLevelUp = { mainViewModel.triggerTestLevelUp() },
                         onBack = { navController.popBackStack() },
-                        onNavigateToSettings = { navController.navigate(EidosSettings) }
+                        onNavigateToSettings = { navController.navigate(EidosSettings) },
+                        onNavigateToCodex = { navController.navigate(Codex) }
                     )
                 }
                 composable<Inventory> {

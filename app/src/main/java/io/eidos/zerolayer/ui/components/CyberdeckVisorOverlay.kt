@@ -42,10 +42,7 @@ fun CyberdeckVisorOverlay(
             )
         }
 
-        // 2. Основной контент экрана (интерактивные кнопки, карточки, арена)
-        content()
-
-        // 3. CRT-сканлинии поверх контента (декоративный слой, не перехватывает клики)
+        // 2. CRT-сканлинии экрана (фоновый слой)
         if (showScanlines) {
             Image(
                 painter = painterResource(id = R.drawable.ic_hud_scanlines),
@@ -57,7 +54,7 @@ fun CyberdeckVisorOverlay(
             )
         }
 
-        // 4. Угловые технологические скобы визора
+        // 3. Угловые технологические скобы визора
         Image(
             painter = painterResource(id = R.drawable.ic_hud_corner_tl),
             contentDescription = null,
@@ -94,5 +91,8 @@ fun CyberdeckVisorOverlay(
                 .size(44.dp)
                 .alpha(0.85f)
         )
+
+        // 4. Основной контент экрана (гарантированно на самом верхнем слое, 100% кликабелен)
+        content()
     }
 }

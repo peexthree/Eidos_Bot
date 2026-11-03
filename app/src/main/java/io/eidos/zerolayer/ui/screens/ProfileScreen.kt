@@ -61,7 +61,12 @@ import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
 import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.cyberClickable
+import io.eidos.zerolayer.ui.components.cyber3DTilt
+import io.eidos.zerolayer.ui.components.premiumCyberClickable
 import io.eidos.zerolayer.ui.components.EidosTerminalDialog
+import io.eidos.zerolayer.ui.components.TerminalTutorialDialog
+import io.eidos.zerolayer.ui.components.RelicShowcaseDialog
+import io.eidos.zerolayer.ui.components.EarthRelic
 import io.eidos.zerolayer.data.SupabaseClientManager
 import io.eidos.zerolayer.data.SupabasePlayer
 import kotlinx.coroutines.launch
@@ -98,13 +103,17 @@ fun ProfileScreen(
     onClaimAchievement: (Achievement) -> Unit = {},
     onTriggerTestLevelUp: () -> Unit = {},
     onBack: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToCodex: () -> Unit = {}
 ) {
     var activeTab by remember { mutableIntStateOf(0) } // 0: Stats, 1: Achievements, 2: Skill Tree, 3: Leaderboard, 4: Syndicate, 5: Radio/Mailbox
     var referralInput by remember { mutableStateOf("") }
     var signalRecipient by remember { mutableStateOf("") }
     var signalMessage by remember { mutableStateOf("") }
     var showTerminalDialog by remember { mutableStateOf(false) }
+    var showTerminalTutorialDialog by remember { mutableStateOf(false) }
+    var showRelicShowcaseDialog by remember { mutableStateOf(false) }
+    var activeRelic by remember { mutableStateOf<EarthRelic?>(null) }
     var showAvatarInspector by remember { mutableStateOf(false) }
     var inspectedAvatarLvl by remember { mutableIntStateOf(1) }
     var topPlayers by remember { mutableStateOf<List<SupabasePlayer>>(emptyList()) }
@@ -456,7 +465,112 @@ fun ProfileScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Story Campaign Banner
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, EidosNeon.copy(alpha = 0.6f), CutCornerShape(8.dp))
+                        .clickable { onNavigateToCodex() },
+                    colors = CardDefaults.cardColors(containerColor = EidosGlass.copy(alpha = 0.70f)),
+                    shape = CutCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ZzzIcon(iconRes = R.drawable.ic_menu_codex, size = 26.dp, modifier = Modifier.padding(end = 10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "АРХИВ & СПРАВОЧНИК // ARCHIVE HUB",
+                                color = EidosNeon,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Книги сюжета, бестиарий монстров, достижения, справочник механик и хроники событий в одном месте!",
+                                color = Color.LightGray,
+                                fontSize = 10.sp,
+                                lineHeight = 13.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Interactive Onboarding & Relic Showcase Quick Action Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, EidosCyan, CutCornerShape(8.dp))
+                            .clickable { showTerminalTutorialDialog = true },
+                        colors = CardDefaults.cardColors(containerColor = EidosGlass.copy(alpha = 0.70f)),
+                        shape = CutCornerShape(8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 16.dp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "ИНСТРУКТАЖ EIDOS",
+                                    color = EidosCyan,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Интерактивное обучение и базовые протоколы",
+                                color = Color.Gray,
+                                fontSize = 9.sp,
+                                lineHeight = 12.sp
+                            )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .cyber3DTilt(maxRotationDegrees = 7f)
+                            .border(1.dp, Color.Yellow, CutCornerShape(8.dp))
+                            .premiumCyberClickable { showRelicShowcaseDialog = true },
+                        colors = CardDefaults.cardColors(containerColor = EidosGlass.copy(alpha = 0.70f)),
+                        shape = CutCornerShape(8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(iconRes = R.drawable.ic_item_battery, size = 16.dp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "РЕЛИКВИИ ЗЕМЛИ",
+                                    color = Color.Yellow,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                if (activeRelic != null) "Резонатор: ${activeRelic?.name}" else "Стойка резонаторов и баффов",
+                                color = Color.Gray,
+                                fontSize = 9.sp,
+                                lineHeight = 12.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Navigation Tabs
                 Row(
@@ -1384,6 +1498,21 @@ fun ProfileScreen(
                         )
                     }
                 }
+            )
+        }
+
+        if (showTerminalTutorialDialog) {
+            TerminalTutorialDialog(
+                onDismiss = { showTerminalTutorialDialog = false },
+                onCompleteTutorial = { showTerminalTutorialDialog = false }
+            )
+        }
+
+        if (showRelicShowcaseDialog) {
+            RelicShowcaseDialog(
+                activeRelicId = activeRelic?.id,
+                onSelectResonator = { relic -> activeRelic = relic },
+                onDismiss = { showRelicShowcaseDialog = false }
             )
         }
 
