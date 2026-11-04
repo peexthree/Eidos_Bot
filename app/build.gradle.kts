@@ -99,6 +99,11 @@ android {
             enableSplit = true
         }
     }
+    testOptions {
+        unitTests.all {
+            it.jvmArgs("-Djava.net.preferIPv4Stack=true")
+        }
+    }
 }
 
 dependencies {

@@ -165,7 +165,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         return@withLock true
     }
 
-    private suspend fun addInventory(uid: Long, itemId: String, amount: Int) = dbMutex.withLock {
+    private suspend fun internalUnsafeAddInventory(uid: Long, itemId: String, amount: Int) {
         val inventory = dao.getInventoryFlow(uid).first()
         val meta = getItemMetadata(itemId)
         val isEquipment = ItemSlotUtils.getSlotForItem(itemId, meta) != null
@@ -183,7 +183,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    private suspend fun removeInventory(uid: Long, itemId: String, amount: Int) = dbMutex.withLock {
+    private suspend fun addInventory(uid: Long, itemId: String, amount: Int) {
+        internalUnsafeAddInventory(uid, itemId, amount)
+    }
+
+    private suspend fun internalUnsafeRemoveInventory(uid: Long, itemId: String, amount: Int) {
         val inventory = dao.getInventoryFlow(uid).first()
         val item = inventory.find { it.item_id == itemId && !it.is_equipped } ?: inventory.find { it.item_id == itemId }
         if (item != null) {
@@ -193,6 +197,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 dao.deleteInventoryItem(item)
             }
         }
+    }
+
+    private suspend fun removeInventory(uid: Long, itemId: String, amount: Int) {
+        internalUnsafeRemoveInventory(uid, itemId, amount)
     }
 
 
@@ -1350,11 +1358,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val targetUid = if (uid > 0L) uid else getActiveUid()
         try {
             ensurePlayerExists(targetUid)
-            dbMutex.withLock {
-                dao.insertLog(GameLog(uid = targetUid, message = message, type = type))
-                if ((0..20).random() == 0) {
-                    dao.trimOldLogs(targetUid)
-                }
+            dao.insertLog(GameLog(uid = targetUid, message = message, type = type))
+            if ((0..20).random() == 0) {
+                dao.trimOldLogs(targetUid)
             }
             SupabaseClientManager.addRaidLog(targetUid.toString(), message)
         } catch (e: Exception) {
@@ -2508,8 +2514,20 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
     suspend fun attackCombat(uid: Long) = dbMutex.withLock {
-        val session = dao.getRaidSession(uid) ?: return@withLock
-        val player = dao.getPlayer(uid) ?: return@withLock
+        internalUnsafeAttackCombat(uid)
+    }
+
+    private suspend fun internalUnsafeAttackCombat(uid: Long) {
+        val session = dao.getRaidSession(uid)
+        if (session == null) {
+            android.util.Log.e("COMBAT", "Combat state or raidSession is NULL for uid=$uid!")
+            return
+        }
+        val player = dao.getPlayer(uid)
+        if (player == null) {
+            android.util.Log.e("COMBAT", "Player is NULL for uid=$uid!")
+            return
+        }
         if (session.current_enemy_id != null) {
             val cleanSession = if (session.current_anomaly_id != null) {
                 val updated = session.copy(current_anomaly_id = null)
@@ -2518,14 +2536,26 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             } else session
             handleCombatTurn(uid, cleanSession, player, isGuarding = false)
         } else {
+            android.util.Log.e("COMBAT", "Combat state or villain is NULL! current_enemy_id is null in attackCombat, performing emergency step recovery.")
             processStep(uid)
         }
     }
 
     suspend fun defendCombat(uid: Long) = dbMutex.withLock {
-        val session = dao.getRaidSession(uid) ?: return@withLock
-        val player = dao.getPlayer(uid) ?: return@withLock
-        if (session.current_enemy_id == null) return@withLock
+        internalUnsafeDefendCombat(uid)
+    }
+
+    private suspend fun internalUnsafeDefendCombat(uid: Long) {
+        val session = dao.getRaidSession(uid)
+        if (session == null || session.current_enemy_id == null) {
+            android.util.Log.e("COMBAT", "defendCombat: Combat state or villain is NULL!")
+            return
+        }
+        val player = dao.getPlayer(uid)
+        if (player == null) {
+            android.util.Log.e("COMBAT", "defendCombat: Player is NULL!")
+            return
+        }
 
         // Gain +25% Overdrive charge on guard
         val curCharge = getOverdriveCharge(uid)
@@ -2543,24 +2573,45 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     private suspend fun handleCombatTurn(uid: Long, session: RaidSession, player: Player, isGuarding: Boolean = false) {
         var currentSession = session
+        val enemyId = session.current_enemy_id
+        if (enemyId.isNullOrBlank()) {
+            android.util.Log.e("COMBAT", "Combat state or villain is NULL! Performing emergency recovery.")
+            val clean = session.copy(current_enemy_id = null, current_enemy_hp = 0, combat_turn = 0)
+            dao.insertRaidSession(clean)
+            return
+        }
+
         val villainsStatic = io.eidos.zerolayer.data.GameData.VILLAINS
-        val villain = villainsStatic.find { it.name == session.current_enemy_id }
+        var villain = villainsStatic.find { it.name == enemyId }
             ?: villainsStatic.find {
                 val clean1 = it.name.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
-                val clean2 = (session.current_enemy_id ?: "").replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
+                val clean2 = enemyId.replace(Regex("[^а-яА-Яa-zA-Z0-9]"), "").lowercase()
                 clean1.isNotEmpty() && clean2.isNotEmpty() && (clean1.contains(clean2) || clean2.contains(clean1))
-            } ?: io.eidos.zerolayer.data.GameVillainData(
-            id = 9999,
-            name = session.current_enemy_id ?: "Неизвестный Сбой",
-            level = 1,
-            hp = session.current_enemy_hp,
-            atk = 15,
-            def = 5,
-            xp = 50L,
-            coin = 30L,
-            description = "Искаженный фрагмент кода, затерянный в Слоях Нуля.",
-            image = ""
-        )
+            }
+        
+        if (villain == null) {
+            android.util.Log.e("COMBAT", "Combat state or villain is NULL! Emergency fallback for enemyId='$enemyId'")
+            villain = io.eidos.zerolayer.data.GameVillainData(
+                id = 9999,
+                name = enemyId,
+                level = ((session.depth / 50) + 1).coerceAtLeast(1),
+                hp = maxOf(25, session.current_enemy_hp),
+                atk = 15,
+                def = 5,
+                xp = 50L,
+                coin = 30L,
+                description = "Искаженный фрагмент кода, затерянный в Слоях Нуля.",
+                image = "monster_1"
+            )
+        }
+
+        // If enemy HP in session is corrupted (<= 0) when entering turn, restore from villain max hp
+        if (currentSession.current_enemy_hp <= 0) {
+            android.util.Log.w("COMBAT", "Enemy HP in session was <= 0, initializing to ${villain.hp}")
+            currentSession = currentSession.copy(current_enemy_hp = villain.hp)
+            dao.insertRaidSession(currentSession)
+        }
+
         val activeStats = getActiveStats(uid)
 
         val inventory = dao.getInventoryFlow(uid).first()
@@ -2592,15 +2643,35 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val nextTurn = session.combat_turn + 1
         val turnProcs = mutableListOf<EquipmentProcEvent>()
 
-        val aiAction = io.eidos.zerolayer.domain.combat.CombatEngine.evaluateMonsterAi(
-            villainId = villain.id,
-            combatTurn = nextTurn,
-            villainAtk = villain.atk,
-            villainCurrentHp = session.current_enemy_hp
-        )
+        val aiAction = runCatching {
+            io.eidos.zerolayer.domain.combat.CombatEngine.evaluateMonsterAi(
+                villainId = villain.id,
+                combatTurn = nextTurn,
+                villainAtk = villain.atk,
+                villainCurrentHp = currentSession.current_enemy_hp
+            )
+        }.getOrElse { err ->
+            android.util.Log.e("COMBAT", "evaluateMonsterAi failed, using fallback MonsterAiAction", err)
+            io.eidos.zerolayer.domain.combat.CombatEngine.MonsterAiAction()
+        }
 
-        var newEnemyHp = session.current_enemy_hp
-        val enemyIntent = io.eidos.zerolayer.domain.combat.CombatEngine.predictEnemyIntent(villain.id, nextTurn, isStunned = stunnedEnemies[uid] == true)
+        var newEnemyHp = currentSession.current_enemy_hp
+        val enemyIntent = runCatching {
+            io.eidos.zerolayer.domain.combat.CombatEngine.predictEnemyIntent(
+                villainId = villain.id,
+                combatTurn = nextTurn,
+                isStunned = stunnedEnemies[uid] == true
+            )
+        }.getOrElse { err ->
+            android.util.Log.e("COMBAT", "predictEnemyIntent failed, using fallback ATTACK", err)
+            io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntent(
+                type = io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.ATTACK,
+                title = "ОБЫЧНАЯ АТАКА",
+                description = "Стандартная атака врага.",
+                iconRes = io.eidos.zerolayer.R.drawable.ic_action_attack,
+                damageMultiplier = 1.0f
+            )
+        }
 
         // --- Player Turn (Only if not in defensive guard posture) ---
         if (!isGuarding) {
@@ -3160,11 +3231,24 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
     suspend fun triggerOverdrive(uid: Long) = dbMutex.withLock {
-        val session = dao.getRaidSession(uid) ?: return@withLock
-        val player = dao.getPlayer(uid) ?: return@withLock
+        internalUnsafeTriggerOverdrive(uid)
+    }
+
+    private suspend fun internalUnsafeTriggerOverdrive(uid: Long) {
+        val session = dao.getRaidSession(uid)
+        if (session == null) {
+            android.util.Log.e("COMBAT", "triggerOverdrive: RaidSession is NULL!")
+            return
+        }
+        val player = dao.getPlayer(uid)
+        if (player == null) {
+            android.util.Log.e("COMBAT", "triggerOverdrive: Player is NULL!")
+            return
+        }
         val currentCharge = getOverdriveCharge(uid)
         if (currentCharge < io.eidos.zerolayer.domain.combat.CombatEngine.OVERDRIVE_MAX_CHARGE || session.current_enemy_id == null) {
-            return@withLock
+            android.util.Log.w("COMBAT", "triggerOverdrive: Charge insufficient ($currentCharge/100) or no enemy (${session.current_enemy_id})")
+            return
         }
 
         setOverdriveCharge(uid, 0)
@@ -3699,9 +3783,25 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
     suspend fun useActiveAbility(uid: Long) = dbMutex.withLock {
-        val player = dao.getPlayer(uid) ?: return@withLock
-        val session = dao.getRaidSession(uid) ?: return@withLock
-        val enemyId = session.current_enemy_id ?: return@withLock
+        internalUnsafeUseActiveAbility(uid)
+    }
+
+    private suspend fun internalUnsafeUseActiveAbility(uid: Long) {
+        val player = dao.getPlayer(uid)
+        if (player == null) {
+            android.util.Log.e("COMBAT", "useActiveAbility: Player is NULL for uid=$uid!")
+            return
+        }
+        val session = dao.getRaidSession(uid)
+        if (session == null) {
+            android.util.Log.e("COMBAT", "useActiveAbility: RaidSession is NULL for uid=$uid!")
+            return
+        }
+        val enemyId = session.current_enemy_id
+        if (enemyId.isNullOrBlank()) {
+            android.util.Log.e("COMBAT", "useActiveAbility: Combat state or enemyId is NULL!")
+            return
+        }
 
         // Tactical ability energy cost: 10 EP (or 8% HP emergency overload if low EP)
         val hasEnergy = player.energy >= 10
@@ -3720,7 +3820,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             log(uid, "🩸 [КРОВАВЫЙ НАВЫК]: Энергия исчерпана! Списано -$bloodCost HP (8%) для форсированного удара!", "error")
             if (newHp <= 0) {
                 checkDeath(uid)
-                return@withLock
+                return
             }
         }
 
@@ -3853,9 +3953,25 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
     suspend fun fleeCombat(uid: Long) = dbMutex.withLock {
-        val session = dao.getRaidSession(uid) ?: return@withLock
-        val player = dao.getPlayer(uid) ?: return@withLock
-        val enemyName = session.current_enemy_id ?: return@withLock
+        internalUnsafeFleeCombat(uid)
+    }
+
+    private suspend fun internalUnsafeFleeCombat(uid: Long) {
+        val session = dao.getRaidSession(uid)
+        if (session == null) {
+            android.util.Log.e("COMBAT", "fleeCombat: RaidSession is NULL!")
+            return
+        }
+        val player = dao.getPlayer(uid)
+        if (player == null) {
+            android.util.Log.e("COMBAT", "fleeCombat: Player is NULL!")
+            return
+        }
+        val enemyName = session.current_enemy_id
+        if (enemyName == null) {
+            android.util.Log.e("COMBAT", "fleeCombat: Combat state or enemyName is NULL!")
+            return
+        }
 
         // 75% escape probability, 100% with tactical fog
         val roll = (1..100).random()

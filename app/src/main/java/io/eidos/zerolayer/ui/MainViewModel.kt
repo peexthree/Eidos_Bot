@@ -518,7 +518,11 @@ class MainViewModel(
         haptics.step()
         audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
         viewModelScope.launch {
-            repository.processStep(_uid.value, chosenMutatorId = chosenMutatorId, costEnergyOverride = costEnergyOverride)
+            try {
+                repository.processStep(_uid.value, chosenMutatorId = chosenMutatorId, costEnergyOverride = costEnergyOverride)
+            } catch (e: Exception) {
+                android.util.Log.e("COMBAT_ERROR", "nextStep failed", e)
+            }
         }
     }
 
@@ -526,7 +530,11 @@ class MainViewModel(
         haptics.criticalHit()
         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
         viewModelScope.launch {
-            repository.attackCombat(_uid.value)
+            try {
+                repository.attackCombat(_uid.value)
+            } catch (e: Exception) {
+                android.util.Log.e("COMBAT_ERROR", "attackCombat failed", e)
+            }
         }
     }
 
@@ -571,7 +579,11 @@ class MainViewModel(
         haptics.step()
         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
         viewModelScope.launch {
-            repository.defendCombat(_uid.value)
+            try {
+                repository.defendCombat(_uid.value)
+            } catch (e: Exception) {
+                android.util.Log.e("COMBAT_ERROR", "defendCombat failed", e)
+            }
         }
     }
 
@@ -579,7 +591,11 @@ class MainViewModel(
         haptics.criticalHit()
         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
         viewModelScope.launch {
-            repository.useActiveAbility(_uid.value)
+            try {
+                repository.useActiveAbility(_uid.value)
+            } catch (e: Exception) {
+                android.util.Log.e("COMBAT_ERROR", "useActiveAbility failed", e)
+            }
         }
     }
 
@@ -587,7 +603,11 @@ class MainViewModel(
         haptics.criticalHit()
         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
         viewModelScope.launch {
-            repository.triggerOverdrive(_uid.value)
+            try {
+                repository.triggerOverdrive(_uid.value)
+            } catch (e: Exception) {
+                android.util.Log.e("COMBAT_ERROR", "triggerOverdrive failed", e)
+            }
         }
     }
 
@@ -1318,7 +1338,11 @@ class MainViewModel(
         haptics.step()
         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
         viewModelScope.launch {
-            repository.fleeCombat(_uid.value)
+            try {
+                repository.fleeCombat(_uid.value)
+            } catch (e: Exception) {
+                android.util.Log.e("COMBAT_ERROR", "fleeCombat failed", e)
+            }
         }
     }
 
