@@ -947,34 +947,59 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun mergeItems(uid: Long, itemId: String) {
         val meta = getItemMetadata(itemId) ?: return
         val inventory = dao.getInventoryFlow(uid).first()
-        val item = inventory.find { it.item_id == itemId }
+        val matchingUnequipped = inventory.filter { it.item_id == itemId && !it.is_equipped }
+        val totalCount = matchingUnequipped.sumOf { it.quantity.coerceAtLeast(1) }
 
-        if (item == null || item.quantity < 3) {
-            log(uid, "Для синтеза требуется 3 шт. ${meta.name}.", "error")
+        if (totalCount < 3) {
+            log(uid, "❌ [СИНТЕЗ]: Для синтеза требуется 3 неэкипированных шт. ${meta.name} (В наличии: $totalCount).", "error")
             return
         }
 
         val allItems = getAllItemsMetadata()
-        val nextRarity = when(meta.rarity) {
+        val currentRarity = meta.rarity.lowercase()
+        val nextRarity = when (currentRarity) {
             "common" -> "uncommon"
             "uncommon" -> "rare"
             "rare" -> "epic"
             "epic" -> "legendary"
             "legendary" -> "relic"
-            else -> return
+            "cursed" -> "relic"
+            "relic" -> "legendary"
+            else -> "rare"
         }
 
-        val possibleUpgrades = allItems.filter { it.type == meta.type && it.rarity == nextRarity }
+        val possibleUpgrades = allItems.filter { it.rarity.equals(nextRarity, ignoreCase = true) && it.id != itemId }
+            .ifEmpty { allItems.filter { it.rarity.equals(nextRarity, ignoreCase = true) } }
+
         if (possibleUpgrades.isEmpty()) {
-            log(uid, "Нет доступных улучшений для этого типа.", "error")
+            log(uid, "❌ [СИНТЕЗ]: База данных EIDOS не нашла прототипов ранга ${nextRarity.uppercase()} для слияния.", "error")
             return
         }
 
-        val upgradedItem = possibleUpgrades.random()
+        // Prefer same type if available, otherwise random of next rarity
+        val sameTypeUpgrades = possibleUpgrades.filter { it.type == meta.type }
+        val upgradedItem = if (sameTypeUpgrades.isNotEmpty()) sameTypeUpgrades.random() else possibleUpgrades.random()
 
-        removeInventory(uid, itemId, 3)
-        addInventory(uid, upgradedItem.id, 1)
-        log(uid, "УСПЕШНЫЙ СИНТЕЗ! 3x ${meta.name} -> 1x ${upgradedItem.name}", "success")
+        // Consume 3 items from unequipped stack/rows
+        var neededToRemove = 3
+        for (invItem in matchingUnequipped) {
+            if (neededToRemove <= 0) break
+            if (invItem.quantity > neededToRemove) {
+                dao.updateInventoryItem(invItem.copy(quantity = invItem.quantity - neededToRemove))
+                neededToRemove = 0
+            } else {
+                neededToRemove -= invItem.quantity
+                dao.deleteInventoryItem(invItem)
+            }
+        }
+
+        // Grant upgraded item
+        internalUnsafeAddInventory(uid, upgradedItem.id, 1)
+        log(
+            uid,
+            "🧬 [КВАНТОВЫЙ СИНТЕЗ]: 3x [${meta.name}] расплавлены в Ядре! Получен артефакт ранга [${nextRarity.uppercase()}]: ${upgradedItem.name}!",
+            "success"
+        )
     }
 
     suspend fun dismantleItem(uid: Long, item: InventoryItem) {

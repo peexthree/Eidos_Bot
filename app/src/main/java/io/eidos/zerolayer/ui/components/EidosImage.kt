@@ -262,7 +262,7 @@ fun EidosImage(
     }
 
     val boxModifier = modifier
-        .background(EidosGlass)
+        .background(if (borderWidth > 0.dp && borderColor != Color.Transparent) EidosGlass else Color.Transparent)
         .then(
             if (borderWidth > 0.dp && borderColor != Color.Transparent) {
                 Modifier.border(borderWidth, borderColor, CutCornerShape(4.dp))

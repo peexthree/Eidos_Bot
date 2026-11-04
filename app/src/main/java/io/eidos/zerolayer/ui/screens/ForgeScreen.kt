@@ -30,8 +30,13 @@ import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.theme.EidosOrange
+import io.eidos.zerolayer.ui.theme.EidosPurple
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.VideoBackground
 import androidx.compose.ui.draw.alpha
@@ -383,53 +388,91 @@ fun SynthesisTab(
         }
 
         if (subTab == 0) {
-            val dismantleable = inventory.filter { it.item_id != "eidos_shard" }
+            val dismantleable = inventory.filter { it.item_id != "eidos_shard" && !it.is_equipped }
             if (dismantleable.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("НЕТ ПРЕДМЕТОВ ДЛЯ УТИЛИЗАЦИИ", color = Color.Gray, fontSize = 12.sp)
+                    Text("НЕТ ПРЕДМЕТОВ ДЛЯ УТИЛИЗАЦИИ ИЛИ СИНТЕЗА", color = Color.Gray, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             } else {
+                val groupedItems = remember(dismantleable) {
+                    dismantleable.groupBy { it.item_id }.values.map { items ->
+                        val totalCount = items.sumOf { it.quantity.coerceAtLeast(1) }
+                        val rep = items.first()
+                        Triple(rep, totalCount, items)
+                    }
+                }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(dismantleable, key = { it.id }) { item ->
-                        val itemMeta = allItemsMetadata.find { it.id == item.item_id }
-                        val name = itemMeta?.name ?: getItemName(item.item_id)
+                    items(groupedItems, key = { it.first.item_id }) { (repItem, totalCount, stack) ->
+                        val itemMeta = allItemsMetadata.find { it.id == repItem.item_id }
+                        val name = itemMeta?.name ?: getItemName(repItem.item_id)
+                        val rarity = itemMeta?.rarity ?: getItemRarity(repItem.item_id)
+                        val rarityColor = when (rarity.lowercase()) {
+                            "cursed", "relic" -> EidosRed
+                            "legendary" -> EidosOrange
+                            "epic" -> EidosPurple
+                            "rare" -> EidosCyan
+                            "uncommon" -> EidosNeon
+                            else -> Color(0xFF78909C)
+                        }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(EidosGlass)
-                                .border(1.dp, Color.White.copy(alpha = 0.1f))
-                                .padding(12.dp),
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF080F17).copy(alpha = 0.85f))
+                                .border(1.dp, rarityColor.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                                .padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text("В наличии: ${item.quantity} шт.", color = Color.Gray, fontSize = 10.sp)
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF03060A))
+                                    .border(1.dp, rarityColor.copy(alpha = 0.5f), RoundedCornerShape(4.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                EidosImage(
+                                    resName = repItem.item_id,
+                                    borderColor = Color.Transparent,
+                                    borderWidth = 0.dp,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (item.quantity >= 3) {
+                            Spacer(Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(rarity.uppercase(), color = rarityColor, fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    Text("• В наличии: $totalCount шт.", color = if (totalCount >= 3) EidosNeon else Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (totalCount >= 3) {
                                     Button(
-                                        onClick = { onMerge(item) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = EidosNeon.copy(alpha = 0.2f)),
+                                        onClick = { onMerge(repItem) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = EidosNeon.copy(alpha = 0.25f)),
                                         border = androidx.compose.foundation.BorderStroke(1.dp, EidosNeon),
                                         shape = CutCornerShape(4.dp),
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
-                                        Text("СИНТЕЗ (3)", color = EidosNeon, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        Text("СИНТЕЗ (3->1 РАНГ+)", color = EidosNeon, fontSize = 8.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                                     }
                                 }
                                 Button(
-                                    onClick = { onDismantle(item) },
+                                    onClick = { onDismantle(repItem) },
                                     colors = ButtonDefaults.buttonColors(containerColor = EidosRed.copy(alpha = 0.2f)),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, EidosRed),
                                     shape = CutCornerShape(4.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
-                                    Text("РАЗОБРАТЬ", color = EidosRed, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text("РАЗОБРАТЬ", color = EidosRed, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                                 }
                             }
                         }

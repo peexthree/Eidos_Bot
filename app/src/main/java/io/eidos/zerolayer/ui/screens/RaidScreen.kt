@@ -143,13 +143,18 @@ fun RaidScreen(
     var prevXp by remember { mutableLongStateOf(session?.buffer_xp ?: 0L) }
     var prevItemsStr by remember { mutableStateOf(session?.buffer_items ?: "") }
     var prevKills by remember { mutableIntStateOf(session?.kills ?: 0) }
-    var showVictoryCinematic by remember { mutableStateOf(false) }
-    var showOverdriveCinematic by remember { mutableStateOf(false) }
+    var currentCinematic by remember { mutableStateOf(ActiveCinematic.NONE) }
+    var pendingCinematic by remember { mutableStateOf(ActiveCinematic.NONE) }
+    var activeBuffTooltip by remember { mutableStateOf<BuffTooltipInfo?>(null) }
 
     LaunchedEffect(session?.kills) {
         val currentKills = session?.kills ?: 0
         if (currentKills > prevKills && currentKills > 0) {
-            showVictoryCinematic = true
+            if (currentCinematic == ActiveCinematic.NONE) {
+                currentCinematic = ActiveCinematic.VICTORY
+            } else {
+                pendingCinematic = ActiveCinematic.VICTORY
+            }
         }
         prevKills = currentKills
     }
@@ -421,7 +426,8 @@ fun RaidScreen(
                         hasOblivionChip = hasOblivionChip,
                         hasTacticalScanner = hasTacticalScanner,
                         overchargeTier = overchargeTier,
-                        onOpenBuffer = { showBufferModal = true }
+                        onOpenBuffer = { showBufferModal = true },
+                        onShowTooltip = { tooltip -> activeBuffTooltip = tooltip }
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -556,7 +562,9 @@ fun RaidScreen(
                             onDefend = onDefend,
                             onUseAbility = onUseAbility,
                             onTriggerOverdrive = {
-                                showOverdriveCinematic = true
+                                if (currentCinematic == ActiveCinematic.NONE) {
+                                    currentCinematic = ActiveCinematic.OVERDRIVE
+                                }
                                 onTriggerOverdrive()
                             },
                             onBoostOvercharge = onBoostOvercharge,
@@ -674,34 +682,57 @@ fun RaidScreen(
         )
     }
 
-    if (showVictoryCinematic) {
-        LaunchedEffect(Unit) {
+    if (currentCinematic != ActiveCinematic.NONE) {
+        val activeVideo = if (currentCinematic == ActiveCinematic.OVERDRIVE) "overdrive_activation" else "combat_victory"
+        val activeTitle = if (currentCinematic == ActiveCinematic.OVERDRIVE) "ОВЕРДРАЙВ 100%: ВСПЛЕСК МОЩНОСТИ ЯДРА" else "ЦЕЛЬ НЕЙТРАЛИЗОВАНА // СИГНАЛ ВРАГА РАСТВОРЕН"
+        val activeBorder = if (currentCinematic == ActiveCinematic.OVERDRIVE) Color(0xFFFFD700) else EidosNeon
+
+        LaunchedEffect(currentCinematic) {
             kotlinx.coroutines.delay(2200)
-            showVictoryCinematic = false
+            if (pendingCinematic != ActiveCinematic.NONE) {
+                currentCinematic = pendingCinematic
+                pendingCinematic = ActiveCinematic.NONE
+            } else {
+                currentCinematic = ActiveCinematic.NONE
+            }
         }
         androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showVictoryCinematic = false },
+            onDismissRequest = {
+                if (pendingCinematic != ActiveCinematic.NONE) {
+                    currentCinematic = pendingCinematic
+                    pendingCinematic = ActiveCinematic.NONE
+                } else {
+                    currentCinematic = ActiveCinematic.NONE
+                }
+            },
             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black)
-                    .clickable { showVictoryCinematic = false },
+                    .clickable {
+                        if (pendingCinematic != ActiveCinematic.NONE) {
+                            currentCinematic = pendingCinematic
+                            pendingCinematic = ActiveCinematic.NONE
+                        } else {
+                            currentCinematic = ActiveCinematic.NONE
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                VideoBackground(resName = "combat_victory", modifier = Modifier.fillMaxSize())
+                VideoBackground(resName = activeVideo, modifier = Modifier.fillMaxSize())
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 56.dp)
-                        .background(Color.Black.copy(alpha = 0.75f))
-                        .border(1.dp, EidosNeon, CutCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.85f))
+                        .border(1.dp, activeBorder, CutCornerShape(4.dp))
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        "ЦЕЛЬ НЕЙТРАЛИЗОВАНА // СИГНАЛ ВРАГА РАСТВОРЕН",
-                        color = EidosNeon,
+                        activeTitle,
+                        color = activeBorder,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace
@@ -711,41 +742,11 @@ fun RaidScreen(
         }
     }
 
-    if (showOverdriveCinematic) {
-        LaunchedEffect(Unit) {
-            kotlinx.coroutines.delay(2200)
-            showOverdriveCinematic = false
-        }
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showOverdriveCinematic = false },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-                    .clickable { showOverdriveCinematic = false },
-                contentAlignment = Alignment.Center
-            ) {
-                VideoBackground(resName = "overdrive_activation", modifier = Modifier.fillMaxSize())
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 56.dp)
-                        .background(Color.Black.copy(alpha = 0.75f))
-                        .border(1.dp, Color(0xFFFFD700), CutCornerShape(4.dp))
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        "ОВЕРДРАЙВ 100%: ВСПЛЕСК МОЩНОСТИ ЯДРА",
-                        color = Color(0xFFFFD700),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-            }
-        }
+    activeBuffTooltip?.let { tooltip ->
+        BuffTooltipDialog(
+            info = tooltip,
+            onDismiss = { activeBuffTooltip = null }
+        )
     }
 
     if (inspectVillain != null) {
@@ -1117,7 +1118,8 @@ fun RaidHUD(
     hasOblivionChip: Boolean = false,
     hasTacticalScanner: Boolean = false,
     overchargeTier: Int = 0,
-    onOpenBuffer: () -> Unit = {}
+    onOpenBuffer: () -> Unit = {},
+    onShowTooltip: (BuffTooltipInfo) -> Unit = {}
 ) {
     val signal = session?.signal ?: 94
     val depth = session?.depth ?: 1480
@@ -1190,6 +1192,17 @@ fun RaidHUD(
                             .clip(CutCornerShape(4.dp))
                             .background(EidosNeon.copy(alpha = 0.2f))
                             .border(1.dp, EidosNeon, CutCornerShape(4.dp))
+                            .clickable {
+                                onShowTooltip(
+                                    BuffTooltipInfo(
+                                        title = "ТАКТИЧЕСКИЙ СКАНЕР",
+                                        subtitle = "НЕЙРОННЫЙ АНАЛИЗ БОЯ // ВИНРЕЙТ",
+                                        description = "Сканер сопоставляет ваши атакующие и защитные параметры с противником. Текущий расчетный шанс победы в данном поединке: $winRate%.",
+                                        iconRes = R.drawable.ic_action_scan,
+                                        accentColor = EidosNeon
+                                    )
+                                )
+                            }
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1212,6 +1225,17 @@ fun RaidHUD(
                             .clip(CutCornerShape(4.dp))
                             .background(EidosOrange.copy(alpha = 0.2f))
                             .border(1.dp, EidosOrange, CutCornerShape(4.dp))
+                            .clickable {
+                                onShowTooltip(
+                                    BuffTooltipInfo(
+                                        title = "ОВЕРЧАРДЖ ЯДРА (ТИР $overchargeTier)",
+                                        subtitle = "МНОЖИТЕЛЬ ДОБЫЧИ // +${overchargeTier * 50}%",
+                                        description = "Форсированный режим сбора ресурсов. Увеличивает количество BioCoins и шанс выпадения редких чипов в $lootMult раз. Сбрасывается при успешной эвакуации.",
+                                        iconRes = R.drawable.ic_res_overdrive,
+                                        accentColor = EidosOrange
+                                    )
+                                )
+                            }
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1233,6 +1257,17 @@ fun RaidHUD(
                             .clip(CutCornerShape(4.dp))
                             .background(Color.Yellow.copy(alpha = 0.2f))
                             .border(1.dp, Color.Yellow, CutCornerShape(4.dp))
+                            .clickable {
+                                onShowTooltip(
+                                    BuffTooltipInfo(
+                                        title = "БОЕВОЙ ОВЕРДРАЙВ",
+                                        subtitle = "РЕЗОНАНС ЯДРА // ОСТАЛОСЬ: $overdriveTurns ХОДОВ",
+                                        description = "Ядро разогнано на 100%! Все ваши удары и тактические навыки наносят x2.0 гарантированный критический урон без расхода энергии.",
+                                        iconRes = R.drawable.ic_action_skill,
+                                        accentColor = Color(0xFFFFD700)
+                                    )
+                                )
+                            }
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1262,6 +1297,23 @@ fun RaidHUD(
                             .clip(CutCornerShape(4.dp))
                             .background(Color(0xFF00FFCC).copy(alpha = 0.2f))
                             .border(1.dp, Color(0xFF00FFCC), CutCornerShape(4.dp))
+                            .clickable {
+                                onShowTooltip(
+                                    BuffTooltipInfo(
+                                        title = "АНОМАЛЬНЫЙ БАФФ: $buffName",
+                                        subtitle = "ВРЕМЯ ДЕЙСТВИЯ: $timeLeftSec СЕК.",
+                                        description = when (player?.anomalyBuffType) {
+                                            io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_GLITCH_BERSERK -> "Увеличение исходящего урона по противникам на +25%."
+                                            io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_OVERLOAD -> "Всплеск генерации BioCoins на +50% за каждый зачищенный сектор."
+                                            io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_STEALTH_NIGHT -> "Шанс незаметного обхода монстров и успешного побега увеличен на +30%."
+                                            io.eidos.zerolayer.domain.anomaly.AnomalyEngine.BUFF_VISUAL_DISTORTION -> "Искажение кодового пространства. Снижает получаемый входящий урон."
+                                            else -> "Активный временный модификатор параметров оператора в Нулевом Слое."
+                                        },
+                                        iconRes = buffIcon,
+                                        accentColor = Color(0xFF00FFCC)
+                                    )
+                                )
+                            }
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3474,4 +3526,96 @@ fun RaidBufferModal(
             }
         }
     )
+}
+
+enum class ActiveCinematic {
+    NONE,
+    OVERDRIVE,
+    VICTORY
+}
+
+data class BuffTooltipInfo(
+    val title: String,
+    val subtitle: String,
+    val description: String,
+    val iconRes: Int,
+    val accentColor: Color
+)
+
+@Composable
+fun BuffTooltipDialog(
+    info: BuffTooltipInfo,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .border(1.5.dp, info.accentColor, CutCornerShape(8.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF070E17).copy(alpha = 0.96f)),
+            shape = CutCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CutCornerShape(4.dp))
+                            .background(info.accentColor.copy(alpha = 0.2f))
+                            .border(1.dp, info.accentColor, CutCornerShape(4.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ZzzIcon(iconRes = info.iconRes, size = 20.dp)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = info.title,
+                            color = info.accentColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = info.subtitle,
+                            color = Color(0xFF90A4AE),
+                            fontSize = 8.5.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                HorizontalDivider(
+                    color = info.accentColor.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+
+                Text(
+                    text = info.description,
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = info.accentColor.copy(alpha = 0.25f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, info.accentColor),
+                    shape = CutCornerShape(4.dp),
+                    modifier = Modifier.fillMaxWidth().height(36.dp)
+                ) {
+                    Text("ПОНЯТНО // ЗАКРЫТЬ", color = info.accentColor, fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+    }
 }

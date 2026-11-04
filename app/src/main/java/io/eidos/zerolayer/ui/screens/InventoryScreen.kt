@@ -83,6 +83,7 @@ fun InventoryScreen(
     var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
     var selectedCategory by remember { mutableStateOf("all") }
     var stackInspectorItems by remember { mutableStateOf<List<InventoryItem>?>(null) }
+    var quickEquipSlotTarget by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
@@ -164,7 +165,14 @@ fun InventoryScreen(
                     letterSpacing = 0.5.sp,
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
-                EquipDollSection(inventory, allItemsMetadata, player, activeStats, onUnequip)
+                EquipDollSection(
+                    inventory = inventory,
+                    allItemsMetadata = allItemsMetadata,
+                    player = player,
+                    activeStats = activeStats,
+                    onUnequip = onUnequip,
+                    onSelectSlotForEquip = { slot -> quickEquipSlotTarget = slot }
+                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -297,7 +305,7 @@ fun InventoryScreen(
                             .fillMaxWidth()
                             .height(260.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF05080E))
+                            .background(Color(0xFF03060A))
                             .border(1.dp, rarityColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -305,10 +313,8 @@ fun InventoryScreen(
                             resName = item.item_id,
                             borderColor = Color.Transparent,
                             borderWidth = 0.dp,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(12.dp)
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
 
                         // Dark gradient overlay at bottom
@@ -728,6 +734,21 @@ fun ProfileSection(player: Player?) {
             onDismiss = { stackInspectorItems = null }
         )
     }
+
+    // Quick Equip Slot Picker Modal
+    quickEquipSlotTarget?.let { slot ->
+        QuickEquipSlotPickerModal(
+            slotType = slot,
+            inventory = inventory,
+            allItemsMetadata = allItemsMetadata,
+            player = player,
+            onEquip = { item ->
+                onEquip(item)
+                quickEquipSlotTarget = null
+            },
+            onDismiss = { quickEquipSlotTarget = null }
+        )
+    }
 }
 }
 
@@ -737,8 +758,9 @@ fun OperatorEquipmentDeck(
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     player: Player? = null,
     activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
-    onUnequip: (InventoryItem) -> Unit
-) = EquipDollSection(inventory, allItemsMetadata, player, activeStats, onUnequip)
+    onUnequip: (InventoryItem) -> Unit,
+    onSelectSlotForEquip: (String) -> Unit = {}
+) = EquipDollSection(inventory, allItemsMetadata, player, activeStats, onUnequip, onSelectSlotForEquip)
 
 @Composable
 fun EquipDollSection(
@@ -746,7 +768,8 @@ fun EquipDollSection(
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     player: Player? = null,
     activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
-    onUnequip: (InventoryItem) -> Unit
+    onUnequip: (InventoryItem) -> Unit,
+    onSelectSlotForEquip: (String) -> Unit = {}
 ) {
     val head = inventory.find { it.is_equipped && (it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "head") }
     val armor = inventory.find { it.is_equipped && (it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "armor") }
@@ -785,21 +808,24 @@ fun EquipDollSection(
                     item = head,
                     meta = head?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
                     defaultAccent = EidosCyan,
-                    onUnequip = onUnequip
+                    onUnequip = onUnequip,
+                    onSlotClick = { onSelectSlotForEquip("head") }
                 )
                 EquipSlotTile(
                     slotLabel = "ОРУЖИЕ",
                     item = weapon,
                     meta = weapon?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
                     defaultAccent = Color(0xFFFF9800),
-                    onUnequip = onUnequip
+                    onUnequip = onUnequip,
+                    onSlotClick = { onSelectSlotForEquip("weapon") }
                 )
                 EquipSlotTile(
                     slotLabel = "БРОНЯ",
                     item = armor,
                     meta = armor?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
                     defaultAccent = EidosPurple,
-                    onUnequip = onUnequip
+                    onUnequip = onUnequip,
+                    onSlotClick = { onSelectSlotForEquip("armor") }
                 )
             }
 
@@ -928,7 +954,8 @@ fun EquipDollSection(
                         meta = chip?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
                         defaultAccent = chipAccent,
                         isCompact = true,
-                        onUnequip = onUnequip
+                        onUnequip = onUnequip,
+                        onSlotClick = { onSelectSlotForEquip("chip") }
                     )
 
                     // Circuit trace connector line between chips
@@ -976,7 +1003,8 @@ private fun EquipSlotTile(
     meta: io.eidos.zerolayer.data.GameRepository.ItemMetadata?,
     defaultAccent: Color,
     isCompact: Boolean = false,
-    onUnequip: (InventoryItem) -> Unit
+    onUnequip: (InventoryItem) -> Unit,
+    onSlotClick: () -> Unit = {}
 ) {
     val rarity = meta?.rarity ?: (item?.let { getItemRarity(it.item_id) } ?: "common")
     val rarityColor = when (rarity) {
@@ -1005,10 +1033,16 @@ private fun EquipSlotTile(
             .background(if (item != null) Color(0xFF0B141D) else Color(0xFF070B10))
             .border(
                 width = 1.dp,
-                color = if (item != null) rarityColor.copy(alpha = 0.85f) else Color(0xFF1E2D3D),
+                color = if (item != null) rarityColor.copy(alpha = 0.85f) else defaultAccent.copy(alpha = 0.4f),
                 shape = CutCornerShape(4.dp)
             )
-            .cyberClickable(enabled = item != null) { item?.let { onUnequip(it) } }
+            .cyberClickable {
+                if (item != null) {
+                    onUnequip(item)
+                } else {
+                    onSlotClick()
+                }
+            }
             .padding(horizontal = 4.dp, vertical = 2.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -1033,10 +1067,8 @@ private fun EquipSlotTile(
                         resName = item.item_id,
                         borderColor = Color.Transparent,
                         borderWidth = 0.dp,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(2.dp)
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
@@ -1073,25 +1105,26 @@ private fun EquipSlotTile(
                     modifier = Modifier
                         .size(iconSize)
                         .clip(CutCornerShape(4.dp))
-                        .background(Color(0xFF0F1722))
-                        .border(1.dp, Color(0xFF1E2D3D), CutCornerShape(4.dp)),
+                        .background(defaultAccent.copy(alpha = 0.12f))
+                        .border(1.dp, defaultAccent.copy(alpha = 0.5f), CutCornerShape(4.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("+", color = Color(0xFF455A64), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("+", color = defaultAccent, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 }
                 Spacer(modifier = Modifier.width(6.dp))
                 Column {
                     Text(
                         slotLabel,
-                        color = defaultAccent.copy(alpha = 0.6f),
+                        color = defaultAccent,
                         fontSize = 7.5.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
-                        "ПУСТО",
-                        color = Color(0xFF546E7A),
-                        fontSize = 8.5.sp,
+                        "[ВЫБРАТЬ]",
+                        color = EidosCyan,
+                        fontSize = 7.5.sp,
+                        fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -1312,11 +1345,7 @@ fun ItemListSection(
                             strokeWidth = 1.5.dp
                         )
                         .cyberClickable {
-                            if (stack.size > 1 && onStackClick != null) {
-                                onStackClick(stack)
-                            } else {
-                                onItemClick(item)
-                            }
+                            onItemClick(item)
                         }
                         .padding(8.dp)
                 ) {
@@ -1325,22 +1354,21 @@ fun ItemListSection(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Large Full-Width Art Container with ContentScale.Fit
+                        // Large Full-Width Art Container with ContentScale.Crop (No sidebars)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(105.dp)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF05090F).copy(alpha = 0.55f))
-                                .border(1.dp, rarityColor.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
-                                .padding(4.dp),
+                                .background(Color(0xFF03060A))
+                                .border(1.dp, rarityColor.copy(alpha = 0.45f), RoundedCornerShape(6.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             EidosImage(
                                 resName = item.item_id,
                                 borderColor = Color.Transparent,
                                 borderWidth = 0.dp,
-                                contentScale = ContentScale.Fit,
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
 
@@ -1597,6 +1625,197 @@ fun StackInspectorDialog(
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold
                                     )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickEquipSlotPickerModal(
+    slotType: String,
+    inventory: List<InventoryItem>,
+    allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata>,
+    player: Player?,
+    onEquip: (InventoryItem) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val slotLabel = when (slotType) {
+        "head" -> "ШЛЕМ"
+        "weapon" -> "ОРУЖИЕ"
+        "armor" -> "БРОНЯ"
+        "chip" -> "ЧИП"
+        else -> slotType.uppercase()
+    }
+
+    val eligibleItems = remember(inventory, slotType) {
+        inventory.filter { item ->
+            val meta = allItemsMetadata.find { it.id == item.item_id }
+            val itemSlot = ItemSlotUtils.getSlotForItem(item.item_id, meta)
+            val matchesSlot = if (slotType == "chip") itemSlot == "chip" else itemSlot == slotType
+            val isChipAlreadyEquipped = (slotType == "chip") && inventory.any { it.is_equipped && it.item_id == item.item_id }
+            matchesSlot && !item.is_equipped && !isChipAlreadyEquipped
+        }.distinctBy { it.item_id }
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.72f)
+                .border(1.5.dp, EidosCyan, CutCornerShape(8.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF070D14).copy(alpha = 0.96f)),
+            shape = CutCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(14.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "БЫСТРАЯ ЭКИПИРОВКА // СЛОТ: [$slotLabel]",
+                            color = EidosCyan,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = "Выберите снаряжение из хранилища для немедленной установки",
+                            color = Color(0xFF78909C),
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                    }
+                }
+
+                HorizontalDivider(color = EidosCyan.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+
+                if (eligibleItems.isEmpty()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(36.dp))
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "НЕТ ДОСТУПНОГО СНАРЯЖЕНИЯ ДЛЯ СЛОТА [$slotLabel]",
+                                color = Color.Gray,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Посетите Магазин или Кузницу для создания экипировки",
+                                color = Color.DarkGray,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(eligibleItems, key = { it.id }) { item ->
+                            val meta = allItemsMetadata.find { it.id == item.item_id }
+                            val rarity = meta?.rarity ?: getItemRarity(item.item_id)
+                            val name = meta?.name ?: getItemName(item.item_id)
+                            val reqLevel = meta?.reqLevel ?: 1
+                            val canEquip = player == null || player.level >= reqLevel
+                            val rarityColor = when (rarity.lowercase()) {
+                                "cursed", "relic" -> EidosRed
+                                "legendary" -> EidosOrange
+                                "epic" -> EidosPurple
+                                "rare" -> EidosCyan
+                                "uncommon" -> EidosNeon
+                                else -> Color(0xFF90A4AE)
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(CutCornerShape(6.dp))
+                                    .background(Color(0xFF0C141E))
+                                    .border(1.dp, rarityColor.copy(alpha = 0.5f), CutCornerShape(6.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CutCornerShape(4.dp))
+                                        .background(Color(0xFF03060A))
+                                        .border(1.dp, rarityColor, CutCornerShape(4.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    EidosImage(
+                                        resName = item.item_id,
+                                        borderColor = Color.Transparent,
+                                        borderWidth = 0.dp,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+
+                                Spacer(Modifier.width(10.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        name,
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(rarity.uppercase(), color = rarityColor, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                        if ((meta?.bonusAttack ?: 0) > 0) Text("+${meta?.bonusAttack} ATK", color = EidosNeon, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                                        if ((meta?.bonusDefense ?: 0) > 0) Text("+${meta?.bonusDefense} DEF", color = EidosCyan, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                                        if ((meta?.bonusLuck ?: 0) > 0) Text("+${meta?.bonusLuck} LCK", color = Color(0xFFFFD54F), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                    if (!canEquip) {
+                                        Text("Требуется Level $reqLevel", color = EidosRed, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+
+                                Spacer(Modifier.width(8.dp))
+
+                                Button(
+                                    onClick = {
+                                        if (canEquip) {
+                                            onEquip(item)
+                                            onDismiss()
+                                        }
+                                    },
+                                    enabled = canEquip,
+                                    colors = ButtonDefaults.buttonColors(containerColor = if (canEquip) EidosCyan.copy(alpha = 0.25f) else Color.DarkGray),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (canEquip) EidosCyan else Color.Gray),
+                                    shape = CutCornerShape(4.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("НАДЕТЬ", color = if (canEquip) EidosCyan else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                                 }
                             }
                         }

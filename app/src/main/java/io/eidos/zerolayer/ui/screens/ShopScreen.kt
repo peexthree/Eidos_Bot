@@ -634,15 +634,14 @@ fun ShopScreen(
                                                 )
                                             )
                                         )
-                                        .border(1.dp, itemRarityColor.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                                        .padding(4.dp),
+                                        .border(1.dp, itemRarityColor.copy(alpha = 0.35f), RoundedCornerShape(6.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     EidosImage(
                                         resName = item.id,
                                         borderColor = Color.Transparent,
                                         borderWidth = 0.dp,
-                                        contentScale = ContentScale.Fit,
+                                        contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
 
