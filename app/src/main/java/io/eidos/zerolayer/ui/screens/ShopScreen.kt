@@ -28,6 +28,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -46,6 +47,7 @@ import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.VideoBackground
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.cyberHudBorder
 import io.eidos.zerolayer.ui.components.EidosGlassCard
@@ -188,14 +190,94 @@ fun ShopScreen(
                 }
             }
 
-            // EVA-09 Assistant Explanation Banner
-            io.eidos.zerolayer.ui.components.ZzzHazardBanner(
-                title = "ГОЛОС EIDOS // ТОРГОВЫЙ ШЛЮЗ",
-                message = "Корпоративные Архивы открыты! Трать накопленные байты BioCoins на мощное оружие, защитные бронеплиты и восстанавливающие нано-аптечки для повышения Атаки и Защиты в рейдах.",
-                borderColor = amberColor,
-                iconRes = R.drawable.ic_menu_market,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-            )
+            // Shadow Broker Welcoming Atmosphere Header
+            CyberCornerBracketBox(
+                bracketSize = 14.dp,
+                bracketColor = amberColor,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = CutCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, amberColor.copy(alpha = 0.65f)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xF2080D14))
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        // Background Art ui_gemini_generated_imag
+                        Image(
+                            painter = painterResource(id = R.drawable.ui_gemini_generated_imag),
+                            contentDescription = "Теневой Брокер",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .matchParentSize()
+                                .alpha(0.35f)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color.Black.copy(alpha = 0.90f),
+                                            Color.Black.copy(alpha = 0.65f),
+                                            amberColor.copy(alpha = 0.20f)
+                                        )
+                                    )
+                                )
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Broker Portrait Box
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(CutCornerShape(6.dp))
+                                    .background(Color.Black)
+                                    .border(1.2.dp, amberColor, CutCornerShape(6.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ui_gemini_generated_imag),
+                                    contentDescription = "Broker Portrait",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(R.drawable.ic_menu_market, size = 12.dp)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        "ТЕНЕВОЙ БРОКЕР // АНКЛАВ ЧЕРНОГО РЫНКА",
+                                        color = amberColor,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 11.5.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    "«Рад видеть живого оператора в моем анклаве. Трать BioCoins с умом: здесь лучшее оружие, чипы и аптечки. Нулевой Слой не прощает дилетантов!»",
+                                    color = Color(0xFFE2E8F0),
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    lineHeight = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             // Category Tabs
             ScrollableTabRow(
@@ -299,7 +381,8 @@ fun ShopScreen(
                                         label = "cubeScale"
                                     )
 
-                                    val gachaPainter = runCatching { painterResource(id = R.drawable.gacha_cube_lootbox) }.getOrNull()
+                                    // gacha_cube_lootbox exists in drawable - safe to call directly
+                                    val gachaPainter = painterResource(id = R.drawable.gacha_cube_lootbox)
                                     if (gachaPainter != null) {
                                         Image(
                                             painter = gachaPainter,
@@ -1156,10 +1239,9 @@ fun ItemAcquiredCelebrationDialog(
                         resName = item.id,
                         fallbackIcon = Icons.Default.Star,
                         borderColor = Color.Transparent,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(10.dp)
+                        borderWidth = 0.dp,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 

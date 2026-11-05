@@ -16,6 +16,7 @@ app/build/
 local.properties
 *.keystore
 !app/debug.keystore
+keystore.properties
 *.jks
 !app/google-services.json
 

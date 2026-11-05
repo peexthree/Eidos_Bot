@@ -51,6 +51,70 @@ import java.util.concurrent.ConcurrentHashMap
 private val drawableCache = ConcurrentHashMap<String, Int>()
 private val bitmapCache = android.util.LruCache<Int, ImageBitmap>(80)
 
+private val ITEM_DRAWABLE_ALIASES: Map<String, String> = mapOf(
+    "eidos_shard" to "data_shard",
+    "schrodinger_armor" to "schrodingers_armor",
+    "neural_link" to "neuro_link",
+    "error_404_mirror" to "error_404",
+    "martyr_halo" to "martyrs_halo",
+    "cyber_halo" to "martyrs_halo",
+    "cryo" to "cryo_capsule",
+    "fragment" to "data_fragment",
+    "memory_wiper" to "cache_wiper",
+    "admin_key" to "master_key",
+    "neural_stimulator" to "neural_injector",
+    "exo_skeleton" to "exoskeleton_frame",
+    "crown_paranoia" to "eidos_crown",
+    "overclock_crown" to "neuro_crown",
+    "architect_mask" to "architect_eye",
+    "void_walker_hood" to "holo_hood",
+    "nano_suit" to "nano_armor",
+    "reality_armor" to "void_armor",
+    "quantum_shield" to "aegis",
+    "vampire_visor" to "reflex_visor",
+    "tac_visor" to "sentinel_visor",
+    "tactical_scanner" to "combat_goggles",
+    "soft_trojan_v1" to "trojan_bat",
+    "soft_ddos_v1" to "ddos_cannon",
+    "soft_vpn_v1" to "vpn_ghost",
+    "soft_sniffer_v1" to "sniffer",
+    "soft_backdoor_v1" to "backdoor_js",
+    "soft_brute_v1" to "bruteforce_exe",
+    "soft_wall_v1" to "firewall_10",
+    "soft_ice_v1" to "ice_wall",
+    "soft_proxy_v1" to "vpn_ghost",
+    "soft_botnet_v1" to "ddos_cannon",
+    "soft_antivirus_v1" to "firewall_10",
+    "soft_aegis_v1" to "aegis",
+    "hub_lock" to "cipher_lock",
+    "decoy_trap" to "ic_event_trap",
+    "firewall" to "firewall_10",
+    "ice_trap" to "ice_wall",
+    "proxy_server" to "vpn_ghost",
+    "stealth_spray" to "reality_silencer",
+    "chronometer" to "chrono_drive",
+    "god_mode_chip" to "kamikaze_protocol",
+    "overclocker" to "overclock_module",
+    "backup_drive" to "flash_storage",
+    "logic_gate" to "quantum_transistor",
+    "ai_core" to "tachyon_core",
+    "leather_jacket" to "cyber_vest",
+    "scavenger_coat" to "hoodie",
+    "tactical_suit" to "kevlar_vest",
+    "phantom_cloak" to "shadow_cowl",
+    "force_field" to "thermonuclear_shroud",
+    "relic_vampire" to "eidos_crown",
+    "relic_speed" to "tactical_helmet",
+    "shadow_reliq_speed" to "tactical_helmet",
+    "corrupted_data_cluster" to "anomaly_glitch_3",
+    "accel" to "cpu_booster",
+    "decoder" to "abyssal_key",
+    "encrypted_cache" to "cipher_lock",
+    "purification_sync" to "glitch_filter",
+    "ram_chip" to "quantum_chip",
+    "maxwells_demon" to "imposter_syndrome"
+)
+
 /**
  * Singleton Coil ImageLoader configured with SvgDecoder for rendering SVG icons from assets.
  */
@@ -111,7 +175,8 @@ fun safeLoadImageBitmap(context: Context, resId: Int): ImageBitmap? {
             return imgBitmap
         }
         null
-    } catch (_: Throwable) {
+    } catch (t: Throwable) {
+        android.util.Log.w("EidosImage", "safeLoadImageBitmap failed for resId=$resId: ${t.message}")
         null
     }
 }
@@ -139,10 +204,20 @@ fun resolveDrawableResourceId(context: Context, resName: String?): Int {
             .replace("щ", "sch").replace("ы", "y").replace("э", "e")
             .replace("ю", "yu").replace("я", "ya")
 
+        // 0. Explicit Item Aliases Map query
+        val aliasTarget = ITEM_DRAWABLE_ALIASES[cleanName] ?: ITEM_DRAWABLE_ALIASES[safeName.lowercase()]
+        var foundId = if (aliasTarget != null) {
+            runCatching {
+                context.resources.getIdentifier(aliasTarget, "drawable", context.packageName)
+            }.getOrDefault(0)
+        } else 0
+
         // 1. Direct name query
-        var foundId = runCatching {
-            context.resources.getIdentifier(cleanName, "drawable", context.packageName)
-        }.getOrDefault(0)
+        if (foundId == 0) {
+            foundId = runCatching {
+                context.resources.getIdentifier(cleanName, "drawable", context.packageName)
+            }.getOrDefault(0)
+        }
 
         if (foundId == 0) {
             foundId = runCatching {
@@ -242,9 +317,9 @@ fun EidosImage(
     fallbackIcon: ImageVector = Icons.Default.Info,
     contentDescription: String? = null,
     modifier: Modifier = Modifier,
-    borderColor: Color = EidosCyan,
-    borderWidth: Dp = 1.dp,
-    contentScale: ContentScale = ContentScale.Fit
+    borderColor: Color = Color.Transparent,
+    borderWidth: Dp = 0.dp,
+    contentScale: ContentScale = ContentScale.Crop
 ) {
     val context = LocalContext.current
 
@@ -280,7 +355,7 @@ fun EidosImage(
                 contentDescription = contentDescription ?: safeName,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(if (contentScale == ContentScale.Crop || borderWidth == 0.dp) 0.dp else 2.dp),
+                    .padding(if (contentScale == ContentScale.Crop || borderWidth == 0.dp || borderColor == Color.Transparent) 0.dp else 2.dp),
                 contentScale = contentScale
             )
         }
@@ -304,7 +379,7 @@ fun EidosImage(
                     contentDescription = contentDescription ?: safeName,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(if (contentScale == ContentScale.Crop || borderWidth == 0.dp) 0.dp else 2.dp),
+                        .padding(if (contentScale == ContentScale.Crop || borderWidth == 0.dp || borderColor == Color.Transparent) 0.dp else 2.dp),
                     contentScale = contentScale,
                     onError = {
                         isSvgError = true

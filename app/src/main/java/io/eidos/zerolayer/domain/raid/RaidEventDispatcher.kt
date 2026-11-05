@@ -362,15 +362,17 @@ object RaidEventDispatcher {
         } else {
             io.eidos.zerolayer.data.GameData.VILLAINS.first()
         }
-        // Canonical HP strictly from official monster data
-        val hp = villain.hp
+        // Scaled HP with depth so starter monsters aren't trivialized and one-shotted with early gear
+        val depthScale = 1.0f + (depth * 0.0075f)
+        val baseMinHp = 50 + (villain.level * 25) + (depth / 4)
+        val scaledHp = maxOf(baseMinHp, (villain.hp * depthScale).toInt())
 
         return DispatchResult.CombatEncounter(
             enemyName = villain.name,
-            enemyHp = hp,
+            enemyHp = scaledHp,
             enemyLevel = villain.level,
             isGlitchPhantom = false,
-            message = "⚠️ ${villain.name} [УР ${villain.level}] (HP: $hp) перехватил ваш сигнал!"
+            message = "⚠️ ${villain.name} [УР ${villain.level}] (HP: $scaledHp) перехватил ваш сигнал!"
         )
     }
 }

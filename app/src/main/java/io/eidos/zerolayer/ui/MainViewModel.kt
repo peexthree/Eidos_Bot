@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.eidos.zerolayer.data.*
+import io.eidos.zerolayer.BuildConfig
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -221,39 +222,17 @@ class MainViewModel(
             // Passive Energy Regeneration (offline calculations with Anti-Time Cheat protection)
             val p = repository.getPlayerSync(effectiveUid)
             if (p != null) {
-                val validation = io.eidos.zerolayer.domain.anti_cheat.TimeAntiCheat.validateAndSanitizeTimestamp(application)
-                val safeNow = validation.sanitizedCurrentTime
-                val diffMs = io.eidos.zerolayer.domain.anti_cheat.TimeAntiCheat.calculateSafeOfflineDurationMs(
-                    lastActiveTimestamp = p.last_active,
-                    currentValidatedTimestamp = safeNow
-                )
-                val regenIntervalMs = 5 * 60 * 1000L // 5 minutes
-
-                if (validation.message != null) {
-                    repository.log(p.uid, validation.message, "error")
+                val report = repository.regenerateEnergy(effectiveUid, resetIdleTimestamp = true)
+                if (report?.validationMessage != null) {
                     viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                        showToast(validation.message, CyberToastType.ALERT)
+                        showToast(report.validationMessage, CyberToastType.ALERT)
                     }
                 }
-
-                if (diffMs >= regenIntervalMs && p.energy < p.max_energy) {
-                    val gained = (diffMs / regenIntervalMs).toInt()
-                    if (gained > 0) {
-                        val newEnergy = minOf(p.max_energy, p.energy + gained)
-                        val updated = p.copy(
-                            energy = newEnergy,
-                            last_active = safeNow - (diffMs % regenIntervalMs),
-                            state_version = p.state_version + 1,
-                            updated_at = safeNow
-                        )
-                        repository.savePlayer(updated)
-                        repository.log(p.uid, "⚡ [НЕЙРО-АККУМУЛЯТОР]: В оффлайне восстановлено +$gained ед. Энергии.", "info")
-                        if (newEnergy >= p.max_energy) {
-                            notifications.notifyEnergyRestored()
-                        }
+                if (report?.regenerated == true) {
+                    repository.log(p.uid, "⚡ [НЕЙРО-АККУМУЛЯТОР]: В оффлайне восстановлено +${report.gained} ед. Энергии.", "info")
+                    if (report.reachedMax) {
+                        notifications.notifyEnergyRestored()
                     }
-                } else {
-                    repository.savePlayer(p.copy(last_active = safeNow))
                 }
             }
 
@@ -269,30 +248,11 @@ class MainViewModel(
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             while (true) {
                 kotlinx.coroutines.delay(60 * 1000L)
-                val p = repository.getPlayerSync(_uid.value)
-                if (p != null && p.energy < p.max_energy) {
-                    val validation = io.eidos.zerolayer.domain.anti_cheat.TimeAntiCheat.validateAndSanitizeTimestamp(application)
-                    val safeNow = validation.sanitizedCurrentTime
-                    val diffMs = io.eidos.zerolayer.domain.anti_cheat.TimeAntiCheat.calculateSafeOfflineDurationMs(
-                        lastActiveTimestamp = p.last_active,
-                        currentValidatedTimestamp = safeNow
-                    )
-                    val regenIntervalMs = 5 * 60 * 1000L // 5 minutes
-                    if (diffMs >= regenIntervalMs) {
-                        val gained = (diffMs / regenIntervalMs).toInt()
-                        if (gained > 0) {
-                            val newEnergy = minOf(p.max_energy, p.energy + gained)
-                            repository.savePlayer(p.copy(
-                                energy = newEnergy,
-                                last_active = safeNow - (diffMs % regenIntervalMs),
-                                state_version = p.state_version + 1,
-                                updated_at = safeNow
-                            ))
-                            repository.log(p.uid, "⚡ [НЕЙРО-АККУМУЛЯТОР]: Накоплено +$gained ед. Энергии.", "info")
-                            if (newEnergy >= p.max_energy) {
-                                notifications.notifyEnergyRestored()
-                            }
-                        }
+                val report = repository.regenerateEnergy(_uid.value, resetIdleTimestamp = false)
+                if (report?.regenerated == true) {
+                    repository.log(_uid.value, "⚡ [НЕЙРО-АККУМУЛЯТОР]: Накоплено +${report.gained} ед. Энергии.", "info")
+                    if (report.reachedMax) {
+                        notifications.notifyEnergyRestored()
                     }
                 }
             }
@@ -347,6 +307,8 @@ class MainViewModel(
                 biocoin = remote.biocoins,
                 hp = remote.hp,
                 energy = remote.energy,
+                kills = maxOf(conflict.local.kills, remote.kills),
+                max_depth = maxOf(conflict.local.max_depth, remote.maxDepth),
                 state_version = remote.stateVersion,
                 updated_at = System.currentTimeMillis()
             ))
@@ -381,6 +343,8 @@ class MainViewModel(
                 hp = updatedLocal.hp,
                 energy = updatedLocal.energy,
                 rank = updatedLocal.path,
+                maxDepth = updatedLocal.max_depth,
+                kills = updatedLocal.kills,
                 stateVersion = updatedLocal.state_version
             )
             SupabaseClientManager.syncPlayer(sp)
@@ -418,6 +382,7 @@ class MainViewModel(
                         energy = localPlayer.energy,
                         rank = localPlayer.path,
                         maxDepth = localPlayer.max_depth,
+                        kills = localPlayer.kills,
                         defense_program_1 = localPlayer.defense_program_1,
                         defense_program_2 = localPlayer.defense_program_2,
                         defense_program_3 = localPlayer.defense_program_3,
@@ -466,6 +431,7 @@ class MainViewModel(
                     energy = localPlayer.energy,
                     rank = localPlayer.path,
                     maxDepth = localPlayer.max_depth,
+                    kills = localPlayer.kills,
                     defense_program_1 = localPlayer.defense_program_1,
                     defense_program_2 = localPlayer.defense_program_2,
                     defense_program_3 = localPlayer.defense_program_3,
@@ -526,40 +492,51 @@ class MainViewModel(
         }
     }
 
+    /**
+     * Launches a repository action on the viewModelScope, logging (not
+     * crashing on) Room/network exceptions. Raid actions run inside
+     * dbMutex critical sections; an unhandled exception there would kill
+     * the whole app, so every combat/raid entry point routes through here.
+     */
+    private fun launchRaidAction(action: String, block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                block()
+            } catch (e: Exception) {
+                android.util.Log.e("COMBAT_ERROR", "$action failed", e)
+            }
+        }
+    }
+
     fun attackCombat() {
         haptics.criticalHit()
         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-        viewModelScope.launch {
-            try {
-                repository.attackCombat(_uid.value)
-            } catch (e: Exception) {
-                android.util.Log.e("COMBAT_ERROR", "attackCombat failed", e)
-            }
-        }
+        launchRaidAction("attackCombat") { repository.attackCombat(_uid.value) }
     }
 
     fun endRaid() {
         haptics.click()
         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
-        viewModelScope.launch {
-            repository.endRaid(_uid.value)
-        }
+        launchRaidAction("endRaid") { repository.endRaid(_uid.value) }
     }
 
     fun salvageBufferItem(index: Int) {
         haptics.click()
         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+        launchRaidAction("salvageBufferItem") { repository.salvageBufferItemForEnergy(_uid.value, index) }
+    }
+
+    fun claimChestLoot(isCursed: Boolean, onResult: (Long, Long, List<String>) -> Unit = { _, _, _ -> }) {
         viewModelScope.launch {
-            repository.salvageBufferItemForEnergy(_uid.value, index)
+            val (coins, xp, items) = repository.claimChestLoot(_uid.value, isCursed)
+            onResult(coins, xp, items)
         }
     }
 
     fun scanSector() {
         haptics.glitchPulse()
         audio.playSound(EidosAudioManager.SoundType.GLITCH_FOUND)
-        viewModelScope.launch {
-            repository.scanSector(_uid.value)
-        }
+        launchRaidAction("scanSector") { repository.scanSector(_uid.value) }
     }
 
     fun resolveRiddle(isCorrect: Boolean) {
@@ -570,61 +547,37 @@ class MainViewModel(
             haptics.glitchPulse()
             audio.playSound(EidosAudioManager.SoundType.ERROR_GLITCH)
         }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            repository.resolveRiddle(_uid.value, isCorrect)
-        }
+        launchRaidAction("resolveRiddle") { repository.resolveRiddle(_uid.value, isCorrect) }
     }
 
     fun defendCombat() {
         haptics.step()
         audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
-        viewModelScope.launch {
-            try {
-                repository.defendCombat(_uid.value)
-            } catch (e: Exception) {
-                android.util.Log.e("COMBAT_ERROR", "defendCombat failed", e)
-            }
-        }
+        launchRaidAction("defendCombat") { repository.defendCombat(_uid.value) }
     }
 
     fun useActiveAbility() {
         haptics.criticalHit()
         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-        viewModelScope.launch {
-            try {
-                repository.useActiveAbility(_uid.value)
-            } catch (e: Exception) {
-                android.util.Log.e("COMBAT_ERROR", "useActiveAbility failed", e)
-            }
-        }
+        launchRaidAction("useActiveAbility") { repository.useActiveAbility(_uid.value) }
     }
 
     fun triggerOverdrive() {
         haptics.criticalHit()
         audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-        viewModelScope.launch {
-            try {
-                repository.triggerOverdrive(_uid.value)
-            } catch (e: Exception) {
-                android.util.Log.e("COMBAT_ERROR", "triggerOverdrive failed", e)
-            }
-        }
+        launchRaidAction("triggerOverdrive") { repository.triggerOverdrive(_uid.value) }
     }
 
     fun boostOvercharge() {
         haptics.glitchPulse()
         audio.playSound(EidosAudioManager.SoundType.LEVEL_UP)
-        viewModelScope.launch {
-            repository.boostOvercharge(_uid.value)
-        }
+        launchRaidAction("boostOvercharge") { repository.boostOvercharge(_uid.value) }
     }
 
     fun mergeItems(itemId: String) {
         haptics.click()
         audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
-        viewModelScope.launch {
-            repository.mergeItems(_uid.value, itemId)
-        }
+        launchRaidAction("mergeItems") { repository.mergeItems(_uid.value, itemId) }
     }
 
     fun dismantle(item: InventoryItem) {
@@ -747,7 +700,7 @@ class MainViewModel(
 
     fun getAnomalyData(id: String?) = id?.let { repository.getAnomaly(it) }
     fun getAllItemsMetadata() = repository.getAllItemsMetadata()
-    fun getPlayerDirect(): Player? = kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { repository.getPlayerSync(_uid.value) }
+    fun getPlayerDirect(): Player? = player.value
 
     fun equip(item: InventoryItem) {
         viewModelScope.launch {
@@ -1183,6 +1136,7 @@ class MainViewModel(
     }
 
     fun grantAdminResources() {
+        if (!BuildConfig.DEBUG) return
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val p = repository.getPlayerSync(_uid.value) ?: return@launch
             val dao = database.dao()
@@ -1207,6 +1161,7 @@ class MainViewModel(
     }
 
     fun grantGodKit() {
+        if (!BuildConfig.DEBUG) return
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val dao = database.dao()
             dao.insertInventoryItem(InventoryItem(uid = _uid.value, item_id = "cyber_katana", quantity = 1, durability = 100f, is_equipped = false))

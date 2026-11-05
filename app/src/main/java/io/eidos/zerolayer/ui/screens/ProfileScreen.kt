@@ -30,6 +30,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,6 +56,7 @@ import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.components.VideoBackground
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.cyberHudBorder
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
@@ -216,32 +218,32 @@ fun ProfileScreen(
     val unlockedAchCount = achievements.count { it.isUnlocked }
     val claimedAchCount = achievements.count { it.isClaimed }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("НЕЙРО-ПРОФИЛЬ // EIDOS", color = EidosCyan, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosCyan)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showTerminalDialog = true }) {
-                        ZzzIcon(iconRes = R.drawable.ic_menu_codex, size = 18.dp, tint = EidosCyan)
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = EidosCyan)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
-            )
-        },
-        containerColor = Color.Transparent
-    ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            VideoBackground(resName = "doll", modifier = Modifier.fillMaxSize())
-            CyberGridOverlay(modifier = Modifier.fillMaxSize())
+    Box(modifier = Modifier.fillMaxSize()) {
+        VideoBackground(resName = "bg_pvp", modifier = Modifier.fillMaxSize())
+        CyberGridOverlay(modifier = Modifier.fillMaxSize())
 
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("НЕЙРО-ПРОФИЛЬ // EIDOS", color = EidosCyan, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosCyan)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showTerminalDialog = true }) {
+                            ZzzIcon(iconRes = R.drawable.ic_menu_codex, size = 18.dp, tint = EidosCyan)
+                        }
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = EidosCyan)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black.copy(alpha = 0.45f))
+                )
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
             Column(
                 modifier = Modifier
                     .padding(innerPadding)
@@ -461,6 +463,77 @@ fun ProfileScreen(
                                 valueText = "$xpInLevel / $xpNeededForLevel XP [${(xpProgress * 100).toInt()}%]",
                                 modifier = Modifier.fillMaxWidth()
                             )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Faction Syndicate Banner Card with High-Res Faction Art
+                val factionName = player?.faction ?: "МАТЕРИЯ"
+                val (factionArtRes, factionColor, factionDesc) = when (factionName.uppercase()) {
+                    "ТЕХНО" -> Triple(R.drawable.bg_neuro, Color(0xFFFF2A85), "Хакеры Нулевого Слоя • Агрессивный взлом • +15 ATK")
+                    "РАЗУМ", "ИИ" -> Triple(R.drawable.bg_mind_2, Color(0xFF00FFF6), "Оборонный Альянс ИИ • Стабильность Сигнала • +15 DEF")
+                    else -> Triple(R.drawable.bg_main_banner, Color(0xFFFFD700), "Финансовый Конгломерат • Ресурсы и Удача • +20% BioCoins")
+                }
+
+                CyberCornerBracketBox(
+                    bracketSize = 14.dp,
+                    bracketColor = factionColor,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = CutCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, factionColor.copy(alpha = 0.6f)),
+                        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.70f))
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Image(
+                                painter = painterResource(id = factionArtRes),
+                                contentDescription = factionName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(84.dp)
+                                    .alpha(0.35f)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(84.dp)
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(
+                                                Color.Black.copy(alpha = 0.85f),
+                                                Color.Black.copy(alpha = 0.55f),
+                                                factionColor.copy(alpha = 0.25f)
+                                            )
+                                        )
+                                    )
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                            ) {
+                                Column(verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxHeight()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_event_anomaly, size = 12.dp)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "СИНДИКАТ // $factionName",
+                                            color = factionColor,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 13.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        factionDesc,
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -759,7 +832,7 @@ fun ProfileScreen(
                                 MetricRow(drawableRes = R.drawable.ic_event_evac, label = "Рейдов Пройдено:", value = "${player?.raids_done ?: 0} рейдов")
                                 MetricRow(drawableRes = R.drawable.ic_action_defense, label = "Идеальных Рейдов (без урона):", value = "${player?.perfect_raids ?: 0}")
                                 MetricRow(drawableRes = R.drawable.ic_stat_depth, label = "Макс. Глубина Погружения:", value = "${player?.max_depth ?: 0} метров", valueColor = EidosCyan)
-                                MetricRow(drawableRes = R.drawable.ic_event_danger, label = "Уничтожено Вирусов:", value = "${player?.kills ?: 0} сушностей")
+                                MetricRow(drawableRes = R.drawable.ic_event_danger, label = "Уничтожено Вирусов:", value = "${player?.kills ?: 0} сущностей")
 
                                 HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 

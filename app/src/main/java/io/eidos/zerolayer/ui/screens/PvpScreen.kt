@@ -30,6 +30,7 @@ import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.VideoBackground
 import androidx.compose.ui.draw.alpha
@@ -101,60 +102,59 @@ fun PvpScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("СЕТЕВЫЕ ВОЙНЫ 2.0 // РЕЙДЫ НА УЗЛЫ", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 15.sp, fontFamily = FontFamily.Monospace)
-                        Text("КИБЕР-ДЕКА • ПРОТОКОЛЫ • ВЕНДЕТТА", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (selectedTarget != null && activeDuelResult == null) {
-                            selectedTarget = null
-                            selectedAttackPrograms.clear()
-                        } else {
-                            onBack()
-                        }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosRed)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
-            )
-        },
-        containerColor = Color.Black
-    ) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Layer 0: Hexagonal Cyber Grid Live Video & PNG Fallback
+        VideoBackground(resName = "bg_pvp", modifier = Modifier.fillMaxSize())
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_pvp),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize().alpha(0.35f),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            alignment = Alignment.Center
+        )
+        // Semi-transparent Dark Glass Overlay
         Box(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
-        ) {
-            // Layer 0: Hexagonal Cyber Grid Live Video & PNG Fallback
-            VideoBackground(resName = "bg_pvp", modifier = Modifier.fillMaxSize())
-            androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_pvp),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize().alpha(0.25f),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                alignment = Alignment.Center
-            )
-            // Dark Overlay
-            Box(
+                .background(Color.Black.copy(alpha = 0.45f))
+        )
+        CyberGridOverlay(modifier = Modifier.fillMaxSize())
+        CyberParticleOverlay(
+            modifier = Modifier.fillMaxSize(),
+            preset = if (activeDuelResult != null) ParticlePreset.FORGE_SPARKS else ParticlePreset.ABYSS_DUST
+        )
+
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("СЕТЕВЫЕ ВОЙНЫ 2.0 // РЕЙДЫ НА УЗЛЫ", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 15.sp, fontFamily = FontFamily.Monospace)
+                            Text("КИБЕР-ДЕКА • ПРОТОКОЛЫ • ВЕНДЕТТА", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            if (selectedTarget != null && activeDuelResult == null) {
+                                selectedTarget = null
+                                selectedAttackPrograms.clear()
+                            } else {
+                                onBack()
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosRed)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                )
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
+            Column(
                 modifier = Modifier
+                    .padding(innerPadding)
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.82f))
-            )
-
-            CyberGridOverlay(modifier = Modifier.fillMaxSize())
-            CyberParticleOverlay(
-                modifier = Modifier.fillMaxSize(),
-                preset = if (activeDuelResult != null) ParticlePreset.FORGE_SPARKS else ParticlePreset.ABYSS_DUST
-            )
-
-            Column(modifier = Modifier.fillMaxSize()) {
+            ) {
                 // Header Status Bar
                 Surface(
                     color = EidosGlass,
@@ -205,7 +205,7 @@ fun PvpScreen(
                 // Tab Selector
                 TabRow(
                     selectedTabIndex = selectedTab,
-                    containerColor = Color.Black,
+                    containerColor = Color.Black.copy(alpha = 0.50f),
                     contentColor = EidosRed,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
@@ -260,83 +260,162 @@ fun PvpScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 item {
-                                    io.eidos.zerolayer.ui.components.ZzzWindowCard(
-                                        title = "СЕТЕВАЯ ВОЙНА // КИБЕР-УЗЛЫ",
-                                        headerBadge = "TACTICAL SCAN",
-                                        borderColor = io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
-                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    CyberCornerBracketBox(
+                                        bracketSize = 14.dp,
+                                        bracketColor = io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                                     ) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Text(
-                                                "ТАКТИЧЕСКАЯ СЕТКА КИБЕР-УЗЛОВ: Выберите узел цели для неврального взлома. Награда: до 15% BioCoins цели и +100 XP.",
-                                                color = io.eidos.zerolayer.ui.theme.ZzzTextBody,
-                                                fontSize = 11.5.sp,
-                                                fontFamily = FontFamily.SansSerif
-                                            )
-                                            io.eidos.zerolayer.ui.components.ZzzMainButton(
-                                                text = "СКАНИРОВАТЬ СЕТЬ (-50 BC)",
-                                                onClick = {
-                                                    haptics.click()
-                                                    showSearchConfirmDialog = true
-                                                },
-                                                primaryColor = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
-                                                borderColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
-                                                textColor = Color.Black,
-                                                modifier = Modifier.fillMaxWidth().height(38.dp)
-                                            )
+                                        Surface(
+                                            color = Color(0xCC0C1420),
+                                            shape = CutCornerShape(6.dp),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, io.eidos.zerolayer.ui.theme.ZzzHotMagenta.copy(alpha = 0.6f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Box(modifier = Modifier.fillMaxWidth()) {
+                                                // Background Art: ui_replace_the_word_2026
+                                                androidx.compose.foundation.Image(
+                                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ui_replace_the_word_2026),
+                                                    contentDescription = "Сетевая Война",
+                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                    modifier = Modifier.matchParentSize().alpha(0.35f)
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .matchParentSize()
+                                                        .background(
+                                                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                                                listOf(
+                                                                    Color.Black.copy(alpha = 0.85f),
+                                                                    Color.Black.copy(alpha = 0.55f),
+                                                                    Color.Black.copy(alpha = 0.90f)
+                                                                )
+                                                            )
+                                                        )
+                                                )
+
+                                                Column(
+                                                    modifier = Modifier.padding(12.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            "СЕТЕВАЯ ВОЙНА // КИБЕР-УЗЛЫ",
+                                                            color = io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 12.sp,
+                                                            fontFamily = FontFamily.Monospace
+                                                        )
+                                                        io.eidos.zerolayer.ui.components.ZzzBadge(
+                                                            text = "TACTICAL SCAN",
+                                                            color = io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
+                                                            textColor = Color.White
+                                                        )
+                                                    }
+                                                    Text(
+                                                        "ТАКТИЧЕСКАЯ СЕТКА КИБЕР-УЗЛОВ: Выберите узел цели для неврального взлома. Награда: до 15% BioCoins цели и +100 XP.",
+                                                        color = io.eidos.zerolayer.ui.theme.ZzzTextBody,
+                                                        fontSize = 11.sp,
+                                                        fontFamily = FontFamily.SansSerif
+                                                    )
+                                                    io.eidos.zerolayer.ui.components.ZzzMainButton(
+                                                        text = "СКАНИРОВАТЬ СЕТЬ (-50 BC)",
+                                                        onClick = {
+                                                            haptics.click()
+                                                            showSearchConfirmDialog = true
+                                                        },
+                                                        primaryColor = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
+                                                        borderColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
+                                                        textColor = Color.Black,
+                                                        modifier = Modifier.fillMaxWidth().height(38.dp)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
 
-                                items(validTargets) { target ->
-                                    io.eidos.zerolayer.ui.components.ZzzWindowCard(
-                                        title = target.username ?: "Квантовый Узел",
-                                        headerBadge = "LVL ${target.level}",
-                                        borderColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
-                                        modifier = Modifier
-                                            .padding(bottom = 8.dp)
-                                            .clickable {
-                                                selectedTarget = target
-                                                isRevengeRaid = false
-                                                selectedAttackPrograms.clear()
-                                                activeDuelResult = null
-                                                haptics.click()
-                                            }
+                                items(validTargets, key = { it.deviceId }) { target ->
+                                    CyberCornerBracketBox(
+                                        bracketSize = 14.dp,
+                                        bracketColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                                     ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        Surface(
+                                            color = Color(0xFF081524).copy(alpha = 0.38f),
+                                            shape = CutCornerShape(6.dp),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, io.eidos.zerolayer.ui.theme.ZzzElectricCyan.copy(alpha = 0.55f)),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    selectedTarget = target
+                                                    isRevengeRaid = false
+                                                    selectedAttackPrograms.clear()
+                                                    activeDuelResult = null
+                                                    haptics.click()
+                                                }
                                         ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(40.dp)
-                                                        .background(Color(0xFF161C2A), CutCornerShape(4.dp))
-                                                        .border(1.5.dp, io.eidos.zerolayer.ui.theme.ZzzElectricCyan, CutCornerShape(4.dp)),
-                                                    contentAlignment = Alignment.Center
+                                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Icon(Icons.Default.Share, contentDescription = null, tint = io.eidos.zerolayer.ui.theme.ZzzElectricCyan, modifier = Modifier.size(20.dp))
+                                                    Text(
+                                                        target.username ?: "Квантовый Узел",
+                                                        color = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 12.sp,
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+                                                    io.eidos.zerolayer.ui.components.ZzzBadge(
+                                                        text = "LVL ${target.level}",
+                                                        color = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
+                                                        textColor = Color.Black
+                                                    )
                                                 }
-                                                Spacer(modifier = Modifier.width(10.dp))
-                                                Column {
-                                                    Text(target.username ?: "Неизвестный сервер", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
-                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                        io.eidos.zerolayer.ui.components.ZzzBadge(
-                                                            text = target.rank.uppercase(),
-                                                            color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
-                                                            textColor = Color.Black
-                                                        )
-                                                        Text("DEF: 87%", color = io.eidos.zerolayer.ui.theme.ZzzToxicGreen, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(38.dp)
+                                                                .background(Color(0xFF161C2A), CutCornerShape(4.dp))
+                                                                .border(1.5.dp, io.eidos.zerolayer.ui.theme.ZzzElectricCyan, CutCornerShape(4.dp)),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(Icons.Default.Share, contentDescription = null, tint = io.eidos.zerolayer.ui.theme.ZzzElectricCyan, modifier = Modifier.size(18.dp))
+                                                        }
+                                                        Spacer(modifier = Modifier.width(10.dp))
+                                                        Column {
+                                                            Text(target.username ?: "Неизвестный сервер", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                                io.eidos.zerolayer.ui.components.ZzzBadge(
+                                                                    text = target.rank.uppercase(),
+                                                                    color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
+                                                                    textColor = Color.Black
+                                                                )
+                                                                Text("DEF: 87%", color = io.eidos.zerolayer.ui.theme.ZzzToxicGreen, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                                            }
+                                                        }
                                                     }
-                                                }
-                                            }
-                                            Column(horizontalAlignment = Alignment.End) {
-                                                Text("ХРАНИЛИЩЕ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text("${target.biocoins} BC", color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                                                    Spacer(Modifier.width(3.dp))
-                                                    ZzzIcon(R.drawable.ic_res_biocoin, size = 12.dp)
+                                                    Column(horizontalAlignment = Alignment.End) {
+                                                        Text("ХРАНИЛИЩЕ", color = Color.Gray, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Text("${target.biocoins} BC", color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow, fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, fontFamily = FontFamily.Monospace)
+                                                            Spacer(Modifier.width(3.dp))
+                                                            ZzzIcon(R.drawable.ic_res_biocoin, size = 12.dp)
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -626,7 +705,7 @@ fun PvpScreen(
                                 }
                             }
 
-                            items(HardwareType.values()) { hw ->
+                            items(HardwareType.values(), key = { it.name }) { hw ->
                                 val isInstalled = installedHw.contains(hw.name)
                                 Surface(
                                     color = if (isInstalled) EidosCyan.copy(alpha = 0.15f) else EidosGlass,
@@ -720,7 +799,7 @@ fun PvpScreen(
                             }
 
                             // Mock/Real vendetta entries
-                            items(validTargets.take(3)) { target ->
+                            items(validTargets.take(3), key = { it.deviceId }) { target ->
                                 Surface(
                                     color = EidosGlass,
                                     border = androidx.compose.foundation.BorderStroke(1.dp, EidosRed.copy(alpha = 0.4f)),

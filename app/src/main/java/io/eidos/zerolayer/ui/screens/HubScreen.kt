@@ -1,6 +1,7 @@
 package io.eidos.zerolayer.ui.screens
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,8 +21,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -34,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.R
 import io.eidos.zerolayer.data.Player
 import io.eidos.zerolayer.data.GameLog
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.CyberdeckVisorOverlay
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
@@ -97,6 +104,33 @@ fun HubScreen(
     var showRelicShowcaseDialog by remember { mutableStateOf(false) }
     var activeRelic by remember { mutableStateOf<EarthRelic?>(null) }
 
+    var currentTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTimeMs = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+    val lastDrop = player?.last_supply_drop ?: 0L
+    val cooldownRemainingMs = (lastDrop + 24 * 3600 * 1000L - currentTimeMs).coerceAtLeast(0L)
+    val isDepotReady = cooldownRemainingMs == 0L
+
+    val depotCountdownText = remember(cooldownRemainingMs) {
+        if (cooldownRemainingMs <= 0L) {
+            "ГОТОВО"
+        } else {
+            val totalSeconds = cooldownRemainingMs / 1000
+            val hours = totalSeconds / 3600
+            val minutes = (totalSeconds % 3600) / 60
+            val seconds = totalSeconds % 60
+            if (hours > 0) {
+                String.format(java.util.Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
+            } else {
+                String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
+            }
+        }
+    }
+
     var isBrokerActive by remember {
         mutableStateOf(ShadowBrokerManager.isBrokerActive(System.currentTimeMillis()) || (player?.is_admin == true))
     }
@@ -155,7 +189,9 @@ fun HubScreen(
         ) {
             VideoBackground(resName = "bg_hub", modifier = Modifier.fillMaxSize())
 
-            val bgPainter = runCatching { androidx.compose.ui.res.painterResource(id = R.drawable.bg_main) }.getOrNull()
+            // bg_main exists in drawable - painterResource is safe to call directly
+            // (Kotlin 2.3 forbids runCatching/try around @Composable invocations)
+            val bgPainter = androidx.compose.ui.res.painterResource(id = R.drawable.bg_main)
 
             if (bgPainter != null) {
                 androidx.compose.foundation.Image(
@@ -202,286 +238,247 @@ fun HubScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Faction and Operator Status Card with Live Telemetry
-                Card(
+                // 1. TOP OPERATOR HEADER (Avatar with Orbital Rings + Live Gauges & Resource Pills)
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, EidosCyan.copy(alpha = 0.45f), CutCornerShape(8.dp)),
-                    colors = CardDefaults.cardColors(containerColor = EidosGlass.copy(alpha = 0.68f)),
-                    shape = CutCornerShape(8.dp)
+                        .padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    // Left: Holographic Avatar with Orbit Rings + Online status & Faction
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(96.dp)
+                    ) {
+                        HolographicOrbitalAvatar(
+                            level = player?.level ?: 1,
+                            onClick = onNavigateToProfile
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            // Circular Avatar Preview
+                            Text(
+                                text = player?.username ?: "p1x3",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Box(
                                 modifier = Modifier
-                                    .size(56.dp)
+                                    .size(6.dp)
                                     .clip(CircleShape)
-                                    .border(2.dp, EidosCyan, CircleShape)
-                                    .clickable { onNavigateToProfile() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                EidosImage(
-                                    resName = "lvl_${(player?.level ?: 1).coerceIn(1, 31)}",
-                                    borderColor = Color.Transparent,
-                                    borderWidth = 0.dp,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = player?.username ?: "ОПЕРАТОР",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Image(
-                                            painter = painterResource(id = R.drawable.ic_hud_signal_ping),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            text = "ONLINE",
-                                            color = Color(0xFF00FFF6),
-                                            fontSize = 9.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "ФРАКЦИЯ: ${player?.faction ?: "НЕОФИТ"} // СИНХРОНИЗИРОВАН",
-                                    color = EidosCyan,
-                                    fontSize = 10.5.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-
-                            // Level Badge
-                            Box(
-                                modifier = Modifier
-                                    .background(EidosCyan.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                    .border(1.dp, EidosCyan, RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "LVL ${player?.level ?: 1}",
-                                    color = EidosCyan,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Black,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
+                                    .background(Color(0xFF00FF66))
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "ONLINE",
+                                color = Color(0xFF00FFF6),
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "ФРАКЦИЯ: ${player?.faction ?: "МАТЕРИЯ"} // СИНХРОНИЗИРОВАН",
+                            color = Color(0xFF7DE6F5),
+                            fontSize = 7.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 9.sp
+                        )
+                    }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                    // Right: Sci-Fi Gauges and Resource Pills
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Energy Gauge Bar (Green neon)
+                        CyberTopGaugeBar(
+                            label = "ЭНЕРГИЯ ПОГРУЖЕНИЯ",
+                            current = player?.energy ?: 100,
+                            max = player?.max_energy ?: 100,
+                            barColor = Color(0xFF00FF66),
+                            bgColor = Color(0xFF082218)
+                        )
 
-                        // Stats Grid (Energy & Health Bars)
+                        // Signal Stability Bar (Magenta/Pink neon)
+                        CyberTopGaugeBar(
+                            label = "СТАБИЛЬНОСТЬ СИГНАЛА",
+                            current = player?.hp ?: 180,
+                            max = player?.max_hp ?: 180,
+                            barColor = Color(0xFFFF007F),
+                            bgColor = Color(0xFF280718)
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        // 3 Resource Pills Row (HP, EP, BC)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            AnimatedCyberProgressBar(
-                                progress = (player?.energy ?: 0).toFloat() / (player?.max_energy ?: 100).toFloat(),
-                                color = EidosNeon,
-                                label = "ЭНЕРГИЯ ПОГРУЖЕНИЯ",
-                                valueText = "${player?.energy ?: 0}/${player?.max_energy ?: 100}",
+                            CyberResourcePill(
+                                iconText = "💎",
+                                valueText = "${player?.hp ?: 180} HP",
+                                accentColor = Color(0xFFFF2A85),
                                 modifier = Modifier.weight(1f)
                             )
-
-                            AnimatedCyberProgressBar(
-                                progress = (player?.hp ?: 0).toFloat() / (player?.max_hp ?: 100).toFloat(),
-                                color = EidosRed,
-                                label = "СТАБИЛЬНОСТЬ СИГНАЛА",
-                                valueText = "${player?.hp ?: 0}/${player?.max_hp ?: 100}",
+                            CyberResourcePill(
+                                iconText = "🔋",
+                                valueText = "${player?.energy ?: 100} EP",
+                                accentColor = Color(0xFFFFD700),
                                 modifier = Modifier.weight(1f)
                             )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Resource counters row (HP, Energy, BioCoins, Overdrive)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
-                                .border(0.8.dp, Color(0xFF1E2E3E), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_res_signal_hp),
-                                    contentDescription = "Signal HP",
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${player?.hp ?: 100} HP",
-                                    color = if ((player?.hp ?: 100) < 30) EidosRed else Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_res_energy),
-                                    contentDescription = "Energy",
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${player?.energy ?: 100} EP",
-                                    color = EidosNeon,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_res_biocoin),
-                                    contentDescription = "BioCoins",
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${player?.biocoin ?: 0} BC",
-                                    color = EidosCyan,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Black,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Compact unified action button (Sync + Signal Restore + Supply Drop)
-                        Button(
-                            onClick = {
-                                onRestoreSignal()
-                                onSyncProtocol()
-                                showSupplyDropDialog = true
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(42.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = EidosNeon.copy(alpha = 0.20f)),
-                            border = androidx.compose.foundation.BorderStroke(1.2.dp, EidosNeon),
-                            shape = CutCornerShape(6.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 16.dp)
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "СИНХРОНИЗАЦИЯ & СНАБЖЕНИЕ ДЕПО",
-                                    color = EidosNeon,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
+                            CyberResourcePill(
+                                iconText = "🪙",
+                                valueText = "${player?.biocoin ?: 9478} BC",
+                                accentColor = Color(0xFFFFB300),
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
 
-                // Central Sci-Fi Title Block
+                // 2. CENTRAL SCI-FI TITLE WITH ACCENT SLASHES
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "EIDOS: CHRONICLES",
-                        color = ZzzElectricCyan,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.SansSerif,
-                        letterSpacing = 2.sp
+                        color = Color(0xFF00E5FF),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 2.5.sp
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "///",
+                            color = Color(0xFF00E5FF),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "CYBER HUB",
+                            color = Color(0xFFFFD700),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.SansSerif,
+                            letterSpacing = 2.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "///",
+                            color = Color(0xFF00E5FF),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                // 3. DEPOT SYNCHRONIZATION CARD (Daily Supply Drop)
+                CyberDepotSyncBanner(
+                    isDepotReady = isDepotReady,
+                    depotCountdownText = depotCountdownText,
+                    onClick = {
+                        onRestoreSignal()
+                        onSyncProtocol()
+                        showSupplyDropDialog = true
+                    }
+                )
+
+                // 4. MAIN CENTRAL CTA BUTTON: RAID ENTRY WITH HAZARD STRIPES
+                CyberHazardRaidButton(
+                    onClick = onNavigateToRaid
+                )
+
+                // 5. TACTICAL OPERATIONS 2X2 GRID
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(14.dp)
+                                .background(Color(0xFFFFD700))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "ТАКТИЧЕСКИЕ ОПЕРАЦИИ",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
                     Text(
-                        text = "CYBER HUB",
-                        color = ZzzAcidYellow,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.SansSerif,
-                        letterSpacing = 2.sp
+                        text = "[GRID-OPS // AUTH]",
+                        color = Color(0xFFFFD700),
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                // ONLY ONE CENTRAL BANNER FOR RAID ENTRY
-                io.eidos.zerolayer.ui.components.ZzzMainButton(
-                    text = ">>> СПУСК В НУЛЕВОЙ СЛОЙ >>>",
-                    onClick = onNavigateToRaid,
-                    primaryColor = ZzzAcidYellow,
-                    borderColor = ZzzElectricCyan,
-                    textColor = Color.Black,
-                    height = 54.dp,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // 2x2 Tactical Grid Menu
-                ZzzHeaderBadge(
-                    title = "ТАКТИЧЕСКИЕ ОПЕРАЦИИ",
-                    codeTag = "GRID-OPS",
-                    accentColor = ZzzDesignSystem.VoltYellow
-                )
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Row 1: Forge & Market
+                    // Row 1: Forge & Black Market
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        CyberGridMenuItem(
+                        CyberTacticalOpsCard(
                             title = "КУЗНИЦА И СИНТЕЗ",
                             iconRes = R.drawable.ic_menu_forge,
-                            borderColor = ZzzDesignSystem.QuantumPurple,
+                            accentColor = Color(0xFFFF2A85),
                             onClick = onNavigateToForge,
                             modifier = Modifier.weight(1f)
                         )
-                        CyberGridMenuItem(
+                        CyberTacticalOpsCard(
                             title = "ЧЕРНЫЙ РЫНОК",
                             iconRes = R.drawable.ic_menu_market,
-                            borderColor = Color(0xFF9C27B0),
+                            accentColor = Color(0xFFA855F7),
                             onClick = onNavigateToShop,
                             modifier = Modifier.weight(1f)
                         )
                     }
 
-                    // Row 2: PvP & Codex
+                    // Row 2: PvP Cyber War & Codex
+                    val isPvpAvailable = (player?.level ?: 1) >= 4
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        val isPvpAvailable = (player?.level ?: 1) >= 4
-                        CyberGridMenuItem(
+                        CyberTacticalOpsCard(
                             title = if (isPvpAvailable) "СЕТЕВАЯ ВОЙНА" else "СЕТЕВАЯ ВОЙНА [LVL 4]",
                             iconRes = if (isPvpAvailable) R.drawable.ic_action_attack else R.drawable.ic_ui_locked,
-                            borderColor = if (isPvpAvailable) EidosRed else Color.Gray,
+                            accentColor = if (isPvpAvailable) Color(0xFF00F0FF) else Color.Gray,
                             onClick = {
                                 if (isPvpAvailable) {
                                     onNavigateToPvp()
@@ -492,10 +489,10 @@ fun HubScreen(
                             },
                             modifier = Modifier.weight(1f)
                         )
-                        CyberGridMenuItem(
+                        CyberTacticalOpsCard(
                             title = "КОДЕКС / БАЗА ЗНАНИЙ",
                             iconRes = R.drawable.ic_menu_codex,
-                            borderColor = Color(0xFFFFD700),
+                            accentColor = Color(0xFFFFD700),
                             onClick = onNavigateToCodex,
                             modifier = Modifier.weight(1f)
                         )
@@ -503,10 +500,10 @@ fun HubScreen(
 
                     // Optional Broker Row if active
                     if (isBrokerActive) {
-                        CyberGridMenuItem(
+                        CyberTacticalOpsCard(
                             title = "ТЕНЕВОЙ БРОКЕР [ONLINE]",
                             iconRes = R.drawable.ic_action_scan,
-                            borderColor = EidosNeon,
+                            accentColor = Color(0xFF00FF66),
                             onClick = {
                                 if (activity != null && BiometricHelper.isBiometricAvailable(context)) {
                                     BiometricHelper.authenticateOperator(
@@ -525,96 +522,11 @@ fun HubScreen(
                     }
                 }
 
-                // Dedicated World Boss Banner at the very bottom
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.5.dp, EidosRed, CutCornerShape(8.dp))
-                        .cyberClickable { showBossDialog = true },
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF140508).copy(alpha = 0.75f)),
-                    shape = CutCornerShape(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Boss Art with Danger Badge
-                        Box(
-                            modifier = Modifier
-                                .size(72.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .border(1.2.dp, EidosRed, RoundedCornerShape(6.dp))
-                                .background(Color.Black),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            EidosImage(
-                                resName = "monster_19",
-                                borderColor = Color.Transparent,
-                                borderWidth = 0.dp,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_event_danger),
-                                contentDescription = "Critical Danger",
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .align(Alignment.TopEnd)
-                                    .padding(2.dp)
-                            )
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "МИРОВОЙ БОСС: EIDOS-CORE",
-                                color = EidosRed,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "УГРОЗА: КРИТИЧЕСКИЙ РЕЗОНАНС // СИНДИКАТ",
-                                color = Color.LightGray,
-                                fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            LinearProgressIndicator(
-                                progress = { (bossHp.toFloat() / 1000000000f).coerceIn(0f, 1f) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = EidosRed,
-                                trackColor = Color(0xFF2A0A0E)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "HP: ${bossHp / 1000000}M / 1000M",
-                                    color = EidosRed,
-                                    fontSize = 8.5.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "[АТАКОВАТЬ]",
-                                    color = Color(0xFFFFD700),
-                                    fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-                        }
-                    }
-                }
+                // 6. DEDICATED WORLD BOSS BANNER
+                CyberWorldBossBanner(
+                    bossHp = bossHp,
+                    onClick = { showBossDialog = true }
+                )
             }
         }
     }
@@ -631,72 +543,165 @@ fun HubScreen(
         )
     }
 
-    // 1. Daily Supply Drop logic (triggering Juice UI instead of simple AlertDialog)
+    // 1. Daily Supply Drop Dialog with bg_mind.jpg art header & Live Status
     if (showSupplyDropDialog) {
-        AlertDialog(
+        androidx.compose.ui.window.Dialog(
             onDismissRequest = { showSupplyDropDialog = false },
-            title = {
-                Text(
-                    "СИНХРОНИЗАЦИЯ ДЕПО // SUPPLY DROP",
-                    color = EidosCyan,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = "Каждые 24 часа вы можете синхронизировать депо вашего нейро-ядра, чтобы получить припасы из Центрального Хранилища.",
-                        color = Color.LightGray,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "ТЕКУЩИЕ ПАРАМЕТРЫ ЯДРА:\n" +
-                                "• Оператор: ${player?.username ?: "GUEST"}\n" +
-                                "• Энергия: ${player?.energy ?: 0}/${player?.max_energy ?: 100} EP\n" +
-                                "• Баланс: ${player?.biocoin ?: 0} BC",
-                        color = Color.Gray,
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "ГРАНТИРОВАННАЯ СУТОЧНАЯ ПОСТАВКА:\n" +
-                                "• +50 Единиц Энергии Ядра (EP)\n" +
-                                "• 1х Случайный Расходник",
-                        color = EidosNeon,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 16.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onClaimSupplyDrop()
-                        showSupplyDropDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = EidosNeon),
-                    shape = CutCornerShape(4.dp)
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CyberCornerBracketBox(
+                    bracketSize = 18.dp,
+                    bracketColor = if (isDepotReady) EidosNeon else EidosCyan,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("СИНХРОНИЗИРОВАТЬ ДЕПО", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(CutCornerShape(8.dp))
+                            .background(Color(0xFF070B12))
+                            .border(1.dp, if (isDepotReady) EidosNeon else EidosCyan.copy(alpha = 0.6f), CutCornerShape(8.dp))
+                            .padding(16.dp)
+                    ) {
+                        // Art Header
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp)
+                                .clip(CutCornerShape(6.dp))
+                        ) {
+                            androidx.compose.foundation.Image(
+                                painter = painterResource(id = R.drawable.bg_mind),
+                                contentDescription = "Supply Drop Mind Art",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(Color.Transparent, Color(0xFF070B12))
+                                        )
+                                    )
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 16.dp, tint = EidosCyan)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "СИНХРОНИЗАЦИЯ ДЕПО // SUPPLY DROP",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Каждые 24 часа вы можете синхронизировать депо вашего нейро-ядра, чтобы получить припасы из Центрального Хранилища.",
+                            color = Color.LightGray,
+                            fontSize = 10.5.sp,
+                            lineHeight = 15.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "ТЕКУЩИЙ СТАТУС ОПЕРАТОРА:\n" +
+                                    "• Оператор: ${player?.username ?: "GUEST"}\n" +
+                                    "• Энергия: ${player?.energy ?: 0}/${player?.max_energy ?: 100} EP\n" +
+                                    "• Баланс: ${player?.biocoin ?: 0} BC",
+                            color = Color.Gray,
+                            fontSize = 10.sp,
+                            lineHeight = 15.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "СУТОЧНАЯ ПОСТАВКА:\n" +
+                                    "• +50 Единиц Энергии Ядра (EP)\n" +
+                                    "• 1х Случайный Расходник / Ресурс",
+                            color = EidosNeon,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 15.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Status Countdown
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(CutCornerShape(4.dp))
+                                .background(Color(0xFF0C141F))
+                                .border(0.8.dp, if (isDepotReady) EidosNeon else Color.Gray, CutCornerShape(4.dp))
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("ТАЙМЕР ДОСТУПНОСТИ:", color = Color.Gray, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                            Text(depotCountdownText, color = if (isDepotReady) EidosNeon else Color(0xFFFFB300), fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showSupplyDropDialog = false },
+                                shape = CutCornerShape(4.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("ОТМЕНА", color = Color.Gray, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace)
+                            }
+                            Button(
+                                onClick = {
+                                    if (isDepotReady) {
+                                        onClaimSupplyDrop()
+                                    }
+                                    showSupplyDropDialog = false
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isDepotReady) EidosNeon else Color.DarkGray
+                                ),
+                                shape = CutCornerShape(4.dp),
+                                enabled = isDepotReady,
+                                modifier = Modifier.weight(1.5f)
+                            ) {
+                                Text(
+                                    if (isDepotReady) "СИНХРОНИЗИРОВАТЬ" else "ПЕРЕЗАРЯДКА...",
+                                    color = if (isDepotReady) Color.Black else Color.Gray,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSupplyDropDialog = false }) {
-                    Text("ОТМЕНА", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                }
-            },
-            containerColor = Color(0xFF07070F),
-            modifier = Modifier.border(1.dp, EidosCyan.copy(alpha = 0.5f), CutCornerShape(8.dp))
-        )
+            }
+        }
     }
 
     // 2. Season Rating Dialog ("РЕЙТИНГ ОПЕРАТОРОВ")
@@ -1531,6 +1536,545 @@ fun CyberHubHeader(
     }
 }
 
+// ==============================================================================
+// 🌟 NEW SCI-FI CYBER HUB COMPONENTS (2026 REDESIGN)
+// ==============================================================================
+
+@Composable
+fun HolographicOrbitalAvatar(
+    level: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "avatarOrbits")
+    val rotationAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(14000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "orbitRotation"
+    )
+    val counterRotationAngle by infiniteTransition.animateFloat(
+        initialValue = 360f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(18000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "counterOrbitRotation"
+    )
+
+    Box(
+        modifier = modifier
+            .size(86.dp)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val ringRadiusX = size.width * 0.46f
+            val ringRadiusY = size.height * 0.22f
+
+            // Orbit Ring 1 (Tilted ~30 deg + rotation)
+            rotate(30f + rotationAngle * 0.15f, pivot = center) {
+                drawOval(
+                    color = Color(0xFF00FFF6).copy(alpha = 0.75f),
+                    topLeft = Offset(center.x - ringRadiusX, center.y - ringRadiusY),
+                    size = Size(ringRadiusX * 2, ringRadiusY * 2),
+                    style = Stroke(width = 1.6f.dp.toPx())
+                )
+                // Small beacon dot
+                drawCircle(
+                    color = Color(0xFF00FFF6),
+                    radius = 2.5f.dp.toPx(),
+                    center = Offset(center.x + ringRadiusX, center.y)
+                )
+            }
+
+            // Orbit Ring 2 (Tilted -40 deg + counter rotation)
+            rotate(-40f + counterRotationAngle * 0.2f, pivot = center) {
+                drawOval(
+                    color = Color(0xFF00D2FF).copy(alpha = 0.60f),
+                    topLeft = Offset(center.x - ringRadiusX * 0.95f, center.y - ringRadiusY * 0.95f),
+                    size = Size(ringRadiusX * 1.9f, ringRadiusY * 1.9f),
+                    style = Stroke(width = 1.4f.dp.toPx())
+                )
+                drawCircle(
+                    color = Color(0xFF80E5FF),
+                    radius = 2.dp.toPx(),
+                    center = Offset(center.x - ringRadiusX * 0.95f, center.y)
+                )
+            }
+
+            // Outer subtle boundary ring
+            drawCircle(
+                color = Color(0xFF00FFF6).copy(alpha = 0.18f),
+                radius = size.width * 0.38f,
+                style = Stroke(width = 1.dp.toPx())
+            )
+        }
+
+        // Inner Avatar Box
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF0A1520))
+                .border(2.dp, Color(0xFF00FFF6), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            EidosImage(
+                resName = "lvl_${level.coerceIn(1, 31)}",
+                borderColor = Color.Transparent,
+                borderWidth = 0.dp,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Composable
+fun CyberTopGaugeBar(
+    label: String,
+    current: Int,
+    max: Int,
+    barColor: Color,
+    bgColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val progress = (current.toFloat() / max.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(600, easing = FastOutSlowInEasing),
+        label = "gaugeAnim"
+    )
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = Color(0xFFB0C4DE),
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 0.5.sp
+            )
+            Text(
+                text = "$current/$max",
+                color = barColor,
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+        Spacer(modifier = Modifier.height(3.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(CutCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                .background(bgColor)
+                .border(0.6.dp, barColor.copy(alpha = 0.4f), CutCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(animatedProgress)
+                    .clip(CutCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(barColor.copy(alpha = 0.7f), barColor)
+                        )
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+fun CyberResourcePill(
+    iconText: String,
+    valueText: String,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color(0xCC09121A),
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.85f)),
+        modifier = modifier.height(26.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = iconText,
+                fontSize = 10.sp
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = valueText,
+                color = Color.White,
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+}
+
+@Composable
+fun CyberDepotSyncBanner(
+    isDepotReady: Boolean,
+    depotCountdownText: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "syncPulse")
+    val spinnerAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "syncSpinner"
+    )
+
+    Surface(
+        color = Color(0xD9061824),
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.2.dp,
+            if (isDepotReady) Color(0xFF00FF66) else Color(0xFF00E5FF)
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF0A2433))
+                        .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(6.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.size(20.dp)) {
+                        rotate(spinnerAngle) {
+                            drawArc(
+                                color = if (isDepotReady) Color(0xFF00FF66) else Color(0xFF00E5FF),
+                                startAngle = 0f,
+                                sweepAngle = 260f,
+                                useCenter = false,
+                                style = Stroke(width = 2.5f.dp.toPx())
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "СИНХРОНИЗАЦИЯ ДЕПО",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isDepotReady) "ПРИПАСЫ ХРАНИЛИЩА ГОТОВЫ" else "ПЕРЕЗАРЯДКА ШЛЮЗА ДЕПО",
+                        color = if (isDepotReady) Color(0xFF00FF66) else Color(0xFF7090A8),
+                        fontSize = 8.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            Surface(
+                color = Color(0xF0050B10),
+                shape = RoundedCornerShape(4.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    0.8.dp,
+                    if (isDepotReady) Color(0xFF00FF66) else Color(0xFF334A5E)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isDepotReady) "ГОТОВО" else "⏱ $depotCountdownText",
+                        color = if (isDepotReady) Color(0xFF00FF66) else Color(0xFFFFD700),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CyberHazardRaidButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color(0xEB04121C),
+        shape = CutCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF00E5FF)),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HazardStripesCanvas(
+                modifier = Modifier
+                    .width(42.dp)
+                    .fillMaxHeight()
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFF051C2A), Color(0xFF0A2B3E), Color(0xFF051C2A))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "/// >>> СПУСК В НУЛЕВОЙ СЛОЙ >>> ///",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.5.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            HazardStripesCanvas(
+                modifier = Modifier
+                    .width(42.dp)
+                    .fillMaxHeight()
+            )
+        }
+    }
+}
+
+@Composable
+fun HazardStripesCanvas(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val stripeWidth = 9.dp.toPx()
+        val numStripes = ((size.width + size.height) / (stripeWidth * 2)).toInt() + 4
+        drawRect(color = Color(0xFF050505))
+        for (i in -4..numStripes) {
+            val startX = i * stripeWidth * 2
+            val path = Path().apply {
+                moveTo(startX, 0f)
+                lineTo(startX + stripeWidth, 0f)
+                lineTo(startX + stripeWidth - size.height, size.height)
+                lineTo(startX - size.height, size.height)
+                close()
+            }
+            drawPath(path, color = Color(0xFFFFD700))
+        }
+    }
+}
+
+@Composable
+fun CyberTacticalOpsCard(
+    title: String,
+    @androidx.annotation.DrawableRes iconRes: Int,
+    accentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color(0xDD090F17),
+        shape = CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp, topEnd = 4.dp, bottomStart = 4.dp),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, accentColor),
+        modifier = modifier
+            .height(115.dp)
+            .clickable { onClick() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(accentColor.copy(alpha = 0.14f), Color(0xEE060A10))
+                    )
+                )
+                .padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CutCornerShape(6.dp))
+                    .background(Color(0xFF0F1522))
+                    .border(1.dp, accentColor.copy(alpha = 0.6f), CutCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = title,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+            Text(
+                text = title.uppercase(),
+                color = Color.White,
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center,
+                lineHeight = 12.5.sp,
+                maxLines = 2
+            )
+        }
+    }
+}
+
+@Composable
+fun CyberWorldBossBanner(
+    bossHp: Long,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color(0xEB160508),
+        shape = CutCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.6.dp, Color(0xFFFF003C)),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(68.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black)
+                    .border(1.2.dp, Color(0xFFFF003C), RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                EidosImage(
+                    resName = "monster_19",
+                    borderColor = Color.Transparent,
+                    borderWidth = 0.dp,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.ic_event_danger),
+                    contentDescription = "Danger",
+                    modifier = Modifier
+                        .size(20.dp)
+                        .align(Alignment.TopEnd)
+                        .padding(2.dp)
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "МИРОВОЙ БОСС: EIDOS-CORE",
+                    color = Color(0xFFFF003C),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "УГРОЗА: КРИТИЧЕСКИЙ РЕЗОНАНС // СИНДИКАТ",
+                    color = Color(0xFFC0A0A0),
+                    fontSize = 8.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color(0xFF28070B))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth((bossHp.toFloat() / 1000000000f).coerceIn(0f, 1f))
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFFFF003C), Color(0xFFFF5252))
+                                )
+                            )
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "HP: ${bossHp / 1000000}M / 1000M ⚠ ///",
+                        color = Color(0xFFFF003C),
+                        fontSize = 8.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "[АТАКОВАТЬ]",
+                        color = Color(0xFFFFD700),
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun CyberGridMenuItem(
     title: String,
@@ -1539,48 +2083,13 @@ fun CyberGridMenuItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = ZzzDarkSurface.copy(alpha = 0.70f),
-        shape = CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, borderColor),
+    CyberTacticalOpsCard(
+        title = title,
+        iconRes = iconRes,
+        accentColor = borderColor,
+        onClick = onClick,
         modifier = modifier
-            .fillMaxWidth()
-            .premiumCyberClickable(
-                hapticType = HapticFeedbackType.LongPress,
-                onClick = onClick
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color(0xFF161B26).copy(alpha = 0.8f), CutCornerShape(6.dp))
-                    .border(1.dp, borderColor.copy(alpha = 0.7f), CutCornerShape(6.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                ZzzIcon(
-                    iconRes = iconRes,
-                    size = 28.dp
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = title.uppercase(),
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.SansSerif,
-                textAlign = TextAlign.Center,
-                lineHeight = 13.sp
-            )
-        }
-    }
+    )
 }
 
 @Composable
@@ -1657,7 +2166,7 @@ private fun BottomNavItem(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "navPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
+        initialValue = 0.85f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = LinearEasing),
@@ -1669,39 +2178,34 @@ private fun BottomNavItem(
     Column(
         modifier = Modifier
             .clickable { onClick() }
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier
+                .height(34.dp)
+                .width(44.dp)
+                .then(
+                    if (isSelected) {
+                        Modifier
+                            .background(Color(0xFF00FFF6).copy(alpha = 0.22f), RoundedCornerShape(8.dp))
+                            .border(1.2.dp, Color(0xFF00FFF6), RoundedCornerShape(8.dp))
+                    } else Modifier
+                )
         ) {
             Image(
                 painter = painterResource(id = iconRes),
                 contentDescription = label,
-                modifier = Modifier
-                    .size(if (isHighlight) 28.dp else 24.dp)
-                    .then(
-                        if (isSelected) {
-                            Modifier.neonGlowPulse(
-                                glowColor = if (isHighlight) EidosCyan else EidosNeon,
-                                baseWidth = 2.dp,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                        } else Modifier
-                    ),
-                alpha = if (isSelected) pulseAlpha else 0.6f
+                modifier = Modifier.size(if (isHighlight) 26.dp else 22.dp),
+                alpha = if (isSelected) pulseAlpha else 0.55f
             )
         }
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
-            color = when {
-                isSelected && isHighlight -> EidosCyan
-                isSelected -> EidosNeon
-                else -> Color.Gray
-            },
+            color = if (isSelected) Color(0xFF00FFF6) else Color(0xFF708090),
             fontSize = 7.5.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             fontFamily = FontFamily.Monospace,

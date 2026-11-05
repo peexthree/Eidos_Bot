@@ -32,6 +32,7 @@ import androidx.compose.ui.window.DialogProperties
 import io.eidos.zerolayer.R
 import io.eidos.zerolayer.domain.combat.ActiveSynergy
 import io.eidos.zerolayer.domain.combat.ChipMatrixSynergyEngine
+import io.eidos.zerolayer.domain.raid.DescentScenario
 import io.eidos.zerolayer.domain.raid.QuantumSector
 import io.eidos.zerolayer.domain.raid.SectorRiskLevel
 import io.eidos.zerolayer.ui.theme.*
@@ -44,6 +45,7 @@ import io.eidos.zerolayer.ui.theme.*
 fun ActiveSynergiesBar(
     activeSynergies: List<ActiveSynergy>,
     onOpenCodex: () -> Unit,
+    onOpenLogs: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -52,15 +54,17 @@ fun ActiveSynergiesBar(
             .clip(CutCornerShape(6.dp))
             .background(Color(0xFF07121A).copy(alpha = 0.9f))
             .border(1.dp, EidosCyan.copy(alpha = 0.4f), CutCornerShape(6.dp))
-            .clickable { onOpenCodex() }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState())
+            modifier = Modifier
+                .weight(1f)
+                .clickable { onOpenCodex() }
+                .horizontalScroll(rememberScrollState())
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 13.dp)
@@ -76,9 +80,9 @@ fun ActiveSynergiesBar(
 
             if (activeSynergies.isEmpty()) {
                 Text(
-                    "Нет синергий (установите 2+ чипа одного цвета)",
+                    "Нет синергий (2+ чипа цвета)",
                     color = Color.Gray,
-                    fontSize = 9.sp,
+                    fontSize = 8.5.sp,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1
                 )
@@ -89,15 +93,15 @@ fun ActiveSynergiesBar(
                             .clip(CutCornerShape(4.dp))
                             .background(syn.color.copy(alpha = 0.2f))
                             .border(1.dp, syn.color, CutCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                            .padding(horizontal = 5.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        ZzzIcon(iconRes = syn.iconRes, size = 13.dp)
+                        ZzzIcon(iconRes = syn.iconRes, size = 12.dp)
                         Text(
                             "${syn.title} [${syn.tierLabel}]",
                             color = syn.color,
-                            fontSize = 8.5.sp,
+                            fontSize = 8.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace
                         )
@@ -107,16 +111,55 @@ fun ActiveSynergiesBar(
         }
 
         Spacer(modifier = Modifier.width(6.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ZzzIcon(iconRes = R.drawable.ic_menu_codex, size = 12.dp)
-            Spacer(Modifier.width(3.dp))
-            Text(
-                "ШПАРГАЛКА",
-                color = EidosGold,
-                fontSize = 8.5.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace
-            )
+
+        // Action Buttons: ШПАРГАЛКА & ЛОГИ СОБЫТИЙ
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // ШПАРГАЛКА
+            Row(
+                modifier = Modifier
+                    .clip(CutCornerShape(4.dp))
+                    .background(EidosGold.copy(alpha = 0.15f))
+                    .border(0.8.dp, EidosGold.copy(alpha = 0.6f), CutCornerShape(4.dp))
+                    .clickable { onOpenCodex() }
+                    .padding(horizontal = 5.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ZzzIcon(iconRes = R.drawable.ic_menu_codex, size = 11.dp)
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    "ШПАРГАЛКА",
+                    color = EidosGold,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            // ЛОГИ СОБЫТИЙ
+            if (onOpenLogs != null) {
+                Row(
+                    modifier = Modifier
+                        .clip(CutCornerShape(4.dp))
+                        .background(EidosCyan.copy(alpha = 0.15f))
+                        .border(0.8.dp, EidosCyan.copy(alpha = 0.6f), CutCornerShape(4.dp))
+                        .clickable { onOpenLogs() }
+                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 11.dp)
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        "ЛОГИ СОБЫТИЙ",
+                        color = EidosCyan,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
         }
     }
 }
@@ -292,110 +335,178 @@ fun QuantumSectorChoicesFork(
     sectors: List<QuantumSector>,
     currentEnergy: Int,
     onSelectSector: (QuantumSector) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scenario: DescentScenario? = null
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
+        // Narrative Scenario Lore Card (if scenario is present or sectors have narrative text)
+        val scenarioTitle = scenario?.title ?: "РАЗВИЛКА СЕКТОРА // ВЫБОР МАРШРУТА"
+        val scenarioLore = scenario?.loreDescription ?: "Сенсоры кибер-деки фиксируют пространственную нестабильность. Перед вами несколько векторов для продолжения спуска в глубины Нулевого Слоя..."
+
+        CyberCornerBracketBox(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            bracketSize = 14.dp,
+            bracketAlpha = 0.9f
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 13.dp)
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    "ВРАТА БЕЗДНЫ // ВЫБЕРИТЕ ВЕКТОР",
-                    color = EidosCyan,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace
-                )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(CutCornerShape(6.dp))
+                    .background(Color(0xFF070E17).copy(alpha = 0.85f))
+                    .border(1.dp, EidosCyan.copy(alpha = 0.5f), CutCornerShape(6.dp))
+                    .padding(10.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 13.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                scenarioTitle,
+                                color = EidosCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                        Text(
+                            "ВЕКТОРЫ СИТУАЦИИ",
+                            color = Color(0xFF78909C),
+                            fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        scenarioLore,
+                        color = Color.LightGray.copy(alpha = 0.85f),
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 13.5.sp
+                    )
+                }
             }
-            Text(
-                "РАСХОД ЭНЕРГИИ",
-                color = Color.Gray,
-                fontSize = 8.5.sp,
-                fontFamily = FontFamily.Monospace
-            )
         }
 
-        Row(
+        // 3 Narrative Action Option Cards
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            sectors.forEach { sector ->
+            sectors.forEachIndexed { index, sector ->
                 val hasEnergy = currentEnergy >= sector.costEnergy
                 val riskColor = Color(sector.riskLevel.colorHex)
                 val borderCol = if (sector.isEncrypted) Color(0xFF555555) else riskColor
+                val actionTitle = if (sector.narrativeAction.isNotBlank()) sector.narrativeAction else sector.title
+                val actionHint = if (sector.narrativeHint.isNotBlank()) sector.narrativeHint else sector.subTitle
 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(115.dp)
-                        .clip(CutCornerShape(6.dp))
-                        .background(
-                            if (sector.isEncrypted) Color(0xFF080D11)
-                            else if (hasEnergy) Color(0xFF09141D) else Color(0xFF220A10)
-                        )
-                        .border(1.2.dp, borderCol, CutCornerShape(6.dp))
-                        .clickable { onSelectSector(sector) }
-                        .padding(6.dp),
-                    contentAlignment = Alignment.TopCenter
+                CyberCornerBracketBox(
+                    modifier = Modifier.fillMaxWidth(),
+                    bracketSize = 12.dp,
+                    bracketAlpha = 0.8f
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // Icon + Title
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            ZzzIcon(iconRes = sector.iconRes, size = 22.dp)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = sector.title,
-                                color = if (sector.isEncrypted) Color.LightGray else riskColor,
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.Monospace,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(CutCornerShape(6.dp))
+                            .background(
+                                if (sector.isEncrypted) Color(0xFF080D11).copy(alpha = 0.85f)
+                                else if (hasEnergy) Color(0xFF0A1520).copy(alpha = 0.88f)
+                                else Color(0xFF220A10).copy(alpha = 0.88f)
                             )
-                        }
-
-                        // Subtitle / Mutator
-                        Text(
-                            text = sector.subTitle,
-                            color = if (sector.isEncrypted) Color(0xFFFFCC00) else Color.White,
-                            fontSize = 7.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        // Energy Cost tag
-                        Box(
-                            modifier = Modifier
-                                .clip(CutCornerShape(4.dp))
-                                .background(if (hasEnergy) Color(0xFF00241A) else Color(0xFF440E14))
-                                .border(0.8.dp, if (hasEnergy) EidosNeon else Color(0xFFFF5252), CutCornerShape(4.dp))
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                            .border(1.2.dp, borderCol.copy(alpha = 0.7f), CutCornerShape(6.dp))
+                            .clickable { onSelectSector(sector) }
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (!hasEnergy) {
-                                    ZzzIcon(iconRes = R.drawable.ic_action_blood_overdrive, size = 9.dp)
-                                    Spacer(Modifier.width(2.dp))
+                            // Left: Index + Icon + Narrative Action Text
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CutCornerShape(4.dp))
+                                        .background(riskColor.copy(alpha = 0.15f))
+                                        .border(1.dp, riskColor.copy(alpha = 0.6f), CutCornerShape(4.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "${index + 1}",
+                                        color = riskColor,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace
+                                    )
                                 }
+                                Spacer(Modifier.width(8.dp))
+                                ZzzIcon(iconRes = sector.iconRes, size = 18.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = actionTitle,
+                                        color = if (sector.isEncrypted) Color.LightGray else Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = actionHint,
+                                        color = if (sector.isEncrypted) Color(0xFFFFCC00) else riskColor,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.width(8.dp))
+
+                            // Right: Mutator info + Energy Cost
+                            Column(horizontalAlignment = Alignment.End) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(CutCornerShape(4.dp))
+                                        .background(if (hasEnergy) Color(0xFF00241A) else Color(0xFF440E14))
+                                        .border(0.8.dp, if (hasEnergy) EidosNeon else Color(0xFFFF5252), CutCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (!hasEnergy) {
+                                            ZzzIcon(iconRes = R.drawable.ic_action_blood_overdrive, size = 9.dp)
+                                            Spacer(Modifier.width(2.dp))
+                                        }
+                                        Text(
+                                            text = if (hasEnergy) "-${sector.costEnergy} EP" else "-8% HP",
+                                            color = if (hasEnergy) EidosNeon else Color(0xFFFF5252),
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(2.dp))
                                 Text(
-                                    text = if (hasEnergy) "-${sector.costEnergy} EP" else "-8% HP",
-                                    color = if (hasEnergy) EidosNeon else Color(0xFFFF5252),
+                                    text = sector.mutator.title,
+                                    color = Color.Gray,
                                     fontSize = 7.5.sp,
-                                    fontWeight = FontWeight.Black,
                                     fontFamily = FontFamily.Monospace
                                 )
                             }

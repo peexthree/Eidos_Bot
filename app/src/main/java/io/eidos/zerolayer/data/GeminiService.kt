@@ -6,9 +6,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.Body
@@ -43,8 +46,21 @@ data class GenerateContentResponse(
     val candidates: List<Candidate>
 )
 
+// --- Gemini proxy (Supabase Edge Function "gemini-proxy") models ---
+@Serializable
+data class ProxyRequest(
+    val prompt: String,
+    val systemPrompt: String? = null
+)
+
+@Serializable
+data class ProxyResponse(
+    val success: Boolean = false,
+    val text: String? = null
+)
+
 interface GeminiApi {
-    @POST("v1beta/models/gemini-3.5-flash:generateContent")
+    @POST("v1beta/models/gemini-2.0-flash:generateContent")
     suspend fun generateContent(
         @Query("key") apiKey: String,
         @Body request: GenerateContentRequest
@@ -69,10 +85,22 @@ object GeminiService {
 
     private val api = retrofit.create(GeminiApi::class.java)
 
+    /**
+     * Generate text via Gemini with a three-step fallback chain:
+     *
+     * 1) DEBUG build with a personal GEMINI_API_KEY - direct call to the Gemini API
+     *    (developer convenience, the key is embedded only in local debug builds);
+     * 2) otherwise - call through the Supabase Edge Function `gemini-proxy`
+     *    (release path: the Gemini key lives only on the server, the request is
+     *    authenticated with the current user's Supabase JWT);
+     * 3) if the proxy is unavailable (no session, network error, non-200 response) -
+     *    fully offline local simulation of the neural network.
+     */
     suspend fun generateText(prompt: String, systemPrompt: String? = null): String = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
 
-        if (apiKey.isNotBlank() && apiKey != "null") {
+        // 1) Direct Gemini call - debug builds with an embedded key only.
+        if (BuildConfig.DEBUG && apiKey.isNotBlank() && apiKey != "null") {
             try {
                 val sysInstruction = if (systemPrompt != null) {
                     Content(parts = listOf(Part(text = systemPrompt)))
@@ -89,13 +117,19 @@ object GeminiService {
                     return@withContext text
                 }
             } catch (e: Exception) {
-                Log.e("GeminiService", "Real Gemini API call failed, falling back to local simulation", e)
+                Log.e("GeminiService", "Direct Gemini API call failed, falling back to gemini-proxy", e)
             }
-        } else {
-            Log.d("GeminiService", "GEMINI_API_KEY is blank or unconfigured, using local simulation")
         }
 
-        // Fallback to local simulated neural network
+        // 2) Server proxy (release builds, and debug builds without a personal key).
+        val proxied = generateViaProxy(prompt, systemPrompt)
+        if (proxied != null) {
+            return@withContext proxied
+        }
+
+        Log.d("GeminiService", "Gemini unavailable (no debug key or proxy failed), using local simulation")
+
+        // 3) Fallback to local simulated neural network
         delay(800)
         val promptLower = prompt.lowercase()
         return@withContext when {
@@ -109,6 +143,49 @@ object GeminiService {
                 generateLocalCustomResponse(prompt)
             }
         }
+    }
+
+    /**
+     * Call Gemini through the Supabase Edge Function `gemini-proxy`.
+     * The Gemini API key lives only on the server; the request is authenticated
+     * with the current user's Supabase JWT. Returns null on any failure
+     * (no session, blank base URL, network error, non-200 or malformed response),
+     * letting the caller fall back to the local simulation.
+     */
+    private suspend fun generateViaProxy(prompt: String, systemPrompt: String?): String? = withContext(Dispatchers.IO) {
+        val baseUrl = SupabaseClientManager.baseUrl
+        if (baseUrl.isBlank()) return@withContext null
+        val token = SupabaseClientManager.cachedAccessToken
+        if (token.isNullOrBlank()) return@withContext null
+
+        try {
+            val bodyJson = json.encodeToString(ProxyRequest(prompt = prompt, systemPrompt = systemPrompt))
+            val request = Request.Builder()
+                .url("$baseUrl/functions/v1/gemini-proxy")
+                .addHeader("apikey", SupabaseClientManager.apiKey)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .post(bodyJson.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            okHttpClient.newCall(request).execute().use { response ->
+                val respStr = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    val proxyResp = json.decodeFromString<ProxyResponse>(respStr)
+                    val text = proxyResp.text
+                    if (!text.isNullOrBlank()) {
+                        return@withContext text
+                    }
+                    Log.e("GeminiService", "gemini-proxy returned success without text")
+                } else {
+                    // Status only: never log the prompt or any token.
+                    Log.e("GeminiService", "gemini-proxy HTTP ${response.code}: ${response.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("GeminiService", "gemini-proxy call failed, falling back to local simulation", e)
+        }
+        return@withContext null
     }
 
     private fun generateLocalDossierReport(prompt: String): String {

@@ -28,6 +28,7 @@ import io.eidos.zerolayer.ui.components.AuthDialogMode
 import io.eidos.zerolayer.ui.components.ZzzAuthDialog
 import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.R
+import io.eidos.zerolayer.BuildConfig
 import io.eidos.zerolayer.ui.theme.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -472,61 +473,63 @@ fun SettingsScreen(
                 }
             }
 
-            // Admin / God Mode Section
-            Text("РЕЖИМ АДМИНИСТРАТОРА // GOD MODE", color = EidosCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            // Admin / God Mode Section (Restricted to Debug Builds only)
+            if (BuildConfig.DEBUG) {
+                Text("РЕЖИМ АДМИНИСТРАТОРА // GOD MODE [DEBUG ONLY]", color = EidosCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
-            Surface(
-                color = if (isAdmin) Color(0xFF20002A).copy(alpha = 0.9f) else Color(0xFF141414).copy(alpha = 0.8f),
-                shape = CutCornerShape(8.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (isAdmin) Color(0xFFFFD700) else Color.Gray.copy(alpha = 0.3f)
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            ZzzIcon(R.drawable.ic_res_overdrive, size = 18.dp, modifier = Modifier.padding(end = 8.dp))
-                            Column {
-                                Text("GOD MODE ПРАВА", color = if (isAdmin) Color(0xFFFFD700) else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                                Text(if (isAdmin) "АДМИНИСТРАТОР СЕТИ АКТИВЕН" else "ТЕСТОВЫЙ РЕЖИМ ОТКЛЮЧЕН", color = if (isAdmin) EidosNeon else Color.DarkGray, fontSize = 10.sp)
+                Surface(
+                    color = if (isAdmin) Color(0xFF20002A).copy(alpha = 0.9f) else Color(0xFF141414).copy(alpha = 0.8f),
+                    shape = CutCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isAdmin) Color(0xFFFFD700) else Color.Gray.copy(alpha = 0.3f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_res_overdrive, size = 18.dp, modifier = Modifier.padding(end = 8.dp))
+                                Column {
+                                    Text("GOD MODE ПРАВА", color = if (isAdmin) Color(0xFFFFD700) else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    Text(if (isAdmin) "АДМИНИСТРАТОР СЕТИ АКТИВЕН" else "ТЕСТОВЫЙ РЕЖИМ ОТКЛЮЧЕН", color = if (isAdmin) EidosNeon else Color.DarkGray, fontSize = 10.sp)
+                                }
+                            }
+                            TextButton(onClick = { onToggleAdminMode(!isAdmin) }) {
+                                Text(if (isAdmin) "ВЫКЛ" else "ВКЛ ТЕСТ", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                        TextButton(onClick = { onToggleAdminMode(!isAdmin) }) {
-                            Text(if (isAdmin) "ВЫКЛ" else "ВКЛ ТЕСТ", color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
 
-                    if (isAdmin) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            Button(
-                                onClick = onGrantAdminResources,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700).copy(alpha = 0.2f)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)),
-                                shape = CutCornerShape(4.dp),
-                                modifier = Modifier.weight(1f).height(36.dp),
-                                contentPadding = PaddingValues(2.dp)
-                            ) {
-                                Text("+100k BC & 1k Осколков", color = Color(0xFFFFD700), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Button(
-                                onClick = onGrantGodKit,
-                                colors = ButtonDefaults.buttonColors(containerColor = EidosCyan.copy(alpha = 0.2f)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan),
-                                shape = CutCornerShape(4.dp),
-                                modifier = Modifier.weight(1f).height(36.dp),
-                                contentPadding = PaddingValues(2.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    ZzzIcon(R.drawable.ic_action_attack, size = 10.dp)
-                                    Spacer(Modifier.width(3.dp))
-                                    Text("ВЫДАТЬ GOD KIT", color = EidosCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        if (isAdmin) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                Button(
+                                    onClick = onGrantAdminResources,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700).copy(alpha = 0.2f)),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)),
+                                    shape = CutCornerShape(4.dp),
+                                    modifier = Modifier.weight(1f).height(36.dp),
+                                    contentPadding = PaddingValues(2.dp)
+                                ) {
+                                    Text("+100k BC & 1k Осколков", color = Color(0xFFFFD700), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Button(
+                                    onClick = onGrantGodKit,
+                                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan.copy(alpha = 0.2f)),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan),
+                                    shape = CutCornerShape(4.dp),
+                                    modifier = Modifier.weight(1f).height(36.dp),
+                                    contentPadding = PaddingValues(2.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_action_attack, size = 10.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("ВЫДАТЬ GOD KIT", color = EidosCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }

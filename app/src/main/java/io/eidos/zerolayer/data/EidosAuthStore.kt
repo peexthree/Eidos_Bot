@@ -18,20 +18,35 @@ data class AuthSession(
 
 class EidosAuthStore private constructor(context: Context) {
 
-    private val prefs: SharedPreferences = try {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    } catch (e: Exception) {
-        Log.e("EidosAuthStore", "Failed to initialize EncryptedSharedPreferences, fallback to standard: ${e.message}")
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val isSecureStorage: Boolean
+    private val prefs: SharedPreferences
+
+    // In-memory token cache used when encrypted storage is unavailable.
+    // Tokens are never written to plaintext prefs; they are lost on restart by design.
+    @Volatile
+    private var memoryAccessToken: String? = null
+
+    @Volatile
+    private var memoryRefreshToken: String? = null
+
+    init {
+        var secure = false
+        prefs = try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            ).also { secure = true }
+        } catch (e: Exception) {
+            Log.e("EidosAuthStore", "Failed to initialize EncryptedSharedPreferences, fallback to standard: ${e.message}")
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        }
+        isSecureStorage = secure
     }
 
     fun getSession(): AuthSession {
@@ -39,8 +54,16 @@ class EidosAuthStore private constructor(context: Context) {
         val isAnonymous = prefs.getBoolean(KEY_IS_ANONYMOUS, false)
         val username = prefs.getString(KEY_USERNAME, null)
         val userId = prefs.getString(KEY_USER_ID, null)
-        val accessToken = prefs.getString(KEY_ACCESS_TOKEN, null)
-        val refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)
+        val accessToken: String?
+        val refreshToken: String?
+        if (isSecureStorage) {
+            accessToken = prefs.getString(KEY_ACCESS_TOKEN, null)
+            refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)
+        } else {
+            // Fallback: tokens only exist in memory
+            accessToken = memoryAccessToken
+            refreshToken = memoryRefreshToken
+        }
         val lastSync = prefs.getLong(KEY_LAST_SYNC, 0L)
 
         return AuthSession(
@@ -55,19 +78,44 @@ class EidosAuthStore private constructor(context: Context) {
     }
 
     fun saveSession(username: String, userId: String, accessToken: String, refreshToken: String?, isAnonymous: Boolean = false) {
-        prefs.edit()
+        val editor = prefs.edit()
             .putBoolean(KEY_IS_LOGGED_IN, true)
             .putBoolean(KEY_IS_ANONYMOUS, isAnonymous)
             .putString(KEY_USERNAME, username)
             .putString(KEY_USER_ID, userId)
-            .putString(KEY_ACCESS_TOKEN, accessToken)
-            .putString(KEY_REFRESH_TOKEN, refreshToken)
             .putLong(KEY_LAST_SYNC, System.currentTimeMillis())
-            .apply()
+        if (isSecureStorage) {
+            editor.putString(KEY_ACCESS_TOKEN, accessToken)
+                .putString(KEY_REFRESH_TOKEN, refreshToken)
+        } else {
+            // Fallback: keep tokens in memory only, purge any legacy plaintext ones
+            memoryAccessToken = accessToken
+            memoryRefreshToken = refreshToken
+            editor.remove(KEY_ACCESS_TOKEN).remove(KEY_REFRESH_TOKEN)
+        }
+        editor.apply()
     }
 
     fun updateLastSync(timestamp: Long = System.currentTimeMillis()) {
         prefs.edit().putLong(KEY_LAST_SYNC, timestamp).apply()
+    }
+
+    /**
+     * Store the cryptographically random guest password for the device.
+     * Persisted only when encrypted storage is available, never in plaintext.
+     */
+    fun saveGuestPassword(deviceKey: String, password: String) {
+        if (!isSecureStorage) return
+        prefs.edit().putString(KEY_GUEST_PASSWORD_PREFIX + deviceKey, password).apply()
+    }
+
+    /**
+     * Return the stored guest password for the device, or null when
+     * no password was saved or encrypted storage is unavailable.
+     */
+    fun loadGuestPassword(deviceKey: String): String? {
+        if (!isSecureStorage) return null
+        return prefs.getString(KEY_GUEST_PASSWORD_PREFIX + deviceKey, null)
     }
 
     fun isInventoryInitialized(uid: Long): Boolean {
@@ -79,6 +127,8 @@ class EidosAuthStore private constructor(context: Context) {
     }
 
     fun clearSession() {
+        memoryAccessToken = null
+        memoryRefreshToken = null
         prefs.edit()
             .putBoolean(KEY_IS_LOGGED_IN, false)
             .putBoolean(KEY_IS_ANONYMOUS, false)
@@ -98,6 +148,7 @@ class EidosAuthStore private constructor(context: Context) {
         private const val KEY_ACCESS_TOKEN = "key_access_token"
         private const val KEY_REFRESH_TOKEN = "key_refresh_token"
         private const val KEY_LAST_SYNC = "key_last_sync"
+        private const val KEY_GUEST_PASSWORD_PREFIX = "key_guest_password_"
 
         @Volatile
         private var INSTANCE: EidosAuthStore? = null

@@ -130,7 +130,7 @@ fun RelicShowcaseDialog(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(DEFAULT_EARTH_RELICS) { relic ->
+                    items(DEFAULT_EARTH_RELICS, key = { it.id }) { relic ->
                         val isEquipped = relic.id == activeRelicId
                         val isSelected = relic.id == selectedRelic.id
 

@@ -4,6 +4,7 @@ import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
+import java.io.File
 
 @Dao
 interface EidosDao {
@@ -135,9 +136,16 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
     }
 }
 
+// Room's default generated name for Index(value = ["uid", "timestamp"]) on game_logs
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_game_logs_uid_timestamp` ON `game_logs` (`uid`, `timestamp`)")
+    }
+}
+
 @Database(
     entities = [Player::class, InventoryItem::class, RaidSession::class, GameLog::class, VillainStatic::class, GameContent::class, Grave::class, BestiaryEntry::class, RadioMessageEntity::class, UserEquipment::class],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class EidosDatabase : RoomDatabase() {
@@ -147,14 +155,50 @@ abstract class EidosDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: EidosDatabase? = null
 
+        private const val DB_NAME = "eidos_database"
+        private const val RESCUE_BACKUP_NAME = "eidos_database_rescue_backup"
+
+        /**
+         * One-time raw file copy of the database before Room opens it.
+         *
+         * Migrations only exist for versions 10-12; older databases hit
+         * fallbackToDestructiveMigration and lose all progress. This rescue
+         * copy keeps the pre-wipe files on disk so data stays recoverable
+         * (manually or via a future re-import). The copy is taken only while
+         * no backup exists yet, so a post-wipe database can never overwrite
+         * the rescue copy.
+         */
+        private fun createRescueBackup(context: android.content.Context) {
+            try {
+                val dbFile = context.getDatabasePath(DB_NAME)
+                if (!dbFile.exists()) return
+                val parent = dbFile.parentFile ?: return
+                val backup = File(parent, RESCUE_BACKUP_NAME)
+                if (backup.exists()) return
+                for (suffix in listOf("", "-wal", "-shm")) {
+                    val src = File(parent, DB_NAME + suffix)
+                    if (src.exists()) {
+                        src.copyTo(File(parent, RESCUE_BACKUP_NAME + suffix), overwrite = false)
+                    }
+                }
+                android.util.Log.i("EidosDatabase", "Rescue backup created for legacy database")
+            } catch (e: Exception) {
+                android.util.Log.e("EidosDatabase", "Rescue backup failed: ${e.message}")
+            }
+        }
+
         fun getDatabase(context: android.content.Context): EidosDatabase {
             return INSTANCE ?: synchronized(this) {
+                createRescueBackup(context)
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     EidosDatabase::class.java,
-                    "eidos_database"
+                    DB_NAME
                 )
                 .addMigrations(MIGRATION_10_11, MIGRATION_11_12)
+                // Last resort only: wipe instead of crash for unknown old
+                // versions. Data remains recoverable via RESCUE_BACKUP_NAME.
+                .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 INSTANCE = instance

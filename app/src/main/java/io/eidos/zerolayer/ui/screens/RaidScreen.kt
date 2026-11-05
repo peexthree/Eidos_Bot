@@ -18,6 +18,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
+import io.eidos.zerolayer.ui.theme.ZzzElectricCyan
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -117,6 +120,7 @@ fun RaidScreen(
     onResolveRiddle: (Boolean) -> Unit = {},
     onFlee: () -> Unit = {},
     onSalvageBufferItem: (Int) -> Unit = {},
+    onClaimChestLoot: (isCursed: Boolean, onResult: (Long, Long, List<String>) -> Unit) -> Unit = { _, _ -> },
     deathReport: io.eidos.zerolayer.data.GameRepository.DeathReport? = null,
     onClearDeathReport: () -> Unit = {}
 ) {
@@ -126,6 +130,9 @@ fun RaidScreen(
 
     var showMinigame by remember { mutableStateOf(false) }
     var minigameResultMsg by remember { mutableStateOf<String?>(null) }
+    var activeChestHacked by remember(session?.depth, session?.next_event_type) { mutableStateOf(false) }
+    var activeChestClaimed by remember(session?.depth, session?.next_event_type) { mutableStateOf(false) }
+    var activeChestIsCursed by remember(session?.depth, session?.next_event_type) { mutableStateOf(false) }
     var isEvacuatingHold by remember { mutableStateOf(false) }
     var evacTurnsLeft by remember { mutableIntStateOf(2) }
     var showEvacSummary by remember { mutableStateOf(false) }
@@ -168,6 +175,26 @@ fun RaidScreen(
     var activeProcs by remember { mutableStateOf<List<io.eidos.zerolayer.data.EquipmentProcEvent>>(emptyList()) }
     var latestProc by remember { mutableStateOf<io.eidos.zerolayer.data.EquipmentProcEvent?>(null) }
     var showSynergyCodex by remember { mutableStateOf(false) }
+    var showEventLogsModal by remember { mutableStateOf(false) }
+    var storyMilestoneChapter by remember { mutableStateOf<io.eidos.zerolayer.data.StoryChapter?>(null) }
+    val codexPrefs = remember { context.getSharedPreferences("eidos_codex_milestones", android.content.Context.MODE_PRIVATE) }
+
+    LaunchedEffect(session?.depth) {
+        val currentDepth = session?.depth ?: 0
+        if (currentDepth > 0) {
+            val shownSet = codexPrefs.getStringSet("shown_milestones", emptySet()) ?: emptySet()
+            val newlyUnlocked = io.eidos.zerolayer.data.CodexRepository.CORE_CHAPTERS.firstOrNull { ch ->
+                currentDepth >= ch.requiredDepth && !shownSet.contains(ch.id.toString())
+            }
+            if (newlyUnlocked != null) {
+                storyMilestoneChapter = newlyUnlocked
+                val updatedSet = shownSet.toMutableSet().apply { add(newlyUnlocked.id.toString()) }
+                codexPrefs.edit().putStringSet("shown_milestones", updatedSet).apply()
+                audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
+                haptics.criticalHit()
+            }
+        }
+    }
 
     // Pulse on Low-HP (<20% HP): Tactile heartbeat rhythm (lub-dub)
     LaunchedEffect(player?.hp, player?.max_hp) {
@@ -332,84 +359,15 @@ fun RaidScreen(
 
             if (session == null) {
                 // Gateway Ready State: Enter Abyss
-                Column(
-                    modifier = Modifier
-                        .padding(innerPadding)
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CyberCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        borderColor = EidosRed,
-                        headerText = "ШЛЮЗ НУЛЕВОГО СЛОЯ // ГОТОВНОСТЬ"
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "НЕЙРОННЫЙ КАНАЛ СТАБИЛИЗИРОВАН",
-                                color = EidosRed,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp,
-                                fontFamily = FontFamily.Monospace,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "Вы находитесь на пороге Нулевого Слоя. Здесь реальность искажена, а программы-фантомы и вирусы охраняют квантовые данные. Подготовьте снаряжение и начните спуск.",
-                                color = Color.LightGray,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                textAlign = TextAlign.Center,
-                                lineHeight = 16.sp
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("ЗДОРОВЬЕ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                                    Text("${player?.hp ?: 100}/${player?.max_hp ?: 100}", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("АТАКА", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                                    Text("${activeStats?.attack ?: player?.attack ?: 10}", color = EidosRed, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("ЗАЩИТА", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                                    Text("${activeStats?.defense ?: player?.defense ?: 5}", color = EidosCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(20.dp))
-
-                            Button(
-                                onClick = {
-                                    haptics.criticalHit()
-                                    audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
-                                    onStartRaid()
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(54.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A0808)),
-                                border = androidx.compose.foundation.BorderStroke(2.dp, EidosRed),
-                                shape = androidx.compose.foundation.shape.CutCornerShape(8.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    ZzzIcon(iconRes = R.drawable.ic_event_evac, size = 18.dp)
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("НАЧАТЬ ПОГРУЖЕНИЕ В БЕЗДНУ", color = EidosRed, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                                }
-                            }
-                        }
-                    }
-                }
+                io.eidos.zerolayer.ui.screens.raid.RaidGatewayReadyContent(
+                    player = player,
+                    activeStats = activeStats,
+                    inventory = inventory,
+                    innerPadding = innerPadding,
+                    onStartRaid = onStartRaid,
+                    haptics = haptics,
+                    audio = audio
+                )
             } else {
                 Column(
                     modifier = Modifier
@@ -427,7 +385,8 @@ fun RaidScreen(
                         hasTacticalScanner = hasTacticalScanner,
                         overchargeTier = overchargeTier,
                         onOpenBuffer = { showBufferModal = true },
-                        onShowTooltip = { tooltip -> activeBuffTooltip = tooltip }
+                        onShowTooltip = { tooltip -> activeBuffTooltip = tooltip },
+                        onBoostOvercharge = onBoostOvercharge
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -435,6 +394,7 @@ fun RaidScreen(
                     ActiveSynergiesBar(
                         activeSynergies = activeSynergies,
                         onOpenCodex = { showSynergyCodex = true },
+                        onOpenLogs = { showEventLogsModal = true },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
                     )
 
@@ -496,10 +456,29 @@ fun RaidScreen(
                                 player = player,
                                 anomalyData = anomalyData,
                                 logs = logs,
+                                inventory = inventory,
                                 equippedItems = inventory.filter { it.is_equipped },
                                 activeProcs = activeProcs,
                                 latestProc = latestProc,
-                                onTriggerHack = { showMinigame = true },
+                                isChestHacked = activeChestHacked,
+                                isChestClaimed = activeChestClaimed,
+                                onTriggerHack = { isCursed ->
+                                    activeChestIsCursed = isCursed
+                                    showMinigame = true
+                                },
+                                onConsumeItem = onUseConsumable,
+                                onClaimLoot = {
+                                    onClaimChestLoot(activeChestIsCursed) { coins, xp, items ->
+                                        activeChestClaimed = true
+                                        dopamineCoins = coins
+                                        dopamineXp = xp
+                                        dopamineItems = items
+                                        showDopamineModal = true
+                                        audio.playSound(EidosAudioManager.SoundType.ITEM_LOOT)
+                                        haptics.criticalHit()
+                                    }
+                                },
+                                onSkipLoot = onNextStep,
                                 onInspectVillain = { villain -> inspectVillain = villain }
                             )
 
@@ -536,9 +515,7 @@ fun RaidScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                     } else {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        TerminalLog(logs)
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                     }
 
                     // Controls
@@ -571,7 +548,8 @@ fun RaidScreen(
                             onUseConsumable = { itemId ->
                                 inventory.find { it.item_id == itemId }?.let { onUseConsumable(it) }
                             },
-                            onFlee = onFlee
+                            onFlee = onFlee,
+                            onResolveRiddle = onResolveRiddle
                         )
                     }
                 }
@@ -600,9 +578,16 @@ fun RaidScreen(
             depth = session?.depth ?: 1,
             onDismiss = { showMinigame = false },
             onSuccess = {
-                minigameResultMsg = "ВЗЛОМ УСПЕШЕН: Извлечены дополнительные байты данных (+200 BC, +150 XP)!"
+                showMinigame = false
+                activeChestHacked = true
+                audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
+                haptics.criticalHit()
+                minigameResultMsg = "ВЗЛОМ УСПЕШЕН: Защитные протоколы сняты, крышка тайника открыта!"
             },
             onFailure = {
+                showMinigame = false
+                audio.playSound(EidosAudioManager.SoundType.ERROR_GLITCH)
+                haptics.screenShakeImpact()
                 minigameResultMsg = "ОШИБКА ВЗЛОМА: Получен импульсный разряд (-15 Сигнала)!"
             }
         )
@@ -623,21 +608,6 @@ fun RaidScreen(
             onConfirmExit = {
                 showEvacSummary = false
                 onExitRaid()
-            }
-        )
-    }
-
-    // Riddle / Sphinx Encounter Modal
-    if (session?.next_event_type == "riddle") {
-        io.eidos.zerolayer.ui.components.LoreRiddleDialog(
-            onDismiss = {
-                onNextStep()
-            },
-            onCorrectAnswer = {
-                onResolveRiddle(true)
-            },
-            onWrongAnswer = {
-                onResolveRiddle(false)
             }
         )
     }
@@ -766,6 +736,7 @@ fun RaidScreen(
     if (deathReport != null) {
         DeathScreenOverlay(
             report = deathReport,
+            logs = logs,
             onDismiss = onClearDeathReport
         )
     }
@@ -774,6 +745,21 @@ fun RaidScreen(
         SynergyCodexModal(
             activeSynergies = activeSynergies,
             onDismiss = { showSynergyCodex = false }
+        )
+    }
+
+    if (showEventLogsModal) {
+        io.eidos.zerolayer.ui.screens.raid.EventLogsDialog(
+            logs = logs,
+            onDismiss = { showEventLogsModal = false }
+        )
+    }
+
+    storyMilestoneChapter?.let { chapter ->
+        io.eidos.zerolayer.ui.screens.raid.StoryMilestoneChapterDialog(
+            chapter = chapter,
+            haptics = haptics,
+            onDismiss = { storyMilestoneChapter = null }
         )
     }
 
@@ -787,12 +773,14 @@ fun RaidScreen(
 @Composable
 fun DeathScreenOverlay(
     report: io.eidos.zerolayer.data.GameRepository.DeathReport,
+    logs: List<GameLog> = emptyList(),
     onDismiss: () -> Unit
 ) {
     val itemsCount = report.lostItems.split(",").filter { it.isNotBlank() }.size
     val context = androidx.compose.ui.platform.LocalContext.current
     val haptics = remember { io.eidos.zerolayer.ui.utils.HapticFeedbackManager.getInstance(context) }
     val audio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
+    var showLogsInDeath by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.ERROR_GLITCH)
@@ -816,13 +804,15 @@ fun DeathScreenOverlay(
     ) {
         Surface(
             color = Color(0xFF020304).copy(alpha = crtFlicker),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .border(BorderStroke(3.dp, Color(0xFFFF0055).copy(alpha = 0.85f)))
-                    .padding(20.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 // Neural Interface Critical Signal Failure Video
                 VideoBackground(resName = "death_glitch", modifier = Modifier.fillMaxSize())
@@ -852,233 +842,129 @@ fun DeathScreenOverlay(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Title with Icon
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(iconRes = R.drawable.ic_event_grave, size = 20.dp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "СИГНАЛ ПОТЕРЯН // АВАРИЙНЫЙ СБРОС",
+                            color = Color(0xFFFF0055),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+                    }
+
+                    // Subtitle EVA-09
+                    Text(
+                        text = "EVA-09: «Критическая десинхронизация. Аварийный сброс сознания в Хаб...»",
+                        color = Color(0xFFFF5252).copy(alpha = 0.85f),
+                        fontSize = 10.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center
+                    )
+
+                    // Digital disintegration art
+                    Box(
+                        modifier = Modifier
+                            .size(96.dp)
+                            .clip(CutCornerShape(8.dp))
+                            .background(Color(0xFF140207))
+                            .border(1.5.dp, Color(0xFFFF0055), CutCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        EidosImage(
+                            resName = "raid_death",
+                            fallbackIcon = Icons.Default.Warning,
+                            borderColor = Color.Transparent,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    // DETAILED SESSION EXPEDITION TELEMETRY
+                    Surface(
+                        color = Color(0xFF06141D),
+                        border = BorderStroke(1.dp, EidosCyan.copy(alpha = 0.5f)),
+                        shape = CutCornerShape(6.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Title with Icon
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            ZzzIcon(iconRes = R.drawable.ic_event_grave, size = 20.dp)
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = "СИГНАЛ ПОТЕРЯН // АВАРИЙНЫЙ СБРОС",
-                                color = Color(0xFFFF0055),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.Monospace,
-                                textAlign = TextAlign.Center,
-                                lineHeight = 22.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Subtitle EVA-09
-                        Text(
-                            text = "EVA-09: «Критическая десинхронизация. Аварийный сброс сознания в Хаб...»",
-                            color = Color(0xFFFF5252).copy(alpha = 0.85f),
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Digital disintegration art
-                        Box(
-                            modifier = Modifier
-                                .size(105.dp)
-                                .clip(CutCornerShape(8.dp))
-                                .background(Color(0xFF140207))
-                                .border(1.5.dp, Color(0xFFFF0055), CutCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            EidosImage(
-                                resName = "raid_death",
-                                fallbackIcon = Icons.Default.Warning,
-                                borderColor = Color.Transparent,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // 4-STEP PENALTY REPORT
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // 1. Buffer Incineration
-                            Surface(
-                                color = Color(0xFF130408),
-                                border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
-                                shape = CutCornerShape(6.dp),
-                                modifier = Modifier.fillMaxWidth()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            "1. БУФЕР РЕЙДА:",
-                                            color = Color.LightGray,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .background(Color(0xFFFF0055).copy(alpha = 0.25f))
-                                                .border(1.dp, Color(0xFFFF0055), CutCornerShape(2.dp))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                "[ БУФЕР УНИЧТОЖЕН: -100% ]",
-                                                color = Color(0xFFFF0055),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Black,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 12.dp)
-                                            Spacer(Modifier.width(3.dp))
-                                            Text(
-                                                "-${report.lostCoins} BC",
-                                                color = Color.Gray,
-                                                fontSize = 11.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
-                                            )
-                                        }
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 12.dp)
-                                            Spacer(Modifier.width(3.dp))
-                                            Text(
-                                                "-${report.lostXp} XP",
-                                                color = Color.Gray,
-                                                fontSize = 11.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
-                                            )
-                                        }
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 12.dp)
-                                            Spacer(Modifier.width(3.dp))
-                                            Text(
-                                                "-${itemsCount} предм.",
-                                                color = Color.Gray,
-                                                fontSize = 11.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 2. EMP Durability Strike
-                            Surface(
-                                color = Color(0xFF130408),
-                                border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
-                                shape = CutCornerShape(6.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            "2. ЭМИ-УДАР ПО СНАРЯЖЕНИЮ:",
-                                            color = Color.LightGray,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                        Text(
-                                            "-${report.durabilityPenaltyPercent}% ПРОЧНОСТИ",
-                                            color = Color(0xFFFF0055),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
-                                    if (report.brokenItems.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "[CRITICAL ERROR: ${report.brokenItems.joinToString()} СЛОМАНО] — урон снижен до базовых 5 ATK!",
-                                            color = Color(0xFFFF5252),
-                                            fontSize = 9.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
-                                }
-                            }
-
-                            // 3. Grave creation
-                            Surface(
-                                color = Color(0xFF041218),
-                                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.4f)),
-                                shape = CutCornerShape(6.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(iconRes = R.drawable.ic_stat_depth, size = 13.dp)
+                                    Spacer(Modifier.width(4.dp))
                                     Text(
-                                        "3. МОГИЛА ОПЕРАТОРА (СЛОЙ ${report.depth}м):",
-                                        color = Color(0xFF00E5FF),
+                                        "ТЕЛЕМЕТРИЯ СЕССИИ // РЕЗУЛЬТАТЫ",
+                                        color = EidosCyan,
                                         fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                                Text(
+                                    "ГЛУБИНА: ${report.depth}м",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(EidosCyan.copy(alpha = 0.25f)))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text("УСТРАНЕНО УГРОЗ:", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 11.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("${report.kills} нейтрализовано", color = EidosNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("КВАНТОВЫХ ЗАГАДОК:", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(iconRes = R.drawable.ic_action_skill, size = 11.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("${report.riddlesSolved} решено", color = Color.Yellow, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text("ВРЕМЯ ЭКСПЕДИЦИИ:", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    val m = report.durationSeconds / 60
+                                    val s = report.durationSeconds % 60
+                                    Text("${m}м ${s}с", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("АКТИВНЫЙ МУТАТОР:", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Text(
+                                        report.activeMutator?.uppercase() ?: "ЧИСТЫЙ СИГНАЛ",
+                                        color = EidosOrange,
+                                        fontSize = 10.5.sp,
                                         fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = if (report.graveCreated) {
-                                            "Ваше цифровое тело осталось на глубине ${report.depth}м. Другие Операторы могут разграбить ваши останки."
-                                        } else {
-                                            "Останки рассеяны в информационном шуме Нулевого Слоя."
-                                        },
-                                        color = Color.LightGray,
-                                        fontSize = 10.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
-                            }
-
-                            // 4. Critical Rollback to Hub
-                            Surface(
-                                color = Color(0xFF130408),
-                                border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
-                                shape = CutCornerShape(6.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(
-                                        "4. АВАРИЙНЫЙ ОТКАТ В ХАБ:",
-                                        color = Color.LightGray,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Сигнал восстановлен до 1%. Овердрайв сброшен до 0%.",
-                                        color = Color.Gray,
-                                        fontSize = 10.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
                                 }
@@ -1086,25 +972,277 @@ fun DeathScreenOverlay(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    // 4-STEP PENALTY REPORT
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 1. Buffer Incineration
+                        Surface(
+                            color = Color(0xFF130408),
+                            border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                            shape = CutCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "1. БУФЕР РЕЙДА:",
+                                        color = Color.LightGray,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color(0xFFFF0055).copy(alpha = 0.25f))
+                                            .border(1.dp, Color(0xFFFF0055), CutCornerShape(2.dp))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            "[ БУФЕР УНИЧТОЖЕН: -100% ]",
+                                            color = Color(0xFFFF0055),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 12.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text(
+                                            "-${report.lostCoins} BC",
+                                            color = Color.Gray,
+                                            fontSize = 11.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(iconRes = R.drawable.ic_res_energy, size = 12.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text(
+                                            "-${report.lostXp} XP",
+                                            color = Color.Gray,
+                                            fontSize = 11.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 12.dp)
+                                        Spacer(Modifier.width(3.dp))
+                                        Text(
+                                            "-${itemsCount} предм.",
+                                            color = Color.Gray,
+                                            fontSize = 11.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                                        )
+                                    }
+                                }
+                            }
+                        }
 
-                    // Full-width Return Button
+                        // 2. EMP Durability Strike
+                        Surface(
+                            color = Color(0xFF130408),
+                            border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                            shape = CutCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        "2. ЭМИ-УДАР ПО СНАРЯЖЕНИЮ:",
+                                        color = Color.LightGray,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        "-${report.durabilityPenaltyPercent}% ПРОЧНОСТИ",
+                                        color = Color(0xFFFF0055),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                                if (report.brokenItems.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "[CRITICAL ERROR: ${report.brokenItems.joinToString()} СЛОМАНО] — урон снижен до базовых 5 ATK!",
+                                        color = Color(0xFFFF5252),
+                                        fontSize = 9.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+
+                        // 3. Grave creation
+                        Surface(
+                            color = Color(0xFF041218),
+                            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.4f)),
+                            shape = CutCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    "3. МОГИЛА ОПЕРАТОРА (СЛОЙ ${report.depth}м):",
+                                    color = Color(0xFF00E5FF),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (report.graveCreated) {
+                                        "Ваше цифровое тело осталось на глубине ${report.depth}м. Другие Операторы могут разграбить ваши останки."
+                                    } else {
+                                        "Останки рассеяны в информационном шуме Нулевого Слоя."
+                                    },
+                                    color = Color.LightGray,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+
+                        // 4. Critical Rollback to Hub
+                        Surface(
+                            color = Color(0xFF130408),
+                            border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                            shape = CutCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    "4. АВАРИЙНЫЙ ОТКАТ В ХАБ:",
+                                    color = Color.LightGray,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Сигнал восстановлен до 1%. Овердрайв сброшен до 0%.",
+                                    color = Color.Gray,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+
+                    // SESSION EVENT LOG BUTTON & VIEWER
+                    Button(
+                        onClick = { showLogsInDeath = !showLogsInDeath },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (showLogsInDeath) Color(0xFF1E1A05) else Color(0xFF0F151B)
+                        ),
+                        border = BorderStroke(1.dp, if (showLogsInDeath) Color.Yellow else EidosCyan.copy(alpha = 0.5f)),
+                        shape = CutCornerShape(6.dp),
+                        modifier = Modifier.fillMaxWidth().height(40.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 14.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = if (showLogsInDeath) "[ СКРЫТЬ ЖУРНАЛ СЕССИИ ]" else "[ 📜 ЖУРНАЛ СОБЫТИЙ СЕССИИ (${logs.size}) ]",
+                                color = if (showLogsInDeath) Color.Yellow else Color.White,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
+                    if (showLogsInDeath) {
+                        CyberCornerBracketBox(
+                            bracketSize = 10.dp,
+                            bracketColor = Color.Yellow.copy(alpha = 0.7f),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF06090D))
+                                    .border(1.dp, Color.Yellow.copy(alpha = 0.35f), CutCornerShape(4.dp))
+                                    .padding(8.dp)
+                            ) {
+                                val logScrollState = rememberScrollState()
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(logScrollState),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (logs.isEmpty()) {
+                                        Text(
+                                            "Журнал текущей экспедиции пуст.",
+                                            color = Color.Gray,
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    } else {
+                                        logs.reversed().forEach { log ->
+                                            val logColor = when (log.type) {
+                                                "error", "danger", "death" -> Color(0xFFFF5252)
+                                                "combat" -> Color(0xFFFF9100)
+                                                "loot" -> Color(0xFF00E676)
+                                                "anomaly" -> Color(0xFFFFD600)
+                                                else -> Color(0xFF80DEEA)
+                                            }
+                                            Text(
+                                                text = "> ${log.message}",
+                                                color = logColor,
+                                                fontSize = 9.5.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                lineHeight = 13.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Full-width Return Button with Safe Margin
                     Button(
                         onClick = onDismiss,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF0055)),
                         shape = CutCornerShape(6.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(50.dp)
                     ) {
                         Text(
                             text = "[ АВАРИЙНАЯ ПЕРЕЗАГРУЗКА В ХАБ ]",
                             color = Color.White,
                             fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
+                            fontSize = 12.5.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(36.dp))
                 }
             }
         }
@@ -1119,7 +1257,8 @@ fun RaidHUD(
     hasTacticalScanner: Boolean = false,
     overchargeTier: Int = 0,
     onOpenBuffer: () -> Unit = {},
-    onShowTooltip: (BuffTooltipInfo) -> Unit = {}
+    onShowTooltip: (BuffTooltipInfo) -> Unit = {},
+    onBoostOvercharge: (() -> Unit)? = null
 ) {
     val signal = session?.signal ?: 94
     val depth = session?.depth ?: 1480
@@ -1139,10 +1278,41 @@ fun RaidHUD(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            val pingMs = if (depth > 250) 240 else 12
+            val status = if (depth > 250) "НЕСТАБИЛЬНЫЙ" else "СИНХРОНИЗИРОВАН"
+            val pingColor = if (depth > 250) Color(0xFFFF0055) else Color(0xFF00FFF6)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(CutCornerShape(4.dp))
+                    .clickable {
+                        val effectDesc = if (depth > 250) {
+                            "Глубокий спуск в Бездну вызывает синаптическую задержку ($pingMs ms).\n\n" +
+                            "• Шанс уклонения снижен на 15%\n" +
+                            "• Шанс критического удара монстров повышен на 10%\n" +
+                            "• Множитель наград BioCoins и опыта увеличен за риск!"
+                        } else {
+                            "Стабильное квантовое подключение к Нулевому Слою ($pingMs ms).\n\n" +
+                            "• Идеальный отклик команд: +5% к шансу крита\n" +
+                            "• Повышенная точность тактических атак\n" +
+                            "• Минимальный риск рассинхронизации сигнатуры"
+                        }
+                        onShowTooltip(
+                            BuffTooltipInfo(
+                                title = "КВАНТОВЫЙ НЕЙРО-ПИНГ // $status",
+                                subtitle = "ЗАДЕРЖКА КАНАЛА СВЯЗИ: ${pingMs}ms",
+                                description = effectDesc,
+                                iconRes = R.drawable.ic_hud_signal_ping,
+                                accentColor = pingColor
+                            )
+                        )
+                    }
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_hud_signal_ping),
-                    contentDescription = null,
+                    contentDescription = "Нейро-пинг",
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -1150,7 +1320,7 @@ fun RaidHUD(
                     text = if (depth > 250) "PING 240ms // UNSTABLE" else "LINK 12ms // SYNC OK",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
-                    color = if (depth > 250) Color(0xFFFF0055) else Color(0xFF00FFF6)
+                    color = pingColor
                 )
             }
             Text(
@@ -1169,12 +1339,36 @@ fun RaidHUD(
         val isCombat = session?.current_enemy_id != null
         val showScanner = hasTacticalScanner && isCombat
 
-        if (hasOvercharge || hasOverdrive || hasBuff || showScanner) {
+        if (hasOvercharge || hasOverdrive || hasBuff || showScanner || (overchargeTier < io.eidos.zerolayer.domain.combat.CombatEngine.MAX_OVERCHARGE_TIER && onBoostOvercharge != null)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (overchargeTier < io.eidos.zerolayer.domain.combat.CombatEngine.MAX_OVERCHARGE_TIER && onBoostOvercharge != null) {
+                    Box(
+                        modifier = Modifier
+                            .clip(CutCornerShape(4.dp))
+                            .background(Color(0xFF2A1000).copy(alpha = 0.85f))
+                            .border(1.dp, EidosOrange.copy(alpha = 0.8f), CutCornerShape(4.dp))
+                            .clickable {
+                                onBoostOvercharge()
+                            }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ZzzIcon(iconRes = R.drawable.ic_res_overdrive, size = 11.dp)
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                "ФОРСИРОВАТЬ [УР ${overchargeTier + 1}]",
+                                color = EidosOrange,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
                 if (showScanner) {
                     val pHp = player?.hp ?: 100
                     val eHp = session?.current_enemy_hp ?: 50
@@ -1685,7 +1879,10 @@ fun CombatArenaCard(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(activeEquippedPassives.size) { idx ->
+                    items(
+                        count = activeEquippedPassives.size,
+                        key = { idx -> activeEquippedPassives[idx].first }
+                    ) { idx ->
                         val (itemId, title, color) = activeEquippedPassives[idx]
                         val isTriggered = activeProcs.any { it.itemName == itemId }
                         val infiniteTransition = rememberInfiniteTransition(label = "pulse_$itemId")
@@ -1884,26 +2081,159 @@ fun CombatArenaCard(
     }
 }
 
+fun resolveExplorationDrawable(
+    session: RaidSession?,
+    anomalyData: io.eidos.zerolayer.data.GameRepository.AnomalyEvent?,
+    eventType: String?,
+    text: String?,
+    isChestHacked: Boolean = false
+): Int {
+    if ((session?.signal ?: 100) <= 0) return R.drawable.ui_screen_20
+
+    val rawText = ((anomalyData?.text ?: "") + " " + (text ?: "")).lowercase()
+    val event = eventType?.lowercase() ?: ""
+    val isAnomaly = session?.current_anomaly_id != null
+
+    // 1. Riddles
+    if (event == "riddle" || rawText.contains("загадк") || rawText.contains("сфинкс") || rawText.contains("парол")) {
+        return R.drawable.ui_write_the_word_202602
+    }
+
+    // 2. Maxwell's Demon
+    if (event == "maxwells_demon" || rawText.contains("максвелл") || rawText.contains("демон")) {
+        return R.drawable.ui_screen_22
+    }
+
+    // 3. Free resources / Supply / Cache
+    if (event == "free_resources" || rawText.contains("бесплатн") || rawText.contains("припасы") || rawText.contains("тайник данных")) {
+        return R.drawable.ui_screen_21
+    }
+
+    // 4. Digital Grave / Corpse Run
+    if (event == "corpse" || event == "corpse_run" || rawText.contains("могил") || rawText.contains("труп") || rawText.contains("останки оператора")) {
+        return R.drawable.ui_screen_16
+    }
+
+    // 5. Safe Zone (Explicitly ui_screen_17 as requested)
+    if (event == "safe_zone" || event == "safe" || event == "heal" || event == "empty" || rawText.contains("безопасн") || rawText.contains("оазис") || rawText.contains("зона отдыха") || rawText.contains("нейтрал")) {
+        return R.drawable.ui_screen_17
+    }
+
+    // 6. Chests and Loot Containers
+    if (event == "loot" || event == "cursed_loot" || rawText.contains("сундук") || rawText.contains("тайник") || rawText.contains("контейнер")) {
+        val isCursed = event == "cursed_loot" || rawText.contains("проклят") || rawText.contains("cursed") || rawText.contains("vaal")
+        if (isChestHacked) {
+            return if (isCursed) R.drawable.chest_frame_12 else R.drawable.chest_frame_11
+        }
+        return if (isCursed) R.drawable.ui_a_full_202602220643 else R.drawable.raid_chest
+    }
+
+    // 7. Secret Door (Data Spike)
+    if (event == "secret_door" || (rawText.contains("секретн") && rawText.contains("двер")) || rawText.contains("шлюз")) {
+        return R.drawable.ui_screen_15
+    }
+
+    // 8. Traps
+    if (event == "trap" || rawText.contains("ловушк") || rawText.contains("растяжк") || rawText.contains("мина")) {
+        return R.drawable.ui_screen_14
+    }
+
+    // 9. Shadow Broker Secret Shop
+    if (event == "shop" || rawText.contains("торговец") || rawText.contains("брокер") || rawText.contains("теневой магазин")) {
+        return R.drawable.ui_gemini_generated_imag
+    }
+
+    // 10. Network War / PvP
+    if (event == "pvp" || rawText.contains("сетевая война") || rawText.contains("кибер-узел")) {
+        return R.drawable.ui_replace_the_word_2026
+    }
+
+    // 10.1 Special Zero-Layer Deep Structures (ui_screen_1 .. ui_screen_10)
+    if (rawText.contains("терминал") || rawText.contains("развилк") || rawText.contains("выбор пути")) return R.drawable.ui_screen_1
+    if (rawText.contains("станция") || rawText.contains("зарядк") || rawText.contains("ремонт") || rawText.contains("регенерац")) return R.drawable.ui_screen_2
+    if (rawText.contains("сервер") || rawText.contains("дата-центр") || rawText.contains("архив синдиката")) return R.drawable.ui_screen_3
+    if (rawText.contains("лаборатор") || rawText.contains("клон") || rawText.contains("биомасс")) return R.drawable.ui_screen_4
+    if (rawText.contains("реактор") || rawText.contains("радиац") || rawText.contains("перегрев")) return R.drawable.ui_screen_5
+    if (rawText.contains("лабиринт") || rawText.contains("зеркал") || rawText.contains("шифр")) return R.drawable.ui_screen_6
+    if (rawText.contains("обелиск") || rawText.contains("монолит") || rawText.contains("предтеч")) return R.drawable.ui_screen_7
+    if (rawText.contains("радио") || rawText.contains("сигнал связи") || rawText.contains("частот")) return R.drawable.ui_screen_8
+    if (rawText.contains("святилищ") || rawText.contains("храм") || rawText.contains("абсолют")) return R.drawable.ui_screen_9
+    if (rawText.contains("экспедиц") || rawText.contains("бортовой журнал") || rawText.contains("черный ящик")) return R.drawable.ui_screen_10
+
+    // 11. Glitches - ONLY IF anomaly active or explicit anomaly/glitch keyword in text
+    if (isAnomaly || event.contains("glitch") || event.contains("anomaly") || rawText.contains("глитч") || rawText.contains("аномали")) {
+        if (rawText.contains("памят") || rawText.contains("memory")) return R.drawable.anomaly_glitch_1
+        if (rawText.contains("петл") || rawText.contains("цикл") || rawText.contains("time") || rawText.contains("loop")) return R.drawable.anomaly_glitch_2
+        if (rawText.contains("визор") || rawText.contains("видени") || rawText.contains("vision")) return R.drawable.anomaly_glitch_3
+        if (rawText.contains("свалк") || rawText.contains("dump") || rawText.contains("мусор")) return R.drawable.anomaly_glitch_4
+        if (rawText.contains("гравит") || rawText.contains("квант") || rawText.contains("gravity") || rawText.contains("quantum")) return R.drawable.anomaly_glitch_5
+        if (rawText.contains("шторм") || rawText.contains("бинарн") || rawText.contains("storm") || rawText.contains("binary")) return R.drawable.anomaly_glitch_6
+        if (rawText.contains("осколок") || rawText.contains("shard")) return R.drawable.anomaly_glitch_7
+        if (rawText.contains("сущност") || rawText.contains("singular") || rawText.contains("единичн")) return R.drawable.anomaly_glitch_8
+        if (rawText.contains("сжати") || rawText.contains("компресс") || rawText.contains("compression")) return R.drawable.anomaly_glitch_9
+        return if (event.contains("glitch") || rawText.contains("глитч")) R.drawable.ui_screen_18 else R.drawable.ui_screen_13
+    }
+
+    // 12. Factions (Mutators)
+    val mutator = session?.active_mutator?.lowercase() ?: ""
+    if (mutator.contains("techno") || rawText.contains("техно")) return R.drawable.bg_neuro
+    if (mutator.contains("ai") || rawText.contains("ии") || rawText.contains("синтез")) return R.drawable.bg_mind_2
+    if (mutator.contains("matter") || rawText.contains("матери")) return R.drawable.bg_main_banner
+
+    // 13. Signal Loss / Danger Alert
+    if ((session?.signal ?: 100) < 25 || rawText.contains("потеря сигнала") || rawText.contains("тревога")) {
+        return R.drawable.ui_screen_19
+    }
+
+    // Default fallback: safe zero-layer cyber-corridor is ui_screen_17
+    return R.drawable.ui_screen_17
+}
+
 @Composable
 fun ExplorationEventCard(
     session: RaidSession?,
     player: io.eidos.zerolayer.data.Player?,
     anomalyData: io.eidos.zerolayer.data.GameRepository.AnomalyEvent?,
-    onTriggerHack: () -> Unit = {}
+    logs: List<GameLog> = emptyList(),
+    inventory: List<InventoryItem> = emptyList(),
+    hasTacticalScanner: Boolean = false,
+    isChestHacked: Boolean = false,
+    isChestClaimed: Boolean = false,
+    onTriggerHack: (isCursed: Boolean) -> Unit = {},
+    onConsumeItem: (InventoryItem) -> Unit = {},
+    onClaimLoot: () -> Unit = {},
+    onSkipLoot: () -> Unit = {}
 ) {
     val eventType = session?.next_event_type ?: "INITIALIZING"
     val isAnomaly = session?.current_anomaly_id != null
 
+    val latestNarrativeLog = remember(logs) { logs.firstOrNull { it.type != "combat" }?.message }
+    val isCursedChest = eventType == "cursed_loot" || (latestNarrativeLog?.contains("проклят", ignoreCase = true) == true)
+    val isNormalChest = eventType == "loot" || eventType == "cache"
+    val isChestEvent = isNormalChest || isCursedChest
+
     val title = when {
         isAnomaly -> "ОБНАРУЖЕНА АНОМАЛИЯ"
-        eventType == "loot" -> "ОБНАРУЖЕН ТАЙНИК"
-        else -> "СКАНИРОВАНИЕ СЛОЯ..."
+        isCursedChest -> if (isChestClaimed) "ПРОКЛЯТЫЙ ТАЙНИК [ОПУСТОШЕН]" else if (isChestHacked) "ПРОКЛЯТЫЙ ТАЙНИК [ПЕЧАТЬ СНЯТА]" else "ПРОКЛЯТЫЙ ТАЙНИК БЕЗДНЫ"
+        isNormalChest -> if (isChestClaimed) "ТАЙНИК ДАННЫХ [ОПУСТОШЕН]" else if (isChestHacked) "ТАЙНИК ДАННЫХ [ВЗЛОМАН]" else "ЗАШИФРОВАННЫЙ ТАЙНИК"
+        eventType == "riddle" -> "КВАНТОВЫЙ ЗАМОК // СФИНКС"
+        eventType == "maxwells_demon" -> "ДЕМОН МАКСВЕЛЛА // ЭНТРОПИЯ"
+        else -> "СКАНИРОВАНИЕ СЕКТОРА..."
     }
 
     val description = when {
-        isAnomaly -> anomalyData?.text ?: "Сработал протокол безопасности. Целостность сигнала под угрозой."
-        eventType == "loot" -> "Зашифрованный контейнер данных излучает слабый сигнал."
-        else -> "Нейро-связь стабильна. Продолжение спуска."
+        isAnomaly -> anomalyData?.text ?: (latestNarrativeLog ?: "Сработал протокол безопасности. Целостность сигнала под угрозой.")
+        isChestEvent -> {
+            when {
+                isChestClaimed -> "Содержимое защищенного контейнера извлечено и перенесено в буфер экспедиции."
+                isChestHacked -> "Шлюз контейнера открыт! Внутри мерцают квантовые кредиты и ценные компоненты."
+                isCursedChest -> latestNarrativeLog ?: "Древний ковчег Бездны, запечатанный темным кодом. Для вскрытия требуется Ключ Бездны (abyssal_key)."
+                else -> latestNarrativeLog ?: "Зашифрованный контейнер данных излучает слабый сигнал. Для взлома шифра необходим Дата-Шип (data_spike)."
+            }
+        }
+        eventType == "riddle" -> "Защитные протоколы заблокировали шлюз. Древний сфинкс требует верный пароль дешифровки."
+        !latestNarrativeLog.isNullOrBlank() -> latestNarrativeLog
+        else -> "Нейро-связь стабильна. Продолжение тактического продвижения по сектору Бездны."
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "glitch")
@@ -1917,96 +2247,244 @@ fun ExplorationEventCard(
         label = "offset"
     )
 
-    val borderColor = if (isAnomaly) Color.Yellow else EidosCyan
+    val borderColor = if (isAnomaly || eventType == "riddle") Color.Yellow else if (isCursedChest) EidosRed else EidosCyan
+    val eventDrawableRes = remember(session, anomalyData, eventType, description, isChestHacked, isChestClaimed) {
+        resolveExplorationDrawable(session, anomalyData, eventType, description, isChestHacked = isChestHacked || isChestClaimed)
+    }
 
-    Box(
+    val dataSpikeItem = remember(inventory) { inventory.find { it.item_id == "data_spike" && it.quantity > 0 } }
+    val abyssalKeyItem = remember(inventory) { inventory.find { (it.item_id == "abyssal_key" || it.item_id == "master_key") && it.quantity > 0 } }
+    val hasDataSpike = dataSpikeItem != null
+    val hasAbyssalKey = abyssalKeyItem != null
+
+    CyberCornerBracketBox(
+        bracketSize = 18.dp,
+        bracketColor = borderColor,
         modifier = Modifier
             .fillMaxSize()
             .offset(x = if (isAnomaly) glitchOffset.dp else 0.dp)
-            .clip(CutCornerShape(8.dp))
-            .background(Color(0xFF070B10).copy(alpha = 0.95f))
-            .border(1.dp, borderColor.copy(alpha = 0.5f), CutCornerShape(8.dp))
-            .padding(12.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .clip(CutCornerShape(8.dp))
+                .background(Color(0xFF070B10).copy(alpha = 0.95f))
+                .border(1.dp, borderColor.copy(alpha = 0.5f), CutCornerShape(8.dp))
+                .padding(12.dp)
         ) {
-            Text(
-                title,
-                color = borderColor,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.sp
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            if (eventType == "loot") {
-                EidosImage(
-                    resName = "raid_chest",
-                    fallbackIcon = Icons.Default.Warning,
-                    borderColor = EidosNeon,
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CutCornerShape(8.dp))
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
                 Text(
-                    "ОБНАРУЖЕНЫ ЦИФРОВЫЕ ОСТАТКИ",
-                    color = EidosNeon,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
+                    title,
+                    color = borderColor,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.sp
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onTriggerHack,
-                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan.copy(alpha = 0.2f)),
-                    border = BorderStroke(1.dp, EidosCyan),
-                    shape = CutCornerShape(6.dp)
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // High-resolution Event Illustration framed with HUD Brackets (~30% screen height)
+                CyberCornerBracketBox(
+                    bracketSize = 14.dp,
+                    bracketColor = borderColor.copy(alpha = 0.85f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(210.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ZzzIcon(iconRes = R.drawable.ic_action_skill, size = 12.dp)
-                        Spacer(Modifier.width(4.dp))
-                        Text("ВЗЛОМАТЬ ТЕРМИНАЛ [ПРОТОКОЛ ПЕРЕХВАТА]", color = EidosCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(id = eventDrawableRes),
+                        contentDescription = "Event Illustration",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CutCornerShape(6.dp))
+                    )
+
+                    // Tactical Scanner Radar overlay - ONLY visible if player has equipped tactical_scanner!
+                    if (hasTacticalScanner) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(6.dp)
+                                .background(Color.Black.copy(alpha = 0.65f), CutCornerShape(4.dp))
+                                .border(0.8.dp, EidosCyan.copy(alpha = 0.6f), CutCornerShape(4.dp))
+                                .padding(4.dp)
+                        ) {
+                            ZzzCyberSonarRadar(
+                                anomalyCount = if (isAnomaly) 2 else 0,
+                                hasEnemy = session?.current_enemy_id != null,
+                                enemyDistanceM = 24,
+                                lootDistanceM = 8,
+                                signalStability = session?.signal ?: 90,
+                                depthM = session?.depth ?: 100,
+                                modifier = Modifier.size(70.dp)
+                            )
+                        }
                     }
                 }
-            } else if (isAnomaly) {
-                EidosImage(
-                    resName = "raid_anomaly",
-                    fallbackIcon = Icons.Default.Info,
-                    borderColor = Color.Yellow,
-                    modifier = Modifier.size(90.dp)
-                )
-            } else {
-                ZzzCyberSonarRadar(
-                    anomalyCount = 1,
-                    hasEnemy = false,
-                    enemyDistanceM = 29,
-                    lootDistanceM = 6,
-                    signalStability = session?.signal ?: 94,
-                    depthM = session?.depth ?: 1480
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Interactive Chest / Cache Handling
+                if (isChestEvent) {
+                    if (isChestClaimed) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF0F1B15), CutCornerShape(4.dp))
+                                .border(1.dp, EidosNeon.copy(alpha = 0.5f), CutCornerShape(4.dp))
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 14.dp)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "ТАЙНИК ОПУСТОШЕН // ДОБЫЧА В БУФЕРЕ",
+                                    color = EidosNeon,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    } else if (isChestHacked) {
+                        Button(
+                            onClick = onClaimLoot,
+                            colors = ButtonDefaults.buttonColors(containerColor = EidosNeon.copy(alpha = 0.25f)),
+                            border = BorderStroke(1.2.dp, EidosNeon),
+                            shape = CutCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth().height(42.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 16.dp)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "ЗАБРАТЬ ЛУТ ИЗ ОТКРЫТОГО ТАЙНИКА",
+                                    color = EidosNeon,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    } else if (isCursedChest) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    abyssalKeyItem?.let { onConsumeItem(it) }
+                                    onTriggerHack(true)
+                                },
+                                enabled = hasAbyssalKey,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (hasAbyssalKey) EidosRed.copy(alpha = 0.25f) else Color(0xFF1A1215),
+                                    disabledContainerColor = Color(0xFF151012)
+                                ),
+                                border = BorderStroke(1.dp, if (hasAbyssalKey) EidosRed else Color.Gray.copy(alpha = 0.4f)),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth().height(38.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(iconRes = R.drawable.ic_action_skill, size = 13.dp)
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        if (hasAbyssalKey) "ОТПЕРЕТЬ КЛЮЧОМ БЕЗДНЫ (1 шт)" else "ТРЕБУЕТСЯ КЛЮЧ БЕЗДНЫ [НЕТ В РЮКЗАКЕ]",
+                                        color = if (hasAbyssalKey) EidosRed else Color.Gray,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = onSkipLoot,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.LightGray),
+                                border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.4f)),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth().height(32.dp)
+                            ) {
+                                Text(
+                                    "ОСТАВИТЬ ПЕЧАТЬ БЕЗДНЫ (ПРОЙТИ МИМО)",
+                                    color = Color.LightGray,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    } else {
+                        // Normal loot cache
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    dataSpikeItem?.let { onConsumeItem(it) }
+                                    onTriggerHack(false)
+                                },
+                                enabled = hasDataSpike,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (hasDataSpike) EidosCyan.copy(alpha = 0.25f) else Color(0xFF0F181B),
+                                    disabledContainerColor = Color(0xFF0B1214)
+                                ),
+                                border = BorderStroke(1.dp, if (hasDataSpike) EidosCyan else Color.Gray.copy(alpha = 0.4f)),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth().height(38.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ZzzIcon(iconRes = R.drawable.ic_action_skill, size = 13.dp)
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        if (hasDataSpike) "ВЗЛОМАТЬ ДАТА-ШИПОМ (1 шт)" else "ТРЕБУЕТСЯ ДАТА-ШИП [НЕТ В РЮКЗАКЕ]",
+                                        color = if (hasDataSpike) EidosCyan else Color.Gray,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = onSkipLoot,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.LightGray),
+                                border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.4f)),
+                                shape = CutCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth().height(32.dp)
+                            ) {
+                                Text(
+                                    "ПРОЙТИ МИМО (НЕ ВСКРЫВАТЬ)",
+                                    color = Color.LightGray,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                val displayedDescription = ghostTyping(description, speed = 12L)
+                Text(
+                    displayedDescription,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.heightIn(min = 36.dp),
+                    fontFamily = FontFamily.Monospace,
+                    lineHeight = 15.sp
                 )
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            val displayedDescription = ghostTyping(description, speed = 12L)
-            Text(
-                displayedDescription,
-                color = Color.White.copy(alpha = 0.75f),
-                fontSize = 11.5.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.heightIn(min = 36.dp),
-                fontFamily = FontFamily.Monospace,
-                lineHeight = 15.sp
-            )
         }
     }
 }
@@ -2017,10 +2495,16 @@ fun EventCard(
     player: io.eidos.zerolayer.data.Player?,
     anomalyData: io.eidos.zerolayer.data.GameRepository.AnomalyEvent?,
     logs: List<GameLog>,
+    inventory: List<InventoryItem> = emptyList(),
     equippedItems: List<InventoryItem> = emptyList(),
     activeProcs: List<io.eidos.zerolayer.data.EquipmentProcEvent> = emptyList(),
     latestProc: io.eidos.zerolayer.data.EquipmentProcEvent? = null,
-    onTriggerHack: () -> Unit = {},
+    isChestHacked: Boolean = false,
+    isChestClaimed: Boolean = false,
+    onTriggerHack: (isCursed: Boolean) -> Unit = {},
+    onConsumeItem: (InventoryItem) -> Unit = {},
+    onClaimLoot: () -> Unit = {},
+    onSkipLoot: () -> Unit = {},
     onInspectVillain: (io.eidos.zerolayer.data.GameVillainData) -> Unit = {}
 ) {
     val enemyId = session?.current_enemy_id
@@ -2035,11 +2519,20 @@ fun EventCard(
             onInspectVillain = onInspectVillain
         )
     } else {
+        val hasTacticalScanner = remember(equippedItems) { equippedItems.any { it.item_id == "tactical_scanner" } }
         ExplorationEventCard(
             session = session,
             player = player,
             anomalyData = anomalyData,
-            onTriggerHack = onTriggerHack
+            logs = logs,
+            inventory = inventory,
+            hasTacticalScanner = hasTacticalScanner,
+            isChestHacked = isChestHacked,
+            isChestClaimed = isChestClaimed,
+            onTriggerHack = onTriggerHack,
+            onConsumeItem = onConsumeItem,
+            onClaimLoot = onClaimLoot,
+            onSkipLoot = onSkipLoot
         )
     }
 }
@@ -2299,7 +2792,8 @@ fun RaidControls(
     onTriggerOverdrive: () -> Unit = {},
     onBoostOvercharge: () -> Unit = {},
     onUseConsumable: (String) -> Unit = {},
-    onFlee: () -> Unit = {}
+    onFlee: () -> Unit = {},
+    onResolveRiddle: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = remember { HapticFeedbackManager.getInstance(context) }
@@ -2618,44 +3112,132 @@ fun RaidControls(
                     }
                 }
             }
-        } else {
-            // Overcharge boost button
-            if (overchargeTier < io.eidos.zerolayer.domain.combat.CombatEngine.MAX_OVERCHARGE_TIER) {
-                Button(
-                    onClick = {
-                        haptics.glitchPulse()
-                        audio.playSound(EidosAudioManager.SoundType.LEVEL_UP)
-                        onBoostOvercharge()
-                    },
-                    modifier = Modifier.fillMaxWidth().height(36.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1000)),
-                    border = BorderStroke(1.dp, EidosOrange),
-                    shape = CutCornerShape(6.dp)
+        } else if (session?.next_event_type == "riddle") {
+            // Sphinx Riddle Panel embedded right at bottom controls level without obscuring the art!
+            val riddle = remember(session.depth) {
+                io.eidos.zerolayer.domain.raid.RaidLoreEngine.getRandomRiddle()
+            }
+            var answeredIndex by remember(session.depth) { mutableStateOf<Int?>(null) }
+
+            CyberCornerBracketBox(
+                bracketSize = 12.dp,
+                bracketColor = Color.Yellow,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(CutCornerShape(6.dp))
+                        .background(Color(0xFF141204).copy(alpha = 0.95f))
+                        .border(1.dp, Color.Yellow.copy(alpha = 0.6f), CutCornerShape(6.dp))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ZzzIcon(iconRes = R.drawable.ic_res_overdrive, size = 14.dp)
-                        Spacer(Modifier.width(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ZzzIcon(iconRes = R.drawable.ic_hazard_warning, size = 14.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "КВАНТОВЫЙ ЗАМОК // СФИНКС",
+                                color = Color.Yellow,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
                         Text(
-                            "ФОРСИРОВАТЬ СИГНАЛ (+50% ЛУТ / +РИСК) [УР ${overchargeTier + 1}/3]",
-                            color = EidosOrange,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp,
+                            "ВЫБЕРИТЕ ОТВЕТ",
+                            color = Color.LightGray,
+                            fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     }
+
+                    Text(
+                        text = riddle.question,
+                        color = Color.White,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 15.sp
+                    )
+
+                    riddle.options.forEachIndexed { index, optionText ->
+                        val isCorrect = index == riddle.correctIndex
+                        val isChosen = answeredIndex == index
+                        val btnColor = when {
+                            answeredIndex != null && isCorrect -> EidosNeon
+                            answeredIndex != null && isChosen && !isCorrect -> EidosRed
+                            else -> Color.Yellow
+                        }
+
+                        Button(
+                            onClick = {
+                                if (answeredIndex == null) {
+                                    answeredIndex = index
+                                    if (isCorrect) {
+                                        audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
+                                        haptics.criticalHit()
+                                        onResolveRiddle(true)
+                                    } else {
+                                        audio.playSound(EidosAudioManager.SoundType.ERROR_GLITCH)
+                                        haptics.screenShakeImpact()
+                                        onResolveRiddle(false)
+                                    }
+                                }
+                            },
+                            enabled = answeredIndex == null,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = btnColor.copy(alpha = 0.15f),
+                                disabledContainerColor = btnColor.copy(alpha = 0.25f)
+                            ),
+                            border = BorderStroke(1.dp, btnColor.copy(alpha = 0.8f)),
+                            shape = CutCornerShape(4.dp),
+                            modifier = Modifier.fillMaxWidth().height(38.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Start,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "[${index + 1}]",
+                                    color = btnColor,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    optionText,
+                                    color = Color.White,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
             }
-
-            // 3 Asymmetric Quantum Sector Choices (Fog of War & Mutators)
-            val choices = remember(session?.depth, session?.is_scanned) {
-                io.eidos.zerolayer.domain.raid.QuantumSectorEngine.generateSectorChoices(
+        } else {
+            // 3 Asymmetric Quantum Sector Choices with Atmospheric Narrative Scenario
+            val scenario = remember(session?.depth, session?.is_scanned) {
+                io.eidos.zerolayer.domain.raid.QuantumSectorEngine.generateDescentScenario(
                     depth = session?.depth ?: 0,
                     isScanned = session?.is_scanned == true
                 )
             }
 
             QuantumSectorChoicesFork(
-                sectors = choices,
+                sectors = scenario.choices.map { it.sector },
+                scenario = scenario,
                 currentEnergy = player?.energy ?: 0,
                 onSelectSector = { sector ->
                     haptics.step()

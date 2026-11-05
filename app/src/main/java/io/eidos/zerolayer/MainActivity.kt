@@ -158,7 +158,9 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
     val currentRoute = navBackStackEntry?.destination?.route ?: ""
     val isBottomBarVisible = currentRoute.isNotBlank() &&
         !currentRoute.contains("Splash") &&
-        !currentRoute.contains("Onboarding")
+        !currentRoute.contains("Onboarding") &&
+        !currentRoute.contains("Raid") &&
+        (raidSession == null)
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -217,7 +219,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
             ) {
                 composable<Splash> {
                     SplashScreen(onFinish = { 
-                        val currentP = mainViewModel.getPlayerDirect() ?: player
+                        val currentP = mainViewModel.player.value ?: player
                         val dest = if (currentP == null || currentP.faction == "NONE") Onboarding else Hub
                         navController.navigate(dest) { popUpTo(Splash) { inclusive = true } }
                     })
@@ -361,6 +363,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onIgnoreDemon = { mainViewModel.ignoreMaxwellDemon() },
                         onResolveHardGlitch = { chosen, correct -> mainViewModel.resolveHardGlitch(chosen, correct) },
                         onResolveRiddle = { mainViewModel.resolveRiddle(it) },
+                        onClaimChestLoot = { isCursed, onResult -> mainViewModel.claimChestLoot(isCursed, onResult) },
                         deathReport = deathReport,
                         onClearDeathReport = { mainViewModel.clearDeathReport() }
                     )

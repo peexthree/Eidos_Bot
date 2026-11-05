@@ -149,7 +149,9 @@ data class InventoryItem(
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("uid")]
+    // Composite index serves trimOldLogs: DELETE ... WHERE uid = :uid
+    // AND id NOT IN (... ORDER BY timestamp DESC LIMIT 100)
+    indices = [Index("uid"), Index(value = ["uid", "timestamp"])]
 )
 data class GameLog(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

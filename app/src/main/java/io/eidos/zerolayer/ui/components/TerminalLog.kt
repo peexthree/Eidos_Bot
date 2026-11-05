@@ -53,7 +53,7 @@ fun TerminalLog(logs: List<GameLog>) {
             state = listState,
             modifier = Modifier.fillMaxSize()
         ) {
-            itemsIndexed(logs) { index, log ->
+            itemsIndexed(logs, key = { _, log -> log.id }) { index, log ->
                 if (index == 0) {
                     TypingLogItem(log, dateFormat)
                 } else {

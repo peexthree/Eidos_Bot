@@ -5,10 +5,17 @@ import android.content.Context
 import android.util.Log
 import com.android.billingclient.api.*
 import io.eidos.zerolayer.BuildConfig
+import io.eidos.zerolayer.data.SupabaseClientManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.ConcurrentHashMap
 
 class EidosBillingManager(
@@ -17,6 +24,14 @@ class EidosBillingManager(
 ) : PurchasesUpdatedListener {
 
     private val telemetry = EidosTelemetryManager.getInstance(context)
+
+    // Thin client used only for the fire-and-forget server-side purchase ledger report.
+    private val serverReportClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
 
     private val _billingConnected = MutableStateFlow(false)
     val billingConnected: StateFlow<Boolean> = _billingConnected.asStateFlow()
@@ -40,9 +55,12 @@ class EidosBillingManager(
     }
 
     private val billingClient: BillingClient by lazy {
+        // Billing 9: enablePendingPurchases requires explicit params
         BillingClient.newBuilder(context)
             .setListener(this)
-            .enablePendingPurchases()
+            .enablePendingPurchases(
+                com.android.billingclient.api.PendingPurchasesParams.newBuilder().build()
+            )
             .build()
     }
 
@@ -100,16 +118,18 @@ class EidosBillingManager(
             .setProductList(subProductList)
             .build()
 
-        billingClient.queryProductDetailsAsync(paramsInApp) { resultInApp, productDetailsListInApp ->
+        // Billing 9: the callback receives a QueryProductDetailsResult wrapper
+        // (productDetailsList + unavailableProductList) instead of a bare List.
+        billingClient.queryProductDetailsAsync(paramsInApp) { resultInApp, productDetailsResultInApp ->
             val resultMap = _productDetailsMap.value.toMutableMap()
             if (resultInApp.responseCode == BillingClient.BillingResponseCode.OK) {
-                productDetailsListInApp.forEach { details ->
+                productDetailsResultInApp.productDetailsList.forEach { details ->
                     resultMap[details.productId] = details
                 }
             }
-            billingClient.queryProductDetailsAsync(paramsSub) { resultSub, productDetailsListSub ->
+            billingClient.queryProductDetailsAsync(paramsSub) { resultSub, productDetailsResultSub ->
                 if (resultSub.responseCode == BillingClient.BillingResponseCode.OK) {
-                    productDetailsListSub.forEach { details ->
+                    productDetailsResultSub.productDetailsList.forEach { details ->
                         resultMap[details.productId] = details
                     }
                 }
@@ -148,14 +168,23 @@ class EidosBillingManager(
         onPurchaseErrorCallback = onError
         telemetry.logPurchaseInitiated(productId, details.oneTimePurchaseOfferDetails?.formattedPrice ?: "")
 
-        val productDetailsParamsList = listOf(
-            BillingFlowParams.ProductDetailsParams.newBuilder()
-                .setProductDetails(details)
-                .build()
-        )
+        // Subscriptions require an offer token at flow launch (latent bug:
+        // without it the flow fails at runtime with an SDK error).
+        val detailsParamBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
+            .setProductDetails(details)
+        if (details.productType == BillingClient.ProductType.SUBS) {
+            val offerToken = details.subscriptionOfferDetails?.firstOrNull()?.offerToken
+            if (offerToken == null) {
+                val errorMsg = "Нет доступных офферов для подписки $productId."
+                Log.e("EidosBilling", errorMsg)
+                onError?.invoke(errorMsg)
+                return
+            }
+            detailsParamBuilder.setOfferToken(offerToken)
+        }
 
         val billingFlowParams = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(productDetailsParamsList)
+            .setProductDetailsParamsList(listOf(detailsParamBuilder.build()))
             .build()
 
         val responseCode = billingClient.launchBillingFlow(activity, billingFlowParams).responseCode
@@ -184,9 +213,11 @@ class EidosBillingManager(
     private fun handlePurchase(purchase: Purchase) {
         if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
             val token = purchase.purchaseToken
-            if (!validatePurchaseToken(token)) {
-                Log.e("EidosBilling", "Invalid or already consumed purchase token: $token")
-                onPurchaseErrorCallback?.invoke("Недействительный или ранее использованный токен покупки.")
+            val signature = purchase.signature
+            if (!validatePurchaseToken(token, signature)) {
+                // Never log the raw purchase token (sensitive); hash prefix only
+                Log.e("EidosBilling", "Invalid, unsigned, or already consumed purchase token: ${hashToken(token).take(12)}…")
+                onPurchaseErrorCallback?.invoke("Недействительный, неподписанный или ранее использованный токен покупки.")
                 return
             }
 
@@ -202,26 +233,88 @@ class EidosBillingManager(
             }
             markTokenConsumed(token)
             val productId = purchase.products.firstOrNull() ?: ""
+            // Fire-and-forget: register the purchase in the server-side ledger (no effect on
+            // local granting). Mock billing tokens are never reported to the server.
+            if (!token.startsWith("simulated_token")) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    runCatching { reportPurchaseToServer(token, productId, purchase.orderId) }
+                }
+            }
             onPurchaseSuccessCallback?.invoke(token, productId)
             telemetry.logPurchaseSuccess(productId, purchase.orderId ?: "", 0.0)
         }
     }
 
-    fun validatePurchaseToken(token: String): Boolean {
+    /**
+     * Fire-and-forget report of a real Google Play purchase to the Supabase Edge Function
+     * (verify-purchase) that verifies the purchase and records it in the server-side ledger
+     * (app_purchases) for future use. This never changes local biocoin granting:
+     * local logic stays exactly as it was. Any failure is logged and ignored.
+     */
+    private suspend fun reportPurchaseToServer(token: String, productId: String, orderId: String?) {
+        try {
+            val baseUrl = SupabaseClientManager.baseUrl
+            if (baseUrl.isBlank()) return
+            val payload = org.json.JSONObject().apply {
+                put("purchaseToken", token)
+                put("productId", productId)
+                put("orderId", orderId ?: org.json.JSONObject.NULL)
+            }.toString()
+
+            val requestBuilder = Request.Builder()
+                .url("$baseUrl/functions/v1/verify-purchase")
+                .addHeader("apikey", SupabaseClientManager.apiKey)
+                .addHeader("Content-Type", "application/json")
+            val accessToken = SupabaseClientManager.cachedAccessToken
+            if (!accessToken.isNullOrBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $accessToken")
+            }
+            val request = requestBuilder
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            serverReportClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    // Never log the raw purchase token (sensitive); hash prefix only
+                    Log.w("EidosBilling", "reportPurchaseToServer: HTTP ${response.code}, token ${hashToken(token).take(12)}…")
+                } else {
+                    Log.d("EidosBilling", "reportPurchaseToServer: purchase recorded on server.")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("EidosBilling", "reportPurchaseToServer failed: ${e.message}")
+        }
+    }
+
+    private fun hashToken(token: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val bytes = digest.digest(("eidos_billing_salt_" + token.trim()).toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    fun validatePurchaseToken(token: String, signature: String? = null): Boolean {
         if (token.isBlank()) return false
-        if (consumedTokens.contains(token)) return false
+        val tokenHash = hashToken(token)
+        if (consumedTokens.contains(tokenHash) || consumedTokens.contains(token)) return false
         if (token.startsWith("simulated_token")) {
             return BuildConfig.DEBUG && ALLOW_MOCK_BILLING
         }
-        // High-entropy token verification (Google Play purchase tokens are long base64 strings)
-        return token.length >= 20 && !token.contains(" ")
+        // In release builds, real Google Play purchases must have a cryptographically signed payload
+        if (!BuildConfig.DEBUG && signature.isNullOrBlank()) {
+            Log.w("EidosBilling", "Validation failed: Missing Google Play RSA signature on purchase.")
+            return false
+        }
+        // Google Play purchase tokens are high-entropy base64 strings (typically > 32 characters)
+        return token.length >= 32 && !token.contains(" ")
     }
 
     fun markTokenConsumed(token: String) {
+        val tokenHash = hashToken(token)
+        consumedTokens.add(tokenHash)
         consumedTokens.add(token)
         try {
             val set = HashSet(consumedTokensPrefs.getStringSet("tokens", emptySet()) ?: emptySet())
-            set.add(token)
+            set.add(tokenHash)
             consumedTokensPrefs.edit().putStringSet("tokens", set).apply()
         } catch (_: Throwable) {}
     }

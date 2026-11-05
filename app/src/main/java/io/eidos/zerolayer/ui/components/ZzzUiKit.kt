@@ -126,7 +126,7 @@ fun ZzzWindowCard(
     backgroundColor: Color = ZzzDarkSurface.copy(alpha = 0.95f),
     cornerSize: Dp = 12.dp,
     borderWidth: Dp = 2.dp,
-    useGraphicBackground: Boolean = true,
+    useGraphicBackground: Boolean = false,
     graphicDrawableRes: Int = R.drawable.panel_card_glass,
     headerRightContent: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit

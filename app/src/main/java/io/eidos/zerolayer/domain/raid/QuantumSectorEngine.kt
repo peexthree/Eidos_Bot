@@ -96,60 +96,205 @@ data class QuantumSector(
     val mutator: SectorMutator,
     val isEncrypted: Boolean = false,
     val costEnergy: Int = 5,
-    val costHp: Int = 0
+    val costHp: Int = 0,
+    val narrativeAction: String = "",
+    val narrativeHint: String = ""
+)
+
+data class NarrativeDescentChoice(
+    val actionText: String,
+    val hintText: String,
+    val sector: QuantumSector
+)
+
+data class DescentScenario(
+    val id: String,
+    val title: String,
+    val loreDescription: String,
+    val choices: List<NarrativeDescentChoice>
 )
 
 object QuantumSectorEngine {
 
-    fun generateSectorChoices(
+    private data class ScenarioTemplate(
+        val id: String,
+        val title: String,
+        val loreDescription: String,
+        val action1: String,
+        val hint1: String,
+        val action2: String,
+        val hint2: String,
+        val action3: String,
+        val hint3: String
+    )
+
+    private val SCENARIO_TEMPLATES = listOf(
+        ScenarioTemplate(
+            id = "pulsing_rift",
+            title = "ПУЛЬСИРУЮЩИЙ РАЗЛОМ КОДА",
+            loreDescription = "Вы обнаружили пространственный разрыв в топологии сектора. Из дыры в полу бьет пульсирующий синий луч данных, а от стен эхом отражаются низкие частоты системных команд...",
+            action1 = "Спуститься в пульсирующую дыру",
+            hint1 = "[РАЗЛОМ] Высокий риск • Редкие ядра данных",
+            action2 = "Обойти разлом по правому коридору",
+            hint2 = "[СТАБИЛЬНОСТЬ] Безопасный переход • Минимум риска",
+            action3 = "Взломать консоль стабилизатора рядом",
+            hint3 = "[ТАЙНИК] Взлом ячейки • Ценные трофеи (-10 EP)"
+        ),
+        ScenarioTemplate(
+            id = "shattered_gateway",
+            title = "РАСКОЛОТЫЙ СЕРВЕРНЫЙ ШЛЮЗ",
+            loreDescription = "Коридор упирается в массивную бронированную гермодверь с эмблемой Синдиката. Замки оплавлены, а по периметру мерцают аварийные светодиоды...",
+            action1 = "Прорваться сквозь аварийный клапан",
+            hint1 = "[БУНКЕР] Запечатанный склад • Гарантированный лут",
+            action2 = "Пойти по техническому туннелю слева",
+            hint2 = "[ОБХОД] Стандартный вектор • Разведка периметра",
+            action3 = "Атаковать заклинивший шлюз напрямую",
+            hint3 = "[ОХОТА] Прямой контакт с защитным кодом"
+        ),
+        ScenarioTemplate(
+            id = "warped_crossroad",
+            title = "ПЕРЕКРЕСТОК ИСКАЖЕННОЙ РЕАЛЬНОСТИ",
+            loreDescription = "Пространство сектора расщепилось на три зеркальных потока. В воздухе зависли застывшие пакеты данных и отзвуки чужих переговоров...",
+            action1 = "Шагнуть в центральный световод",
+            hint1 = "[АНОМАЛИЯ] Экстремальный риск • Алтарь Максвелла",
+            action2 = "Двигаться по затемненному правому рукаву",
+            hint2 = "[ШИФРОВАННЫЙ УЗЕЛ] Требуется анализ • Скрытый путь",
+            action3 = "Следовать за мерцающей цепочкой данных",
+            hint3 = "[РЕСУРСЫ] Поиск потерянных кэшей BioCoins"
+        ),
+        ScenarioTemplate(
+            id = "drone_hive",
+            title = "ОХРАННЫЙ ПЕРИМЕТР ДРОНОВ",
+            loreDescription = "Датчики фиксируют механический гул автономных дронов-стражей. Они кружат над разрушенной серверной стойкой Архива...",
+            action1 = "Атаковать ведущего дрона и зачистить сектор",
+            hint1 = "[БОЙ] Охотничий сектор • Опыт и боевые трофеи",
+            action2 = "Обойти патруль через нижние служебные лазы",
+            hint2 = "[ТИХИЙ СПУСК] Безопасная траектория • Стандартный шаг",
+            action3 = "Перехватить частоту управления дронами",
+            hint3 = "[ВЗЛОМ] Взлом командной частоты • Кэш данных"
+        ),
+        ScenarioTemplate(
+            id = "entropy_vent",
+            title = "МАГИСТРАЛЬ УТЕЧКИ ЭНТРОПИИ",
+            loreDescription = "Под ногами вибрирует магистральная шина. Каждые несколько секунд по настилу пробегает волна статических искр, растворяя пиксели в воздухе...",
+            action1 = "Совершить стремительный рывок вперед",
+            hint1 = "[РИСК] Спуск на пределе скорости • Двойной лут",
+            action2 = "Спуститься в дренажный колодец под шиной",
+            hint2 = "[ТАЙНИК] Укрытие от перегрузки • Контейнер данных",
+            action3 = "Выждать затухание волны и идти размеренно",
+            hint3 = "[СТАБИЛЬНОСТЬ] Контроль сигнала • Минимум потерь"
+        ),
+        ScenarioTemplate(
+            id = "ghost_catacombs",
+            title = "КЛАДБИЩЕ ОЦИФРОВАННЫХ ДУШ",
+            loreDescription = "Вдоль стен выстроились полуразрушенные капсулы спящих разумов. Некоторые мерцают тусклым зеленым светом, другие покрыты черным нагаром Великого Глитча...",
+            action1 = "Осмотреть мерцающую зеленую капсулу",
+            hint1 = "[РЕСТАВРАЦИЯ] Шанс подзарядки • Восстановление HP",
+            action2 = "Спуститься глубже по центральной шахте",
+            hint2 = "[СТАНДАРТ] Основной вектор погружения",
+            action3 = "Исследовать нагар черного глитча",
+            hint3 = "[АНОМАЛИЯ] Погружение в Глитч-Шторм • Опасность"
+        ),
+        ScenarioTemplate(
+            id = "shadow_sanctuary",
+            title = "ТАЙНОЕ УБЕЖИЩЕ БРОКЕРА",
+            loreDescription = "На стене загорается скрытый неоновый глиф. Перед вами узкий проход, искусно замаскированный под нерабочий шкаф коммутации...",
+            action1 = "Свернуть в тайный неоновый проход",
+            hint1 = "[БРОКЕР] Черный рынок • Эксклюзивные предложения",
+            action2 = "Продолжить движение по главному тракту",
+            hint2 = "[СПУСК] Обычный маршрут через сектор",
+            action3 = "Оставить метку на терминале и забрать остатки",
+            hint3 = "[ДРОП] Дополнительные BioCoins из терминала"
+        ),
+        ScenarioTemplate(
+            id = "photon_bridge",
+            title = "ФОТОННЫЙ МОСТ НАД БЕЗДНОЙ",
+            loreDescription = "Перед вами обрыв, уходящий в бесконечную черноту Нулевого Слоя. Через пропасть перекинут мерцающий фотонный мост, который периодически отключается...",
+            action1 = "Перебежать мост на полной скорости",
+            hint1 = "[ДИНАМИКА] Быстрый переход на глубину",
+            action2 = "Искать обходной карниз вдоль левой стены",
+            hint2 = "[ОСТОРОЖНОСТЬ] Надежный путь без риска падения",
+            action3 = "Подключиться к генератору моста и замкнуть цепь",
+            hint3 = "[ВЗЛОМ] Стабилизация моста • Защищенный кэш"
+        )
+    )
+
+    fun generateDescentScenario(
         depth: Int,
         isScanned: Boolean,
         hasCompass: Boolean = false
-    ): List<QuantumSector> {
+    ): DescentScenario {
+        val template = SCENARIO_TEMPLATES.random()
         val mutatorsPool = SectorMutator.entries.shuffled()
 
-        // Sector 1: Combat or Hunting sector
+        // Choice 1: Action 1
         val s1Mutator = mutatorsPool[0]
         val sector1 = QuantumSector(
-            id = "sec_combat",
-            title = "ОХОТНИЧИЙ СЕКТОР",
+            id = "sec_choice_1",
+            title = template.action1.uppercase(),
             subTitle = s1Mutator.title,
             iconRes = R.drawable.ic_action_attack,
             eventType = "combat",
             riskLevel = s1Mutator.riskLevel,
             mutator = s1Mutator,
-            costEnergy = 5
+            costEnergy = 5,
+            narrativeAction = template.action1,
+            narrativeHint = template.hint1
         )
 
-        // Sector 2: Vault / Cache / Resource
+        // Choice 2: Action 2
         val s2Mutator = mutatorsPool[1]
         val isLaserVault = s2Mutator == SectorMutator.LASER_VAULT
         val sector2 = QuantumSector(
-            id = "sec_vault",
-            title = if (isLaserVault) "ЗАПЕЧАТАННЫЙ БУНКЕР" else "ТАКТИЧЕСКИЙ ТАЙНИК",
+            id = "sec_choice_2",
+            title = template.action2.uppercase(),
             subTitle = s2Mutator.title,
             iconRes = R.drawable.ic_event_chest,
             eventType = if (isLaserVault) "bunker" else "cache",
             riskLevel = s2Mutator.riskLevel,
             mutator = s2Mutator,
-            costEnergy = if (isLaserVault) 10 else 5
+            costEnergy = if (isLaserVault) 10 else 5,
+            narrativeAction = template.action2,
+            narrativeHint = template.hint2
         )
 
-        // Sector 3: High-Risk Rift / Anomaly (Encrypted by Fog of War unless scanned)
+        // Choice 3: Action 3 (Encrypted by Fog of War unless scanned)
         val s3Mutator = mutatorsPool[2]
         val shouldEncrypt = !isScanned && !hasCompass
         val sector3 = QuantumSector(
-            id = "sec_rift",
-            title = if (shouldEncrypt) "ЗАШИФРОВАННЫЙ УЗЕЛ" else "РАЗЛОМ МАКСВЕЛЛА",
+            id = "sec_choice_3",
+            title = if (shouldEncrypt) "ЗАШИФРОВАННЫЙ ВЕКТОР" else template.action3.uppercase(),
             subTitle = if (shouldEncrypt) "СИГНАЛ СКРЫТ // ТРЕБУЕТСЯ СКАН" else s3Mutator.title,
             iconRes = if (shouldEncrypt) R.drawable.ic_event_unknown else R.drawable.ic_event_anomaly,
             eventType = if (shouldEncrypt) "unknown" else "rift",
             riskLevel = if (shouldEncrypt) SectorRiskLevel.HIGH else s3Mutator.riskLevel,
             mutator = s3Mutator,
             isEncrypted = shouldEncrypt,
-            costEnergy = 5
+            costEnergy = 5,
+            narrativeAction = if (shouldEncrypt) "Исследовать неизвестный вектор" else template.action3,
+            narrativeHint = if (shouldEncrypt) "[ТУМАН ВОЙНЫ] Нужен тактический сканер" else template.hint3
         )
 
-        return listOf(sector1, sector2, sector3)
+        val choices = listOf(
+            NarrativeDescentChoice(sector1.narrativeAction, sector1.narrativeHint, sector1),
+            NarrativeDescentChoice(sector2.narrativeAction, sector2.narrativeHint, sector2),
+            NarrativeDescentChoice(sector3.narrativeAction, sector3.narrativeHint, sector3)
+        )
+
+        return DescentScenario(
+            id = template.id,
+            title = template.title,
+            loreDescription = template.loreDescription,
+            choices = choices
+        )
+    }
+
+    fun generateSectorChoices(
+        depth: Int,
+        isScanned: Boolean,
+        hasCompass: Boolean = false
+    ): List<QuantumSector> {
+        return generateDescentScenario(depth, isScanned, hasCompass).choices.map { it.sector }
     }
 }
+

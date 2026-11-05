@@ -36,8 +36,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.R
 import io.eidos.zerolayer.data.*
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
+import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.ZzzIcon
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
@@ -146,7 +148,7 @@ fun CodexScreen(
                     start()
                 }
             } catch (e: Throwable) {
-                e.printStackTrace()
+                android.util.Log.e("CodexScreen", "bgm init failed: ${e.message}")
             }
         }
 
@@ -158,7 +160,7 @@ fun CodexScreen(
                 mediaPlayer?.reset()
                 mediaPlayer?.release()
             } catch (e: Throwable) {
-                e.printStackTrace()
+                android.util.Log.w("CodexScreen", "bgm release issue: ${e.message}")
             } finally {
                 mediaPlayer = null
             }
@@ -225,16 +227,25 @@ fun CodexScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF070C12).copy(alpha = 0.82f))
             )
         },
-        containerColor = Color.Black
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
+            VideoBackground(
+                resName = "codex_background_1080p",
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF04080F).copy(alpha = 0.65f))
+            )
             CyberGridOverlay(modifier = Modifier.fillMaxSize())
 
             Column(
@@ -242,7 +253,7 @@ fun CodexScreen(
             ) {
                 ScrollableTabRow(
                     selectedTabIndex = mainCategories.indexOfFirst { it.first == selectedMainCategory }.coerceAtLeast(0),
-                    containerColor = Color.Black,
+                    containerColor = Color(0xFF070C12).copy(alpha = 0.85f),
                     contentColor = EidosCyan,
                     edgePadding = 8.dp
                 ) {
@@ -340,19 +351,49 @@ fun LoreBookSection(player: Player?) {
             }
         }
 
+        val newlyUnlockedChapter = STORY_CHAPTERS.firstOrNull { it.isUnlocked(player) && it.id == unlockedCount }
+        if (newlyUnlockedChapter != null && unlockedCount > 0) {
+            Surface(
+                color = Color(0x3300FFF6),
+                shape = CutCornerShape(6.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, io.eidos.zerolayer.ui.theme.ZzzElectricCyan),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ZzzIcon(R.drawable.ic_event_chest, size = 16.dp, tint = Color(0xFFFFD700))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "⚡ НАГРАДА ЗА ПОГРУЖЕНИЕ: Открыта Глава 0${newlyUnlockedChapter.id} «${newlyUnlockedChapter.title}»!",
+                        color = Color(0xFFFFD700),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+
         STORY_CHAPTERS.forEach { chapter ->
             val unlocked = chapter.isUnlocked(player)
-            io.eidos.zerolayer.ui.components.ZzzWindowCard(
-                title = chapter.title,
-                subTitle = if (unlocked) chapter.subtitle else "ТРЕБОВАНИЕ РАЗБЛОКИРОВКИ",
-                headerBadge = if (unlocked) "CHAPTER 0${chapter.id}" else "LOCKED",
-                borderColor = if (unlocked) io.eidos.zerolayer.ui.theme.ZzzElectricCyan else io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = unlocked) {
-                        activeChapterToRead = chapter
-                    }
+            CyberCornerBracketBox(
+                bracketSize = 12.dp,
+                bracketColor = if (unlocked) io.eidos.zerolayer.ui.theme.ZzzElectricCyan else io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
+                modifier = Modifier.fillMaxWidth()
             ) {
+                io.eidos.zerolayer.ui.components.ZzzWindowCard(
+                    title = chapter.title,
+                    subTitle = if (unlocked) chapter.subtitle else "ТРЕБОВАНИЕ РАЗБЛОКИРОВКИ",
+                    headerBadge = if (unlocked) "CHAPTER 0${chapter.id}" else "LOCKED",
+                    borderColor = if (unlocked) io.eidos.zerolayer.ui.theme.ZzzElectricCyan else io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = unlocked) {
+                            activeChapterToRead = chapter
+                        }
+                ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -420,110 +461,136 @@ fun LoreBookSection(player: Player?) {
             }
         }
     }
+    }
 
     activeChapterToRead?.let { chapter ->
-        AlertDialog(
+        androidx.compose.ui.window.Dialog(
             onDismissRequest = { activeChapterToRead = null },
-            containerColor = Color(0xFF0F141A),
-            shape = CutCornerShape(12.dp),
-            title = {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ZzzIcon(R.drawable.ic_menu_codex, size = 16.dp)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            chapter.title,
-                            color = Color.Yellow,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                    Text(
-                        chapter.subtitle,
-                        color = EidosCyan,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 380.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CyberCornerBracketBox(
+                    bracketSize = 20.dp,
+                    bracketColor = io.eidos.zerolayer.ui.theme.ZzzElectricCyan,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Surface(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Yellow.copy(alpha = 0.4f)),
-                        shape = CutCornerShape(4.dp),
+                        color = Color(0xFF0F141A),
+                        shape = CutCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, io.eidos.zerolayer.ui.theme.ZzzElectricCyan.copy(alpha = 0.7f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = chapter.epigraph,
-                            color = Color.Yellow,
-                            fontSize = 11.sp,
-                            fontStyle = FontStyle.Italic,
-                            modifier = Modifier.padding(10.dp),
-                            lineHeight = 15.sp
-                        )
-                    }
-
-                    Text(
-                        text = chapter.text,
-                        color = Color(0xFFE0E6ED),
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        fontFamily = FontFamily.SansSerif,
-                        textAlign = TextAlign.Justify
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan.copy(alpha = 0.6f)),
-                        shape = CutCornerShape(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = "ИТЕРАЦИЯ ФРАКЦИИ: ${player?.faction ?: "НЕЙТРАЛ"}",
-                                color = EidosCyan,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            val factionResonance = when (player?.faction) {
-                                "АРХИТЕКТОРЫ" -> "Ваш статус администратора дает вам полный доступ к секретным логам Архитекторов. EIDOS воспринимает вас не как вирус, а как спящий узел управления."
-                                "ТЕХНО" -> "Ваши экзо-чипы перехватывают зашифрованные пакеты этой главы, открывая скрытые командные строки и обходные пути в Бездне."
-                                "РАЗУМ" -> "Ваша ментальная матрица стабилизирует гармонический отклик, поглощая фантомные боли и защищая от угроз Скверны."
-                                "МАТЕРИЯ" -> "Датчики фиксируют микрочастицы озона и реальной пыли Земли в вашем потоке памяти. Вы ближе всех к физическому источнику."
-                                else -> "Вы - свободный Осколок на Свалке Данных. Ваши решения формируют новую ветку реальности без указаний Синдикатов."
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            // Title
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ZzzIcon(R.drawable.ic_menu_codex, size = 18.dp, tint = io.eidos.zerolayer.ui.theme.ZzzElectricCyan)
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        chapter.title,
+                                        color = Color.Yellow,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        chapter.subtitle,
+                                        color = EidosCyan,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
                             }
-                            Text(
-                                text = factionResonance,
-                                color = Color.LightGray,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
-                                lineHeight = 14.sp
-                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 380.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Surface(
+                                    color = Color.Black.copy(alpha = 0.6f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Yellow.copy(alpha = 0.4f)),
+                                    shape = CutCornerShape(4.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = chapter.epigraph,
+                                        color = Color.Yellow,
+                                        fontSize = 11.sp,
+                                        fontStyle = FontStyle.Italic,
+                                        modifier = Modifier.padding(10.dp),
+                                        lineHeight = 15.sp
+                                    )
+                                }
+
+                                Text(
+                                    text = chapter.text,
+                                    color = Color(0xFFE0E6ED),
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp,
+                                    fontFamily = FontFamily.SansSerif,
+                                    textAlign = TextAlign.Justify
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    color = Color.Black.copy(alpha = 0.7f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan.copy(alpha = 0.6f)),
+                                    shape = CutCornerShape(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(
+                                            text = "ИТЕРАЦИЯ ФРАКЦИИ: ${player?.faction ?: "НЕЙТРАЛ"}",
+                                            color = EidosCyan,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        val factionResonance = when (player?.faction) {
+                                            "АРХИТЕКТОРЫ" -> "Ваш статус администратора дает вам полный доступ к секретным логам Архитекторов. EIDOS воспринимает вас не как вирус, а как спящий узел управления."
+                                            "ТЕХНО" -> "Ваши экзо-чипы перехватывают зашифрованные пакеты этой главы, открывая скрытые командные строки и обходные пути в Бездне."
+                                            "РАЗУМ" -> "Ваша ментальная матрица стабилизирует гармонический отклик, поглощая фантомные боли и защищая от угроз Скверны."
+                                            "МАТЕРИЯ" -> "Датчики фиксируют микрочастицы озона и реальной пыли Земли в вашем потоке памяти. Вы ближе всех к физическому источнику."
+                                            else -> "Вы - свободный Осколок на Свалке Данных. Ваши решения формируют новую ветку реальности без указаний Синдикатов."
+                                        }
+                                        Text(
+                                            text = factionResonance,
+                                            color = Color.LightGray,
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            lineHeight = 14.sp
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+
+                            Button(
+                                onClick = { activeChapterToRead = null },
+                                colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
+                                shape = CutCornerShape(4.dp),
+                                modifier = Modifier.fillMaxWidth().height(42.dp)
+                            ) {
+                                Text("ЗАКРЫТЬ КНИГУ", color = Color.Black, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { activeChapterToRead = null },
-                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
-                    shape = CutCornerShape(4.dp)
-                ) {
-                    Text("ЗАКРЫТЬ КНИГУ", color = Color.Black, fontWeight = FontWeight.Bold)
-                }
             }
-        )
+        }
     }
 }
 
@@ -532,6 +599,8 @@ fun BestiaryBookSection(
     player: Player?,
     bestiaryList: List<BestiaryEntry>
 ) {
+    var inspectedVillain by remember { mutableStateOf<GameVillainData?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -581,7 +650,11 @@ fun BestiaryBookSection(
                     if (unlocked) EidosNeon.copy(alpha = 0.5f) else Color.DarkGray
                 ),
                 shape = CutCornerShape(6.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = unlocked) {
+                        inspectedVillain = villain
+                    }
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Row(
@@ -674,6 +747,269 @@ fun BestiaryBookSection(
                             fontSize = 9.sp,
                             fontStyle = FontStyle.Italic
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    // Fullscreen Immersion Monster Dossier & High-Res Art Modal
+    inspectedVillain?.let { villain ->
+        val entry = bestiaryList.find { it.enemy_id == villain.name }
+        val killed = entry?.killed_count ?: 0
+
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { inspectedVillain = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.90f))
+                    .clickable { inspectedVillain = null }
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.95f)
+                        .fillMaxHeight(0.88f)
+                        .clickable(enabled = false) {}
+                ) {
+                    CyberCornerBracketBox(bracketSize = 20.dp, bracketColor = EidosRed) {
+                        Surface(
+                            color = Color(0xFF0A1017).copy(alpha = 0.98f),
+                            shape = CutCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, EidosRed.copy(alpha = 0.7f)),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(16.dp)
+                            ) {
+                                // Top Header Bar
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_event_danger, size = 16.dp, tint = EidosRed)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "ДОСЬЕ УГРОЗЫ // КЛАСС: АНОМАЛИЯ",
+                                            color = EidosRed,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace,
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { inspectedVillain = null },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Text("✕", color = Color.Gray, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Large High-Res Monster Illustration
+                                CyberCornerBracketBox(
+                                    bracketSize = 14.dp,
+                                    bracketColor = EidosRed.copy(alpha = 0.8f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(240.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CutCornerShape(6.dp))
+                                            .background(Color(0xFF03060A))
+                                            .border(1.dp, EidosRed.copy(alpha = 0.4f), CutCornerShape(6.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        EidosImage(
+                                            resName = villain.image,
+                                            fallbackIcon = Icons.Default.Info,
+                                            borderColor = Color.Transparent,
+                                            borderWidth = 0.dp,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+
+                                        // Threat Level Stamp
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(8.dp)
+                                                .clip(CutCornerShape(4.dp))
+                                                .background(Color.Black.copy(alpha = 0.75f))
+                                                .border(1.dp, EidosRed, CutCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Text(
+                                                "УРОВЕНЬ ${villain.level}",
+                                                color = EidosRed,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Monster Title & Kill Count
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = villain.name,
+                                            color = Color.White,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                        Text(
+                                            text = "ТИП: ВИРУСНЫЙ ГЛИТЧ // НУЛЕВОЙ СЛОЙ",
+                                            color = EidosCyan,
+                                            fontSize = 9.5.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                    Surface(
+                                        color = EidosNeon.copy(alpha = 0.15f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, EidosNeon),
+                                        shape = CutCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "УНИЧТОЖЕНО: $killed",
+                                            color = EidosNeon,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Combat Telemetry Grid (HP, ATK, DEF)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // HP Card
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(CutCornerShape(4.dp))
+                                            .background(Color(0xFF141922))
+                                            .border(1.dp, EidosRed.copy(alpha = 0.5f), CutCornerShape(4.dp))
+                                            .padding(6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("СИГНАЛ (HP)", color = Color.Gray, fontSize = 7.5.sp, fontFamily = FontFamily.Monospace)
+                                            Text("${villain.hp}", color = EidosRed, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                        }
+                                    }
+                                    // ATK Card
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(CutCornerShape(4.dp))
+                                            .background(Color(0xFF141922))
+                                            .border(1.dp, EidosOrange.copy(alpha = 0.5f), CutCornerShape(4.dp))
+                                            .padding(6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("АТАКА", color = Color.Gray, fontSize = 7.5.sp, fontFamily = FontFamily.Monospace)
+                                            Text("${villain.atk}", color = EidosOrange, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                        }
+                                    }
+                                    // DEF Card
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(CutCornerShape(4.dp))
+                                            .background(Color(0xFF141922))
+                                            .border(1.dp, EidosCyan.copy(alpha = 0.5f), CutCornerShape(4.dp))
+                                            .padding(6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("ЗАЩИТА", color = Color.Gray, fontSize = 7.5.sp, fontFamily = FontFamily.Monospace)
+                                            Text("${villain.def}", color = EidosCyan, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Drops & Rewards Row
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(CutCornerShape(4.dp))
+                                        .background(Color(0xFF0F1823))
+                                        .border(1.dp, EidosGold.copy(alpha = 0.4f), CutCornerShape(4.dp))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_neural_exp, size = 12.dp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("НАГРАДА: +${villain.xp} EXP", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ZzzIcon(R.drawable.ic_res_biocoin, size = 12.dp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("+${villain.coin} BC", color = EidosGold, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Lore & Protocol Description
+                                Text(
+                                    "ПРОТОКОЛ ИДЕНТИФИКАЦИИ // АРХИВ:",
+                                    color = EidosCyan,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = villain.description,
+                                    color = Color.LightGray,
+                                    fontSize = 11.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    lineHeight = 16.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                io.eidos.zerolayer.ui.components.EidosButton(
+                                    text = "ЗАКРЫТЬ ДОСЬЕ",
+                                    onClick = { inspectedVillain = null },
+                                    modifier = Modifier.fillMaxWidth().height(42.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }

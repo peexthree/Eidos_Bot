@@ -2,6 +2,7 @@ package io.eidos.zerolayer.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
@@ -27,11 +29,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.eidos.zerolayer.R
 import io.eidos.zerolayer.ui.theme.*
 import kotlin.math.cos
 import kotlin.math.sin
@@ -561,4 +565,65 @@ fun CyberSkeletonLoader(
         )
     }
 }
+
+/**
+ * Tactical cyberdeck framing component overlaying the 4 official HUD corner brackets:
+ * ic_hud_corner_tl, ic_hud_corner_tr, ic_hud_corner_bl, ic_hud_corner_br.
+ * Decorates cards, modals, event illustrations, and containers without intercepting pointer events.
+ */
+@Composable
+fun CyberCornerBracketBox(
+    modifier: Modifier = Modifier,
+    bracketSize: Dp = 16.dp,
+    bracketColor: Color = Color.Unspecified,
+    bracketAlpha: Float = 0.85f,
+    cornerPadding: Dp = 2.dp,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val colorFilter = if (bracketColor != Color.Unspecified) androidx.compose.ui.graphics.ColorFilter.tint(bracketColor) else null
+    Box(modifier = modifier) {
+        content()
+        Image(
+            painter = painterResource(id = R.drawable.ic_hud_corner_tl),
+            contentDescription = null,
+            colorFilter = colorFilter,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = cornerPadding, top = cornerPadding)
+                .size(bracketSize)
+                .alpha(bracketAlpha)
+        )
+        Image(
+            painter = painterResource(id = R.drawable.ic_hud_corner_tr),
+            contentDescription = null,
+            colorFilter = colorFilter,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = cornerPadding, top = cornerPadding)
+                .size(bracketSize)
+                .alpha(bracketAlpha)
+        )
+        Image(
+            painter = painterResource(id = R.drawable.ic_hud_corner_bl),
+            contentDescription = null,
+            colorFilter = colorFilter,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = cornerPadding, bottom = cornerPadding)
+                .size(bracketSize)
+                .alpha(bracketAlpha)
+        )
+        Image(
+            painter = painterResource(id = R.drawable.ic_hud_corner_br),
+            contentDescription = null,
+            colorFilter = colorFilter,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = cornerPadding, bottom = cornerPadding)
+                .size(bracketSize)
+                .alpha(bracketAlpha)
+        )
+    }
+}
+
 

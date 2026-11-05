@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Нулевой Слой"
+rootProject.name = "EidosZeroLayer"
 include(":app")

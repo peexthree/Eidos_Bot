@@ -60,6 +60,7 @@ import io.eidos.zerolayer.ui.components.SynergyCodexModal
 import io.eidos.zerolayer.domain.combat.ChipMatrixSynergyEngine
 import io.eidos.zerolayer.domain.combat.ChipColor
 import io.eidos.zerolayer.data.RaidSession
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.VideoBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,9 +94,8 @@ fun InventoryScreen(
         // Layer 0: Looped live video background
         VideoBackground(resName = "bg_hub", modifier = Modifier.fillMaxSize())
 
-        val bgPainter = runCatching {
-            androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_inventory)
-        }.getOrNull()
+        // bg_inventory exists in drawable - painterResource is safe to call directly
+        val bgPainter = androidx.compose.ui.res.painterResource(id = io.eidos.zerolayer.R.drawable.bg_inventory)
 
         if (bgPainter != null) {
             androidx.compose.foundation.Image(
@@ -171,7 +171,8 @@ fun InventoryScreen(
                     player = player,
                     activeStats = activeStats,
                     onUnequip = onUnequip,
-                    onSelectSlotForEquip = { slot -> quickEquipSlotTarget = slot }
+                    onSelectSlotForEquip = { slot -> quickEquipSlotTarget = slot },
+                    onItemClick = { item -> selectedItem = item }
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -543,6 +544,24 @@ fun InventoryScreen(
                             ) {
                                 Text("СНЯТЬ", color = EidosRed, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                             }
+
+                            val resolvedSlot = ItemSlotUtils.getSlotForInventoryItem(item, itemMeta)
+                            if (resolvedSlot != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Button(
+                                    onClick = {
+                                        val targetSlot = resolvedSlot
+                                        selectedItem = null
+                                        quickEquipSlotTarget = targetSlot
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan.copy(alpha = 0.25f)),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text("СМЕНИТЬ", color = EidosCyan, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                }
+                            }
                         } else {
                             Button(
                                 onClick = {
@@ -600,130 +619,6 @@ fun InventoryScreen(
             }
         )
     }
-}
-
-@Composable
-fun ProfileSection(player: Player?) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        Color(0xFF0C1824).copy(alpha = 0.95f),
-                        Color(0xFF070E16).copy(alpha = 0.98f)
-                    )
-                )
-            )
-            .border(1.dp, EidosCyan.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
-            .cyberHudBorder(color = EidosCyan.copy(alpha = 0.7f), cornerLength = 8.dp, strokeWidth = 1.dp)
-            .padding(12.dp)
-    ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "НЕЙРО-ПРОФИЛЬ // СТАТУС",
-                    color = EidosNeon,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
-                Text(
-                    "LVL ${player?.level ?: 1}",
-                    color = EidosCyan,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-
-            Text(
-                player?.username ?: "ОПЕРАТОР",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Operator Stat Bars
-            val curHp = player?.hp ?: 100
-            val maxHp = maxOf(1, player?.max_hp ?: 100)
-            val curEnergy = player?.energy ?: 100
-            val maxEnergy = maxOf(1, player?.max_energy ?: 100)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                EidosStatBar(
-                    label = "HP ОПЕРАТОРА",
-                    value = curHp,
-                    maxValue = maxHp,
-                    color = if (curHp < maxHp * 0.3) EidosRed else EidosNeon,
-                    modifier = Modifier.weight(1f)
-                )
-                EidosStatBar(
-                    label = "ЭНЕРГИЯ EP",
-                    value = curEnergy,
-                    maxValue = maxEnergy,
-                    color = EidosCyan,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val bcPainter = runCatching { painterResource(id = R.drawable.ic_biocoin) }.getOrNull()
-                    if (bcPainter != null) {
-                        Image(
-                            painter = bcPainter,
-                            contentDescription = "BioCoins",
-                            modifier = Modifier.size(14.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 13.dp)
-                    }
-                    Text(
-                        "${player?.biocoin ?: 0} BC",
-                        color = EidosGold,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-
-                Text(
-                    "ФРАКЦИЯ: ${player?.faction ?: "НЕОФИТ"}",
-                    color = EidosCyan,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    "XP: ${player?.xp ?: 0}",
-                    color = EidosNeon,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-        }
-    }
 
     // Stack Inspector Dialog
     stackInspectorItems?.let { stack ->
@@ -737,13 +632,25 @@ fun ProfileSection(player: Player?) {
 
     // Quick Equip Slot Picker Modal
     quickEquipSlotTarget?.let { slot ->
+        val currentEquipped = when (slot) {
+            "head" -> inventory.find { it.is_equipped && (it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "head") }
+            "weapon" -> inventory.find { it.is_equipped && (it.slot == "weapon" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "weapon") }
+            "armor" -> inventory.find { it.is_equipped && (it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "armor") }
+            "chip" -> inventory.find { it.is_equipped && (it.slot == "chip" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "chip") }
+            else -> null
+        }
         QuickEquipSlotPickerModal(
             slotType = slot,
+            currentlyEquipped = currentEquipped,
             inventory = inventory,
             allItemsMetadata = allItemsMetadata,
             player = player,
             onEquip = { item ->
                 onEquip(item)
+                quickEquipSlotTarget = null
+            },
+            onUnequip = { item ->
+                onUnequip(item)
                 quickEquipSlotTarget = null
             },
             onDismiss = { quickEquipSlotTarget = null }
@@ -759,8 +666,9 @@ fun OperatorEquipmentDeck(
     player: Player? = null,
     activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
     onUnequip: (InventoryItem) -> Unit,
-    onSelectSlotForEquip: (String) -> Unit = {}
-) = EquipDollSection(inventory, allItemsMetadata, player, activeStats, onUnequip, onSelectSlotForEquip)
+    onSelectSlotForEquip: (String) -> Unit = {},
+    onItemClick: ((InventoryItem) -> Unit)? = null
+) = EquipDollSection(inventory, allItemsMetadata, player, activeStats, onUnequip, onSelectSlotForEquip, onItemClick)
 
 @Composable
 fun EquipDollSection(
@@ -769,7 +677,8 @@ fun EquipDollSection(
     player: Player? = null,
     activeStats: io.eidos.zerolayer.data.GameRepository.PlayerStats? = null,
     onUnequip: (InventoryItem) -> Unit,
-    onSelectSlotForEquip: (String) -> Unit = {}
+    onSelectSlotForEquip: (String) -> Unit = {},
+    onItemClick: ((InventoryItem) -> Unit)? = null
 ) {
     val head = inventory.find { it.is_equipped && (it.slot == "head" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "head") }
     val armor = inventory.find { it.is_equipped && (it.slot == "armor" || ItemSlotUtils.getSlotForItem(it.item_id, allItemsMetadata.find { meta -> meta.id == it.item_id }) == "armor") }
@@ -809,7 +718,8 @@ fun EquipDollSection(
                     meta = head?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
                     defaultAccent = EidosCyan,
                     onUnequip = onUnequip,
-                    onSlotClick = { onSelectSlotForEquip("head") }
+                    onSlotClick = { onSelectSlotForEquip("head") },
+                    onItemClick = onItemClick
                 )
                 EquipSlotTile(
                     slotLabel = "ОРУЖИЕ",
@@ -817,7 +727,8 @@ fun EquipDollSection(
                     meta = weapon?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
                     defaultAccent = Color(0xFFFF9800),
                     onUnequip = onUnequip,
-                    onSlotClick = { onSelectSlotForEquip("weapon") }
+                    onSlotClick = { onSelectSlotForEquip("weapon") },
+                    onItemClick = onItemClick
                 )
                 EquipSlotTile(
                     slotLabel = "БРОНЯ",
@@ -825,7 +736,8 @@ fun EquipDollSection(
                     meta = armor?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
                     defaultAccent = EidosPurple,
                     onUnequip = onUnequip,
-                    onSlotClick = { onSelectSlotForEquip("armor") }
+                    onSlotClick = { onSelectSlotForEquip("armor") },
+                    onItemClick = onItemClick
                 )
             }
 
@@ -955,7 +867,8 @@ fun EquipDollSection(
                         defaultAccent = chipAccent,
                         isCompact = true,
                         onUnequip = onUnequip,
-                        onSlotClick = { onSelectSlotForEquip("chip") }
+                        onSlotClick = { onSelectSlotForEquip("chip") },
+                        onItemClick = onItemClick
                     )
 
                     // Circuit trace connector line between chips
@@ -1004,7 +917,8 @@ private fun EquipSlotTile(
     defaultAccent: Color,
     isCompact: Boolean = false,
     onUnequip: (InventoryItem) -> Unit,
-    onSlotClick: () -> Unit = {}
+    onSlotClick: () -> Unit = {},
+    onItemClick: ((InventoryItem) -> Unit)? = null
 ) {
     val rarity = meta?.rarity ?: (item?.let { getItemRarity(it.item_id) } ?: "common")
     val rarityColor = when (rarity) {
@@ -1025,6 +939,9 @@ private fun EquipSlotTile(
         label = "slotScale"
     )
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val haptics = remember { io.eidos.zerolayer.ui.utils.HapticFeedbackManager.getInstance(context) }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1037,8 +954,9 @@ private fun EquipSlotTile(
                 shape = CutCornerShape(4.dp)
             )
             .cyberClickable {
-                if (item != null) {
-                    onUnequip(item)
+                haptics.click()
+                if (item != null && onItemClick != null) {
+                    onItemClick(item)
                 } else {
                     onSlotClick()
                 }
@@ -1093,6 +1011,16 @@ private fun EquipSlotTile(
                         fontFamily = FontFamily.Monospace,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (!isCompact) {
+                    Text(
+                        "[ИНФО]",
+                        color = rarityColor.copy(alpha = 0.8f),
+                        fontSize = 7.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -1345,7 +1273,11 @@ fun ItemListSection(
                             strokeWidth = 1.5.dp
                         )
                         .cyberClickable {
-                            onItemClick(item)
+                            if (stack.size > 1 && onStackClick != null) {
+                                onStackClick(stack)
+                            } else {
+                                onItemClick(item)
+                            }
                         }
                         .padding(8.dp)
                 ) {
@@ -1638,10 +1570,12 @@ fun StackInspectorDialog(
 @Composable
 fun QuickEquipSlotPickerModal(
     slotType: String,
+    currentlyEquipped: InventoryItem? = null,
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata>,
     player: Player?,
     onEquip: (InventoryItem) -> Unit,
+    onUnequip: (InventoryItem) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val slotLabel = when (slotType) {
@@ -1652,33 +1586,45 @@ fun QuickEquipSlotPickerModal(
         else -> slotType.uppercase()
     }
 
-    val eligibleItems = remember(inventory, slotType) {
+    val eligibleItems = remember(inventory, slotType, currentlyEquipped) {
         inventory.filter { item ->
+            if (item.id == currentlyEquipped?.id) return@filter false
             val meta = allItemsMetadata.find { it.id == item.item_id }
-            val itemSlot = ItemSlotUtils.getSlotForItem(item.item_id, meta)
-            val matchesSlot = if (slotType == "chip") itemSlot == "chip" else itemSlot == slotType
-            val isChipAlreadyEquipped = (slotType == "chip") && inventory.any { it.is_equipped && it.item_id == item.item_id }
-            matchesSlot && !item.is_equipped && !isChipAlreadyEquipped
-        }.distinctBy { it.item_id }
+            val itemSlot = ItemSlotUtils.getSlotForInventoryItem(item, meta)
+            val matchesSlot = when (slotType) {
+                "chip" -> itemSlot == "chip" || (meta?.type?.equals("chip", ignoreCase = true) == true) || item.item_id.contains("chip") || item.item_id.contains("core") || item.item_id.contains("module")
+                "head" -> itemSlot == "head" || (meta?.type?.equals("head", ignoreCase = true) == true) || (meta?.type?.equals("helmet", ignoreCase = true) == true) || item.item_id.contains("mask") || item.item_id.contains("visor") || item.item_id.contains("goggles") || item.item_id.contains("helmet")
+                "weapon" -> itemSlot == "weapon" || (meta?.type?.equals("weapon", ignoreCase = true) == true) || (meta?.type?.equals("atk", ignoreCase = true) == true) || item.item_id.contains("blade") || item.item_id.contains("sword") || item.item_id.contains("knife") || item.item_id.contains("gun") || item.item_id.contains("baton")
+                "armor" -> itemSlot == "armor" || (meta?.type?.equals("armor", ignoreCase = true) == true) || (meta?.type?.equals("def", ignoreCase = true) == true) || item.item_id.contains("vest") || item.item_id.contains("jacket") || item.item_id.contains("suit") || item.item_id.contains("cloak") || item.item_id.contains("shield")
+                else -> itemSlot == slotType
+            }
+            matchesSlot && !item.is_equipped
+        }.sortedByDescending { it.durability }.distinctBy { it.item_id }
     }
 
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Card(
+        CyberCornerBracketBox(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .fillMaxHeight(0.72f)
-                .border(1.5.dp, EidosCyan, CutCornerShape(8.dp)),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF070D14).copy(alpha = 0.96f)),
-            shape = CutCornerShape(8.dp)
+                .fillMaxHeight(0.72f),
+            bracketSize = 22.dp,
+            bracketAlpha = 0.95f
         ) {
-            Column(
+            Card(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(14.dp)
+                    .border(1.5.dp, EidosCyan, CutCornerShape(8.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF070D14).copy(alpha = 0.96f)),
+                shape = CutCornerShape(8.dp)
             ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(14.dp)
+                ) {
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1706,6 +1652,70 @@ fun QuickEquipSlotPickerModal(
                 }
 
                 HorizontalDivider(color = EidosCyan.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+
+                // Currently equipped item display (with unequip option)
+                if (currentlyEquipped != null) {
+                    val curMeta = allItemsMetadata.find { it.id == currentlyEquipped.item_id }
+                    val curRarity = curMeta?.rarity ?: getItemRarity(currentlyEquipped.item_id)
+                    val curRarityColor = when (curRarity.lowercase()) {
+                        "cursed", "relic" -> EidosRed
+                        "legendary" -> EidosOrange
+                        "epic" -> EidosPurple
+                        "rare" -> EidosCyan
+                        "uncommon" -> EidosNeon
+                        else -> Color(0xFF546E7A)
+                    }
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0C1622)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, curRarityColor.copy(alpha = 0.8f)),
+                        shape = CutCornerShape(6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CutCornerShape(4.dp))
+                                        .background(Color.Black.copy(alpha = 0.5f))
+                                        .border(1.dp, curRarityColor, CutCornerShape(4.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    EidosImage(
+                                        resName = currentlyEquipped.item_id,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text("УСТАНОВЛЕНО В СЛОТЕ:", color = EidosNeon, fontSize = 7.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        curMeta?.name ?: getItemName(currentlyEquipped.item_id),
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                            io.eidos.zerolayer.ui.components.ZzzDangerButton(
+                                text = "СНЯТЬ",
+                                onClick = {
+                                    onUnequip(currentlyEquipped)
+                                    onDismiss()
+                                },
+                                modifier = Modifier.width(90.dp),
+                                height = 32.dp
+                            )
+                        }
+                    }
+                }
 
                 if (eligibleItems.isEmpty()) {
                     Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -1824,6 +1834,7 @@ fun QuickEquipSlotPickerModal(
             }
         }
     }
+}
 }
 
 fun isEquippable(itemId: String, meta: io.eidos.zerolayer.data.GameRepository.ItemMetadata? = null): Boolean {

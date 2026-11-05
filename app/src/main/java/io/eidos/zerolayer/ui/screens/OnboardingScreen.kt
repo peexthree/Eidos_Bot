@@ -56,6 +56,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import io.eidos.zerolayer.R
 import io.eidos.zerolayer.ui.components.EvaSpeechBanner
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.theme.*
 
 @OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -890,49 +891,102 @@ private fun ZzzFactionStepContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         val factions = listOf(
-            ZzzFactionData("МАТЕРИЯ", "ФИНАНСОВЫЙ КОНГЛОМЕРАТ", "Контроль ресурсов и удача", "+20% BioCoins во всех секторах\nПовышенный параметр LUCK\nСтарт: 1000 BioCoins", ZzzAcidYellow),
-            ZzzFactionData("РАЗУМ", "ОБОРОННЫЙ АЛЬЯНС", "Абсолютная защита нейро-оболочки", "+15 DEF, снижение потерь Сигнала\nКомплект полевой реставрации", ZzzElectricCyan),
-            ZzzFactionData("ТЕХНО", "ХАКЕРЫ НУЛЕВОГО СЛОЯ", "Агрессивный брутфорс и дешифрация", "+15 ATK, быстрый взлом кэшей\nШоковый набор и отмычки", ZzzHotMagenta)
+            Triple(
+                ZzzFactionData("МАТЕРИЯ", "ФИНАНСОВЫЙ КОНГЛОМЕРАТ", "Контроль ресурсов и удача", "+20% BioCoins во всех секторах\nПовышенный параметр LUCK\nСтарт: 1000 BioCoins", ZzzAcidYellow),
+                R.drawable.bg_main_banner,
+                "Управление физическими ресурсами и валютными потоками Мегаполиса."
+            ),
+            Triple(
+                ZzzFactionData("РАЗУМ", "ОБОРОННЫЙ АЛЬЯНС", "Абсолютная защита нейро-оболочки", "+15 DEF, снижение потерь Сигнала\nКомплект полевой реставрации", ZzzElectricCyan),
+                R.drawable.bg_mind_2,
+                "Искусственный Интеллект, защита ядра и нейронная стабильность."
+            ),
+            Triple(
+                ZzzFactionData("ТЕХНО", "ХАКЕРЫ НУЛЕВОГО СЛОЯ", "Агрессивный брутфорс и дешифрация", "+15 ATK, быстрый взлом кэшей\nШоковый набор и отмычки", ZzzHotMagenta),
+                R.drawable.bg_neuro,
+                "Кибернетический прорыв, агрессивный взлом и обход брандмауэров."
+            )
         )
 
-        factions.forEach { fact ->
+        factions.forEach { (fact, artRes, loreSummary) ->
             val isSelected = selectedFaction == fact.id
-            Surface(
-                onClick = { onSelectFaction(fact.id) },
-                color = if (isSelected) fact.color.copy(alpha = 0.15f) else ZzzDarkSurface,
-                shape = CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    width = if (isSelected) 2.dp else 1.dp,
-                    color = if (isSelected) fact.color else Color.Gray.copy(alpha = 0.3f)
-                ),
+            CyberCornerBracketBox(
+                bracketSize = 14.dp,
+                bracketColor = if (isSelected) fact.color else Color.Gray.copy(alpha = 0.5f),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp)
+                    .padding(vertical = 5.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    onClick = { onSelectFaction(fact.id) },
+                    color = Color.Black.copy(alpha = 0.70f),
+                    shape = CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 2.dp else 1.dp,
+                        color = if (isSelected) fact.color else Color.Gray.copy(alpha = 0.35f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    RadioButton(
-                        selected = isSelected,
-                        onClick = { onSelectFaction(fact.id) },
-                        colors = RadioButtonDefaults.colors(selectedColor = fact.color)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Column {
-                        Text(
-                            text = "${fact.id} // ${fact.subtitle}",
-                            color = fact.color,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.SansSerif
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        // Background Faction Art
+                        Image(
+                            painter = painterResource(id = artRes),
+                            contentDescription = fact.id,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .matchParentSize()
+                                .alpha(if (isSelected) 0.38f else 0.18f)
                         )
-                        Text(
-                            text = fact.perks,
-                            color = ZzzTextBody,
-                            fontSize = 11.sp,
-                            lineHeight = 16.sp
+
+                        // Dark Gradient Overlay for readability
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color.Black.copy(alpha = 0.85f),
+                                            Color.Black.copy(alpha = 0.60f),
+                                            if (isSelected) fact.color.copy(alpha = 0.20f) else Color.Transparent
+                                        )
+                                    )
+                                )
                         )
+
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { onSelectFaction(fact.id) },
+                                colors = RadioButtonDefaults.colors(selectedColor = fact.color)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "${fact.id} // ${fact.subtitle}",
+                                    color = fact.color,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.SansSerif
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = loreSummary,
+                                    color = Color(0xFFB0C4DE),
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = fact.perks,
+                                    color = ZzzTextBody,
+                                    fontSize = 10.5.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
                     }
                 }
             }

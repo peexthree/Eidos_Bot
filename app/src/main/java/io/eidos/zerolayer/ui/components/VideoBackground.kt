@@ -35,7 +35,12 @@ fun VideoBackground(
     val resolvedResId = remember(resId, resName) {
         if (resId != 0) resId
         else if (!resName.isNullOrBlank()) {
-            context.resources.getIdentifier(resName, "raw", context.packageName)
+            val clean = resName.removeSuffix(".mp4").removeSuffix(".webm").trim()
+            var id = context.resources.getIdentifier(clean, "raw", context.packageName)
+            if (id == 0) {
+                id = context.resources.getIdentifier(clean.lowercase(), "raw", context.packageName)
+            }
+            id
         } else 0
     }
 
