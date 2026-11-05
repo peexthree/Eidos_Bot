@@ -57,6 +57,9 @@ import io.eidos.zerolayer.ui.components.EidosButton
 import io.eidos.zerolayer.ui.components.EidosButtonVariant
 import io.eidos.zerolayer.ui.components.ZzzIcon
 
+/** Item types that count as equipment for the loot acquisition ceremony. */
+private val EQUIPMENT_ITEM_TYPES = listOf("weapon", "armor", "head", "chip")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShopScreen(
@@ -72,7 +75,7 @@ fun ShopScreen(
     dataFragmentsCount: Int = 0,
     onBack: () -> Unit
 ) {
-    val amberColor = Color(0xFFFFB300)
+    val amberColor = ZzzGold
     var sortBy by remember { mutableStateOf("price_asc") } // "price_asc", "price_desc", "name"
     var selectedInspectItem by remember { mutableStateOf<ItemMetadata?>(null) }
     var buyQuantity by remember { mutableStateOf(1) }
@@ -564,7 +567,7 @@ fun ShopScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.5.dp, Color(0xFFFFB300), CutCornerShape(8.dp)),
+                                .border(1.5.dp, ZzzGold, CutCornerShape(8.dp)),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF141008)),
                             shape = CutCornerShape(8.dp)
                         ) {
@@ -572,7 +575,7 @@ fun ShopScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     ZzzIcon(iconRes = R.drawable.ic_res_biocoin, size = 16.dp)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("ПАКЕТ 1000 BIOCOINS", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                    Text("ПАКЕТ 1000 BIOCOINS", color = ZzzGold, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
@@ -600,7 +603,7 @@ fun ShopScreen(
                                             )
                                         }
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ZzzGold),
                                     shape = CutCornerShape(4.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
@@ -657,6 +660,70 @@ fun ShopScreen(
                                 ) {
                                     Text("АКТИВИРОВАТЬ СТРАХОВКУ", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                                 }
+                            }
+                        }
+                    }
+                }
+            } else if (filteredItems.isEmpty()) {
+                // Empty search/filter result: signal-lost terminal state with reset action
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CyberCornerBracketBox(
+                        bracketSize = 14.dp,
+                        bracketColor = amberColor.copy(alpha = 0.7f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF090F17).copy(alpha = 0.7f))
+                                .border(1.dp, amberColor.copy(alpha = 0.35f), CutCornerShape(8.dp))
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            ZzzIcon(
+                                iconRes = R.drawable.ic_action_scan,
+                                size = 32.dp,
+                                tint = amberColor.copy(alpha = 0.8f)
+                            )
+                            Text(
+                                "СИГНАЛ ПОТЕРЯН // НИЧЕГО НЕ НАЙДЕНО",
+                                color = amberColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                fontFamily = FontFamily.Monospace,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                "ПО ПОИСКОВОМУ ЗАПРОСУ НЕ ОБНАРУЖЕНО ПРЕДМЕТОВ.\nПРОВЕРЬ ФИЛЬТРЫ ИЛИ СБРОСЬ КАТАЛОГ.",
+                                color = Color.Gray,
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                                fontFamily = FontFamily.Monospace,
+                                textAlign = TextAlign.Center
+                            )
+                            Button(
+                                onClick = {
+                                    onSearchQueryChange("")
+                                    onCategoryChange("all")
+                                    sortBy = "price_asc"
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = amberColor.copy(alpha = 0.25f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, amberColor),
+                                shape = CutCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    "СБРОС ФИЛЬТРОВ",
+                                    color = amberColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
                             }
                         }
                     }
@@ -799,7 +866,7 @@ fun ShopScreen(
                                     if (item.reqLevel > 1) {
                                         Text(
                                             "LVL ${item.reqLevel}",
-                                            color = if (meetsLevel) EidosCyan else Color(0xFFFF5252),
+                                            color = if (meetsLevel) EidosCyan else ZzzDangerRed,
                                             fontSize = 8.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             fontFamily = FontFamily.Monospace
@@ -854,10 +921,10 @@ fun ShopScreen(
     selectedInspectItem?.let { inspect ->
         val inspectRarityColor = when (inspect.rarity.lowercase()) {
             "uncommon" -> Color(0xFF1E88E5)
-            "rare" -> Color(0xFFFFD54F)
+            "rare" -> ZzzGold
             "epic" -> Color(0xFFAB47BC)
             "legendary" -> Color(0xFFFF7043)
-            "relic" -> Color(0xFFFF1744)
+            "relic" -> ZzzDangerRed
             else -> Color.LightGray
         }
 
@@ -1050,7 +1117,10 @@ fun ShopScreen(
             onConfirm = {
                 repeat(pendingConfirmQuantity) { onBuy(item.id) }
                 pendingConfirmItem = null
-                acquiredCelebrationItem = item
+                // Unified loot acquisition ceremony: only for equipment, not consumables/materials
+                if (item.type in EQUIPMENT_ITEM_TYPES) {
+                    acquiredCelebrationItem = item
+                }
             },
             onDismiss = {
                 pendingConfirmItem = null
@@ -1086,7 +1156,7 @@ fun CurrencySpendConfirmDialog(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     "ПОДТВЕРЖДЕНИЕ ТРАНЗАКЦИИ",
-                    color = Color(0xFFFFB300),
+                    color = ZzzGold,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace
@@ -1110,7 +1180,7 @@ fun CurrencySpendConfirmDialog(
                         .fillMaxWidth()
                         .clip(CutCornerShape(4.dp))
                         .background(Color(0xFF0F151C))
-                        .border(1.dp, Color(0xFFFFB300).copy(alpha = 0.5f), CutCornerShape(4.dp))
+                        .border(1.dp, ZzzGold.copy(alpha = 0.5f), CutCornerShape(4.dp))
                         .padding(10.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1121,12 +1191,12 @@ fun CurrencySpendConfirmDialog(
                             Text("$currentBalance $currencyName", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Стоимость:", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                            Text("-$cost $currencyName", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("Стоимость:", color = ZzzGold, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("-$cost $currencyName", color = ZzzGold, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Остаток:", color = if (remaining >= 0) EidosNeon else Color(0xFFFF5252), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                            Text("$remaining $currencyName", color = if (remaining >= 0) EidosNeon else Color(0xFFFF5252), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("Остаток:", color = if (remaining >= 0) EidosNeon else ZzzDangerRed, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            Text("$remaining $currencyName", color = if (remaining >= 0) EidosNeon else ZzzDangerRed, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
@@ -1136,7 +1206,7 @@ fun CurrencySpendConfirmDialog(
             Button(
                 onClick = onConfirm,
                 enabled = remaining >= 0,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
+                colors = ButtonDefaults.buttonColors(containerColor = ZzzGold),
                 shape = CutCornerShape(4.dp)
             ) {
                 Text("ПОДТВЕРДИТЬ", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
@@ -1288,7 +1358,7 @@ fun ItemAcquiredCelebrationDialog(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 ZzzIcon(iconRes = R.drawable.ic_action_crit, size = 12.dp)
                                 Spacer(modifier = Modifier.width(3.dp))
-                                Text("+${item.bonusLuck} LUCK", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                Text("+${item.bonusLuck} LUCK", color = ZzzGold, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                             }
                         }
                     }

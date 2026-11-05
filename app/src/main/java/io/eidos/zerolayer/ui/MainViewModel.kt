@@ -478,6 +478,28 @@ class MainViewModel(
         viewModelScope.launch {
             repository.startRaid(_uid.value, player.value?.max_depth ?: 0)
         }
+        refreshRaidAdvice()
+    }
+
+    // Tactical advice from content.json shown on the raid gateway screen.
+    // 30+ tips already exist in assets (levels 1-4) - they were never displayed.
+    private val _raidAdvice = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val raidAdvice: kotlinx.coroutines.flow.StateFlow<String?> = _raidAdvice
+
+    fun refreshRaidAdvice() {
+        viewModelScope.launch {
+            _raidAdvice.value = runCatching {
+                repository.getAdvice(player.value?.level ?: 1)
+            }.getOrNull()
+        }
+    }
+
+    // Singularity Terminal (Chapter VI finale): three endings
+    fun completeSingularityEnding(endingId: String) {
+        audio.playSound(EidosAudioManager.SoundType.RELIC_UNLOCK)
+        viewModelScope.launch {
+            repository.completeSingularityEnding(_uid.value, endingId)
+        }
     }
 
     fun nextStep(chosenMutatorId: String? = null, costEnergyOverride: Int? = null) {
@@ -1055,6 +1077,21 @@ class MainViewModel(
     fun hitWorldBoss() {
         viewModelScope.launch {
             repository.hitWorldBoss(_uid.value)
+            // Reload the shared pool + contribution top so the UI reflects the hit immediately
+            refreshWorldBoss()
+        }
+    }
+
+    private val _worldBossState = MutableStateFlow<WorldBossState?>(null)
+    val worldBossState: StateFlow<WorldBossState?> = _worldBossState.asStateFlow()
+
+    private val _bossTop = MutableStateFlow<List<BossContributor>>(emptyList())
+    val bossTop: StateFlow<List<BossContributor>> = _bossTop.asStateFlow()
+
+    fun refreshWorldBoss() {
+        viewModelScope.launch {
+            _worldBossState.value = repository.getWorldBossState()
+            _bossTop.value = repository.getTopWorldBossContributors()
         }
     }
 

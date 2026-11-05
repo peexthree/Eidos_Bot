@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.R
@@ -49,7 +50,12 @@ import io.eidos.zerolayer.ui.theme.EidosOrange
 import io.eidos.zerolayer.ui.theme.EidosPurple
 import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.theme.EidosCyan
+import io.eidos.zerolayer.ui.theme.ZzzGold
+import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
 import io.eidos.zerolayer.ui.components.ZzzIcon
+import io.eidos.zerolayer.ui.components.cyber3DTilt
+import io.eidos.zerolayer.ui.utils.EidosAudioManager
+import io.eidos.zerolayer.ui.utils.HapticFeedbackManager
 import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.cyberClickable
@@ -85,6 +91,15 @@ fun InventoryScreen(
     var selectedCategory by remember { mutableStateOf("all") }
     var stackInspectorItems by remember { mutableStateOf<List<InventoryItem>?>(null) }
     var quickEquipSlotTarget by remember { mutableStateOf<String?>(null) }
+
+    // Juice Phase 1: haptics + audio feedback for item actions (managers are app-scoped singletons)
+    val context = LocalContext.current
+    val haptics = remember { HapticFeedbackManager.getInstance(context) }
+    val audio = remember { EidosAudioManager.getInstance(context) }
+
+    // Rare items (legendary / cursed / relic) get the legendary loot haptic pattern
+    fun itemIsRare(rarity: String?): Boolean =
+        rarity == "legendary" || rarity == "cursed" || rarity == "relic"
 
     Box(
         modifier = Modifier
@@ -206,7 +221,11 @@ fun InventoryScreen(
                                     if (isSelected) EidosCyan else Color(0xFF1E2E3E),
                                     RoundedCornerShape(6.dp)
                                 )
-                                .cyberClickable { selectedCategory = catId },
+                                .cyberClickable {
+                                    haptics.click()
+                                    audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                                    selectedCategory = catId
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -534,6 +553,8 @@ fun InventoryScreen(
                         if (item.is_equipped) {
                             Button(
                                 onClick = {
+                                    haptics.click()
+                                    audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                                     onUnequip(item)
                                     selectedItem = null
                                 },
@@ -550,6 +571,8 @@ fun InventoryScreen(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Button(
                                     onClick = {
+                                        haptics.click()
+                                        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                                         val targetSlot = resolvedSlot
                                         selectedItem = null
                                         quickEquipSlotTarget = targetSlot
@@ -566,6 +589,8 @@ fun InventoryScreen(
                             Button(
                                 onClick = {
                                     if (canEquip) {
+                                        if (itemIsRare(rarity)) haptics.lootLegendary() else haptics.click()
+                                        audio.playSound(EidosAudioManager.SoundType.ITEM_CRAFT)
                                         onEquip(item)
                                         selectedItem = null
                                     }
@@ -596,6 +621,8 @@ fun InventoryScreen(
                     } else if (isConsumable(item.item_id, itemMeta)) {
                         Button(
                             onClick = {
+                                if (itemIsRare(rarity)) haptics.lootLegendary() else haptics.click()
+                                audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                                 onUseConsumable(item)
                                 selectedItem = null
                             },
@@ -646,10 +673,16 @@ fun InventoryScreen(
             allItemsMetadata = allItemsMetadata,
             player = player,
             onEquip = { item ->
+                val pickedMeta = allItemsMetadata.find { it.id == item.item_id }
+                val pickedRarity = pickedMeta?.rarity ?: getItemRarity(item.item_id)
+                if (itemIsRare(pickedRarity)) haptics.lootLegendary() else haptics.click()
+                audio.playSound(EidosAudioManager.SoundType.ITEM_CRAFT)
                 onEquip(item)
                 quickEquipSlotTarget = null
             },
             onUnequip = { item ->
+                haptics.click()
+                audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                 onUnequip(item)
                 quickEquipSlotTarget = null
             },
@@ -725,7 +758,7 @@ fun EquipDollSection(
                     slotLabel = "ОРУЖИЕ",
                     item = weapon,
                     meta = weapon?.let { allItemsMetadata.find { meta -> meta.id == it.item_id } },
-                    defaultAccent = Color(0xFFFF9800),
+                    defaultAccent = ZzzWarningOrange,
                     onUnequip = onUnequip,
                     onSlotClick = { onSelectSlotForEquip("weapon") },
                     onItemClick = onItemClick
@@ -835,9 +868,9 @@ fun EquipDollSection(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("УДАЧА: ", color = Color(0xFFFFD54F), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        Text("УДАЧА: ", color = ZzzGold, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         AnimatedContent(targetState = currentLuck, label = "luckAnim") { luck ->
-                            Text("$luck", color = Color(0xFFFFD54F), fontSize = 8.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                            Text("$luck", color = ZzzGold, fontSize = 8.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
@@ -1200,6 +1233,11 @@ fun ItemListSection(
     onItemClick: (InventoryItem) -> Unit,
     onStackClick: ((List<InventoryItem>) -> Unit)? = null
 ) {
+    // Juice Phase 1: haptics + audio for card navigation (managers are app-scoped singletons)
+    val context = LocalContext.current
+    val haptics = remember { HapticFeedbackManager.getInstance(context) }
+    val audio = remember { EidosAudioManager.getInstance(context) }
+
     if (inventory.isEmpty()) {
         Box(
             modifier = Modifier
@@ -1259,6 +1297,7 @@ fun ItemListSection(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .cyber3DTilt(maxRotationDegrees = 5f, depthTranslationDp = 8f)
                         .height(185.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF0A121C).copy(alpha = 0.70f))
@@ -1273,6 +1312,12 @@ fun ItemListSection(
                             strokeWidth = 1.5.dp
                         )
                         .cyberClickable {
+                            if (rarity == "legendary" || rarity == "cursed" || rarity == "relic") {
+                                haptics.lootLegendary()
+                            } else {
+                                haptics.click()
+                            }
+                            audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
                             if (stack.size > 1 && onStackClick != null) {
                                 onStackClick(stack)
                             } else {
@@ -1803,7 +1848,7 @@ fun QuickEquipSlotPickerModal(
                                         Text(rarity.uppercase(), color = rarityColor, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                                         if ((meta?.bonusAttack ?: 0) > 0) Text("+${meta?.bonusAttack} ATK", color = EidosNeon, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                                         if ((meta?.bonusDefense ?: 0) > 0) Text("+${meta?.bonusDefense} DEF", color = EidosCyan, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
-                                        if ((meta?.bonusLuck ?: 0) > 0) Text("+${meta?.bonusLuck} LCK", color = Color(0xFFFFD54F), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                                        if ((meta?.bonusLuck ?: 0) > 0) Text("+${meta?.bonusLuck} LCK", color = ZzzGold, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                                     }
                                     if (!canEquip) {
                                         Text("Требуется Level $reqLevel", color = EidosRed, fontSize = 8.sp, fontFamily = FontFamily.Monospace)

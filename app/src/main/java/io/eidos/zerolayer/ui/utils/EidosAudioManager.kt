@@ -160,7 +160,8 @@ class EidosAudioManager private constructor(private val context: Context) {
     enum class BgmTrack {
         NONE,
         MAIN_MENU,
-        ZERO_LAYER
+        ZERO_LAYER,
+        CODEX
     }
 
     private var mediaPlayer: MediaPlayer? = null
@@ -199,6 +200,7 @@ class EidosAudioManager private constructor(private val context: Context) {
         when (track) {
             BgmTrack.MAIN_MENU -> playPlaylistTrack(currentPlaylistIndex)
             BgmTrack.ZERO_LAYER -> playSingleTrack(R.raw.bgm_genesis, loop = true)
+            BgmTrack.CODEX -> playSingleTrack(R.raw.bgm_mirror_of_lies, loop = true)
             else -> stopMusic()
         }
     }
@@ -346,117 +348,164 @@ class EidosAudioManager private constructor(private val context: Context) {
         try {
             val cacheDir = context.cacheDir ?: return
             val soundsToGenerate = listOf(
-                SoundType.CLICK_CYBER to createPcmWav(cacheDir, "click_cyber.wav") { sampleIndex, totalSamples, sampleRate ->
-                    val freq = 1200.0 - (sampleIndex.toDouble() / totalSamples) * 400.0
-                    val env = 1.0 - (sampleIndex.toDouble() / totalSamples)
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.7 * env).toFloat()
+                SoundType.CLICK_CYBER to createPcmWav(cacheDir, "click_cyber_v2.wav", durationMs = 90) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Crisp UI click: bright pitch-dropping ping + sharp noise tick
+                    val ping = sin(2.0 * Math.PI * 1400.0 * (1.0 - t * 0.3) * i / sr) * Math.exp(-t * 22.0)
+                    val tick = (Math.random() * 2.0 - 1.0) * Math.exp(-t * 60.0) * 0.5
+                    (ping * 0.7 + tick).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.RAID_STEP to createPcmWav(cacheDir, "raid_step.wav", durationMs = 80) { sampleIndex, totalSamples, sampleRate ->
-                    val freq = 150.0 - (sampleIndex.toDouble() / totalSamples) * 80.0
-                    val env = Math.pow(1.0 - (sampleIndex.toDouble() / totalSamples), 2.0)
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.9 * env).toFloat()
+                SoundType.RAID_STEP to createPcmWav(cacheDir, "raid_step_v2.wav", durationMs = 120) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Heavy footstep thud: pitch-dropping sine + gritty noise tail
+                    val thud = sin(2.0 * Math.PI * (95.0 - t * 45.0) * i / sr) * Math.exp(-t * 9.0)
+                    val grit = (Math.random() * 2.0 - 1.0) * Math.exp(-t * 30.0) * 0.25
+                    ((thud * 0.95 + grit) * 0.9).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.CRITICAL_STRIKE to createPcmWav(cacheDir, "critical_strike.wav", durationMs = 200) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 800.0 * Math.exp(-t * 3.0) + 120.0
-                    val sub = sin(2.0 * Math.PI * (freq * 0.5) * sampleIndex / sampleRate)
-                    val main = sin(2.0 * Math.PI * freq * sampleIndex / sampleRate)
-                    val noise = (Math.random() * 2.0 - 1.0) * 0.2
-                    val env = 1.0 - t
-                    ((main * 0.6 + sub * 0.3 + noise) * env).toFloat().coerceIn(-1f, 1f)
+                SoundType.CRITICAL_STRIKE to createPcmWav(cacheDir, "critical_strike_v2.wav", durationMs = 320) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Metallic impact: noise crack + descending sweep + sub punch
+                    val crack = (Math.random() * 2.0 - 1.0) * Math.exp(-t * 35.0) * 0.6
+                    val sweep = sin(2.0 * Math.PI * (700.0 * Math.exp(-t * 4.0) + 90.0) * i / sr) * Math.exp(-t * 6.0)
+                    val sub = sin(2.0 * Math.PI * 55.0 * i / sr) * Math.exp(-t * 7.0)
+                    ((crack + sweep * 0.5 + sub * 0.7) * 0.95).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.GLITCH_FOUND to createPcmWav(cacheDir, "glitch_found.wav", durationMs = 250) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val step = (t * 8).toInt()
-                    val freq = when (step % 4) {
+                SoundType.GLITCH_FOUND to createPcmWav(cacheDir, "glitch_found_v2.wav", durationMs = 300) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Digital stutter arpeggio with bitcrush artifacts
+                    val step = (t * 10).toInt()
+                    val freq = when (step % 5) {
                         0 -> 440.0
-                        1 -> 880.0
+                        1 -> 990.0
                         2 -> 660.0
-                        else -> 1320.0
+                        3 -> 1320.0
+                        else -> 330.0
                     }
-                    val env = 1.0 - (t % 0.125) / 0.125
-                    val squareWave = if (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) > 0) 0.5f else -0.5f
-                    (squareWave * env * (1.0 - t)).toFloat()
+                    val gate = if ((step % 2) == 0) 1.0 else 0.35
+                    val square = if (sin(2.0 * Math.PI * freq * i / sr) > 0) 0.45 else -0.45
+                    val noise = (Math.random() * 2.0 - 1.0) * 0.15
+                    ((square + noise) * gate * (1.0 - t * 0.7)).toFloat()
                 },
-                SoundType.HACK_SUCCESS to createPcmWav(cacheDir, "hack_success.wav", durationMs = 300) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 523.25 + t * 523.25 // C5 to C6 sweep
-                    val env = Math.sin(t * Math.PI)
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.8 * env).toFloat()
+                SoundType.HACK_SUCCESS to createPcmWav(cacheDir, "hack_success_v2.wav", durationMs = 380) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Terminal unlock: two-stage rise C5->G5 with additive harmonics
+                    val stage = if (t < 0.5) 523.25 else 783.99
+                    val noteT = if (t < 0.5) t / 0.5 else (t - 0.5) / 0.5
+                    val envl = Math.sin(noteT * Math.PI)
+                    val body = sin(2.0 * Math.PI * stage * i / sr) +
+                               0.35 * sin(2.0 * Math.PI * stage * 2 * i / sr) +
+                               0.15 * sin(2.0 * Math.PI * stage * 3 * i / sr)
+                    val shimmer = sin(2.0 * Math.PI * (stage * 4 + t * 200) * i / sr) * 0.1
+                    ((body / 1.5 + shimmer) * 0.8 * envl).toFloat()
                 },
-                SoundType.EVAC_WARNING to createPcmWav(cacheDir, "evac_warning.wav", durationMs = 350) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val pulse = sin(2.0 * Math.PI * 12.0 * t) // 12Hz pulse
-                    val freq = 900.0 + (if (pulse > 0) 200.0 else 0.0)
-                    val env = 1.0 - t * 0.3
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.8 * env).toFloat()
+                SoundType.EVAC_WARNING to createPcmWav(cacheDir, "evac_warning_v2.wav", durationMs = 500) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Siren: alternating two-tone alarm with fast pulse gating
+                    val alt = if (sin(2.0 * Math.PI * 3.0 * t) > 0) 880.0 else 660.0
+                    val gate = 0.6 + 0.4 * sin(2.0 * Math.PI * 10.0 * t)
+                    val envl = Math.min(1.0, t * 12) * (1.0 - t * 0.25)
+                    (sin(2.0 * Math.PI * alt * i / sr) * 0.8 * gate * envl).toFloat()
                 },
-                SoundType.ITEM_CRAFT to createPcmWav(cacheDir, "item_craft.wav", durationMs = 280) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 300.0 + t * 900.0
-                    val env = sin(t * Math.PI)
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.7 * env).toFloat()
+                SoundType.ITEM_CRAFT to createPcmWav(cacheDir, "item_craft_v2.wav", durationMs = 340) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Anvil clink: bright ping + inharmonic metallic ring + spark noise
+                    val clink = sin(2.0 * Math.PI * 2200.0 * i / sr) * Math.exp(-t * 14.0) * 0.5
+                    val ring = sin(2.0 * Math.PI * 3170.0 * i / sr) * Math.exp(-t * 9.0) * 0.3
+                    val spark = (Math.random() * 2.0 - 1.0) * Math.exp(-t * 45.0) * 0.4
+                    ((clink + ring + spark) * 0.9).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.ERROR_GLITCH to createPcmWav(cacheDir, "error_glitch.wav", durationMs = 200) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 180.0 - t * 80.0
-                    val noise = (Math.random() * 2.0 - 1.0) * 0.4
-                    val env = 1.0 - t
-                    ((sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.6 + noise) * env).toFloat().coerceIn(-1f, 1f)
+                SoundType.ERROR_GLITCH to createPcmWav(cacheDir, "error_glitch_v2.wav", durationMs = 260) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Digital error: down-chirp + gated buzz stutter
+                    val chirp = sin(2.0 * Math.PI * (300.0 - t * 180.0) * i / sr) * Math.exp(-t * 4.0)
+                    val stutter = if ((i / (sr / 30)) % 2 == 0) 1.0 else 0.2
+                    val buzz = (Math.random() * 2.0 - 1.0) * 0.35 * Math.exp(-t * 5.0)
+                    ((chirp * 0.6 + buzz) * stutter * 0.95).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.ABILITY_ACTIVATE to createPcmWav(cacheDir, "ability_activate.wav", durationMs = 320) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 400.0 + Math.sin(t * Math.PI * 4.0) * 200.0 + t * 600.0
-                    val env = Math.sin(t * Math.PI)
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.85 * env).toFloat()
+                SoundType.ABILITY_ACTIVATE to createPcmWav(cacheDir, "ability_activate_v2.wav", durationMs = 420) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Power-up: rising sweep with vibrato and sub layer
+                    val base = 350.0 + t * 700.0
+                    val vib = Math.sin(2.0 * Math.PI * 9.0 * t) * 25.0
+                    val sweep = sin(2.0 * Math.PI * (base + vib) * i / sr)
+                    val subS = sin(2.0 * Math.PI * (base * 0.5) * i / sr) * 0.4
+                    val envl = Math.sin(t * Math.PI * 0.9)
+                    ((sweep * 0.65 + subS) * 0.8 * envl).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.RELIC_UNLOCK to createPcmWav(cacheDir, "relic_unlock.wav", durationMs = 450) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val chord = sin(2.0 * Math.PI * 523.25 * sampleIndex / sampleRate) +
-                                sin(2.0 * Math.PI * 659.25 * sampleIndex / sampleRate) +
-                                sin(2.0 * Math.PI * 783.99 * sampleIndex / sampleRate)
-                    val env = Math.sin(t * Math.PI)
-                    ((chord / 3.0) * 0.9 * env).toFloat()
+                SoundType.RELIC_UNLOCK to createPcmWav(cacheDir, "relic_unlock_v2.wav", durationMs = 700) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Sacred bell arpeggio: C5-E5-G5-C6 with inharmonic decay
+                    val notes = listOf(523.25, 659.25, 783.99, 1046.5)
+                    val idx = (t * 4).toInt().coerceIn(0, 3)
+                    val noteT = ((t * 4) - idx).coerceIn(0.0, 1.0)
+                    val f = notes[idx]
+                    val bell = sin(2.0 * Math.PI * f * i / sr) * Math.exp(-noteT * 3.5) +
+                               0.4 * sin(2.0 * Math.PI * f * 2.01 * i / sr) * Math.exp(-noteT * 5.0) +
+                               0.2 * sin(2.0 * Math.PI * f * 2.99 * i / sr) * Math.exp(-noteT * 7.0)
+                    val tail = if (t > 0.75) sin(2.0 * Math.PI * 1046.5 * i / sr) * Math.exp(-(t - 0.75) * 8.0) * 0.3 else 0.0
+                    ((bell * 0.5 + tail) * 0.9).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.TUTORIAL_STEP to createPcmWav(cacheDir, "tutorial_step.wav", durationMs = 150) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 880.0 + t * 440.0
-                    val env = 1.0 - t
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.75 * env).toFloat()
+                SoundType.TUTORIAL_STEP to createPcmWav(cacheDir, "tutorial_step_v2.wav", durationMs = 180) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Soft two-note confirm blip
+                    val noteT = if (t < 0.5) t / 0.5 else (t - 0.5) / 0.5
+                    val f = if (t < 0.5) 660.0 else 880.0
+                    (sin(2.0 * Math.PI * f * i / sr) * 0.6 * Math.sin(noteT * Math.PI)).toFloat()
                 },
-                SoundType.BOSS_VICTORY to createPcmWav(cacheDir, "boss_victory.wav", durationMs = 500) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val chord = sin(2.0 * Math.PI * 440.0 * sampleIndex / sampleRate) +
-                                sin(2.0 * Math.PI * 554.37 * sampleIndex / sampleRate) +
-                                sin(2.0 * Math.PI * 659.25 * sampleIndex / sampleRate)
-                    val env = Math.sin(t * Math.PI)
-                    ((chord / 3.0) * 0.95 * env).toFloat()
+                SoundType.BOSS_VICTORY to createPcmWav(cacheDir, "boss_victory_v2.wav", durationMs = 900) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Fanfare: rising 3-note lead phrase + full chord swell
+                    val phrase = when {
+                        t < 0.33 -> 523.25
+                        t < 0.66 -> 659.25
+                        else -> 783.99
+                    }
+                    val noteT = (t * 3) % 1.0
+                    val lead = (sin(2.0 * Math.PI * phrase * i / sr) +
+                                0.3 * sin(2.0 * Math.PI * phrase * 2 * i / sr)) * Math.exp(-noteT * 2.5) * 0.5
+                    val swellT = if (t > 0.66) (t - 0.66) / 0.34 else 0.0
+                    val chord = (sin(2.0 * Math.PI * 523.25 * i / sr) + sin(2.0 * Math.PI * 659.25 * i / sr) +
+                                 sin(2.0 * Math.PI * 783.99 * i / sr) + sin(2.0 * Math.PI * 1046.5 * i / sr)) /
+                        4.0 * swellT * 0.8
+                    ((lead + chord) * 0.95).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.ITEM_LOOT to createPcmWav(cacheDir, "item_loot.wav", durationMs = 250) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 600.0 + t * 600.0
-                    val env = Math.sin(t * Math.PI)
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.8 * env).toFloat()
+                SoundType.ITEM_LOOT to createPcmWav(cacheDir, "item_loot_v2.wav", durationMs = 280) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Coin pickup: bright double ping with metallic harmonic
+                    val stage = if (t < 0.4) 1320.0 else 1760.0
+                    val noteT = if (t < 0.4) t / 0.4 else (t - 0.4) / 0.6
+                    val ping = (sin(2.0 * Math.PI * stage * i / sr) +
+                                0.4 * sin(2.0 * Math.PI * stage * 1.5 * i / sr)) * Math.exp(-noteT * 5.0)
+                    (ping * 0.75).toFloat()
                 },
-                SoundType.DAMAGE_TAKEN to createPcmWav(cacheDir, "damage_taken.wav", durationMs = 180) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 220.0 - t * 100.0
-                    val noise = (Math.random() * 2.0 - 1.0) * 0.5
-                    val env = 1.0 - t
-                    ((sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.5 + noise) * env).toFloat().coerceIn(-1f, 1f)
+                SoundType.DAMAGE_TAKEN to createPcmWav(cacheDir, "damage_taken_v2.wav", durationMs = 220) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Painful impact: low crunch + noise slam
+                    val crunch = sin(2.0 * Math.PI * (180.0 - t * 90.0) * i / sr) * Math.exp(-t * 8.0)
+                    val slam = (Math.random() * 2.0 - 1.0) * Math.exp(-t * 25.0) * 0.55
+                    ((crunch * 0.7 + slam) * 0.95).toFloat().coerceIn(-1f, 1f)
                 },
-                SoundType.DANGER to createPcmWav(cacheDir, "danger.wav", durationMs = 300) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val pulse = sin(2.0 * Math.PI * 8.0 * t)
-                    val freq = 700.0 + (if (pulse > 0) 150.0 else 0.0)
-                    val env = 1.0 - t * 0.2
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.8 * env).toFloat()
+                SoundType.DANGER to createPcmWav(cacheDir, "danger_v2.wav", durationMs = 450) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Threat drone: dissonant minor-second pulse
+                    val pulse = 0.55 + 0.45 * sin(2.0 * Math.PI * 7.0 * t)
+                    val drone = sin(2.0 * Math.PI * 220.0 * i / sr) + 0.7 * sin(2.0 * Math.PI * 233.08 * i / sr)
+                    val envl = Math.min(1.0, t * 8) * (1.0 - t * 0.3)
+                    ((drone / 1.7) * 0.85 * pulse * envl).toFloat()
                 },
-                SoundType.LEVEL_UP to createPcmWav(cacheDir, "level_up.wav", durationMs = 400) { sampleIndex, totalSamples, sampleRate ->
-                    val t = sampleIndex.toDouble() / totalSamples
-                    val freq = 440.0 + t * 440.0
-                    val env = Math.sin(t * Math.PI)
-                    (sin(2.0 * Math.PI * freq * sampleIndex / sampleRate) * 0.85 * env).toFloat()
+                SoundType.LEVEL_UP to createPcmWav(cacheDir, "level_up_v2.wav", durationMs = 600) { i, n, sr ->
+                    val t = i.toDouble() / n
+                    // Ascending arpeggio C5-E5-G5-C6 + shine sweep + chord tail
+                    val notes = listOf(523.25, 659.25, 783.99, 1046.5)
+                    val idx = (t * 4).toInt().coerceIn(0, 3)
+                    val noteT = ((t * 4) - idx).coerceIn(0.0, 1.0)
+                    val arp = sin(2.0 * Math.PI * notes[idx] * i / sr) * Math.exp(-noteT * 4.0) * 0.55
+                    val shine = sin(2.0 * Math.PI * (1046.5 + t * 800) * i / sr) * (1.0 - t) * 0.18
+                    val chordTail = if (t > 0.6) {
+                        val ct = (t - 0.6) / 0.4
+                        (sin(2.0 * Math.PI * 523.25 * i / sr) + sin(2.0 * Math.PI * 783.99 * i / sr)) / 2.0 * Math.sin(ct * Math.PI) * 0.4
+                    } else 0.0
+                    ((arp + shine + chordTail) * 0.9).toFloat().coerceIn(-1f, 1f)
                 }
             )
 

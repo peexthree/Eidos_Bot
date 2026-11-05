@@ -9,7 +9,12 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOutBack
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.Image
@@ -55,6 +60,8 @@ import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.theme.ZzzGold
+import io.eidos.zerolayer.ui.theme.ZzzDangerRed
 import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.EidosImage
@@ -62,6 +69,7 @@ import io.eidos.zerolayer.ui.components.cyberHudBorder
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
 import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
+import io.eidos.zerolayer.ui.components.CyberSkeletonLoader
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.cyber3DTilt
 import io.eidos.zerolayer.ui.components.premiumCyberClickable
@@ -120,6 +128,7 @@ fun ProfileScreen(
     var inspectedAvatarLvl by remember { mutableIntStateOf(1) }
     var topPlayers by remember { mutableStateOf<List<SupabasePlayer>>(emptyList()) }
     var isLeaderboardLoading by remember { mutableStateOf(false) }
+    var claimedRewardCelebration by remember { mutableStateOf<AchievementItem?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(activeTab) {
@@ -474,7 +483,7 @@ fun ProfileScreen(
                 val (factionArtRes, factionColor, factionDesc) = when (factionName.uppercase()) {
                     "ТЕХНО" -> Triple(R.drawable.bg_neuro, Color(0xFFFF2A85), "Хакеры Нулевого Слоя • Агрессивный взлом • +15 ATK")
                     "РАЗУМ", "ИИ" -> Triple(R.drawable.bg_mind_2, Color(0xFF00FFF6), "Оборонный Альянс ИИ • Стабильность Сигнала • +15 DEF")
-                    else -> Triple(R.drawable.bg_main_banner, Color(0xFFFFD700), "Финансовый Конгломерат • Ресурсы и Удача • +20% BioCoins")
+                    else -> Triple(R.drawable.bg_main_banner, ZzzGold, "Финансовый Конгломерат • Ресурсы и Удача • +20% BioCoins")
                 }
 
                 CyberCornerBracketBox(
@@ -708,7 +717,7 @@ fun ProfileScreen(
                             shape = CutCornerShape(8.dp),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.5.dp,
-                                Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFF0055), EidosCyan))
+                                Brush.horizontalGradient(listOf(ZzzGold, ZzzDangerRed, EidosCyan))
                             )
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
@@ -723,7 +732,7 @@ fun ProfileScreen(
                                         Column {
                                             Text(
                                                 "LVL ${currentLevelInfo.level}: ${currentLevelInfo.stageTitle}",
-                                                color = Color(0xFFFFD700),
+                                                color = ZzzGold,
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Black,
                                                 fontFamily = FontFamily.Monospace
@@ -739,13 +748,13 @@ fun ProfileScreen(
                                     }
 
                                     Surface(
-                                        color = Color(0xFFFFD700).copy(alpha = 0.15f),
+                                        color = ZzzGold.copy(alpha = 0.15f),
                                         shape = CutCornerShape(4.dp),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f))
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold.copy(alpha = 0.5f))
                                     ) {
                                         Text(
                                             "СТАТУС АКТИВЕН",
-                                            color = Color(0xFFFFD700),
+                                            color = ZzzGold,
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.Black,
                                             fontFamily = FontFamily.Monospace,
@@ -845,7 +854,7 @@ fun ProfileScreen(
 
                                 MetricRow(drawableRes = R.drawable.ic_res_overdrive, label = "Серия Входов (Стрик):", value = "${player?.streak ?: 1} дн.")
                                 MetricRow(drawableRes = R.drawable.ic_res_eidos_shard, label = "Осколки Эйдоса:", value = "$shardsCount шт.", valueColor = EidosCyan)
-                                MetricRow(drawableRes = R.drawable.ic_res_biocoin, label = "Крипто-Баланс:", value = "${player?.biocoin ?: 0} BC", valueColor = Color(0xFFFFB300))
+                                MetricRow(drawableRes = R.drawable.ic_res_biocoin, label = "Крипто-Баланс:", value = "${player?.biocoin ?: 0} BC", valueColor = ZzzGold)
                                 MetricRow(drawableRes = R.drawable.ic_res_energy, label = "Накопленный Опыт:", value = "${player?.xp ?: 0} XP", valueColor = EidosNeon)
                             }
                         }
@@ -906,7 +915,7 @@ fun ProfileScreen(
                                     Spacer(Modifier.width(6.dp))
                                     Text(
                                         text = "НЕЙРО-ДОСТИЖЕНИЯ СЕТИ EIDOS",
-                                        color = Color(0xFFFFD700),
+                                        color = ZzzGold,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace
@@ -922,7 +931,7 @@ fun ProfileScreen(
                                 LinearProgressIndicator(
                                     progress = { if (achievements.isNotEmpty()) unlockedAchCount.toFloat() / achievements.size.toFloat() else 0f },
                                     modifier = Modifier.fillMaxWidth().height(6.dp).clip(CutCornerShape(3.dp)),
-                                    color = Color(0xFFFFD700),
+                                    color = ZzzGold,
                                     trackColor = Color.DarkGray.copy(alpha = 0.5f)
                                 )
                             }
@@ -940,17 +949,17 @@ fun ProfileScreen(
                                 val isSelected = cat == selectedAchievementCategory
                                 val count = if (cat == "ВСЕ") achievements.size else achievements.count { it.category.equals(cat, ignoreCase = true) }
                                 Surface(
-                                    color = if (isSelected) Color(0xFFFF0055).copy(alpha = 0.3f) else EidosGlass,
+                                    color = if (isSelected) ZzzDangerRed.copy(alpha = 0.3f) else EidosGlass,
                                     border = androidx.compose.foundation.BorderStroke(
                                         1.dp,
-                                        if (isSelected) Color(0xFFFF0055) else Color.White.copy(alpha = 0.15f)
+                                        if (isSelected) ZzzDangerRed else Color.White.copy(alpha = 0.15f)
                                     ),
                                     shape = CutCornerShape(4.dp),
                                     modifier = Modifier.clickable { selectedAchievementCategory = cat }
                                 ) {
                                     Text(
                                         text = "$cat ($count)",
-                                        color = if (isSelected) Color(0xFFFF0055) else Color.LightGray,
+                                        color = if (isSelected) ZzzDangerRed else Color.LightGray,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace,
@@ -974,7 +983,7 @@ fun ProfileScreen(
                                         1.dp,
                                         when {
                                             isClaimed -> EidosNeon.copy(alpha = 0.6f)
-                                            isDone -> Color(0xFFFFD700)
+                                            isDone -> ZzzGold
                                             else -> Color.White.copy(alpha = 0.15f)
                                         }
                                     )
@@ -994,7 +1003,7 @@ fun ProfileScreen(
                                                             ach.title,
                                                             color = when {
                                                                 isClaimed -> EidosNeon
-                                                                isDone -> Color(0xFFFFD700)
+                                                                isDone -> ZzzGold
                                                                 else -> Color.White
                                                             },
                                                             fontWeight = FontWeight.Bold,
@@ -1018,14 +1027,14 @@ fun ProfileScreen(
                                             Surface(
                                                 color = when {
                                                     isClaimed -> EidosNeon.copy(alpha = 0.15f)
-                                                    isDone -> Color(0xFFFFD700).copy(alpha = 0.2f)
+                                                    isDone -> ZzzGold.copy(alpha = 0.2f)
                                                     else -> Color.DarkGray.copy(alpha = 0.3f)
                                                 },
                                                 border = androidx.compose.foundation.BorderStroke(
                                                     1.dp,
                                                     when {
                                                         isClaimed -> EidosNeon
-                                                        isDone -> Color(0xFFFFD700)
+                                                        isDone -> ZzzGold
                                                         else -> Color.Gray
                                                     }
                                                 ),
@@ -1039,7 +1048,7 @@ fun ProfileScreen(
                                                     },
                                                     color = when {
                                                         isClaimed -> EidosNeon
-                                                        isDone -> Color(0xFFFFD700)
+                                                        isDone -> ZzzGold
                                                         else -> Color.LightGray
                                                     },
                                                     fontSize = 9.sp,
@@ -1060,13 +1069,13 @@ fun ProfileScreen(
                                             LinearProgressIndicator(
                                                 progress = { progressRatio },
                                                 modifier = Modifier.weight(1f).height(4.dp).clip(CutCornerShape(2.dp)),
-                                                color = if (isDone) Color(0xFFFFD700) else EidosCyan,
+                                                color = if (isDone) ZzzGold else EidosCyan,
                                                 trackColor = Color.DarkGray.copy(alpha = 0.5f)
                                             )
                                             Spacer(modifier = Modifier.width(10.dp))
                                             Text(
                                                 "НАГРАДА: +${ach.xpReward} XP",
-                                                color = Color(0xFFFFB300),
+                                                color = ZzzGold,
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 fontFamily = FontFamily.Monospace
@@ -1088,9 +1097,10 @@ fun ProfileScreen(
                                                             achievementKey = ach.id
                                                         )
                                                     )
+                                                    claimedRewardCelebration = ach
                                                 },
                                                 modifier = Modifier.fillMaxWidth().height(36.dp),
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF0055)),
+                                                colors = ButtonDefaults.buttonColors(containerColor = ZzzDangerRed),
                                                 shape = CutCornerShape(4.dp)
                                             ) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1207,8 +1217,15 @@ fun ProfileScreen(
                         }
 
                         if (isLeaderboardLoading) {
-                            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = EidosCyan)
+                            // Skeleton placeholders during the first leaderboard fetch
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                repeat(4) {
+                                    CyberSkeletonLoader(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(64.dp)
+                                    )
+                                }
                             }
                         } else if (topPlayers.isEmpty()) {
                             Surface(
@@ -1377,7 +1394,7 @@ fun ProfileScreen(
                             // Operator Encrypted Signal (SOS / Network transmission)
                             Surface(
                                 color = EidosGlass,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB300).copy(alpha = 0.4f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold.copy(alpha = 0.4f)),
                                 shape = CutCornerShape(6.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -1385,7 +1402,7 @@ fun ProfileScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         ZzzIcon(R.drawable.ic_action_scan, size = 12.dp)
                                         Spacer(Modifier.width(4.dp))
-                                        Text("СЕТЕВОЙ ПЕРЕДАТЧИК (SIGNAL RELAY)", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                        Text("СЕТЕВОЙ ПЕРЕДАТЧИК (SIGNAL RELAY)", color = ZzzGold, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                                     }
                                     Text("Отправка зашифрованного пакета данных другому оператору EIDOS.", color = Color.Gray, fontSize = 10.sp)
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -1397,7 +1414,7 @@ fun ProfileScreen(
                                         singleLine = true,
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = Color(0xFFFFB300),
+                                            focusedBorderColor = ZzzGold,
                                             unfocusedBorderColor = Color.DarkGray,
                                             focusedTextColor = Color.White,
                                             unfocusedTextColor = Color.White
@@ -1411,7 +1428,7 @@ fun ProfileScreen(
                                         singleLine = true,
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = Color(0xFFFFB300),
+                                            focusedBorderColor = ZzzGold,
                                             unfocusedBorderColor = Color.DarkGray,
                                             focusedTextColor = Color.White,
                                             unfocusedTextColor = Color.White
@@ -1427,11 +1444,11 @@ fun ProfileScreen(
                                             }
                                         },
                                         modifier = Modifier.fillMaxWidth().height(44.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300).copy(alpha = 0.25f)),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB300)),
+                                        colors = ButtonDefaults.buttonColors(containerColor = ZzzGold.copy(alpha = 0.25f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold),
                                         shape = CutCornerShape(4.dp)
                                     ) {
-                                        Text("ОТПРАВИТЬ СИГНАЛ В СЕТЬ", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                        Text("ОТПРАВИТЬ СИГНАЛ В СЕТЬ", color = ZzzGold, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                                     }
                                 }
                             }
@@ -1610,7 +1627,7 @@ fun ProfileScreen(
                             .fillMaxWidth(0.94f)
                             .clip(CutCornerShape(12.dp))
                             .background(Color(0xFF090D1A))
-                            .border(1.5.dp, if (isUnlocked) EidosCyan else Color(0xFFFF5252).copy(alpha = 0.7f), CutCornerShape(12.dp))
+                            .border(1.5.dp, if (isUnlocked) EidosCyan else ZzzDangerRed.copy(alpha = 0.7f), CutCornerShape(12.dp))
                             .clickable(enabled = false) {}
                             .padding(16.dp)
                     ) {
@@ -1630,7 +1647,7 @@ fun ProfileScreen(
                                         Spacer(Modifier.width(6.dp))
                                         Text(
                                             "ДОСЬЕ НЕЙРО-ЭВОЛЮЦИИ",
-                                            color = if (isUnlocked) EidosCyan else Color(0xFFFF5252),
+                                            color = if (isUnlocked) EidosCyan else ZzzDangerRed,
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Black,
                                             fontFamily = FontFamily.Monospace
@@ -1665,7 +1682,7 @@ fun ProfileScreen(
                                     .clip(CutCornerShape(8.dp))
                                     .border(
                                         1.5.dp,
-                                        if (isCurrent) EidosNeon else if (isUnlocked) EidosCyan else Color(0xFFFF5252).copy(alpha = 0.6f),
+                                        if (isCurrent) EidosNeon else if (isUnlocked) EidosCyan else ZzzDangerRed.copy(alpha = 0.6f),
                                         CutCornerShape(8.dp)
                                     )
                                     .background(Color.Black)
@@ -1708,11 +1725,11 @@ fun ProfileScreen(
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             modifier = Modifier.padding(16.dp)
                                         ) {
-                                            ZzzIcon(R.drawable.ic_ui_locked, size = 38.dp, tint = Color(0xFFFF5252))
+                                            ZzzIcon(R.drawable.ic_ui_locked, size = 38.dp, tint = ZzzDangerRed)
                                             Spacer(modifier = Modifier.height(6.dp))
                                             Text(
                                                 "СТАДИЯ НЕ ДОСТИГНУТА",
-                                                color = Color(0xFFFF5252),
+                                                color = ZzzDangerRed,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Black,
                                                 fontFamily = FontFamily.Monospace
@@ -1735,12 +1752,12 @@ fun ProfileScreen(
                                         .align(Alignment.TopStart)
                                         .padding(10.dp)
                                         .background(Color.Black.copy(alpha = 0.85f), CutCornerShape(4.dp))
-                                        .border(1.dp, if (isUnlocked) EidosCyan else Color(0xFFFF5252), CutCornerShape(4.dp))
+                                        .border(1.dp, if (isUnlocked) EidosCyan else ZzzDangerRed, CutCornerShape(4.dp))
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Text(
                                         "СТАДИЯ $inspectedAvatarLvl / 31",
-                                        color = if (isUnlocked) EidosCyan else Color(0xFFFF5252),
+                                        color = if (isUnlocked) EidosCyan else ZzzDangerRed,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace
@@ -1755,7 +1772,7 @@ fun ProfileScreen(
                                         .background(Color.Black.copy(alpha = 0.85f), CutCornerShape(4.dp))
                                         .border(
                                             1.dp,
-                                            if (isCurrent) EidosNeon else if (isUnlocked) EidosCyan else Color(0xFFFF5252),
+                                            if (isCurrent) EidosNeon else if (isUnlocked) EidosCyan else ZzzDangerRed,
                                             CutCornerShape(4.dp)
                                         )
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -1769,7 +1786,7 @@ fun ProfileScreen(
                                         color = when {
                                             isCurrent -> EidosNeon
                                             isUnlocked -> EidosCyan
-                                            else -> Color(0xFFFF5252)
+                                            else -> ZzzDangerRed
                                         },
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
@@ -1787,7 +1804,7 @@ fun ProfileScreen(
                                 shape = CutCornerShape(8.dp),
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp,
-                                    if (isUnlocked) EidosCyan.copy(alpha = 0.4f) else Color(0xFFFF5252).copy(alpha = 0.3f)
+                                    if (isUnlocked) EidosCyan.copy(alpha = 0.4f) else ZzzDangerRed.copy(alpha = 0.3f)
                                 )
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {
@@ -1812,7 +1829,7 @@ fun ProfileScreen(
                                             Spacer(Modifier.width(4.dp))
                                             Text(
                                                 "СПОСОБНОСТЬ: ${stageInfo.perkTitle} — ${stageInfo.perkDescription}",
-                                                color = Color(0xFFFFB300),
+                                                color = ZzzGold,
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
@@ -1826,11 +1843,11 @@ fun ProfileScreen(
                                         )
                                     } else {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            ZzzIcon(R.drawable.ic_ui_locked, size = 12.dp, tint = Color(0xFFFF5252))
+                                            ZzzIcon(R.drawable.ic_ui_locked, size = 12.dp, tint = ZzzDangerRed)
                                             Spacer(Modifier.width(4.dp))
                                             Text(
                                                 "СТАДИЯ $inspectedAvatarLvl // [ДАННЫЕ ЗАСЕКРЕЧЕНЫ]",
-                                                color = Color(0xFFFF5252),
+                                                color = ZzzDangerRed,
                                                 fontWeight = FontWeight.Black,
                                                 fontSize = 13.sp,
                                                 fontFamily = FontFamily.Monospace
@@ -1846,7 +1863,7 @@ fun ProfileScreen(
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
                                             "ТРЕБУЕТСЯ ОПЫТА: ${stageInfo.requiredXp} XP (Осталось: ${(stageInfo.requiredXp - currentXp).coerceAtLeast(0)} XP)",
-                                            color = Color(0xFFFFB300),
+                                            color = ZzzGold,
                                             fontSize = 10.sp,
                                             fontFamily = FontFamily.Monospace,
                                             fontWeight = FontWeight.Bold
@@ -1949,7 +1966,7 @@ fun ProfileScreen(
                                             .background(
                                                 when {
                                                     isLvlInspected && isLvlUnlocked -> EidosCyan
-                                                    isLvlInspected -> Color(0xFFFF5252).copy(alpha = 0.4f)
+                                                    isLvlInspected -> ZzzDangerRed.copy(alpha = 0.4f)
                                                     isLvlActive -> EidosNeon.copy(alpha = 0.35f)
                                                     isLvlUnlocked -> EidosCyan.copy(alpha = 0.15f)
                                                     else -> Color.Black.copy(alpha = 0.6f)
@@ -1960,7 +1977,7 @@ fun ProfileScreen(
                                                 1.dp,
                                                 when {
                                                     isLvlInspected && isLvlUnlocked -> Color.White
-                                                    isLvlInspected -> Color(0xFFFF5252)
+                                                    isLvlInspected -> ZzzDangerRed
                                                     isLvlActive -> EidosNeon
                                                     isLvlUnlocked -> EidosCyan.copy(alpha = 0.6f)
                                                     else -> Color.DarkGray.copy(alpha = 0.5f)
@@ -2033,6 +2050,135 @@ fun ProfileScreen(
                 }
             }
         }
+
+        // Reward claim celebration: compact animated loot popup (XP / BC)
+        claimedRewardCelebration?.let { claimed ->
+            AchievementClaimRewardPopup(
+                reward = claimed,
+                onDismiss = { claimedRewardCelebration = null }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AchievementClaimRewardPopup(
+    reward: AchievementItem,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val haptics = remember { io.eidos.zerolayer.ui.utils.HapticFeedbackManager.getInstance(context) }
+    val audio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "claim_reward_pulse")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "claimGlow"
+    )
+    val scaleAnim = remember { Animatable(0.6f) }
+    LaunchedEffect(reward.id) {
+        scaleAnim.animateTo(1f, animationSpec = tween(320, easing = EaseOutBack))
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .graphicsLayer(
+                        scaleX = scaleAnim.value,
+                        scaleY = scaleAnim.value
+                    )
+                    .shadow(24.dp, spotColor = ZzzGold),
+                color = Color(0xFF0F0F14),
+                shape = CutCornerShape(10.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.5.dp,
+                    ZzzGold.copy(alpha = glowAlpha)
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "НАГРАДА ПОЛУЧЕНА // ${reward.category.uppercase()}",
+                        color = ZzzGold,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = reward.icon,
+                        fontSize = 34.sp
+                    )
+                    Text(
+                        text = reward.title.uppercase(),
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            color = ZzzGold.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold),
+                            shape = CutCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "+${reward.xpReward} XP",
+                                color = ZzzGold,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                        if (reward.coinReward > 0) {
+                            Surface(
+                                color = EidosNeon.copy(alpha = 0.12f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, EidosNeon),
+                                shape = CutCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "+${reward.coinReward} BC",
+                                    color = EidosNeon,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Loot ceremony feedback + auto-dismiss
+    LaunchedEffect(reward.id) {
+        haptics.lootLegendary()
+        audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.HACK_SUCCESS)
+        kotlinx.coroutines.delay(2200)
+        onDismiss()
     }
 }
 

@@ -30,6 +30,8 @@ import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.theme.ZzzDarkSurface
 import io.eidos.zerolayer.ui.theme.ZzzElectricCyan
 import io.eidos.zerolayer.ui.theme.ZzzHotMagenta
+import io.eidos.zerolayer.ui.theme.ZzzGold
+import io.eidos.zerolayer.ui.theme.ZzzDangerRed
 import kotlin.math.*
 
 /**
@@ -159,7 +161,7 @@ fun ProceduralAnomalyRift(
         modifier = modifier
             .clip(CutCornerShape(8.dp))
             .background(Color(0xFF040209))
-            .border(1.5.dp, Color(0xFFFFD700).copy(alpha = pulseAlpha), CutCornerShape(8.dp)),
+            .border(1.5.dp, ZzzGold.copy(alpha = pulseAlpha), CutCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -200,14 +202,14 @@ fun ProceduralAnomalyRift(
                     }
                     close()
                 }
-                val col = if (i % 2 == 0) Color(0xFFFFD700) else Color(0xFFFF0055)
+                val col = if (i % 2 == 0) ZzzGold else ZzzDangerRed
                 drawPath(path, col.copy(alpha = 0.35f), style = Stroke(width = 1.5f))
             }
 
             // 3. Central Singularity Core
             drawCircle(Color.Black, radius = radius * 0.35f, center = center)
-            drawCircle(Color(0xFFFF0055).copy(alpha = pulseAlpha), radius = radius * 0.35f, center = center, style = Stroke(width = 2.5f))
-            drawCircle(Color(0xFFFFD700), radius = radius * 0.18f, center = center, style = Stroke(width = 2f))
+            drawCircle(ZzzDangerRed.copy(alpha = pulseAlpha), radius = radius * 0.35f, center = center, style = Stroke(width = 2.5f))
+            drawCircle(ZzzGold, radius = radius * 0.18f, center = center, style = Stroke(width = 2f))
             drawCircle(Color.White, radius = radius * 0.08f, center = center)
 
             // 4. Energetic Fracture Rays
@@ -215,14 +217,14 @@ fun ProceduralAnomalyRift(
                 val rayAngle = Math.toRadians((i * 45.0) + (rotAngle * 0.5))
                 val p1 = Offset(center.x + cos(rayAngle).toFloat() * (radius * 0.38f), center.y + sin(rayAngle).toFloat() * (radius * 0.38f))
                 val p2 = Offset(center.x + cos(rayAngle).toFloat() * (radius * 0.95f), center.y + sin(rayAngle).toFloat() * (radius * 0.95f))
-                drawLine(Color(0xFFFF0055).copy(alpha = 0.7f), p1, p2, strokeWidth = 1.5f)
+                drawLine(ZzzDangerRed.copy(alpha = 0.7f), p1, p2, strokeWidth = 1.5f)
             }
         }
 
         // Telemetry Labels
         Text(
             text = "ANOMALY // 0x${abs(hash % 256).toString(16).uppercase()}",
-            color = Color(0xFFFFD700).copy(alpha = 0.85f),
+            color = ZzzGold.copy(alpha = 0.85f),
             fontSize = 7.5.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
@@ -230,7 +232,7 @@ fun ProceduralAnomalyRift(
         )
         Text(
             text = "RIFT DETECTED",
-            color = Color(0xFFFF0055),
+            color = ZzzDangerRed,
             fontSize = 7.5.sp,
             fontWeight = FontWeight.Black,
             fontFamily = FontFamily.Monospace,
@@ -295,7 +297,7 @@ fun ProceduralRaidChest(
 
             // 3. Central Cryptographic Biometric Lock
             drawCircle(Color.Black, radius = halfH * 0.45f, center = center)
-            drawCircle(Color(0xFFFFD700), radius = halfH * 0.45f, center = center, style = Stroke(width = 2f))
+            drawCircle(ZzzGold, radius = halfH * 0.45f, center = center, style = Stroke(width = 2f))
             drawCircle(EidosCyan, radius = halfH * 0.22f, center = center)
 
             // Keyhole slot
@@ -313,7 +315,7 @@ fun ProceduralRaidChest(
             // 5. LED Status Dots
             drawCircle(Color(0xFF00FF66), radius = 2.5f, center = Offset(center.x - halfW * 0.65f, center.y - halfH * 0.65f))
             drawCircle(Color(0xFF00E5FF), radius = 2.5f, center = Offset(center.x - halfW * 0.45f, center.y - halfH * 0.65f))
-            drawCircle(Color(0xFFFF0055), radius = 2.5f, center = Offset(center.x - halfW * 0.25f, center.y - halfH * 0.65f))
+            drawCircle(ZzzDangerRed, radius = 2.5f, center = Offset(center.x - halfW * 0.25f, center.y - halfH * 0.65f))
         }
 
         // Telemetry Labels
@@ -327,7 +329,7 @@ fun ProceduralRaidChest(
         )
         Text(
             text = "LOCKED // 256-BIT",
-            color = Color(0xFFFFD700),
+            color = ZzzGold,
             fontSize = 7.5.sp,
             fontWeight = FontWeight.Black,
             fontFamily = FontFamily.Monospace,
@@ -381,7 +383,7 @@ fun ProceduralAbyssalKey(
                 close()
             }
             drawPath(eyePath, Color(0xFF8A2BE2).copy(alpha = 0.35f))
-            drawPath(eyePath, Color(0xFFFFD700), style = Stroke(width = 2.2f))
+            drawPath(eyePath, ZzzGold, style = Stroke(width = 2.2f))
 
             // Iris & Pupil
             drawCircle(Color(0xFFB026FF), radius = s * 0.22f, center = eyeCenter)
@@ -391,32 +393,32 @@ fun ProceduralAbyssalKey(
             // 2. Crystalline Key Shaft
             val shaftTop = eyeCenter.y + s * 0.35f
             val shaftBottom = center.y + s * 0.95f
-            drawLine(Color(0xFFFFD700), Offset(center.x - s * 0.08f, shaftTop), Offset(center.x - s * 0.08f, shaftBottom), strokeWidth = 2f)
-            drawLine(Color(0xFFFFD700), Offset(center.x + s * 0.08f, shaftTop), Offset(center.x + s * 0.08f, shaftBottom), strokeWidth = 2f)
+            drawLine(ZzzGold, Offset(center.x - s * 0.08f, shaftTop), Offset(center.x - s * 0.08f, shaftBottom), strokeWidth = 2f)
+            drawLine(ZzzGold, Offset(center.x + s * 0.08f, shaftTop), Offset(center.x + s * 0.08f, shaftBottom), strokeWidth = 2f)
             drawLine(Color.White, Offset(center.x, shaftTop), Offset(center.x, shaftBottom), strokeWidth = 1.2f)
 
             // 3. Cryptographic Teeth
             val tW = s * 0.35f
             val tH = s * 0.12f
             drawRect(Color(0xFFB026FF).copy(alpha = 0.4f), topLeft = Offset(center.x + s * 0.08f, center.y + s * 0.35f), size = Size(tW, tH))
-            drawRect(Color(0xFFFFD700), topLeft = Offset(center.x + s * 0.08f, center.y + s * 0.35f), size = Size(tW, tH), style = Stroke(width = 1.5f))
+            drawRect(ZzzGold, topLeft = Offset(center.x + s * 0.08f, center.y + s * 0.35f), size = Size(tW, tH), style = Stroke(width = 1.5f))
 
             drawRect(Color(0xFFB026FF).copy(alpha = 0.4f), topLeft = Offset(center.x + s * 0.08f, center.y + s * 0.65f), size = Size(tW * 0.75f, tH))
-            drawRect(Color(0xFFFFD700), topLeft = Offset(center.x + s * 0.08f, center.y + s * 0.65f), size = Size(tW * 0.75f, tH), style = Stroke(width = 1.5f))
+            drawRect(ZzzGold, topLeft = Offset(center.x + s * 0.08f, center.y + s * 0.65f), size = Size(tW * 0.75f, tH), style = Stroke(width = 1.5f))
 
             // 4. Radiating Singularity Sparks
             for (i in 0 until 6) {
                 val a = Math.toRadians(i * 60.0)
                 val p1 = Offset(eyeCenter.x + cos(a).toFloat() * s * 0.65f, eyeCenter.y + sin(a).toFloat() * s * 0.65f)
                 val p2 = Offset(eyeCenter.x + cos(a).toFloat() * s * 0.85f, eyeCenter.y + sin(a).toFloat() * s * 0.85f)
-                drawLine(Color(0xFFFFD700).copy(alpha = pulseGlow), p1, p2, strokeWidth = 1.5f)
+                drawLine(ZzzGold.copy(alpha = pulseGlow), p1, p2, strokeWidth = 1.5f)
             }
         }
 
         // Telemetry Labels
         Text(
             text = "ARTIFACT // ABYSSAL KEY",
-            color = Color(0xFFFFD700),
+            color = ZzzGold,
             fontSize = 7.5.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
@@ -444,7 +446,7 @@ fun ProceduralLevelCore(
 ) {
     val tierColor = when {
         level >= 16 -> ZzzHotMagenta          // Tier 4: Singularity Plasma
-        level >= 11 -> Color(0xFFFFB300)      // Tier 3: Overclock Amber Gold
+        level >= 11 -> ZzzGold      // Tier 3: Overclock Amber Gold
         level >= 6 -> Color(0xFF00FF66)       // Tier 2: Acid Neural Green
         else -> ZzzElectricCyan               // Tier 1: Cold Pure Cyan
     }
@@ -758,15 +760,15 @@ fun ProceduralEquipmentCard(
             customBorder
         } else {
             when {
-                name.contains("glitch") || name.contains("abyssal") || name.contains("void") || name.contains("скверн") -> Color(0xFFFF0055)
-                name.contains("god") || name.contains("legendary") || name.contains("banhammer") || name.contains("золот") -> Color(0xFFFFD700)
+                name.contains("glitch") || name.contains("abyssal") || name.contains("void") || name.contains("скверн") -> ZzzDangerRed
+                name.contains("god") || name.contains("legendary") || name.contains("banhammer") || name.contains("золот") -> ZzzGold
                 name.contains("epic") || name.contains("hyper") || name.contains("quantum") -> Color(0xFFB026FF)
                 name.contains("rare") || name.contains("proto") -> Color(0xFF00E5FF)
                 name.contains("uncommon") -> Color(0xFF00FF66)
                 subType.startsWith("weapon") -> Color(0xFFFF3366)
                 subType.startsWith("armor") -> Color(0xFF00E5FF)
-                subType.startsWith("helmet") -> Color(0xFFFFB300)
-                subType.startsWith("relic") -> Color(0xFFFF0055)
+                subType.startsWith("helmet") -> ZzzGold
+                subType.startsWith("relic") -> ZzzDangerRed
                 subType == "chip" -> Color(0xFF9933FF)
                 subType == "tool_compass" -> Color(0xFF00E5FF)
                 else -> Color(0xFF00FFCC)
@@ -1260,7 +1262,7 @@ private fun DrawScope.drawVectorEnergyCell(color: Color, center: Offset, size: F
         lineTo(center.x - size * 0.01f, center.y - size * 0.02f)
         close()
     }
-    drawPath(bolt, Color(0xFFFFD700))
+    drawPath(bolt, ZzzGold)
 }
 
 private fun DrawScope.drawVectorCryoCapsule(color: Color, center: Offset, size: Float) {
@@ -1310,7 +1312,7 @@ private fun DrawScope.drawVectorEmpSphere(color: Color, center: Offset, size: Fl
         val angle = i * (PI / 2.0) + (PI / 4.0)
         val nodeCenter = Offset(center.x + cos(angle).toFloat() * r, center.y + sin(angle).toFloat() * r)
         drawCircle(Color.White, radius = size * 0.10f, center = nodeCenter)
-        drawCircle(Color(0xFFFF0055), radius = size * 0.05f, center = nodeCenter)
+        drawCircle(ZzzDangerRed, radius = size * 0.05f, center = nodeCenter)
     }
 
     // High Voltage Arc Paths crossing core
@@ -1421,8 +1423,8 @@ private fun DrawScope.drawVectorDemonHead(color: Color, center: Offset, size: Fl
         lineTo(center.x + size * 0.10f, center.y + size * 0.14f)
         close()
     }
-    drawPath(leftEye, Color(0xFFFFD700))
-    drawPath(rightEye, Color(0xFFFFD700))
+    drawPath(leftEye, ZzzGold)
+    drawPath(rightEye, ZzzGold)
 
     // Cyber Respiration Grille on Chin
     drawLine(demonColor, Offset(center.x - size * 0.12f, center.y + size * 0.50f), Offset(center.x + size * 0.12f, center.y + size * 0.50f), 1.8f)
@@ -1664,14 +1666,14 @@ private fun DrawScope.drawMachineGodSilhuette(color: Color, center: Offset, size
         lineTo(center.x - size * 0.55f, center.y + size * 0.7f)
         close()
     }
-    drawPath(path, Color(0xFFFFD700).copy(alpha = 0.25f))
-    drawPath(path, Color(0xFFFFD700), style = Stroke(width = 2.5f))
+    drawPath(path, ZzzGold.copy(alpha = 0.25f))
+    drawPath(path, ZzzGold, style = Stroke(width = 2.5f))
     // Radiant Halo Rays
     for (i in 0 until 5) {
         val angle = -PI + (i * PI / 4.0)
         val p1 = Offset(center.x + cos(angle).toFloat() * size * 0.9f, center.y + sin(angle).toFloat() * size * 0.9f)
         val p2 = Offset(center.x + cos(angle).toFloat() * size * 1.25f, center.y + sin(angle).toFloat() * size * 1.25f)
-        drawLine(Color(0xFFFFD700), p1, p2, 2f)
+        drawLine(ZzzGold, p1, p2, 2f)
     }
     // All-seeing Golden Eye
     drawCircle(Color.White, radius = size * 0.14f, center = center)

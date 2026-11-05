@@ -93,7 +93,8 @@ object RaidEventDispatcher {
         playerDefense: Int,
         playerLuck: Int,
         flags: EquipmentFlags,
-        gravesList: List<Grave>
+        gravesList: List<Grave>,
+        activeMutatorId: String? = null
     ): DispatchResult {
         // 1. Reality Silencer Check -> If active, Maxwell Demon & Anomalies are completely suppressed
         val canSpawnDemon = !flags.hasRealitySilencer && depth > 50
@@ -106,6 +107,22 @@ object RaidEventDispatcher {
         }
 
         // 3. Player Graves Check (Guaranteed Corpse Run if grave is at this exact depth, else randomized)
+        // GATEKEEPER: every 1000m a biome warden blocks the descent (drops the Biome Key)
+        if (depth > 0 && depth % 1000 == 0) {
+            val keeper = io.eidos.zerolayer.data.GameData.VILLAINS
+                .filter { it.level <= maxMonsterLevelForDepth(depth) + 2 }
+                .maxByOrNull { it.level }
+                ?: io.eidos.zerolayer.data.GameData.VILLAINS.last()
+            val keeperHp = maxOf(400, (keeper.hp * (1.0f + depth * 0.0075f) * 2.5f).toInt())
+            return DispatchResult.CombatEncounter(
+                enemyName = keeper.name,
+                enemyHp = keeperHp,
+                enemyLevel = keeper.level + 3,
+                isGlitchPhantom = false,
+                message = "🚪 [ХРАНИТЕЛЬ ВОРОТ]: ${keeper.name} [УР ${keeper.level + 3}] стережёт врата на ${depth}м! За его спиной - Ключ Биомы. Путь вниз запечатан (HP: $keeperHp)!"
+            )
+        }
+
         val exactGrave = gravesList.find { it.depth == depth }
         if (exactGrave != null) {
             return DispatchResult.GraveFound(
@@ -113,7 +130,9 @@ object RaidEventDispatcher {
                 message = "🪦 [ВОЗВРАТ ЛУТА // CORPSE RUN]: Обнаружена Цифровая Могила оператора ${exactGrave.owner_name} на ${exactGrave.depth}м!"
             )
         }
-        val graveChance = if (flags.hasDeathMask) 80 else 30
+        // ECHOES_PAST mutator: doubled grave/relic encounter chance (Abyss Resonance)
+        val baseGraveChance = if (flags.hasDeathMask) 80 else 30
+        val graveChance = if (activeMutatorId == "mutator_echoes_past") baseGraveChance * 2 else baseGraveChance
         if (gravesList.isNotEmpty() && Random.nextInt(100) < graveChance) {
             val grave = gravesList.random()
             return DispatchResult.GraveFound(
@@ -325,24 +344,26 @@ object RaidEventDispatcher {
         )
     }
 
+    private fun maxMonsterLevelForDepth(depth: Int): Int = when {
+        depth < 150 -> 1
+        depth < 350 -> 2
+        depth < 650 -> 3
+        depth < 1000 -> 4
+        depth < 1500 -> 5
+        depth < 2000 -> 6
+        depth < 2600 -> 7
+        depth < 3300 -> 8
+        depth < 4000 -> 9
+        depth < 4800 -> 10
+        depth < 5800 -> 12
+        depth < 7000 -> 15
+        depth < 8500 -> 20
+        depth < 10000 -> 25
+        else -> 30
+    }
+
     private fun handleCombatEvent(depth: Int, flags: EquipmentFlags): DispatchResult {
-        val maxMonsterLevel = when {
-            depth < 150 -> 1
-            depth < 350 -> 2
-            depth < 650 -> 3
-            depth < 1000 -> 4
-            depth < 1500 -> 5
-            depth < 2000 -> 6
-            depth < 2600 -> 7
-            depth < 3300 -> 8
-            depth < 4000 -> 9
-            depth < 4800 -> 10
-            depth < 5800 -> 12
-            depth < 7000 -> 15
-            depth < 8500 -> 20
-            depth < 10000 -> 25
-            else -> 30
-        }
+        val maxMonsterLevel = maxMonsterLevelForDepth(depth)
         val isGlitch = !flags.hasRealitySilencer && Random.nextInt(100) < 5
 
         if (isGlitch) {

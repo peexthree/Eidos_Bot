@@ -213,7 +213,34 @@ fun OnboardingScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // SKIP ONBOARDING (small button, top right, available on every step)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Surface(
+                        onClick = {
+                            audioManager.stopVoice()
+                            onComplete(nickname, selectedFaction)
+                        },
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = CutCornerShape(6.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzAcidYellow.copy(alpha = 0.7f))
+                    ) {
+                        Text(
+                            text = "ПРОПУСТИТЬ ОНБОРДИНГ >>",
+                            color = ZzzAcidYellow,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // SPEECH TERMINAL BUBBLE (EVA-09 DIALOGUE)
                 val stepTitle = when (currentStep) {

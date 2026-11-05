@@ -69,6 +69,9 @@ import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.theme.EidosGold
 import io.eidos.zerolayer.ui.theme.EidosPurple
 import io.eidos.zerolayer.ui.theme.EidosOrange
+import io.eidos.zerolayer.ui.theme.ZzzGold
+import io.eidos.zerolayer.ui.theme.ZzzDangerRed
+import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
 import io.eidos.zerolayer.ui.components.EidosStatBar
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
@@ -106,6 +109,7 @@ fun RaidScreen(
     onExitRaid: () -> Unit,
     onBack: () -> Unit,
     onStartRaid: () -> Unit = {},
+    raidAdvice: String? = null,
     onScanSector: () -> Unit = {},
     onDefend: () -> Unit = {},
     onUseAbility: () -> Unit = {},
@@ -365,6 +369,7 @@ fun RaidScreen(
                     inventory = inventory,
                     innerPadding = innerPadding,
                     onStartRaid = onStartRaid,
+                    raidAdvice = raidAdvice,
                     haptics = haptics,
                     audio = audio
                 )
@@ -655,7 +660,7 @@ fun RaidScreen(
     if (currentCinematic != ActiveCinematic.NONE) {
         val activeVideo = if (currentCinematic == ActiveCinematic.OVERDRIVE) "overdrive_activation" else "combat_victory"
         val activeTitle = if (currentCinematic == ActiveCinematic.OVERDRIVE) "ОВЕРДРАЙВ 100%: ВСПЛЕСК МОЩНОСТИ ЯДРА" else "ЦЕЛЬ НЕЙТРАЛИЗОВАНА // СИГНАЛ ВРАГА РАСТВОРЕН"
-        val activeBorder = if (currentCinematic == ActiveCinematic.OVERDRIVE) Color(0xFFFFD700) else EidosNeon
+        val activeBorder = if (currentCinematic == ActiveCinematic.OVERDRIVE) ZzzGold else EidosNeon
 
         LaunchedEffect(currentCinematic) {
             kotlinx.coroutines.delay(2200)
@@ -811,7 +816,7 @@ fun DeathScreenOverlay(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .border(BorderStroke(3.dp, Color(0xFFFF0055).copy(alpha = 0.85f)))
+                    .border(BorderStroke(3.dp, ZzzDangerRed.copy(alpha = 0.85f)))
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 // Neural Interface Critical Signal Failure Video
@@ -828,7 +833,7 @@ fun DeathScreenOverlay(
                     var y = 0f
                     while (y < size.height) {
                         drawLine(
-                            color = Color(0xFFFF0055).copy(alpha = 0.04f),
+                            color = ZzzDangerRed.copy(alpha = 0.04f),
                             start = androidx.compose.ui.geometry.Offset(0f, y),
                             end = androidx.compose.ui.geometry.Offset(size.width, y),
                             strokeWidth = 1.5f
@@ -852,7 +857,7 @@ fun DeathScreenOverlay(
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = "СИГНАЛ ПОТЕРЯН // АВАРИЙНЫЙ СБРОС",
-                            color = Color(0xFFFF0055),
+                            color = ZzzDangerRed,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace,
@@ -864,7 +869,7 @@ fun DeathScreenOverlay(
                     // Subtitle EVA-09
                     Text(
                         text = "EVA-09: «Критическая десинхронизация. Аварийный сброс сознания в Хаб...»",
-                        color = Color(0xFFFF5252).copy(alpha = 0.85f),
+                        color = ZzzDangerRed.copy(alpha = 0.85f),
                         fontSize = 10.5.sp,
                         fontFamily = FontFamily.Monospace,
                         textAlign = TextAlign.Center
@@ -876,7 +881,7 @@ fun DeathScreenOverlay(
                             .size(96.dp)
                             .clip(CutCornerShape(8.dp))
                             .background(Color(0xFF140207))
-                            .border(1.5.dp, Color(0xFFFF0055), CutCornerShape(8.dp)),
+                            .border(1.5.dp, ZzzDangerRed, CutCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         EidosImage(
@@ -980,7 +985,7 @@ fun DeathScreenOverlay(
                         // 1. Buffer Incineration
                         Surface(
                             color = Color(0xFF130408),
-                            border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                            border = BorderStroke(1.dp, ZzzDangerRed.copy(alpha = 0.5f)),
                             shape = CutCornerShape(6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -999,13 +1004,13 @@ fun DeathScreenOverlay(
                                     )
                                     Box(
                                         modifier = Modifier
-                                            .background(Color(0xFFFF0055).copy(alpha = 0.25f))
-                                            .border(1.dp, Color(0xFFFF0055), CutCornerShape(2.dp))
+                                            .background(ZzzDangerRed.copy(alpha = 0.25f))
+                                            .border(1.dp, ZzzDangerRed, CutCornerShape(2.dp))
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
                                     ) {
                                         Text(
                                             "[ БУФЕР УНИЧТОЖЕН: -100% ]",
-                                            color = Color(0xFFFF0055),
+                                            color = ZzzDangerRed,
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.Black,
                                             fontFamily = FontFamily.Monospace
@@ -1057,7 +1062,7 @@ fun DeathScreenOverlay(
                         // 2. EMP Durability Strike
                         Surface(
                             color = Color(0xFF130408),
-                            border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                            border = BorderStroke(1.dp, ZzzDangerRed.copy(alpha = 0.5f)),
                             shape = CutCornerShape(6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -1075,7 +1080,7 @@ fun DeathScreenOverlay(
                                     )
                                     Text(
                                         "-${report.durabilityPenaltyPercent}% ПРОЧНОСТИ",
-                                        color = Color(0xFFFF0055),
+                                        color = ZzzDangerRed,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace
@@ -1085,7 +1090,7 @@ fun DeathScreenOverlay(
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = "[CRITICAL ERROR: ${report.brokenItems.joinToString()} СЛОМАНО] — урон снижен до базовых 5 ATK!",
-                                        color = Color(0xFFFF5252),
+                                        color = ZzzDangerRed,
                                         fontSize = 9.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace
@@ -1126,7 +1131,7 @@ fun DeathScreenOverlay(
                         // 4. Critical Rollback to Hub
                         Surface(
                             color = Color(0xFF130408),
-                            border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                            border = BorderStroke(1.dp, ZzzDangerRed.copy(alpha = 0.5f)),
                             shape = CutCornerShape(6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -1202,7 +1207,7 @@ fun DeathScreenOverlay(
                                     } else {
                                         logs.reversed().forEach { log ->
                                             val logColor = when (log.type) {
-                                                "error", "danger", "death" -> Color(0xFFFF5252)
+                                                "error", "danger", "death" -> ZzzDangerRed
                                                 "combat" -> Color(0xFFFF9100)
                                                 "loot" -> Color(0xFF00E676)
                                                 "anomaly" -> Color(0xFFFFD600)
@@ -1227,7 +1232,7 @@ fun DeathScreenOverlay(
                     // Full-width Return Button with Safe Margin
                     Button(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF0055)),
+                        colors = ButtonDefaults.buttonColors(containerColor = ZzzDangerRed),
                         shape = CutCornerShape(6.dp),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1280,7 +1285,7 @@ fun RaidHUD(
         ) {
             val pingMs = if (depth > 250) 240 else 12
             val status = if (depth > 250) "НЕСТАБИЛЬНЫЙ" else "СИНХРОНИЗИРОВАН"
-            val pingColor = if (depth > 250) Color(0xFFFF0055) else Color(0xFF00FFF6)
+            val pingColor = if (depth > 250) ZzzDangerRed else Color(0xFF00FFF6)
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1458,7 +1463,7 @@ fun RaidHUD(
                                         subtitle = "РЕЗОНАНС ЯДРА // ОСТАЛОСЬ: $overdriveTurns ХОДОВ",
                                         description = "Ядро разогнано на 100%! Все ваши удары и тактические навыки наносят x2.0 гарантированный критический урон без расхода энергии.",
                                         iconRes = R.drawable.ic_action_skill,
-                                        accentColor = Color(0xFFFFD700)
+                                        accentColor = ZzzGold
                                     )
                                 )
                             }
@@ -1644,7 +1649,7 @@ fun RaidHUD(
                             Spacer(modifier = Modifier.width(3.dp))
                             ZzzIcon(iconRes = R.drawable.ic_action_scan, size = 9.dp)
                         }
-                        Text("$lootCount/100", color = Color(0xFFFF9800), fontSize = 11.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                        Text("$lootCount/100", color = ZzzWarningOrange, fontSize = 11.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                     }
                 }
             }
@@ -1759,12 +1764,12 @@ fun CombatArenaCard(
             "relic_vampire" to ("КОРОНА КРОВИ" to Color(0xFF00FFCC)),
             "architect_mask" to ("ЛИЦО АРХИТЕКТОРА" to Color(0xFF00E5FF)),
             "tactical_helmet" to ("ТАКТИЧЕСКИЙ ШЛЕМ" to Color(0xFF00E5FF)),
-            "cyber_halo" to ("КИБЕР-НИМБ" to Color(0xFFFFD700)),
+            "cyber_halo" to ("КИБЕР-НИМБ" to ZzzGold),
             "aegis" to ("ЭГИДА" to Color(0xFF00E5FF)),
-            "overclock_crown" to ("ВЕНЕЦ РАЗГОНА" to Color(0xFFFF0055)),
-            "credit_slicer" to ("РЕЗАК КРЕДИТОВ" to Color(0xFFFFD700)),
-            "grandfather_paradox" to ("ПАРАДОКС ДЕДА" to Color(0xFFFF0055)),
-            "thermonuclear_shroud" to ("ТЕРМОЯДЕРНЫЙ САВАН" to Color(0xFFFF0055))
+            "overclock_crown" to ("ВЕНЕЦ РАЗГОНА" to ZzzDangerRed),
+            "credit_slicer" to ("РЕЗАК КРЕДИТОВ" to ZzzGold),
+            "grandfather_paradox" to ("ПАРАДОКС ДЕДА" to ZzzDangerRed),
+            "thermonuclear_shroud" to ("ТЕРМОЯДЕРНЫЙ САВАН" to ZzzDangerRed)
         )
     }
 
@@ -1834,7 +1839,7 @@ fun CombatArenaCard(
                 io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.POWER_CHARGE -> Color(0xFFFF9100)
                 io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.SHIELD -> EidosCyan
                 io.eidos.zerolayer.domain.combat.CombatEngine.EnemyIntentType.STUNNED -> EidosNeon
-                else -> Color(0xFFFF5252)
+                else -> ZzzDangerRed
             }
             Surface(
                 modifier = Modifier
@@ -1975,9 +1980,9 @@ fun CombatArenaCard(
                     latestProc?.let { proc ->
                         val (bannerBg, bannerBorder) = when (proc.colorType) {
                             io.eidos.zerolayer.data.ProcColorType.HEAL_NEON -> Color(0xFF00382B) to Color(0xFF00FFCC)
-                            io.eidos.zerolayer.data.ProcColorType.CURSED_RED -> Color(0xFF38000F) to Color(0xFFFF0055)
+                            io.eidos.zerolayer.data.ProcColorType.CURSED_RED -> Color(0xFF38000F) to ZzzDangerRed
                             io.eidos.zerolayer.data.ProcColorType.SHIELD_CYAN -> Color(0xFF002B3D) to Color(0xFF00E5FF)
-                            io.eidos.zerolayer.data.ProcColorType.GOLD_CRIT -> Color(0xFF3D3200) to Color(0xFFFFD700)
+                            io.eidos.zerolayer.data.ProcColorType.GOLD_CRIT -> Color(0xFF3D3200) to ZzzGold
                         }
                         Box(
                             modifier = Modifier
@@ -2679,12 +2684,12 @@ fun EnemyInspectModal(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color(0xFF1C1304))
-                            .border(1.dp, Color(0xFFFFB300).copy(alpha = 0.5f), CutCornerShape(4.dp))
+                            .border(1.dp, ZzzGold.copy(alpha = 0.5f), CutCornerShape(4.dp))
                             .padding(vertical = 4.dp, horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("НАГРАДА ЗА УСТРАНЕНИЕ:", color = Color(0xFFFFB300), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text("НАГРАДА ЗА УСТРАНЕНИЕ:", color = ZzzGold, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         Text("+${villain.xp} EXP // +${villain.coin} BIO", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
                     }
 
@@ -2848,7 +2853,7 @@ fun RaidControls(
                         .fillMaxWidth()
                         .height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0080)),
-                    border = BorderStroke(2.dp, Color(0xFFFFD700)),
+                    border = BorderStroke(2.dp, ZzzGold),
                     shape = CutCornerShape(6.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2982,7 +2987,7 @@ fun RaidControls(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 22.dp)
                                 Spacer(Modifier.width(5.dp))
-                                Text("АТАКА", color = Color(0xFFFF5252), fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                                Text("АТАКА", color = ZzzDangerRed, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                             }
                             Text("УДАР (${activeStats?.attack ?: player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                         }
@@ -3031,7 +3036,7 @@ fun RaidControls(
                         ),
                         border = BorderStroke(
                             1.5.dp,
-                            if (hasAbilityEnergy) EidosCyan else Color(0xFFFF5252)
+                            if (hasAbilityEnergy) EidosCyan else ZzzDangerRed
                         ),
                         shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
@@ -3044,7 +3049,7 @@ fun RaidControls(
                                 Spacer(Modifier.width(5.dp))
                                 Text(
                                     if (hasAbilityEnergy) "НАВЫК [-10 EP]" else "НАВЫК [-8% HP]",
-                                    color = if (hasAbilityEnergy) EidosCyan else Color(0xFFFF5252),
+                                    color = if (hasAbilityEnergy) EidosCyan else ZzzDangerRed,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace
@@ -3293,12 +3298,12 @@ fun RaidControls(
                     modifier = Modifier.weight(1f).height(40.dp),
                     shape = CutCornerShape(6.dp),
                     colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF1F1206)),
-                    border = BorderStroke(1.dp, Color(0xFFFF9800))
+                    border = BorderStroke(1.dp, ZzzWarningOrange)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 14.dp)
                         Spacer(Modifier.width(4.dp))
-                        Text("БУФЕР ЛУТА", color = Color(0xFFFF9800), fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text("БУФЕР ЛУТА", color = ZzzWarningOrange, fontWeight = FontWeight.Bold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
 
@@ -3708,7 +3713,7 @@ fun RaidBufferModal(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .border(1.5.dp, Color(0xFFFF9800), CutCornerShape(12.dp)),
+            .border(1.5.dp, ZzzWarningOrange, CutCornerShape(12.dp)),
         title = {
             Column {
                 Row(
@@ -3721,7 +3726,7 @@ fun RaidBufferModal(
                         Column {
                             Text(
                                 "БУФЕР НУЛЕВОГО СЛОЯ",
-                                color = Color(0xFFFF9800),
+                                color = ZzzWarningOrange,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 13.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -3777,7 +3782,7 @@ fun RaidBufferModal(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 ZzzIcon(iconRes = R.drawable.ic_event_chest, size = 11.dp)
                                 Spacer(Modifier.width(2.dp))
-                                Text("${itemsList.size}/100", color = Color(0xFFFF9800), fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                Text("${itemsList.size}/100", color = ZzzWarningOrange, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                             }
                         }
                     }
@@ -3796,14 +3801,14 @@ fun RaidBufferModal(
                             .weight(1f)
                             .height(28.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(if (isLootSelected) Color(0xFFFF9800).copy(alpha = 0.25f) else Color(0xFF141923))
-                            .border(1.dp, if (isLootSelected) Color(0xFFFF9800) else Color(0xFF263238), RoundedCornerShape(4.dp))
+                            .background(if (isLootSelected) ZzzWarningOrange.copy(alpha = 0.25f) else Color(0xFF141923))
+                            .border(1.dp, if (isLootSelected) ZzzWarningOrange else Color(0xFF263238), RoundedCornerShape(4.dp))
                             .cyberClickable { selectedTab = "loot" },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             "ЛУТ В БУФЕРЕ (${itemsList.size})",
-                            color = if (isLootSelected) Color(0xFFFF9800) else Color.Gray,
+                            color = if (isLootSelected) ZzzWarningOrange else Color.Gray,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace

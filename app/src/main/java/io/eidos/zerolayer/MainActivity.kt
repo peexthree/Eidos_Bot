@@ -328,6 +328,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         session = raidSession,
                         player = player,
                         logs = logs,
+                        raidAdvice = mainViewModel.raidAdvice.collectAsStateWithLifecycle().value,
                         anomalyData = mainViewModel.getAnomalyData(raidSession?.current_anomaly_id),
                         inventory = inventory,
                         allItemsMetadata = mainViewModel.getAllItemsMetadata(),
@@ -446,6 +447,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         logs = logs,
                         selectedMainCategory = codexCategory,
                         onCategoryChange = { mainViewModel.setCodexSelectedCategory(it) },
+                        onSingularityEnding = { mainViewModel.completeSingularityEnding(it) },
                         onBack = { navController.popBackStack() }
                     )
                 }

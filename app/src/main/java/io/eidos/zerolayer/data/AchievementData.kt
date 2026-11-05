@@ -580,6 +580,140 @@ object AchievementRegistry {
             target = 1000L,
             getProgress = { _, s -> s.totalClicks },
             isMet = { _, s -> s.totalClicks >= 1000L }
+        ),
+
+        // === Эндгейм/Бездна (глубина 500+ и боевые системы) ===
+        Def(
+            id = "ach_depth_500",
+            category = "Эндгейм/Бездна",
+            icon = "🌀",
+            title = "ЗА ПРЕДЕЛОМ КАРТ",
+            description = "500 глубины",
+            xpReward = 200L,
+            coinReward = 2500L,
+            target = 500L,
+            getProgress = { p, _ -> p.max_depth.toLong() },
+            isMet = { p, _ -> p.max_depth >= 500 }
+        ),
+        Def(
+            id = "ach_depth_1000",
+            category = "Эндгейм/Бездна",
+            icon = "🕳",
+            title = "КИБЕР-ЛИЧ ЖДЁТ",
+            description = "1000 глубины",
+            xpReward = 400L,
+            coinReward = 5000L,
+            target = 1000L,
+            getProgress = { p, _ -> p.max_depth.toLong() },
+            isMet = { p, _ -> p.max_depth >= 1000 }
+        ),
+        Def(
+            id = "ach_depth_2500",
+            category = "Эндгейм/Бездна",
+            icon = "🌌",
+            title = "СРЕДНИЙ СЛОЙ",
+            description = "2500 глубины",
+            xpReward = 500L,
+            coinReward = 16000L,
+            target = 2500L,
+            getProgress = { p, _ -> p.max_depth.toLong() },
+            isMet = { p, _ -> p.max_depth >= 2500 }
+        ),
+        Def(
+            id = "ach_depth_5000",
+            category = "Эндгейм/Бездна",
+            icon = "💠",
+            title = "СЕРДЦЕ БЕЗДНЫ",
+            description = "5000 глубины",
+            xpReward = 500L,
+            coinReward = 45000L,
+            target = 5000L,
+            getProgress = { p, _ -> p.max_depth.toLong() },
+            isMet = { p, _ -> p.max_depth >= 5000 }
+        ),
+        Def(
+            id = "ach_depth_8000",
+            category = "Эндгейм/Бездна",
+            icon = "♾",
+            title = "ПОРОГ ТЕРМИНАЛА",
+            description = "8000 глубины - у порога Сингулярности",
+            xpReward = 500L,
+            coinReward = 110000L,
+            target = 8000L,
+            getProgress = { p, _ -> p.max_depth.toLong() },
+            isMet = { p, _ -> p.max_depth >= 8000 }
+        ),
+        Def(
+            id = "ach_kills_100",
+            category = "Эндгейм/Бездна",
+            icon = "⚔",
+            title = "ЧИСТИЛЬЩИК",
+            description = "100 уничтоженных врагов",
+            xpReward = 150L,
+            coinReward = 1500L,
+            target = 100L,
+            getProgress = { p, _ -> p.kills.toLong() },
+            isMet = { p, _ -> p.kills >= 100 }
+        ),
+        Def(
+            id = "ach_kills_500",
+            category = "Эндгейм/Бездна",
+            icon = "💀",
+            title = "АНТИ-ВИРУС",
+            description = "500 уничтоженных врагов",
+            xpReward = 400L,
+            coinReward = 5000L,
+            target = 500L,
+            getProgress = { p, _ -> p.kills.toLong() },
+            isMet = { p, _ -> p.kills >= 500 }
+        ),
+        Def(
+            id = "ach_kills_1000",
+            category = "Эндгейм/Бездна",
+            icon = "☠",
+            title = "ЭКЗОРЦИСТ КОДА",
+            description = "1000 уничтоженных врагов",
+            xpReward = 500L,
+            coinReward = 18000L,
+            target = 1000L,
+            getProgress = { p, _ -> p.kills.toLong() },
+            isMet = { p, _ -> p.kills >= 1000 }
+        ),
+        Def(
+            id = "ach_pvp_10",
+            category = "Эндгейм/Бездна",
+            icon = "🥷",
+            title = "ОХОТНИК ОПЕРАТОРОВ",
+            description = "10 побед в PvP-дуэлях",
+            xpReward = 300L,
+            coinReward = 3000L,
+            target = 10L,
+            getProgress = { p, _ -> p.wins_pvp.toLong() },
+            isMet = { p, _ -> p.wins_pvp >= 10 }
+        ),
+        Def(
+            id = "ach_perfect_10",
+            category = "Эндгейм/Бездна",
+            icon = "🛡",
+            title = "НЕПРЕРЫВНЫЙ КОНТУР",
+            description = "10 рейдов без потерь Сигнала",
+            xpReward = 500L,
+            coinReward = 6000L,
+            target = 10L,
+            getProgress = { p, _ -> p.perfect_raids.toLong() },
+            isMet = { p, _ -> p.perfect_raids >= 10 }
+        ),
+        Def(
+            id = "ach_raids_50",
+            category = "Эндгейм/Бездна",
+            icon = "🎖",
+            title = "ЛЕГЕНДА СЛОЯ",
+            description = "50 рейдов",
+            xpReward = 350L,
+            coinReward = 4000L,
+            target = 50L,
+            getProgress = { p, _ -> p.raids_done.toLong() },
+            isMet = { p, _ -> p.raids_done >= 50 }
         )
     )
 }

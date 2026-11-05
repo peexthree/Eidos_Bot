@@ -485,7 +485,7 @@ fun QuantumSectorChoicesFork(
                                     modifier = Modifier
                                         .clip(CutCornerShape(4.dp))
                                         .background(if (hasEnergy) Color(0xFF00241A) else Color(0xFF440E14))
-                                        .border(0.8.dp, if (hasEnergy) EidosNeon else Color(0xFFFF5252), CutCornerShape(4.dp))
+                                        .border(0.8.dp, if (hasEnergy) EidosNeon else ZzzDangerRed, CutCornerShape(4.dp))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -495,7 +495,7 @@ fun QuantumSectorChoicesFork(
                                         }
                                         Text(
                                             text = if (hasEnergy) "-${sector.costEnergy} EP" else "-8% HP",
-                                            color = if (hasEnergy) EidosNeon else Color(0xFFFF5252),
+                                            color = if (hasEnergy) EidosNeon else ZzzDangerRed,
                                             fontSize = 8.sp,
                                             fontWeight = FontWeight.Black,
                                             fontFamily = FontFamily.Monospace

@@ -175,12 +175,12 @@ fun ZzzCyberSonarRadar(
                     (center.y - anomalyDist * sin(anomalyAngle)).toFloat()
                 )
                 drawCircle(
-                    color = Color(0xFFFFD700).copy(alpha = blipPulse * 0.4f),
+                    color = ZzzGold.copy(alpha = blipPulse * 0.4f),
                     radius = 12f * blipPulse,
                     center = anomalyPos
                 )
                 drawCircle(
-                    color = Color(0xFFFFD700),
+                    color = ZzzGold,
                     radius = 4.5f,
                     center = anomalyPos
                 )
@@ -236,7 +236,7 @@ fun ZzzCyberSonarRadar(
                 // Anomaly tag (top-right)
                 Text(
                     "● Аномалия [18м]",
-                    color = Color(0xFFFFD700),
+                    color = ZzzGold,
                     fontSize = 8.5.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -343,7 +343,7 @@ fun ZzzCyberMannequinDeck(
             ZzzMannequinSlotTile(
                 slotLabel = "ОРУЖИЕ",
                 itemTitle = equippedWeapon ?: "ПУСТО",
-                color = Color(0xFFFF9800),
+                color = ZzzWarningOrange,
                 onClick = { onSlotClick("weapon") }
             )
             ZzzMannequinSlotTile(
@@ -423,7 +423,7 @@ fun ZzzCyberMannequinDeck(
                 // Line to Head
                 drawLine(Color(0xFF00F0FF).copy(alpha = 0.5f), Offset(cx - 16f, 28f), Offset(10f, 28f), 1f)
                 // Line to Weapon
-                drawLine(Color(0xFFFF9800).copy(alpha = 0.5f), Offset(cx - 36f, 100f), Offset(10f, 85f), 1f)
+                drawLine(ZzzWarningOrange.copy(alpha = 0.5f), Offset(cx - 36f, 100f), Offset(10f, 85f), 1f)
                 // Line to Torso
                 drawLine(Color(0xFF9C27B0).copy(alpha = 0.5f), Offset(cx - 16f, 70f), Offset(10f, 145f), 1f)
 
@@ -531,7 +531,7 @@ fun ZzzForgeHologramChamber(
             .fillMaxWidth()
             .clip(CutCornerShape(8.dp))
             .background(Color(0xFF090E14))
-            .border(1.5.dp, Color(0xFFFF9800).copy(alpha = 0.7f), CutCornerShape(8.dp))
+            .border(1.5.dp, ZzzWarningOrange.copy(alpha = 0.7f), CutCornerShape(8.dp))
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -543,14 +543,14 @@ fun ZzzForgeHologramChamber(
         ) {
             Text(
                 "BLUEPRINT // $weaponTitle",
-                color = Color(0xFFFF9800),
+                color = ZzzWarningOrange,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.Monospace
             )
             Text(
                 weaponRarity,
-                color = Color(0xFFFFD700),
+                color = ZzzGold,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.Monospace
@@ -588,7 +588,7 @@ fun ZzzForgeHologramChamber(
 
                 // Inner steady ring
                 drawCircle(
-                    color = Color(0xFFFF9800).copy(alpha = 0.5f * glowPulse),
+                    color = ZzzWarningOrange.copy(alpha = 0.5f * glowPulse),
                     radius = 35.dp.toPx(),
                     center = Offset(cx, cy),
                     style = Stroke(width = 1.5f)
@@ -604,8 +604,8 @@ fun ZzzForgeHologramChamber(
                     lineTo(cx - 12f, cy - 25f)
                     close()
                 }
-                drawPath(bladePath, Color(0xFFFF9800).copy(alpha = 0.4f * glowPulse))
-                drawPath(bladePath, Color(0xFFFFD700), style = Stroke(width = 2f))
+                drawPath(bladePath, ZzzWarningOrange.copy(alpha = 0.4f * glowPulse))
+                drawPath(bladePath, ZzzGold, style = Stroke(width = 2f))
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -655,7 +655,7 @@ fun ZzzForgeHologramChamber(
                     .fillMaxWidth()
                     .clip(CutCornerShape(4.dp))
                     .background(Color(0xFF1F1203))
-                    .border(1.dp, Color(0xFFFF9800), CutCornerShape(4.dp))
+                    .border(1.dp, ZzzWarningOrange, CutCornerShape(4.dp))
                     .clickable(onClick = onQuantumTunerClick)
                     .padding(horizontal = 10.dp, vertical = 7.dp)
             ) {
@@ -665,10 +665,10 @@ fun ZzzForgeHologramChamber(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("QUANTUM TUNER", color = Color(0xFFFF9800), fontSize = 11.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                        Text("QUANTUM TUNER", color = ZzzWarningOrange, fontSize = 11.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                         Text("MOD СЛОТ 2: АКТИВЕН", color = Color.LightGray, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                     }
-                    Text("[УРОВЕНЬ $quantumTunerLvl]", color = Color(0xFFFF9800), fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Text("[УРОВЕНЬ $quantumTunerLvl]", color = ZzzWarningOrange, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 }
             }
 
@@ -725,13 +725,13 @@ fun ZzzForgeHologramChamber(
                 .fillMaxWidth()
                 .height(48.dp),
             colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1504)),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFF9800)),
+            border = androidx.compose.foundation.BorderStroke(2.dp, ZzzWarningOrange),
             shape = CutCornerShape(8.dp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     "🔨 СИНТЕЗИРОВАТЬ [COMMENCE CRAFTING]",
-                    color = Color(0xFFFF9800),
+                    color = ZzzWarningOrange,
                     fontWeight = FontWeight.Black,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace

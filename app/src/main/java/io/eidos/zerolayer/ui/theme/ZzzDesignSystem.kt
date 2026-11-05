@@ -45,3 +45,12 @@ object ZzzDesignSystem {
         colors = listOf(CardElevated, CardSurface)
     )
 }
+
+// 🥇 Consolidated Semantic Tokens (canonical source: collapse targets for legacy hardcodes)
+// Top-level so they resolve via plain / star imports of the theme package.
+val ZzzGold = Color(0xFFFFD700)            // Unified gold (collapse target: FFD700/FFB300/FFC107/FFD54F)
+val ZzzAmber = Color(0xFFFFB800)           // Distinct amber (warning stripes, legacy EidosGold value)
+val ZzzDangerRed = Color(0xFFFF5252)       // Unified danger red (damage, errors, alerts)
+val ZzzWarningOrange = Color(0xFFFF9800)   // Unified warning orange (cooldowns, cautions)
+val ZzzPurple = Color(0xFFA855F7)          // Standard accent purple (relics, rare loot)
+val ZzzGlassBase = Color(0xE60A111A)       // Base glassmorphism surface (90% opacity)

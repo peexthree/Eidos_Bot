@@ -25,6 +25,7 @@ import io.eidos.zerolayer.data.SupabaseClientManager
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.theme.ZzzGold
 import io.eidos.zerolayer.ui.utils.AbyssSeedRng
 import io.eidos.zerolayer.ui.utils.HapticFeedbackManager
 import kotlinx.coroutines.delay
@@ -235,7 +236,7 @@ fun EidosTerminalDialog(
                         log("🎨 Цвет терминала изменен на [АВАРИЙНЫЙ КРАСНЫЙ]")
                     }
                     "amber", "янтарный" -> {
-                        accentColor = Color(0xFFFFB300)
+                        accentColor = ZzzGold
                         log("🎨 Цвет терминала изменен на [РЕТРО ЯНТАРНЫЙ]")
                     }
                     "purple", "фиолетовый" -> {

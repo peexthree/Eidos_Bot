@@ -108,10 +108,10 @@ fun AchievementPopup(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .shadow(24.dp, spotColor = Color(0xFFFFD700)),
+            .shadow(24.dp, spotColor = ZzzGold),
         color = Color(0xFF141414),
         shape = CutCornerShape(8.dp),
-        border = androidx.compose.foundation.BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFFFFD700), Color(0xFFFF0055))))
+        border = androidx.compose.foundation.BorderStroke(2.dp, Brush.linearGradient(listOf(ZzzGold, ZzzDangerRed)))
     ) {
         Column(
             modifier = Modifier
@@ -125,8 +125,8 @@ fun AchievementPopup(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .background(Color(0xFFFFD700).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0xFFFFD700), RoundedCornerShape(8.dp)),
+                        .background(ZzzGold.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        .border(1.dp, ZzzGold, RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(achievement.icon, fontSize = 24.sp)
@@ -137,7 +137,7 @@ fun AchievementPopup(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "${achievement.category.uppercase()} // ДОСТИЖЕНИЕ ПОЛУЧЕНО",
-                        color = Color(0xFFFFD700),
+                        color = ZzzGold,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
@@ -171,13 +171,13 @@ fun AchievementPopup(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    color = Color(0xFFFFD700).copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)),
+                    color = ZzzGold.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold),
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
                         text = "НАГРАДА: +${achievement.xpReward} XP",
-                        color = Color(0xFFFFD700),
+                        color = ZzzGold,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
@@ -187,7 +187,7 @@ fun AchievementPopup(
 
                 Button(
                     onClick = onClaim,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF0055)),
+                    colors = ButtonDefaults.buttonColors(containerColor = ZzzDangerRed),
                     shape = CutCornerShape(4.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                 ) {
@@ -238,15 +238,15 @@ fun AchievementClaimDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp)
-                .shadow(32.dp, spotColor = Color(0xFFFF0055)),
+                .shadow(32.dp, spotColor = ZzzDangerRed),
             color = Color(0xFF0F0F14),
             shape = CutCornerShape(12.dp),
             border = androidx.compose.foundation.BorderStroke(
                 2.dp,
                 Brush.linearGradient(
                     listOf(
-                        Color(0xFFFFD700).copy(alpha = borderAlpha),
-                        Color(0xFFFF0055).copy(alpha = borderAlpha),
+                        ZzzGold.copy(alpha = borderAlpha),
+                        ZzzDangerRed.copy(alpha = borderAlpha),
                         Color(0xFF8A2BE2).copy(alpha = borderAlpha)
                     )
                 )
@@ -260,13 +260,13 @@ fun AchievementClaimDialog(
             ) {
                 // Header tag
                 Surface(
-                    color = Color(0xFFFFD700).copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)),
+                    color = ZzzGold.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
                         text = "🏆 НОВОЕ ДОСТИЖЕНИЕ РАЗБЛОКИРОВАНО",
-                        color = Color(0xFFFFD700),
+                        color = ZzzGold,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
@@ -284,13 +284,13 @@ fun AchievementClaimDialog(
                         .background(
                             Brush.radialGradient(
                                 listOf(
-                                    Color(0xFFFF0055).copy(alpha = 0.35f),
+                                    ZzzDangerRed.copy(alpha = 0.35f),
                                     Color.Transparent
                                 )
                             ),
                             RoundedCornerShape(36.dp)
                         )
-                        .border(2.dp, Color(0xFFFFD700), RoundedCornerShape(36.dp)),
+                        .border(2.dp, ZzzGold, RoundedCornerShape(36.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(achievement.icon, fontSize = 36.sp)
@@ -334,7 +334,7 @@ fun AchievementClaimDialog(
                     modifier = Modifier.fillMaxWidth(),
                     color = Color(0xFF1A1A24),
                     shape = RoundedCornerShape(8.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.4f))
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold.copy(alpha = 0.4f))
                 ) {
                     Row(
                         modifier = Modifier
@@ -353,7 +353,7 @@ fun AchievementClaimDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             "+${achievement.xpReward} XP",
-                            color = Color(0xFFFFD700),
+                            color = ZzzGold,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold,
                             fontFamily = FontFamily.Monospace
@@ -370,7 +370,7 @@ fun AchievementClaimDialog(
                         .fillMaxWidth()
                         .height(48.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF0055)
+                        containerColor = ZzzDangerRed
                     ),
                     shape = CutCornerShape(6.dp)
                 ) {
@@ -494,7 +494,7 @@ fun LootItemCard(item: InventoryItem, allItemsMetadata: List<GameRepository.Item
     val rarityColor = when (meta.rarity.lowercase()) {
         "common" -> Color.Gray
         "rare" -> EidosCyan
-        "legendary" -> Color(0xFFFFB300)
+        "legendary" -> ZzzGold
         "relic" -> Color(0xFFAA00FF)
         else -> Color.White
     }
@@ -662,7 +662,7 @@ fun LevelUpModalDialog(
                     )
                     drawLine(
                         brush = Brush.linearGradient(
-                            listOf(Color(0xFFFFD700).copy(alpha = glowAlpha * 0.4f), Color(0xFFFF0055).copy(alpha = 0f)),
+                            listOf(ZzzGold.copy(alpha = glowAlpha * 0.4f), ZzzDangerRed.copy(alpha = 0f)),
                             start = center,
                             end = end
                         ),
@@ -682,11 +682,11 @@ fun LevelUpModalDialog(
                         scaleX = pulseScale
                         scaleY = pulseScale
                     }
-                    .shadow(30.dp, ambientColor = Color(0xFFFFD700), spotColor = Color(0xFFFF0055)),
+                    .shadow(30.dp, ambientColor = ZzzGold, spotColor = ZzzDangerRed),
                 shape = CutCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0D0D12)),
                 border = androidx.compose.foundation.BorderStroke(2.dp, Brush.linearGradient(
-                    listOf(Color(0xFFFFD700), Color(0xFFFF0055), EidosCyan)
+                    listOf(ZzzGold, ZzzDangerRed, EidosCyan)
                 ))
             ) {
                 Column(
@@ -697,13 +697,13 @@ fun LevelUpModalDialog(
                 ) {
                     // Header Tag
                     Surface(
-                        color = Color(0xFFFFD700).copy(alpha = 0.2f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)),
+                        color = ZzzGold.copy(alpha = 0.2f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold),
                         shape = CutCornerShape(4.dp)
                     ) {
                         Text(
                             text = "⚡️ LEVEL UP COMPLETED ⚡️",
-                            color = Color(0xFFFFD700),
+                            color = ZzzGold,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace,
@@ -744,7 +744,7 @@ fun LevelUpModalDialog(
                             .fillMaxWidth()
                             .height(130.dp)
                             .clip(CutCornerShape(8.dp))
-                            .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f), CutCornerShape(8.dp))
+                            .border(1.dp, ZzzGold.copy(alpha = 0.5f), CutCornerShape(8.dp))
                     ) {
                         EidosImage(
                             resName = "lvl_${event.toLevel.coerceIn(1, 31)}",
@@ -768,7 +768,7 @@ fun LevelUpModalDialog(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "${event.levelInfo.icon} LVL ${event.toLevel}: ${event.levelInfo.stageTitle}",
-                                    color = Color(0xFFFFD700),
+                                    color = ZzzGold,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Black,
                                     fontFamily = FontFamily.Monospace
@@ -834,15 +834,15 @@ fun LevelUpModalDialog(
                     ) {
                         Surface(
                             modifier = Modifier.weight(1f),
-                            color = Color(0xFFFFB300).copy(alpha = 0.15f),
+                            color = ZzzGold.copy(alpha = 0.15f),
                             shape = CutCornerShape(4.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB300))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold)
                         ) {
                             Column(
                                 modifier = Modifier.padding(6.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("🪙 +${event.levelInfo.rewardBioCoins} BC", color = Color(0xFFFFB300), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("🪙 +${event.levelInfo.rewardBioCoins} BC", color = ZzzGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -903,8 +903,8 @@ fun LevelUpModalDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
-                            .shadow(16.dp, spotColor = Color(0xFFFF0055)),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF0055)),
+                            .shadow(16.dp, spotColor = ZzzDangerRed),
+                        colors = ButtonDefaults.buttonColors(containerColor = ZzzDangerRed),
                         shape = CutCornerShape(6.dp)
                     ) {
                         Text(

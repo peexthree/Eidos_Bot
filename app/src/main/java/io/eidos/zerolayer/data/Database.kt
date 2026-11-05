@@ -121,6 +121,26 @@ interface EidosDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveUserEquipment(equipment: UserEquipment)
+
+    // --- World Boss (persistent shared pool) ---
+    @Query("SELECT * FROM world_boss_state WHERE id = 1")
+    suspend fun getWorldBossState(): WorldBossState?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWorldBossState(state: WorldBossState)
+
+    @Query(
+        "INSERT INTO world_boss_contrib (player_uid, total_damage) VALUES (:uid, :damage) " +
+            "ON CONFLICT(player_uid) DO UPDATE SET total_damage = total_damage + :damage"
+    )
+    suspend fun addWorldBossDamage(uid: Long, damage: Long)
+
+    @Query(
+        "SELECT p.username AS username, c.total_damage AS total_damage " +
+            "FROM world_boss_contrib c JOIN players p ON p.uid = c.player_uid " +
+            "ORDER BY c.total_damage DESC LIMIT :limit"
+    )
+    suspend fun getTopWorldBossContributors(limit: Int): List<BossContributor>
 }
 
 val MIGRATION_10_11 = object : Migration(10, 11) {
@@ -143,9 +163,25 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
     }
 }
 
+// World Boss persistent pool + NG+ prestige counter
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `world_boss_state` (`id` INTEGER NOT NULL PRIMARY KEY, " +
+                "`boss_hp` INTEGER NOT NULL, `boss_max_hp` INTEGER NOT NULL, `cycle` INTEGER NOT NULL, " +
+                "`last_reset_month` TEXT NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `world_boss_contrib` (`player_uid` INTEGER NOT NULL PRIMARY KEY, " +
+                "`total_damage` INTEGER NOT NULL DEFAULT 0)"
+        )
+        db.execSQL("ALTER TABLE players ADD COLUMN prestige_count INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Database(
-    entities = [Player::class, InventoryItem::class, RaidSession::class, GameLog::class, VillainStatic::class, GameContent::class, Grave::class, BestiaryEntry::class, RadioMessageEntity::class, UserEquipment::class],
-    version = 13,
+    entities = [Player::class, InventoryItem::class, RaidSession::class, GameLog::class, VillainStatic::class, GameContent::class, Grave::class, BestiaryEntry::class, RadioMessageEntity::class, UserEquipment::class, WorldBossState::class, WorldBossContrib::class],
+    version = 14,
     exportSchema = false
 )
 abstract class EidosDatabase : RoomDatabase() {
@@ -195,7 +231,7 @@ abstract class EidosDatabase : RoomDatabase() {
                     EidosDatabase::class.java,
                     DB_NAME
                 )
-                .addMigrations(MIGRATION_10_11, MIGRATION_11_12)
+                .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                 // Last resort only: wipe instead of crash for unknown old
                 // versions. Data remains recoverable via RESCUE_BACKUP_NAME.
                 .fallbackToDestructiveMigration()

@@ -30,6 +30,7 @@ import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
 import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EvaSpeechBanner
@@ -181,13 +182,13 @@ fun EidosGatesScreen(
                             Text("ПАКЕТ СИНХРОНИЗАЦИИ: LOCAL_PROFILE", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         }
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFF9800).copy(alpha = 0.15f)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF9800))
+                            colors = CardDefaults.cardColors(containerColor = ZzzWarningOrange.copy(alpha = 0.15f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ZzzWarningOrange)
                         ) {
                             Text(
                                 "КРЕДИТЫ ЯДРА: $neuralCredits NC",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                color = Color(0xFFFF9800),
+                                color = ZzzWarningOrange,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace

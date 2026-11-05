@@ -21,6 +21,7 @@ import io.eidos.zerolayer.domain.anomaly.AnomalyEngine
 import io.eidos.zerolayer.domain.anomaly.ZalgoHelper
 import io.eidos.zerolayer.ui.utils.EidosAudioManager
 import io.eidos.zerolayer.ui.utils.HapticFeedbackManager
+import io.eidos.zerolayer.ui.theme.ZzzDangerRed
 
 @Composable
 fun HardGlitchModal(
@@ -39,7 +40,7 @@ fun HardGlitchModal(
 
     val infiniteTransition = rememberInfiniteTransition(label = "HardGlitchPulse")
     val glowColor by infiniteTransition.animateColor(
-        initialValue = Color(0xFFFF0055),
+        initialValue = ZzzDangerRed,
         targetValue = Color(0xFF9900FF),
         animationSpec = infiniteRepeatable(
             animation = tween(1000, easing = LinearEasing),
@@ -110,7 +111,7 @@ fun HardGlitchModal(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF200518)
                         ),
-                        border = BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.7f)),
+                        border = BorderStroke(1.dp, ZzzDangerRed.copy(alpha = 0.7f)),
                         shape = CutCornerShape(4.dp),
                         modifier = Modifier
                             .fillMaxWidth()

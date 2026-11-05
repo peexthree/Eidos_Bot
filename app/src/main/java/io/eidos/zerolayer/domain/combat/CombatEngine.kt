@@ -12,11 +12,13 @@ object CombatEngine {
 
     /**
      * Calculates the dynamic difficulty multiplier:
-     * Gentle abyssal scaling for depths > 5000m.
+     * Steep abyssal scaling for depths > 5000m: the difficulty now keeps pace
+     * with the reward curve instead of lagging behind it (was +25% max over
+     * 25000m while rewards grew x3.5).
      */
     fun getDepthDifficultyMultiplier(depth: Int): Float {
         return if (depth > 5000) {
-            1.0f + ((depth - 5000) / 25000f).coerceIn(0f, 0.25f)
+            1.0f + ((depth - 5000) / 8000f).coerceIn(0f, 0.75f)
         } else {
             1.0f
         }
@@ -24,9 +26,10 @@ object CombatEngine {
 
     /**
      * Calculates proportional reward multiplier for BioCoins and XP with depth stepping.
+     * Capped so the endless farm has a ceiling that prestige cycles improve instead.
      */
     fun getDepthRewardMultiplier(depth: Int): Float {
-        return 1.0f + (depth / 2000f) * 0.5f
+        return (1.0f + (depth / 2000f) * 0.5f).coerceAtMost(4.0f)
     }
 
     /**

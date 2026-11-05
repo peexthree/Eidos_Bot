@@ -13,15 +13,16 @@ val EidosSurfaceElevated = Color(0xFF111C2A)
 val EidosCardBg = Color(0xFF0E1622)
 
 // Holographic Accent Colors
-val EidosCyan = Color(0xFF00F0FF)
+// Exact duplicates are val-aliases onto canonical ZzzDesignSystem tokens; unique values stay literal.
+val EidosCyan = ZzzDesignSystem.SignalCyan                   // 0xFF00F0FF (canonical: ZzzDesignSystem.SignalCyan)
 val EidosCyanDim = Color(0xFF00A3B4)
 val EidosNeon = Color(0xFF00E676)
 val EidosNeonDim = Color(0xFF00A854)
-val EidosRed = Color(0xFFFF3366)
+val EidosRed = Color(0xFFFF3366)             // brand color, keep literal
 val EidosRedDim = Color(0xFFB31940)
-val EidosPurple = Color(0xFFA855F7)
+val EidosPurple = ZzzPurple                  // 0xFFA855F7 (canonical: ZzzDesignSystem.ZzzPurple)
 val EidosPurpleDim = Color(0xFF7E22CE)
-val EidosGold = Color(0xFFFFB800)
+val EidosGold = ZzzAmber                     // 0xFFFFB800 (canonical: ZzzDesignSystem.ZzzAmber)
 val EidosOrange = Color(0xFFFF6B00)
 
 // ZZZ Neon & Industrial Palette
@@ -31,13 +32,13 @@ val ZzzHotMagenta = Color(0xFFFF007A)      // Неоновая фуксия/ма
 val ZzzToxicGreen = Color(0xFF00FF66)      // Зеленый глитч
 val ZzzDarkSurface = Color(0xFF101116)     // Глубокий темный фон
 val ZzzObsidian = Color(0xFF08090C)        // Базовый обсидиан
-val ZzzWarningStripes = Color(0xFFFFB800)  // Предупреждающие шевроны
+val ZzzWarningStripes = ZzzAmber           // Предупреждающие шевроны (0xFFFFB800, canonical: ZzzAmber)
 val ZzzTextPrimary = Color(0xFFFFFFFF)     // Чистый белый
 val ZzzTextBody = Color(0xFFE2E8F0)        // Контрастный светло-серый для русского текста
 val ZzzTextSecondary = Color(0xFF94A3B8)   // Вторичный серый для логов и подписей
 
 // Glassmorphism & Borders
-val EidosGlass = Color(0xE60A111A)
+val EidosGlass = ZzzGlassBase               // 0xE60A111A (canonical: ZzzDesignSystem.ZzzGlassBase)
 val EidosGlassLight = Color(0x66152232)
 val EidosGlassBorder = Color(0x3300F0FF)
 val EidosBorderSubtle = Color(0x1F00F0FF)

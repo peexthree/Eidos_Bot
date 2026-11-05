@@ -1,5 +1,7 @@
 package io.eidos.zerolayer.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,11 +34,18 @@ import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.theme.EidosOrange
 import io.eidos.zerolayer.ui.theme.EidosPurple
+import io.eidos.zerolayer.ui.theme.ZzzGold
+import io.eidos.zerolayer.ui.theme.ZzzDangerRed
+import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.delay
+import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.VideoBackground
 import androidx.compose.ui.draw.alpha
@@ -87,7 +96,7 @@ fun ForgeScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("КВАНТОВАЯ КУЗНИЦА EIDOS", color = Color(0xFFFF9800), fontWeight = FontWeight.Black, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                        Text("КВАНТОВАЯ КУЗНИЦА EIDOS", color = ZzzWarningOrange, fontWeight = FontWeight.Black, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Ур. ${player?.level ?: 1} Оператор", color = Color.LightGray, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                             Spacer(Modifier.width(6.dp))
@@ -103,44 +112,11 @@ fun ForgeScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFFFF9800))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = ZzzWarningOrange)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0C0904))
             )
-        },
-        bottomBar = {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .height(52.dp)
-                    .border(1.dp, Color(0xFF3A2A1E), CutCornerShape(topStart = 8.dp, topEnd = 8.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0D0A06)),
-                shape = CutCornerShape(topStart = 8.dp, topEnd = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ZzzIcon(R.drawable.ic_menu_forge, size = 12.dp)
-                        Spacer(Modifier.width(4.dp))
-                        Text("КУЗНИЦА", color = Color(0xFFFF9800), fontWeight = FontWeight.Bold, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onBack() }) {
-                        ZzzIcon(R.drawable.ic_nav_inventory, size = 12.dp, tint = Color.Gray)
-                        Spacer(Modifier.width(4.dp))
-                        Text("ИНВЕНТАРЬ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onBack() }) {
-                        ZzzIcon(R.drawable.ic_res_energy, size = 12.dp, tint = Color.Gray)
-                        Spacer(Modifier.width(4.dp))
-                        Text("СИГНАЛ", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                    }
-                }
-            }
         },
         containerColor = Color(0xFF060402)
     ) { innerPadding ->
@@ -355,6 +331,15 @@ fun SynthesisTab(
     var subTab by remember { mutableIntStateOf(0) } // 0: РАЗБОР И СЛИЯНИЕ, 1: КОВКА РЕЦЕПТОВ
     var pendingCraftRecipe by remember { mutableStateOf<Recipe?>(null) }
 
+    // Visual craft feedback: id of the card currently pulsing (pure presentation, logic untouched)
+    var craftingId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(craftingId) {
+        if (craftingId != null) {
+            delay(600)
+            craftingId = null
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Sub-navigation pills
         Row(
@@ -390,9 +375,7 @@ fun SynthesisTab(
         if (subTab == 0) {
             val dismantleable = inventory.filter { it.item_id != "eidos_shard" && !it.is_equipped }
             if (dismantleable.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("НЕТ ПРЕДМЕТОВ ДЛЯ УТИЛИЗАЦИИ ИЛИ СИНТЕЗА", color = Color.Gray, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                }
+                ForgeEmptyWorkbench(hint = "НЕТ ПРЕДМЕТОВ ДЛЯ УТИЛИЗАЦИИ ИЛИ СИНТЕЗА")
             } else {
                 val groupedItems = remember(dismantleable) {
                     dismantleable.groupBy { it.item_id }.values.map { items ->
@@ -501,23 +484,31 @@ fun SynthesisTab(
 
             Column(modifier = Modifier.fillMaxSize()) {
                 // HIGH-TECH WEAPON CRAFTING CHAMBER (References 1 & 5)
-                io.eidos.zerolayer.ui.components.zzz.ZzzForgeHologramChamber(
-                    weaponTitle = "APEX STARBURST [AS-VII]",
-                    weaponRarity = "LEGENDARY",
-                    dataSlicerLvl = 5,
-                    quantumTunerLvl = 3,
-                    isVaalCorrupted = false,
-                    quantumCoils = 18,
-                    maxQuantumCoils = 20,
-                    voidCells = 12,
-                    maxVoidCells = 15,
-                    vaalEssence = 3,
-                    maxVaalEssence = 5,
-                    onCommenceCraft = {
-                        recipes.firstOrNull()?.let { onCraft(it.id) }
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
+                ForgeCraftPulse(
+                    isCrafting = craftingId == "__hologram__",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    io.eidos.zerolayer.ui.components.zzz.ZzzForgeHologramChamber(
+                        weaponTitle = "APEX STARBURST [AS-VII]",
+                        weaponRarity = "LEGENDARY",
+                        dataSlicerLvl = 5,
+                        quantumTunerLvl = 3,
+                        isVaalCorrupted = false,
+                        quantumCoils = 18,
+                        maxQuantumCoils = 20,
+                        voidCells = 12,
+                        maxVoidCells = 15,
+                        vaalEssence = 3,
+                        maxVaalEssence = 5,
+                        onCommenceCraft = {
+                            craftingId = "__hologram__"
+                            recipes.firstOrNull()?.let { onCraft(it.id) }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 Row(
                     modifier = Modifier
@@ -553,6 +544,10 @@ fun SynthesisTab(
                             ingStatusList.add("$ingName: $currentIng/$qty")
                         }
 
+                        ForgeCraftPulse(
+                            isCrafting = craftingId == recipe.id,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -575,7 +570,7 @@ fun SynthesisTab(
                                 if (ingStatusList.isNotEmpty()) {
                                     Text(
                                         "Материалы: " + ingStatusList.joinToString(", "),
-                                        color = if (hasAllIngredients) EidosCyan else Color(0xFFFFB300),
+                                        color = if (hasAllIngredients) EidosCyan else ZzzGold,
                                         fontSize = 9.sp
                                     )
                                 }
@@ -599,6 +594,7 @@ fun SynthesisTab(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
+                        }
                         }
                     }
                 }
@@ -629,6 +625,7 @@ fun SynthesisTab(
             confirmButton = {
                 Button(
                     onClick = {
+                        craftingId = recipe.id
                         onCraft(recipe.id)
                         pendingCraftRecipe = null
                     },
@@ -665,9 +662,7 @@ fun SocketModdingTab(
     val shardsCount = inventory.find { it.item_id == "eidos_shard" }?.quantity ?: 0
 
     if (equipmentItems.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("НЕТ СНАРЯЖЕНИЯ ДЛЯ РЕКАЛИБРОВКИ", color = Color.Gray, fontSize = 12.sp)
-        }
+        ForgeEmptyWorkbench(hint = "НЕТ СНАРЯЖЕНИЯ ДЛЯ РЕКАЛИБРОВКИ")
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -692,7 +687,7 @@ fun SocketModdingTab(
                         .fillMaxWidth()
                         .border(
                             1.dp,
-                            if (eq.isCorrupted) Color(0xFFFF1744) else Color.White.copy(alpha = 0.2f),
+                            if (eq.isCorrupted) ZzzDangerRed else Color.White.copy(alpha = 0.2f),
                             CutCornerShape(4.dp)
                         )
                 ) {
@@ -710,14 +705,14 @@ fun SocketModdingTab(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         ZzzIcon(R.drawable.ic_event_danger, size = 10.dp)
                                         Spacer(Modifier.width(3.dp))
-                                        Text("СКВЕРНА", color = Color(0xFFFF1744), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                        Text("СКВЕРНА", color = ZzzDangerRed, fontWeight = FontWeight.Bold, fontSize = 9.sp)
                                     }
                                 }
                             }
                             Text(
                                 rarity.uppercase(),
                                 color = when (rarity) {
-                                    "legendary" -> Color(0xFFFF9800)
+                                    "legendary" -> ZzzWarningOrange
                                     "relic" -> Color(0xFFFF3366)
                                     "epic" -> Color(0xFF9C27B0)
                                     "rare" -> EidosCyan
@@ -731,14 +726,14 @@ fun SocketModdingTab(
                         if (eq.implicitAffix != null) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Surface(
-                                color = Color(0xFFFF1744).copy(alpha = 0.12f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF1744)),
+                                color = ZzzDangerRed.copy(alpha = 0.12f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, ZzzDangerRed),
                                 shape = CutCornerShape(4.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     eq.implicitAffix,
-                                    color = Color(0xFFFF5252),
+                                    color = ZzzDangerRed,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp,
                                     modifier = Modifier.padding(6.dp)
@@ -1007,15 +1002,15 @@ fun SocketModdingTab(
                                         onClick = { onSocketPuncher(item) },
                                         enabled = shardsCount >= 1,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFFFF9800).copy(alpha = 0.2f),
+                                            containerColor = ZzzWarningOrange.copy(alpha = 0.2f),
                                             disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
                                         ),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (shardsCount >= 1) Color(0xFFFF9800) else Color.DarkGray),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (shardsCount >= 1) ZzzWarningOrange else Color.DarkGray),
                                         shape = CutCornerShape(4.dp),
                                         modifier = Modifier.weight(1f),
                                         contentPadding = PaddingValues(2.dp)
                                     ) {
-                                        Text("ГНЕЗДА\n(300 BC + 1 Осколок)", color = if (shardsCount >= 1) Color(0xFFFF9800) else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text("ГНЕЗДА\n(300 BC + 1 Осколок)", color = if (shardsCount >= 1) ZzzWarningOrange else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
 
                                     // Chromatic Injector
@@ -1033,11 +1028,11 @@ fun SocketModdingTab(
                             }
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(R.drawable.ic_ui_locked, size = 12.dp, tint = Color(0xFFFF5252))
+                                ZzzIcon(R.drawable.ic_ui_locked, size = 12.dp, tint = ZzzDangerRed)
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     "ПРЕДМЕТ ЗАПЕЧАТАН (СКВЕРНА) - калибровка и сокеты заблокированы!",
-                                    color = Color(0xFFFF5252),
+                                    color = ZzzDangerRed,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -1068,7 +1063,7 @@ fun DataCorruptionTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp)
-                .border(1.dp, Color(0xFFFF1744), CutCornerShape(6.dp))
+                .border(1.dp, ZzzDangerRed, CutCornerShape(6.dp))
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1076,7 +1071,7 @@ fun DataCorruptionTab(
                     Spacer(Modifier.width(6.dp))
                     Text(
                         "ОПАСНОСТЬ: ИНЪЕКЦИЯ КОДА СКВЕРНЫ",
-                        color = Color(0xFFFF1744),
+                        color = ZzzDangerRed,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
@@ -1100,9 +1095,7 @@ fun DataCorruptionTab(
         }
 
         if (uncorruptedEquipment.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("НЕТ СНАРЯЖЕНИЯ ДЛЯ ПРОВЕДЕНИЯ СКВЕРНЫ", color = Color.Gray, fontSize = 12.sp)
-            }
+            ForgeEmptyWorkbench(hint = "НЕТ СНАРЯЖЕНИЯ ДЛЯ ПРОВЕДЕНИЯ СКВЕРНЫ")
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -1121,7 +1114,7 @@ fun DataCorruptionTab(
                             .background(EidosGlass)
                             .border(
                                 1.dp,
-                                if (eq.isCorrupted) Color(0xFFFF1744) else Color.White.copy(alpha = 0.1f),
+                                if (eq.isCorrupted) ZzzDangerRed else Color.White.copy(alpha = 0.1f),
                                 CutCornerShape(4.dp)
                             )
                             .padding(12.dp),
@@ -1132,7 +1125,7 @@ fun DataCorruptionTab(
                             Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             Text(
                                 "Класс: ${rarity.uppercase()} | ${if (eq.isCorrupted) "ЗАПЕЧАТАН" else "ДОСТУПЕН ДЛЯ СКВЕРНЫ"}",
-                                color = if (eq.isCorrupted) Color(0xFFFF1744) else Color.Gray,
+                                color = if (eq.isCorrupted) ZzzDangerRed else Color.Gray,
                                 fontSize = 10.sp
                             )
                         }
@@ -1142,12 +1135,12 @@ fun DataCorruptionTab(
                                 onClick = { onVaalCorruption(item) },
                                 enabled = (player?.biocoin ?: 0L) >= 1000L && shardsCount >= 2,
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFF1744).copy(alpha = 0.2f),
+                                    containerColor = ZzzDangerRed.copy(alpha = 0.2f),
                                     disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
                                 ),
                                 border = androidx.compose.foundation.BorderStroke(
                                     width = 1.dp,
-                                    color = if ((player?.biocoin ?: 0L) >= 1000L && shardsCount >= 2) Color(0xFFFF1744) else Color.DarkGray
+                                    color = if ((player?.biocoin ?: 0L) >= 1000L && shardsCount >= 2) ZzzDangerRed else Color.DarkGray
                                 ),
                                 shape = CutCornerShape(4.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
@@ -1155,18 +1148,99 @@ fun DataCorruptionTab(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     ZzzIcon(R.drawable.ic_event_danger, size = 10.dp)
                                     Spacer(Modifier.width(3.dp))
-                                    Text("ИСКАЗИТЬ", color = if ((player?.biocoin ?: 0L) >= 1000L && shardsCount >= 2) Color(0xFFFF1744) else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text("ИСКАЗИТЬ", color = if ((player?.biocoin ?: 0L) >= 1000L && shardsCount >= 2) ZzzDangerRed else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(R.drawable.ic_ui_locked, size = 10.dp, tint = Color(0xFFFF1744))
+                                ZzzIcon(R.drawable.ic_ui_locked, size = 10.dp, tint = ZzzDangerRed)
                                 Spacer(Modifier.width(3.dp))
-                                Text("ЗАПЕЧАТАН", color = Color(0xFFFF1744), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("ЗАПЕЧАТАН", color = ZzzDangerRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Pure visual wrapper for craft feedback: pulses content (scale 1.0 -> 1.06 -> 1.0, ~400ms total)
+ * and overlays forge sparks while [isCrafting] is true. Does not touch any craft logic.
+ */
+@Composable
+fun ForgeCraftPulse(
+    isCrafting: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
+) {
+    val scale = remember { Animatable(1f) }
+    LaunchedEffect(isCrafting) {
+        if (isCrafting) {
+            scale.animateTo(1.06f, tween(200))
+            scale.animateTo(1f, tween(200))
+        } else {
+            scale.snapTo(1f)
+        }
+    }
+    Box(
+        modifier = modifier.graphicsLayer {
+            scaleX = scale.value
+            scaleY = scale.value
+        }
+    ) {
+        content()
+        if (isCrafting) {
+            CyberParticleOverlay(
+                preset = ParticlePreset.FORGE_SPARKS,
+                modifier = Modifier.matchParentSize()
+            )
+        }
+    }
+}
+
+/**
+ * Empty forge state panel: "ВЕРСТАК ЖДЁТ" header with the original hint line preserved below.
+ */
+@Composable
+fun ForgeEmptyWorkbench(hint: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        CyberCornerBracketBox(
+            bracketSize = 14.dp,
+            bracketColor = ZzzWarningOrange.copy(alpha = 0.7f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF0D0A06).copy(alpha = 0.8f))
+                    .border(1.dp, ZzzWarningOrange.copy(alpha = 0.4f), CutCornerShape(8.dp))
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ZzzIcon(R.drawable.ic_menu_forge, size = 32.dp, tint = ZzzWarningOrange.copy(alpha = 0.85f))
+                Text(
+                    "ВЕРСТАК ЖДЁТ // ВЫБЕРИ ПРЕДМЕТ ДЛЯ МОДИФИКАЦИИ",
+                    color = ZzzWarningOrange,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    hint,
+                    color = Color.Gray,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }

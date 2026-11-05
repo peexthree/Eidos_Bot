@@ -1,5 +1,6 @@
 package io.eidos.zerolayer.ui.components
 
+import android.content.Context
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -20,6 +21,63 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+
+@OptIn(androidx.media3.common.util.UnstableApi::class)
+
+/**
+ * Shared ExoPlayer pool: navigation between screens previously built and tore
+ * down a player per VideoBackground instance (10 call sites = player churn on
+ * every route change). The pool keeps up to [POOL_SIZE] warm players keyed by
+ * raw resource id and reuses them. On any pool failure callers fall back to
+ * the previous per-instance behavior.
+ */
+object CyberVideoPool {
+    private const val POOL_SIZE = 3
+    private data class Entry(val resId: Int, val player: ExoPlayer)
+
+    private val pool = mutableListOf<Entry>()
+
+    fun acquire(context: Context, resId: Int): ExoPlayer? {
+        return try {
+            val appContext = context.applicationContext
+            // Reuse a warm player for this resource
+            pool.find { it.resId == resId }?.let { entry ->
+                entry.player.playWhenReady = true
+                return entry.player
+            }
+            // Evict the oldest non-playing entry when full
+            if (pool.size >= POOL_SIZE) {
+                val evict = pool.firstOrNull()
+                evict?.let {
+                    it.player.stop()
+                    it.player.release()
+                    pool.remove(it)
+                }
+            }
+            val player = ExoPlayer.Builder(appContext).build().apply {
+                val videoUri = android.net.Uri.parse("android.resource://" + appContext.packageName + "/" + resId)
+                setMediaItem(MediaItem.fromUri(videoUri))
+                trackSelectionParameters = trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                    .build()
+                repeatMode = Player.REPEAT_MODE_ALL
+                videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+                prepare()
+                playWhenReady = true
+                volume = 0f // Backgrounds should be silent
+            }
+            val entry = Entry(resId, player)
+            pool.add(entry)
+            player
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    fun isPooled(player: ExoPlayer?): Boolean =
+        player != null && pool.any { it.player == player }
+}
 
 @OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -49,29 +107,35 @@ fun VideoBackground(
             isPlayerError = true
             null
         } else {
-            try {
-                ExoPlayer.Builder(context).build().apply {
-                    addListener(object : Player.Listener {
-                        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                            isPlayerError = true
-                        }
-                    })
-                    val videoUri = android.net.Uri.parse("android.resource://" + context.packageName + "/" + resolvedResId)
-                    val mediaItem = MediaItem.fromUri(videoUri)
-                    setMediaItem(mediaItem)
-                    trackSelectionParameters = trackSelectionParameters
-                        .buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
-                        .build()
-                    repeatMode = Player.REPEAT_MODE_ALL
-                    videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-                    prepare()
-                    playWhenReady = true
-                    volume = 0f // Backgrounds should be silent
+            val pooled = CyberVideoPool.acquire(context, resolvedResId)
+            if (pooled == null) {
+                // Fallback: per-instance player (previous behavior)
+                try {
+                    ExoPlayer.Builder(context).build().apply {
+                        addListener(object : Player.Listener {
+                            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                                isPlayerError = true
+                            }
+                        })
+                        val videoUri = android.net.Uri.parse("android.resource://" + context.packageName + "/" + resolvedResId)
+                        val mediaItem = MediaItem.fromUri(videoUri)
+                        setMediaItem(mediaItem)
+                        trackSelectionParameters = trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                            .build()
+                        repeatMode = Player.REPEAT_MODE_ALL
+                        videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+                        prepare()
+                        playWhenReady = true
+                        volume = 0f // Backgrounds should be silent
+                    }
+                } catch (e: Throwable) {
+                    isPlayerError = true
+                    null
                 }
-            } catch (e: Throwable) {
-                isPlayerError = true
-                null
+            } else {
+                pooled
             }
         }
     }
@@ -93,8 +157,12 @@ fun VideoBackground(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             try {
-                exoPlayer?.stop()
-                exoPlayer?.release()
+                exoPlayer?.pause()
+                // Pooled players survive for reuse; fallback players are released
+                if (exoPlayer != null && !CyberVideoPool.isPooled(exoPlayer)) {
+                    exoPlayer.stop()
+                    exoPlayer.release()
+                }
             } catch (e: Throwable) {
                 // Ignore release errors
             }

@@ -112,7 +112,9 @@ data class Player(
     val overdriveCharge: Int = 0,
     val overchargeTier: Int = 0,
     val state_version: Long = 1,
-    val updated_at: Long = System.currentTimeMillis()
+    val updated_at: Long = System.currentTimeMillis(),
+    // NG+ prestige cycles completed via the Singularity Terminal
+    val prestige_count: Int = 0
 )
 
 @Serializable
@@ -256,6 +258,30 @@ data class UserEquipment(
     val weapon: String? = null,
     val chip: String? = null,
     val eidos_shard: String? = null
+)
+
+// Singleton row (id = 1): persistent shared World Boss pool
+@Entity(tableName = "world_boss_state")
+data class WorldBossState(
+    @PrimaryKey val id: Int = 1,
+    val boss_hp: Long = 984_124_510L,
+    val boss_max_hp: Long = 984_124_510L,
+    // Each defeated cycle respawns +50% stronger with richer rewards
+    val cycle: Int = 1,
+    // "yyyy-MM" - the pool resets every calendar month
+    val last_reset_month: String = ""
+)
+
+// Aggregated row for the World Boss contribution leaderboard
+data class BossContributor(
+    val username: String?,
+    val total_damage: Long
+)
+
+@Entity(tableName = "world_boss_contrib")
+data class WorldBossContrib(
+    @PrimaryKey val player_uid: Long,
+    val total_damage: Long = 0
 )
 
 enum class ProcColorType {

@@ -1,5 +1,14 @@
 package io.eidos.zerolayer.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,10 +26,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.data.*
@@ -30,8 +41,10 @@ import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.theme.ZzzGold
 import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
+import io.eidos.zerolayer.ui.components.CyberSkeletonLoader
 import io.eidos.zerolayer.ui.components.VideoBackground
 import androidx.compose.ui.draw.alpha
 import io.eidos.zerolayer.ui.components.CyberParticleOverlay
@@ -69,33 +82,65 @@ fun PvpScreen(
     var isExecutingRaid by remember { mutableStateOf(false) }
     var currentDuelRoundStep by remember { mutableIntStateOf(0) }
 
+    // Duel presentation phases (pure visual, logic untouched): 0 none, 1 VS screen, 2 rounds reveal, 3 result
+    var duelPhase by remember { mutableIntStateOf(0) }
+    var revealedRounds by remember { mutableIntStateOf(0) }
+
     // Defense setup
     var def1 by remember(player) { mutableStateOf(PvpProgram.fromString(player?.defense_program_1)) }
     var def2 by remember(player) { mutableStateOf(PvpProgram.fromString(player?.defense_program_2)) }
     var def3 by remember(player) { mutableStateOf(PvpProgram.fromString(player?.defense_program_3)) }
     var showSearchConfirmDialog by remember { mutableStateOf(false) }
 
-    val amberColor = Color(0xFFFFB300)
+    val amberColor = ZzzGold
     val installedHw = player?.installed_hardware?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
 
-    // Targets list
+    // Targets list: real Supabase operators only (mock bots removed in favor of honest empty state)
     val validTargets = remember(phantoms, player) {
-        val list = phantoms.ifEmpty {
-            listOf(
-                SupabasePlayer(deviceId = "bot1", username = "Phantom_Spectre", level = (player?.level ?: 1) + 1, exp = 300, biocoins = 800, hp = 120, energy = 100, rank = "Ghost", stateVersion = 1),
-                SupabasePlayer(deviceId = "bot2", username = "Neon_Viper", level = (player?.level ?: 1), exp = 150, biocoins = 550, hp = 100, energy = 100, rank = "Rogue", stateVersion = 1),
-                SupabasePlayer(deviceId = "bot3", username = "NetRunner_Zero", level = (player?.level ?: 1) + 2, exp = 450, biocoins = 1200, hp = 150, energy = 100, rank = "Architect", stateVersion = 1)
-            )
-        }
         val now = System.currentTimeMillis()
-        list.filter { it.deviceId != player?.uid?.toString() && it.pvp_proxy_until <= now }
+        phantoms.filter { it.deviceId != player?.uid?.toString() && it.pvp_proxy_until <= now }
+    }
+
+    // Tactical scan skeleton: show loading placeholders for ~1s on first compose
+    var isTargetsLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(1000)
+        isTargetsLoading = false
+    }
+
+    // Duel presentation driver: VS (600ms) -> sequential round reveal -> result (visual only)
+    LaunchedEffect(duelPhase, activeDuelResult) {
+        val res = activeDuelResult ?: return@LaunchedEffect
+        when (duelPhase) {
+            1 -> {
+                delay(600) // VS screen holds
+                duelPhase = 2
+            }
+            2 -> {
+                val total = res.roundResults.size
+                for (i in 1..total) {
+                    revealedRounds = i
+                    haptics.click()
+                    delay(550)
+                }
+                delay(250)
+                duelPhase = 3
+            }
+        }
     }
 
     BackHandler(enabled = activeDuelResult != null || selectedTarget != null) {
         if (activeDuelResult != null) {
-            activeDuelResult = null
-            selectedTarget = null
-            selectedAttackPrograms.clear()
+            if (duelPhase < 3) {
+                // Back during the presentation just skips ahead to the verdict
+                duelPhase = 3
+            } else {
+                activeDuelResult = null
+                duelPhase = 0
+                revealedRounds = 0
+                selectedTarget = null
+                selectedAttackPrograms.clear()
+            }
         } else if (selectedTarget != null) {
             selectedTarget = null
             selectedAttackPrograms.clear()
@@ -254,6 +299,61 @@ fun PvpScreen(
                     0 -> {
                         // RAID TAB
                         if (selectedTarget == null) {
+                            if (isTargetsLoading) {
+                                // Skeleton placeholders while the tactical scan resolves
+                                Column(
+                                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    repeat(4) {
+                                        CyberSkeletonLoader(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(88.dp)
+                                        )
+                                    }
+                                }
+                            } else if (validTargets.isEmpty()) {
+                                // Honest empty state: no reachable nodes in the network
+                                Box(
+                                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CyberCornerBracketBox(
+                                        bracketSize = 14.dp,
+                                        bracketColor = EidosRed.copy(alpha = 0.7f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(Color(0xFF0A0F17).copy(alpha = 0.75f))
+                                                .border(1.dp, EidosRed.copy(alpha = 0.4f), CutCornerShape(8.dp))
+                                                .padding(24.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            ZzzIcon(R.drawable.ic_event_unknown, size = 32.dp, tint = EidosRed.copy(alpha = 0.8f))
+                                            Text(
+                                                "ЦЕЛИ НЕ ОБНАРУЖЕНЫ // СИНХРОНИЗАЦИЯ...",
+                                                color = EidosRed,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                textAlign = TextAlign.Center
+                                            )
+                                            Text(
+                                                "В СЕТИ НЕТ ДОСТУПНЫХ УЗЛОВ ДЛЯ ВЗЛОМА.\nИСПОЛЬЗУЙ СКАНИРОВАНИЕ СЕТИ ИЛИ ВЕРНИСЬ ПОЗЖЕ.",
+                                                color = Color.Gray,
+                                                fontSize = 10.sp,
+                                                lineHeight = 14.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
                             // Target Selection
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize().padding(12.dp),
@@ -422,6 +522,7 @@ fun PvpScreen(
                                     }
                                 }
                             }
+                            }
                         } else if (activeDuelResult == null) {
                             // Program selection for Attack
                             val target = selectedTarget!!
@@ -507,10 +608,13 @@ fun PvpScreen(
                                     onClick = {
                                         if (selectedAttackPrograms.size == 3 && !isExecutingRaid) {
                                             isExecutingRaid = true
-                                            haptics.heavy()
+                                            haptics.click()
+                                            audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
                                             onExecuteRaid(target, selectedAttackPrograms.toList(), isRevengeRaid) { res ->
                                                 activeDuelResult = res
                                                 isExecutingRaid = false
+                                                duelPhase = 1
+                                                revealedRounds = 0
                                             }
                                         }
                                     },
@@ -528,8 +632,8 @@ fun PvpScreen(
                                     )
                                 }
                             }
-                        } else {
-                            // Active Duel Result UI
+                        } else if (duelPhase == 3) {
+                            // Active Duel Result UI (shown after the VS/rounds presentation resolves)
                             val res = activeDuelResult!!
                             Column(
                                 modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -597,6 +701,8 @@ fun PvpScreen(
                                         selectedTarget = null
                                         selectedAttackPrograms.clear()
                                         activeDuelResult = null
+                                        duelPhase = 0
+                                        revealedRounds = 0
                                         haptics.click()
                                     },
                                     modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -842,6 +948,121 @@ fun PvpScreen(
                 }
             }
         }
+
+        // ============ DUEL PRESENTATION OVERLAY (visual only) ============
+        if (activeDuelResult != null && duelPhase in 1..2) {
+            val res = activeDuelResult!!
+            val attackerName = (player?.username ?: "ОПЕРАТОР").uppercase()
+            val defenderName = (selectedTarget?.username ?: "НЕИЗВЕСТНЫЙ УЗЕЛ").uppercase()
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .clickable(enabled = false) { },
+                contentAlignment = Alignment.Center
+            ) {
+                AnimatedContent(
+                    targetState = duelPhase,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(250)) + scaleIn(initialScale = 0.92f, animationSpec = tween(250, easing = FastOutSlowInEasing)))
+                            .togetherWith(fadeOut(animationSpec = tween(200)))
+                    },
+                    label = "duel_phase_transition"
+                ) { phase ->
+                    when (phase) {
+                        1 -> {
+                            // PHASE 1: VS SCREEN (attacker vs defender, 600ms)
+                            val vsScale = remember { Animatable(0.5f) }
+                            LaunchedEffect(Unit) {
+                                vsScale.animateTo(1f, tween(300, easing = FastOutSlowInEasing))
+                            }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.graphicsLayer {
+                                    scaleX = vsScale.value
+                                    scaleY = vsScale.value
+                                }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    PvpDuelSideCard(attackerName, EidosCyan, "АТАКУЮЩИЙ")
+                                    Text(
+                                        "VS",
+                                        color = EidosRed,
+                                        fontSize = 42.sp,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    PvpDuelSideCard(defenderName, EidosRed, "ЦЕЛЬ")
+                                }
+                                Text(
+                                    "СЕТЕВОЙ ВЗЛОМ // ИНИЦИАЛИЗАЦИЯ ДУЭЛИ",
+                                    color = Color.Gray,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    letterSpacing = 2.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                        else -> {
+                            // PHASE 2: ROUND REVEAL (WIN/LOSS/DRAW icons appear sequentially)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(18.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(attackerName, color = EidosCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("VS", color = EidosRed, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                                    Text(defenderName, color = EidosRed, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    res.roundResults.forEachIndexed { index, r ->
+                                        AnimatedVisibility(
+                                            visible = index < revealedRounds,
+                                            enter = scaleIn(initialScale = 0.2f, animationSpec = tween(220, easing = FastOutSlowInEasing)) + fadeIn()
+                                        ) {
+                                            PvpRoundBadge(winner = r.winner, round = r.round)
+                                        }
+                                    }
+                                }
+                                val atkScore = res.roundResults.take(revealedRounds).count { it.winner == 1 }
+                                val defScore = res.roundResults.take(revealedRounds).count { it.winner == 2 }
+                                Text(
+                                    "СЧЁТ $atkScore - $defScore",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Verdict flash right after the duel animation resolves (visual only)
+        if (activeDuelResult != null && duelPhase == 3) {
+            val res = activeDuelResult!!
+            val flash = remember { Animatable(0.55f) }
+            LaunchedEffect(Unit) {
+                flash.animateTo(0f, tween(400, easing = FastOutSlowInEasing))
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background((if (res.isWin) EidosNeon else EidosRed).copy(alpha = flash.value))
+                    .clickable(enabled = false) { }
+            )
+        }
     }
 
     if (showSearchConfirmDialog) {
@@ -856,5 +1077,71 @@ fun PvpScreen(
             },
             onDismiss = { showSearchConfirmDialog = false }
         )
+    }
+}
+
+// ==================== DUEL PRESENTATION HELPERS (visual only) ====================
+
+@Composable
+private fun PvpDuelSideCard(name: String, accent: Color, tag: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .widthIn(max = 118.dp)
+            .background(accent.copy(alpha = 0.12f))
+            .border(1.5.dp, accent, CutCornerShape(6.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Text(
+            tag,
+            color = accent.copy(alpha = 0.8f),
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            name,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.ExtraBold,
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun PvpRoundBadge(winner: Int, round: Int) {
+    val (label, color) = when (winner) {
+        1 -> "WIN" to EidosNeon
+        2 -> "LOSS" to EidosRed
+        else -> "DRAW" to ZzzGold
+    }
+    Box(
+        modifier = Modifier
+            .size(width = 82.dp, height = 58.dp)
+            .background(color.copy(alpha = 0.18f))
+            .border(1.5.dp, color, CutCornerShape(6.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "РАУНД $round",
+                color = Color.Gray,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                label,
+                color = color,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace
+            )
+        }
     }
 }

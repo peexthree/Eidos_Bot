@@ -402,8 +402,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    fun rollNormalLoot(): ItemMetadata? {
+    fun rollNormalLoot(legendaryBoost: Boolean = false): ItemMetadata? {
         val normalList = getAllItemsMetadata().filter { it.id != "biocoin" && !isRedLoot(it) }
+        // GLITCH_STORM mutator: +40% chance to force a legendary drop
+        if (legendaryBoost && (0..100).random() < 40) {
+            normalList.filter { it.rarity == "legendary" }.randomOrNull()?.let { return it }
+        }
         return normalList.randomOrNull()
     }
 
@@ -496,6 +500,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val session = dao.getRaidSession(uid) ?: return
         val player = dao.getPlayer(uid) ?: return
         val anomalyId = session.current_anomaly_id ?: return
+        val isGlitchStorm = session.active_mutator == SectorMutator.GLITCH_STORM.id
         val gameEvent = io.eidos.zerolayer.data.GameData.EVENTS.find { it.id.toString() == anomalyId }
 
         if (gameEvent == null || optionId == "ignore") {
@@ -573,7 +578,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                             
                             val coins = (250..600).random().toLong() + (session.depth * 2)
                             val xp = (200..400).random().toLong()
-                            val lootMeta = rollNormalLoot()
+                            val lootMeta = rollNormalLoot(legendaryBoost = isGlitchStorm)
                             val lootItem = lootMeta?.id ?: "quantum_tuner"
                             val lootName = lootMeta?.name ?: lootItem
                             val newBuffer = if (session.buffer_items.isEmpty()) lootItem else "${session.buffer_items},$lootItem"
@@ -599,7 +604,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                             val xp = (300..600).random().toLong()
                             // Guaranteed equipment item
                             val equipItems = itemsMetadata.filter { it.type in listOf("weapon", "armor", "head", "chip") && it.rarity in listOf("rare", "epic", "legendary") }
-                            val lootMeta = equipItems.randomOrNull() ?: rollNormalLoot()
+                            val lootMeta = equipItems.randomOrNull() ?: rollNormalLoot(legendaryBoost = isGlitchStorm)
                             val lootItem = lootMeta?.id ?: "nano_armor"
                             val lootName = lootMeta?.name ?: lootItem
                             val newBuffer = if (session.buffer_items.isEmpty()) lootItem else "${session.buffer_items},$lootItem"
@@ -626,7 +631,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                             if (roll < successChance) {
                                 val coins = (200..500).random().toLong() + (session.depth * 2)
                                 val xp = (150..350).random().toLong()
-                                val lootMeta = rollNormalLoot()
+                                val lootMeta = rollNormalLoot(legendaryBoost = isGlitchStorm)
                                 val lootItem = lootMeta?.id ?: "quantum_tuner"
                                 val lootName = lootMeta?.name ?: lootItem
                                 val newBuffer = if (session.buffer_items.isEmpty()) lootItem else "${session.buffer_items},$lootItem"
@@ -1852,6 +1857,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val player = dao.getPlayer(uid) ?: return
         val session = dao.getRaidSession(uid)
 
+        // ANTIGRAVITY mutator: healing medkits are blocked by the gravity field
+        if (session?.active_mutator == SectorMutator.ANTIGRAVITY.id &&
+            item.item_id in listOf("medkit_small", "medkit_large", "neural_stimulator")
+        ) {
+            log(uid, "🪐 [АНТИГРАВИТАЦИЯ]: Мед-модули подавлены гравитационным полем! Восстановление HP заблокировано.", "error")
+            return
+        }
+
         // Check for Karma Inversion on medkits
         val equippedItems = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
         val hasKarmaInversion = equippedItems.any { it.item_id == "karma_inversion" }
@@ -2288,10 +2301,92 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         log(uid, "🏛️ [МЕТА-ПРОГРЕСС]: Улучшено [$name] до уровня ${currentLevel + 1}! Затрачено $cost Осколков.", "info")
     }
 
-    suspend fun hitWorldBoss(uid: Long) {
+    // --- World Boss (persistent shared pool, monthly cycle) ---
+
+    fun getWorldBossMonthKey(): String {
+        val cal = java.util.Calendar.getInstance()
+        return "%04d-%02d".format(cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1)
+    }
+
+    suspend fun getWorldBossState(): WorldBossState {
+        var state = dao.getWorldBossState() ?: WorldBossState()
+        // Monthly reset: fresh pool every calendar month, cycle keeps growing
+        if (state.last_reset_month != getWorldBossMonthKey()) {
+            state = WorldBossState(
+                id = 1,
+                boss_hp = state.boss_max_hp,
+                boss_max_hp = state.boss_max_hp,
+                cycle = state.cycle,
+                last_reset_month = getWorldBossMonthKey()
+            )
+            dao.insertWorldBossState(state)
+        }
+        return state
+    }
+
+    suspend fun getTopWorldBossContributors(): List<BossContributor> =
+        dao.getTopWorldBossContributors(5)
+
+    // --- Singularity Terminal (endgame finale + NG+ prestige) ---
+
+    suspend fun isSingularityTerminalReady(uid: Long): Boolean {
+        val p = dao.getPlayer(uid) ?: return false
+        // The Core gate at 1000m must have been breached at least once
+        return p.max_depth >= 1000
+    }
+
+    /**
+     * Chapter VI finale: three endings, each a different NG+ meta-loop.
+     * great_reset  - prestige: level reset, +10% rewards per cycle (prestige_count);
+     * ascension    - OMNI path: shard hoard + archivist bounty;
+     * abyss        - abyss pact: keys + deep reserves.
+     */
+    suspend fun completeSingularityEnding(uid: Long, endingId: String) = dbMutex.withLock {
+        val player = dao.getPlayer(uid) ?: return@withLock
+        when (endingId) {
+            "great_reset" -> {
+                dao.updatePlayer(player.copy(
+                    level = 1,
+                    xp = 0,
+                    prestige_count = player.prestige_count + 1,
+                    hp = player.max_hp,
+                    energy = player.max_energy
+                ))
+                log(uid, "♾ [ВЕЛИКИЙ СБРОС]: Ядро EIDOS-CORE перезаписано. Матрица уровня обнулена - Нейро-Ядро перерождается с Level 1, " +
+                    "но резонанс прошлых циклов навсегда даёт +${(player.prestige_count + 1) * 10}% ко всем наградам рейдов. Цикл ${player.prestige_count + 1} начался.", "loot")
+            }
+            "ascension" -> {
+                addInventory(uid, "eidos_shard", 25)
+                dao.updatePlayer(player.copy(biocoin = player.biocoin + 25000L))
+                log(uid, "🌐 [ЦИФРОВОЕ ВОЗНЕСЕНИЕ]: Код оператора влит в OMNI-слой Архитекторов. Получено: +25 💎 Осколков, +25000 BC. " +
+                    "Твоя сигнатура теперь часть фундамента Эйдоса.", "loot")
+            }
+            "abyss" -> {
+                addInventory(uid, "eidos_shard", 10)
+                addInventory(uid, "abyssal_key", 5)
+                dao.updatePlayer(player.copy(biocoin = player.biocoin + 15000L))
+                log(uid, "🕳 [СИНГУЛЯРНОСТЬ БЕЗДНЫ]: Ты отринул и Сброс, и Вознесение. Бездна приняла дар: +10 💎 Осколков, +5 🗝 Ключей Бездны, +15000 BC. " +
+                    "Глубина ждёт.", "loot")
+            }
+            else -> log(uid, "❌ [ТЕРМИНАЛ]: Неизвестная директива Сингулярности.", "error")
+        }
+    }
+
+
+    suspend fun hitWorldBoss(uid: Long) = dbMutex.withLock {
+        internalUnsafeHitWorldBoss(uid)
+    }
+
+    private suspend fun internalUnsafeHitWorldBoss(uid: Long) {
         val player = dao.getPlayer(uid) ?: return
         if (player.energy < 10) {
             log(uid, "❌ [МИРОВОЙ БОСС: EIDOS-CORE]: Недостаточно энергии (требуется 10⚡). Восстановите силы в Хабе.", "error")
+            return
+        }
+
+        val state = getWorldBossState()
+        if (state.boss_hp <= 0) {
+            log(uid, "💠 [МИРОВОЙ БОСС]: EIDOS-CORE уже пал в этом цикле. Ожидается перезапуск пула.", "info")
             return
         }
 
@@ -2307,16 +2402,50 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         )
         dao.updatePlayer(updatedPlayer)
 
+        val newHp = maxOf(0L, state.boss_hp - damage)
+        dao.insertWorldBossState(state.copy(boss_hp = newHp))
+        dao.addWorldBossDamage(uid, damage.toLong())
+
+        // Stage milestones: global progress checkpoints at 75/50/25% pool HP
+        val oldPct = state.boss_hp * 100 / state.boss_max_hp
+        val newPct = newHp * 100 / state.boss_max_hp
+        listOf(75L, 50L, 25L).forEach { stage ->
+            if (oldPct > stage && newPct <= stage) {
+                log(uid, "💠 [МИРОВОЙ БОСС]: Пул EIDOS-CORE пробит до $stage%! Операторы близки к следующему рубежу!", "loot")
+            }
+        }
+
+        if (newHp <= 0L) {
+            // Pool defeated: big one-time reward to the killer + next cycle (+50% HP, richer loot)
+            addInventory(uid, "eidos_shard", 3)
+            dao.updatePlayer(dao.getPlayer(uid)?.copy(biocoin = player.biocoin + rewardsCoin + 5000, xp = player.xp + rewardXp + 2000) ?: updatedPlayer)
+            val nextState = WorldBossState(
+                id = 1,
+                boss_hp = (state.boss_max_hp * 15 / 10),
+                boss_max_hp = (state.boss_max_hp * 15 / 10),
+                cycle = state.cycle + 1,
+                last_reset_month = state.last_reset_month
+            )
+            dao.insertWorldBossState(nextState)
+            log(uid, "🎉 [ЯДРО ПАЛО]: EIDOS-CORE уничтожен (цикл ${state.cycle})! Ты нанёс финальный удар: +5000 BC, +2000 XP, +3 💎 Осколка. Начинается цикл ${nextState.cycle}: ядро перезапущено (+50% прочности)!", "loot")
+            return
+        }
+
+        val cycleBonus = if (state.cycle > 1) ", цикл ${state.cycle} (x${"%.1f".format(state.boss_max_hp / 984_124_510f)})" else ""
         val roll = (1..100).random()
         if (roll <= 15) {
             addInventory(uid, "data_fragment", 1)
-            log(uid, "⚔ [МИРОВОЙ БОСС]: Нанесено $damage урона! Награда: +$rewardsCoin BC, +$rewardXp XP, 💾 Фрагмент Данных (-10⚡).", "loot")
+            log(uid, "⚔ [МИРОВОЙ БОСС]: Нанесено $damage урона! Пул: ${"%,d".format(newHp)} HP$cycleBonus. Награда: +$rewardsCoin BC, +$rewardXp XP, 💾 Фрагмент Данных (-10⚡).", "loot")
         } else {
-            log(uid, "⚔ [МИРОВОЙ БОСС]: Нанесено $damage урона! Награда: +$rewardsCoin BC, +$rewardXp XP (-10⚡).", "combat")
+            log(uid, "⚔ [МИРОВОЙ БОСС]: Нанесено $damage урона! Пул: ${"%,d".format(newHp)} HP$cycleBonus. Награда: +$rewardsCoin BC, +$rewardXp XP (-10⚡).", "combat")
         }
     }
 
-    suspend fun startRaid(uid: Long, startDepth: Int) {
+    suspend fun startRaid(uid: Long, startDepth: Int) = dbMutex.withLock {
+        internalUnsafeStartRaid(uid, startDepth)
+    }
+
+    private suspend fun internalUnsafeStartRaid(uid: Long, startDepth: Int) {
         val player = dao.getPlayer(uid) ?: return
         val isFreeEntry = player.raids_done == 0
         val startCostCoins = if (isFreeEntry) 0L else 20L
@@ -2344,12 +2473,23 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         io.eidos.zerolayer.ui.utils.EidosTelemetryManager.getInstance(context).logRaidStarted(startDepth, 100)
 
-        val session = RaidSession(
+        var session = RaidSession(
             uid = uid,
             depth = startDepth,
             signal = player.max_hp,
             next_event_type = "scan"
         )
+
+        // Meta upgrade "Карманный Мастер-Ключ": each level guarantees one
+        // master_key in the raid buffer (previously the upgrade gave nothing)
+        val keyBonus = player.meta_key_level
+        if (keyBonus > 0) {
+            val keys = List(keyBonus) { "master_key" }.joinToString(",")
+            val items = if (session.buffer_items.isEmpty()) keys else "${session.buffer_items},$keys"
+            session = session.copy(buffer_items = items)
+            log(uid, "🔑 [КАРМАННЫЙ МАСТЕР-КЛЮЧ]: Уровень $keyBonus - на склад рейда доставлено $keyBonus отмычек!", "info")
+        }
+
         dao.insertRaidSession(session)
         val feeMsg = if (isFreeEntry) "Первый спуск — БЕСПЛАТНО" else "Списано -$startCostCoins BC"
         log(uid, "Нейро-связь установлена. Вход в Нулевой Слой на ${startDepth}м ($feeMsg).", "info")
@@ -2494,7 +2634,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             playerDefense = activeStats.defense,
             playerLuck = activeStats.luck,
             flags = equipmentFlags,
-            gravesList = gravesList
+            gravesList = gravesList,
+            activeMutatorId = session.active_mutator
         )
 
         when (dispatchResult) {
@@ -2589,6 +2730,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 } else {
                     dispatchResult.enemyHp
                 }
+                // Gatekeeper reward: at every 1000m the warden carries the Biome Key
+                var bufferForGate = session.buffer_items
+                if (newDepth > 0 && newDepth % 1000 == 0) {
+                    bufferForGate = if (bufferForGate.isEmpty()) "abyssal_key" else "$bufferForGate,abyssal_key"
+                }
                 dao.insertRaidSession(session.copy(
                     depth = newDepth,
                     active_mutator = currentMutator,
@@ -2598,10 +2744,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     current_anomaly_id = null,
                     combat_turn = 0,
                     damage_buffer = 0,
+                    buffer_items = bufferForGate,
                     is_scanned = false
                 ))
                 recordEnemyEncounter(dispatchResult.enemyName)
                 log(uid, dispatchResult.message, "combat")
+                if (newDepth > 0 && newDepth % 1000 == 0) {
+                    log(uid, "🗝 [ТРОФЕЙ ХРАНИТЕЛЯ]: Ключ Биомы упадёт в буфер после победы над стражем врат ${newDepth}м!", "loot")
+                }
             }
             is io.eidos.zerolayer.domain.raid.RaidEventDispatcher.DispatchResult.SectorScanned -> {
                 // Nomad Goggles 5% chance conversion to loot cache
@@ -3042,13 +3192,18 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
 
         val bonusXpMult = if (player.is_premium) 1.5f else 1.0f
-        val calculatedXp = (session.buffer_xp * bonusXpMult).toLong()
-        
+        // NG+ prestige: each Singularity cycle grants +10% to all raid rewards
+        val prestigeMult = 1.0f + (player.prestige_count * 0.10f)
+        val calculatedXp = (session.buffer_xp * bonusXpMult * prestigeMult).toLong()
+
         // Holo Poverty limit check (max 500 BC extracted)
         val hasHoloPoverty = equippedItems.any { it.item_id == "holo_poverty" }
-        val finalCoins = if (hasHoloPoverty) minOf(500L, session.buffer_coins) else session.buffer_coins
+        var finalCoins = if (hasHoloPoverty) minOf(500L, session.buffer_coins) else session.buffer_coins
         if (hasHoloPoverty && session.buffer_coins > 500L) {
             log(uid, "🥋 [ГОЛОГРАММА НИЩЕТЫ]: Вынос валюты ограничен лимитом в 500 BC.", "info")
+        }
+        if (player.prestige_count > 0) {
+            finalCoins = (finalCoins * prestigeMult).toLong()
         }
 
         val isPerfectRaid = session.signal >= player.max_hp && session.depth >= 10
@@ -3294,6 +3449,37 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             )
             log(uid, "[ТЕРМИНАЛ СВЯЗИ]: Начислена награда от Центрального Ядра EIDOS!", "loot")
         }
+
+        // 4. Episodic series "Кассандра // Сигнатура 7-7-3": a continuing story
+        // of a trapped operator, unlocked by depth milestones (was: 3 messages
+        // per account lifetime, no episodic lore delivery)
+        val cassandraSender = "Кассандра // Сигнатура 7-7-3"
+        val cassandraEpisodes = listOf(
+            Triple(200, "КАССАНДРА // EP.01 - ЗОНД", "Я слышу тебя через шум. Я - оператор Кассандра, застрявшая между Слоями с Первого Сброса. Мой аватар распадается, но сигнатура жива. Если дойдёшь до 400м - я передам первую часть архива Архитекторов."),
+            Triple(400, "КАССАНДРА // EP.02 - АРХИВ", "Архив 1/3: Эйдос не симуляция. Это перенос сознания, который пошёл не туда. Тела спящих на поверхности - контейнеры. Архитекторы знали о Глитче ДО запуска. 600м - следующая передача."),
+            Triple(600, "КАССАНДРА // EP.03 - ЭНТРОПИЯ", "Архив 2/3: Энтропия - не баг. Это протокол очистки контейнеров, чей разум сопротивлялся переносу. Скверна - их крик. Не слушай её, если встретишь. На 800м я покажу лазейку мимо Ищеек."),
+            Triple(800, "КАССАНДРА // EP.04 - ЛАЗЕЙКА", "Лазейка передана: слепые зоны между волнами Ищеек. Используй Ключи Бездны на вратах - Хранители видят меньше, чем думает Ядро. Дальше 1200м начинается чужая территория. Будь осторожен."),
+            Triple(1200, "КАССАНДРА // EP.05 - БРОКЕР", "Осторожно: Теневой Брокер торгуется шкурами операторов. Его 'пакеты данных' прошиты трекерами. Я видела, кем он был до Сброса. Это был один из Архитекторов. Продолжение на 1600м."),
+            Triple(1600, "КАССАНДРА // EP.06 - ДЕМОН", "Архив 3/3: Демон Максвелла - не сущность. Это экзекьютор протокола Энтропии, и он выполняет команду, отданную в 2029 году. Кем-то из нас. Кассандра больше не уверена, что она - исключение. Ищи Терминал."),
+            Triple(2000, "КАССАНДРА // EP.07 - ТЕРМИНАЛ", "Терминал Сингулярности реален. Я была у него. Я не смогла выбрать. Сброс стирает всё, Вознесение растворяет всё. Но есть третий путь - Бездна сама предложит свою цену. Решай сама. На 3000м - последняя передача."),
+            Triple(3000, "КАССАНДРА // EP.08 - МОЛЧАНИЕ", "Это моя последняя передача. Сигнатура 7-7-3 рассеивается. Если найдёшь Терминал - помни: любой финал лучше, чем застрять между Слоями, как я. Извлеки меня хотя бы из истории. Конец связи... и спасибо.")
+        )
+        cassandraEpisodes.forEach { (depthReq, title, body) ->
+            if (player.max_depth >= depthReq && existing.none { it.title == title }) {
+                dao.insertRadioMessage(
+                    RadioMessageEntity(
+                        uid = uid,
+                        sender = cassandraSender,
+                        title = title,
+                        body = body,
+                        rewardCoins = 250L,
+                        rewardXp = 120L,
+                        isClaimed = false
+                    )
+                )
+                log(uid, "[ТЕРМИНАЛ СВЯЗИ]: Перехвачена эпизодическая передача: «$title»!", "info")
+            }
+        }
     }
 
     suspend fun claimRadioMessageReward(uid: Long, messageId: Long) {
@@ -3408,7 +3594,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         when {
             roll < 35 -> { // Found a random item or material
-                val lootMeta = if ((0..100).random() < 50) rollNormalLoot() else null
+                val lootMeta = if ((0..100).random() < 50) rollNormalLoot(legendaryBoost = session.active_mutator == SectorMutator.GLITCH_STORM.id) else null
                 val foundItemId = lootMeta?.id ?: listOf("battery", "energy_cell", "eidos_shard", "medkit", "master_key", "crowbar").random()
                 val lootName = getItemMetadata(foundItemId)?.name ?: foundItemId
                 val updatedItems = if (session.buffer_items.isEmpty()) foundItemId else "${session.buffer_items},$foundItemId"
@@ -3454,10 +3640,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
 
         // Tactical ability energy cost: 10 EP (or 8% HP emergency overload if low EP)
-        val hasEnergy = player.energy >= 10
+        // ANTIGRAVITY mutator: skills and Overdrive cost 0 EP
+        val isAntigravity = session.active_mutator == SectorMutator.ANTIGRAVITY.id
+        val abilityCost = if (isAntigravity) 0 else 10
         var workingPlayer = player
-        if (hasEnergy) {
-            val newEnergy = player.energy - 10
+        if (isAntigravity) {
+            log(uid, "🪐 [АНТИГРАВИТАЦИЯ]: Навык активирован в нулевой гравитации - бесплатно (0 EP)!", "info")
+        } else if (player.energy >= abilityCost) {
+            val newEnergy = player.energy - abilityCost
             workingPlayer = player.copy(energy = newEnergy)
             dao.updatePlayer(workingPlayer)
         } else {
@@ -3745,6 +3935,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         val rewards = mutableListOf<InventoryItem>()
         repeat(2) {
+            // Out-of-raid decryption: no session mutator applies here
             val lootMeta = rollNormalLoot()
             if (lootMeta != null) {
                 val lootId = lootMeta.id
@@ -3818,7 +4009,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             log(uid, "🎉 [УРОВЕНЬ ПОВЫШЕН!]: Поздравляем! Ваш уровень Ядра вырос до Level ${updatedPlayer.level}!", "info")
         }
 
-        log(uid, "🧬 [СИНХРОНИЗАЦИЯ_УСПЕШНА]: Получен новый протокол:\n$selectedProtocolText", "info")
+        log(
+            uid,
+            "🧬 [СИНХРОНИЗАЦИЯ_УСПЕШНА]: Извлечён фрагмент АРХИВА АРХИТЕКТОРОВ (записи о Биоэпохе, до 2029):\n$selectedProtocolText\n" +
+                "— Расшифровка ЕВА-09: это исследовательские заметки Архитекторов о носителях из плоти. Их доподлинная психология была ключом к помехоустойчивости сигнала.",
+            "info"
+        )
         log(uid, "✨ Загружено +$totalXp XP (Бонус серии: +${(currentPlayer.streak * 10)}%).", "loot")
 
         // Glitch chance (7%)
@@ -4031,10 +4227,18 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         val rawCoins = session.buffer_coins
         val extractionTax = ZeroLayerEconomy.calculateExtractionTax(rawCoins)
-        val finalCoins = maxOf(0L, rawCoins - extractionTax)
+        // Discipline bonus: +5% BC on top for a clean extraction (safe path has
+        // no outside-bot risk, the normal endRaid keeps that risk but no tax)
+        val disciplineBonus = (rawCoins * 0.05).toLong()
+        val rawFinalCoins = maxOf(0L, rawCoins - extractionTax + disciplineBonus)
+        // NG+ prestige: +10% per Singularity cycle
+        val prestigeMultSafe = 1.0f + (player.prestige_count * 0.10f)
+        val finalCoins = (rawFinalCoins * prestigeMultSafe).toLong()
 
         val bonusXpMult = if (player.is_premium) 1.5f else 1.0f
-        val calculatedXp = (session.buffer_xp * bonusXpMult).toLong()
+        // NG+ prestige: each Singularity cycle grants +10% to all raid rewards
+        val prestigeMult = 1.0f + (player.prestige_count * 0.10f)
+        val calculatedXp = (session.buffer_xp * bonusXpMult * prestigeMult).toLong()
 
         val sessionToken = authStore.getSession().accessToken
         if (!sessionToken.isNullOrBlank() && SupabaseClientManager.isConfigured()) {
@@ -4084,7 +4288,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
 
         dao.deleteRaidSession(uid)
-        log(uid, "📡 [БЕЗОПАСНАЯ ЭВАКУАЦИЯ]: Комиссия шлюза (12%): -$extractionTax BC. Зачислено чистой выручки: +$finalCoins BC, +$calculatedXp XP.", "info")
+        log(
+            uid,
+            "📡 [БЕЗОПАСНАЯ ЭВАКУАЦИЯ]: Комиссия шлюза (${ZeroLayerEconomy.SAFE_EXTRACTION_TAX_PERCENT}%): -$extractionTax BC. " +
+                "Надбавка за дисциплину: +$disciplineBonus BC. Зачислено чистой выручки: +$finalCoins BC, +$calculatedXp XP.",
+            "info"
+        )
         
         return Triple(extractedItems, finalCoins, leveledUp)
     }

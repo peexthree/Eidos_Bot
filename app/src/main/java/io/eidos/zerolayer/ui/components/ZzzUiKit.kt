@@ -114,6 +114,24 @@ fun ZzzCyberGridCanvas(modifier: Modifier = Modifier) {
 }
 
 /**
+ * Animates the numeric prefix of a resource string ("9478 BC", "85/100") with a smooth tween(600ms).
+ * Non-numeric or out-of-range values are returned unchanged.
+ */
+@Composable
+fun animatedResourceText(valueText: String): String {
+    val match = Regex("^\\s*(-?\\d+)(.*)$").find(valueText) ?: return valueText
+    val number = match.groupValues[1].toLongOrNull() ?: return valueText
+    val suffix = match.groupValues[2]
+    if (number !in 0L..Int.MAX_VALUE.toLong()) return valueText
+    val animatedNumber by animateIntAsState(
+        targetValue = number.toInt(),
+        animationSpec = tween(600, easing = FastOutSlowInEasing),
+        label = "zzzResourceValueAnim"
+    )
+    return "${animatedNumber}$suffix"
+}
+
+/**
  * ZZZ Window Card with terminal top header, cut corners, neon border, and optional glassmorphic graphic texture.
  */
 @Composable
@@ -128,6 +146,7 @@ fun ZzzWindowCard(
     borderWidth: Dp = 2.dp,
     useGraphicBackground: Boolean = false,
     graphicDrawableRes: Int = R.drawable.panel_card_glass,
+    tiltEnabled: Boolean = false,
     headerRightContent: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -139,6 +158,7 @@ fun ZzzWindowCard(
         border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
         modifier = modifier
             .fillMaxWidth()
+            .cyber3DTilt(enabled = tiltEnabled, maxRotationDegrees = 6f, depthTranslationDp = 10f)
             .clip(shape)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -267,6 +287,7 @@ fun ZzzMainButton(
     showHazardStripes: Boolean = true,
     useGraphicBackground: Boolean = true,
     graphicDrawableRes: Int = R.drawable.btn_action_primary,
+    tiltEnabled: Boolean = true,
     shape: androidx.compose.ui.graphics.Shape = CutCornerShape(topStart = 10.dp, bottomEnd = 10.dp, topEnd = 3.dp, bottomStart = 3.dp),
     height: Dp = 50.dp
 ) {
@@ -290,7 +311,9 @@ fun ZzzMainButton(
         interactionSource = interactionSource,
         color = Color.Transparent,
         shape = shape,
-        modifier = modifier.scale(scale)
+        modifier = modifier
+            .cyber3DTilt(enabled = tiltEnabled, maxRotationDegrees = 5f, depthTranslationDp = 6f)
+            .scale(scale)
     ) {
         Box(
             modifier = Modifier
@@ -481,7 +504,13 @@ fun ZzzProgressBar(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val filledSegments = (progress * totalSegments).toInt().coerceIn(0, totalSegments)
+            // Smooth tween(600) progress animation instead of instant jump
+            val animatedProgress by animateFloatAsState(
+                targetValue = progress.coerceIn(0f, 1f),
+                animationSpec = tween(600, easing = FastOutSlowInEasing),
+                label = "zzzProgressTween"
+            )
+            val filledSegments = (animatedProgress * totalSegments).toInt().coerceIn(0, totalSegments)
             for (i in 0 until totalSegments) {
                 val isFilled = i < filledSegments
                 Box(
@@ -581,18 +610,18 @@ fun ZzzHeaderBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // BioCoins Badge
+            // BioCoins Badge (animated counter)
             ZzzResourceBadge(
                 iconRes = R.drawable.ic_biocoin,
-                value = "$bioCoins",
+                value = animatedResourceText("$bioCoins"),
                 borderColor = ZzzAcidYellow,
                 textColor = ZzzAcidYellow
             )
 
-            // Energy Badge
+            // Energy Badge (animated counter)
             ZzzResourceBadge(
                 iconRes = R.drawable.ic_star_energy,
-                value = "$energy/$maxEnergy",
+                value = animatedResourceText("$energy/$maxEnergy"),
                 borderColor = ZzzElectricCyan,
                 textColor = ZzzElectricCyan
             )
@@ -606,13 +635,20 @@ fun ZzzHeaderBar(
             )
 
             if (onOpenSettings != null) {
+                // 48dp minimum touch target for the settings gear
                 Surface(
                     onClick = onOpenSettings,
                     color = Color(0xFF202534),
                     shape = CircleShape,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray),
+                    modifier = Modifier.size(48.dp)
                 ) {
-                    Text("⚙️", fontSize = 12.sp, modifier = Modifier.padding(5.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Text("⚙️", fontSize = 16.sp)
+                    }
                 }
             }
         }

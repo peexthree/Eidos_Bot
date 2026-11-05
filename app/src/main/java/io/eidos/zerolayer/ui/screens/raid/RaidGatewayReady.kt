@@ -39,6 +39,7 @@ internal fun RaidGatewayReadyContent(
     inventory: List<InventoryItem>,
     innerPadding: PaddingValues,
     onStartRaid: () -> Unit,
+    raidAdvice: String? = null,
     haptics: HapticFeedbackManager,
     audio: EidosAudioManager
 ) {
@@ -173,6 +174,28 @@ internal fun RaidGatewayReadyContent(
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
+
+                    // Eva-09 tactical advice from content.json (previously never displayed)
+                    if (!raidAdvice.isNullOrBlank()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(EidosNeon.copy(alpha = 0.08f))
+                                .border(1.dp, EidosNeon.copy(alpha = 0.4f), androidx.compose.foundation.shape.CutCornerShape(4.dp))
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "🧠 СОВЕТ ЕВЫ-09: $raidAdvice",
+                                color = EidosNeon,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
                     Button(
                         onClick = {

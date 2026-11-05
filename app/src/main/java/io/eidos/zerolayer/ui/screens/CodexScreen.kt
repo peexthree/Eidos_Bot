@@ -1,6 +1,5 @@
 package io.eidos.zerolayer.ui.screens
 
-import android.media.MediaPlayer
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -131,40 +130,19 @@ fun CodexScreen(
     logs: List<GameLog>,
     selectedMainCategory: String = "lore_story",
     onCategoryChange: (String) -> Unit = {},
+    onSingularityEnding: (String) -> Unit = {},
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     var isMuted by remember { mutableStateOf(false) }
     val globalAudio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
 
-    // Background soundtrack: Разбей_зеркало_лжи.mp3
+    // Background soundtrack: bgm_mirror_of_lies through the shared audio manager
+    // (was a private MediaPlayer bypassing EidosAudioManager mute/lifecycle logic)
     DisposableEffect(isMuted) {
-        globalAudio.pauseMusic()
-        var mediaPlayer: MediaPlayer? = null
-        if (!isMuted) {
-            try {
-                mediaPlayer = MediaPlayer.create(context, R.raw.bgm_mirror_of_lies)?.apply {
-                    isLooping = true
-                    start()
-                }
-            } catch (e: Throwable) {
-                android.util.Log.e("CodexScreen", "bgm init failed: ${e.message}")
-            }
-        }
-
+        globalAudio.playBgm(if (isMuted) io.eidos.zerolayer.ui.utils.EidosAudioManager.BgmTrack.NONE else io.eidos.zerolayer.ui.utils.EidosAudioManager.BgmTrack.CODEX)
         onDispose {
-            try {
-                if (mediaPlayer?.isPlaying == true) {
-                    mediaPlayer?.stop()
-                }
-                mediaPlayer?.reset()
-                mediaPlayer?.release()
-            } catch (e: Throwable) {
-                android.util.Log.w("CodexScreen", "bgm release issue: ${e.message}")
-            } finally {
-                mediaPlayer = null
-            }
-            globalAudio.resumeMusic()
+            globalAudio.stopMusic()
         }
     }
 
@@ -279,7 +257,10 @@ fun CodexScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     when (selectedMainCategory) {
-                        "lore_story" -> LoreBookSection(player = player)
+                        "lore_story" -> LoreBookSection(
+                            player = player,
+                            onSingularityEnding = onSingularityEnding
+                        )
                         "bestiary" -> BestiaryBookSection(player = player, bestiaryList = bestiaryList)
                         "audio_logs" -> ArchitectAudioLogsSection(player = player)
                         "achievements" -> AchievementsSection(player = player)
@@ -293,7 +274,7 @@ fun CodexScreen(
 }
 
 @Composable
-fun LoreBookSection(player: Player?) {
+fun LoreBookSection(player: Player?, onSingularityEnding: (String) -> Unit = {}) {
     var activeChapterToRead by remember { mutableStateOf<StoryChapterData?>(null) }
     val unlockedCount = STORY_CHAPTERS.count { it.isUnlocked(player) }
 
@@ -363,11 +344,11 @@ fun LoreBookSection(player: Player?) {
                     modifier = Modifier.padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ZzzIcon(R.drawable.ic_event_chest, size = 16.dp, tint = Color(0xFFFFD700))
+                    ZzzIcon(R.drawable.ic_event_chest, size = 16.dp, tint = ZzzGold)
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "⚡ НАГРАДА ЗА ПОГРУЖЕНИЕ: Открыта Глава 0${newlyUnlockedChapter.id} «${newlyUnlockedChapter.title}»!",
-                        color = Color(0xFFFFD700),
+                        color = ZzzGold,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
@@ -585,6 +566,62 @@ fun LoreBookSection(player: Player?) {
                                 modifier = Modifier.fillMaxWidth().height(42.dp)
                             ) {
                                 Text("ЗАКРЫТЬ КНИГУ", color = Color.Black, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- SINGULARITY TERMINAL: Chapter VI finale (depth >= 1000m) ---
+        val terminalReady = (player?.max_depth ?: 0) >= 1000
+        if (STORY_CHAPTERS.any { it.hasSingularityTerminal && it.isUnlocked(player) }) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF160810)),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFB388FF)),
+                shape = CutCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(iconRes = R.drawable.ic_event_anomaly, size = 16.dp, tint = Color(0xFFB388FF))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "ТЕРМИНАЛ СИНГУЛЯРНОСТИ // ФИНАЛ",
+                            color = Color(0xFFB388FF),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        if (terminalReady)
+                            "Ты стоишь у ядра EIDOS-CORE. Терминал принимает директивы. Выбор необратим и определит форму твоего существования."
+                        else
+                            "Терминал заблокирован: требуется breach Ядра на 1000м глубины (достигни врат Хранителя).",
+                        color = if (terminalReady) Color.White else Color.LightGray,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    if (terminalReady) {
+                        Spacer(Modifier.height(10.dp))
+                        listOf(
+                            Triple("great_reset", "♾ ВЕЛИКИЙ СБРОС", "Обнулить уровень. Сохранить снаряжение. +10% наград за каждый цикл навсегда."),
+                            Triple("ascension", "🌐 ЦИФРОВОЕ ВОЗНЕСЕНИЕ", "Влиться в OMNI-слой Архитекторов: +25 💎, +25000 BC."),
+                            Triple("abyss", "🕳 СИНГУЛЯРНОСТЬ БЕЗДНЫ", "Отринуть обоих: +10 💎, +5 🗝, +15000 BC.")
+                        ).forEach { (endingId, title, desc) ->
+                            Button(
+                                onClick = { onSingularityEnding(endingId) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A0A2A)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB388FF)),
+                                shape = CutCornerShape(4.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text(title, color = Color(0xFFB388FF), fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                    Text(desc, color = Color.LightGray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                }
                             }
                         }
                     }

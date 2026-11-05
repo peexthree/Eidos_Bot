@@ -58,6 +58,8 @@ import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.cyber3DTilt
 import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.components.cyberGlitchEffect
+import io.eidos.zerolayer.ui.components.CyberGlitchOverlay
+import io.eidos.zerolayer.ui.components.animatedResourceText
 import io.eidos.zerolayer.ui.components.CyberParticleOverlay
 import io.eidos.zerolayer.ui.components.ParticlePreset
 import io.eidos.zerolayer.ui.theme.*
@@ -67,6 +69,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import io.eidos.zerolayer.ui.utils.EidosAmbientSynthesizer
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import io.eidos.zerolayer.ui.MainViewModel
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosGlass
 import io.eidos.zerolayer.ui.theme.EidosNeon
@@ -164,9 +168,16 @@ fun HubScreen(
 
     // isBrokerActive is updated every 30s to avoid full-screen 1000ms recompositions
 
-    // World Boss local state
-    var bossHp by remember { mutableStateOf(984124510L) }
-    var personalDamage by remember { mutableStateOf(1540200L) }
+    // World Boss: live state from the persistent shared pool (Room) via MainViewModel
+    val mainViewModel: MainViewModel = viewModel()
+    val worldBossState by mainViewModel.worldBossState.collectAsState()
+    val bossTop by mainViewModel.bossTop.collectAsState()
+    LaunchedEffect(Unit) { mainViewModel.refreshWorldBoss() }
+    val bossHp = worldBossState?.boss_hp ?: 984124510L
+    val bossMaxHp = worldBossState?.boss_max_hp ?: 984124510L
+    val bossCycle = worldBossState?.cycle ?: 1
+    val bossHpPercent = if (bossMaxHp > 0) (bossHp * 100 / bossMaxHp).coerceIn(0L, 100L) else 0L
+    val personalDamage = bossTop.firstOrNull { it.username == (player?.username ?: "") }?.total_damage ?: 0L
 
     CyberdeckVisorOverlay(
         showGrid = true,
@@ -336,13 +347,13 @@ fun HubScreen(
                             CyberResourcePill(
                                 iconText = "🔋",
                                 valueText = "${player?.energy ?: 100} EP",
-                                accentColor = Color(0xFFFFD700),
+                                accentColor = ZzzGold,
                                 modifier = Modifier.weight(1f)
                             )
                             CyberResourcePill(
                                 iconText = "🪙",
                                 valueText = "${player?.biocoin ?: 9478} BC",
-                                accentColor = Color(0xFFFFB300),
+                                accentColor = ZzzGold,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -379,7 +390,7 @@ fun HubScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "CYBER HUB",
-                            color = Color(0xFFFFD700),
+                            color = ZzzGold,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.SansSerif,
@@ -423,7 +434,7 @@ fun HubScreen(
                             modifier = Modifier
                                 .width(3.dp)
                                 .height(14.dp)
-                                .background(Color(0xFFFFD700))
+                                .background(ZzzGold)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -437,7 +448,7 @@ fun HubScreen(
                     }
                     Text(
                         text = "[GRID-OPS // AUTH]",
-                        color = Color(0xFFFFD700),
+                        color = ZzzGold,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -492,7 +503,7 @@ fun HubScreen(
                         CyberTacticalOpsCard(
                             title = "КОДЕКС / БАЗА ЗНАНИЙ",
                             iconRes = R.drawable.ic_menu_codex,
-                            accentColor = Color(0xFFFFD700),
+                            accentColor = ZzzGold,
                             onClick = onNavigateToCodex,
                             modifier = Modifier.weight(1f)
                         )
@@ -525,9 +536,24 @@ fun HubScreen(
                 // 6. DEDICATED WORLD BOSS BANNER
                 CyberWorldBossBanner(
                     bossHp = bossHp,
+                    bossMaxHp = bossMaxHp,
+                    bossCycle = bossCycle,
                     onClick = { showBossDialog = true }
                 )
             }
+        }
+
+        // Layer 3: One-shot glitch flash when the screen first composes (Juice Phase 1)
+        val hubGlitchFlash = remember { Animatable(0.85f) }
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(120)
+            hubGlitchFlash.animateTo(0f, tween(650, easing = FastOutSlowInEasing))
+        }
+        if (hubGlitchFlash.value > 0.02f) {
+            CyberGlitchOverlay(
+                intensity = hubGlitchFlash.value,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 
@@ -659,7 +685,7 @@ fun HubScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("ТАЙМЕР ДОСТУПНОСТИ:", color = Color.Gray, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
-                            Text(depotCountdownText, color = if (isDepotReady) EidosNeon else Color(0xFFFFB300), fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            Text(depotCountdownText, color = if (isDepotReady) EidosNeon else ZzzGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
@@ -815,7 +841,7 @@ fun HubScreen(
                     
                     // HP Bar
                     Text(
-                        text = "ЗДОРОВЬЕ EIDOS-CORE: $bossHp / 1,000,000,000 HP",
+                        text = "ЗДОРОВЬЕ EIDOS-CORE: ${String.format(java.util.Locale.US, "%,d", bossHp)} / ${String.format(java.util.Locale.US, "%,d", bossMaxHp)} HP ($bossHpPercent%)",
                         color = EidosRed,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -823,17 +849,25 @@ fun HubScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     LinearProgressIndicator(
-                        progress = { bossHp.toFloat() / 1000000000f },
+                        progress = { if (bossMaxHp > 0) bossHp.toFloat() / bossMaxHp.toFloat() else 0f },
                         color = EidosRed,
                         trackColor = Color.DarkGray,
                         modifier = Modifier.fillMaxWidth().height(8.dp)
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "ЦИКЛ ПУЛА: #$bossCycle",
+                        color = ZzzGold,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     Text(
                         text = "ВАША СТАТИСТИКА:\n" +
                                 "• Базовый урон (АТK): ${player?.attack ?: 5}\n" +
-                                "• Нанесено урона: $personalDamage HP damage\n" +
+                                "• Нанесено урона: ${String.format(java.util.Locale.US, "%,d", personalDamage)} HP damage\n" +
                                 "• Стоимость атаки: 10 EP",
                         color = Color.Gray,
                         fontSize = 11.sp,
@@ -841,7 +875,7 @@ fun HubScreen(
                         fontFamily = FontFamily.Monospace
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     Text(
                         text = "ТОП ОПЕРАТОРОВ ПО УРОНУ БОССУ:",
                         color = EidosCyan,
@@ -850,20 +884,34 @@ fun HubScreen(
                         fontFamily = FontFamily.Monospace
                     )
                     Spacer(modifier = Modifier.height(6.dp))
-                    val bossLeaderboard = listOf(
-                        Pair("1. VIRTUAL_GOD", "120,400,000 HP"),
-                        Pair("2. ANON_OP", "98,540,000 HP"),
-                        Pair("3. KERNEL_PANIC", "84,100,000 HP"),
-                        Pair("4. STACK_OVERFLOW", "72,900,000 HP"),
-                        Pair("5. ROOT_ADMIN", "63,220,000 HP")
-                    )
-                    bossLeaderboard.forEach { (name, dmg) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(name, color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                            Text(dmg, color = EidosRed, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    if (bossTop.isEmpty()) {
+                        Text(
+                            text = "ВКЛАД ОПЕРАТОРОВ: ПУСТО // БУДЬ ПЕРВЫМ",
+                            color = Color.Gray,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    } else {
+                        bossTop.forEachIndexed { index, contributor ->
+                            val name = contributor.username ?: "UNKNOWN_OP"
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "${index + 1}. $name",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    "${String.format(java.util.Locale.US, "%,d", contributor.total_damage)} HP",
+                                    color = EidosRed,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }
@@ -873,8 +921,6 @@ fun HubScreen(
                     onClick = {
                         if ((player?.energy ?: 0) >= 10) {
                             onAttackWorldBoss()
-                            bossHp -= ((player?.attack ?: 10) * 12 + (50..150).random())
-                            personalDamage += ((player?.attack ?: 10) * 12 + (50..150).random())
                             showBossDialog = false
                         }
                     },
@@ -1705,29 +1751,51 @@ fun CyberResourcePill(
     accentColor: Color,
     modifier: Modifier = Modifier
 ) {
+    // Juice Phase 1: animated counter (tween 600ms) + one-shot glitch pulse when the value changes
+    val animatedValueText = animatedResourceText(valueText)
+
+    val glitchFlash = remember { Animatable(0f) }
+    var lastSeenValue by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(valueText) {
+        if (lastSeenValue != null && valueText != lastSeenValue) {
+            glitchFlash.snapTo(0.8f)
+            glitchFlash.animateTo(0f, tween(500, easing = FastOutSlowInEasing))
+        }
+        lastSeenValue = valueText
+    }
+
     Surface(
         color = Color(0xCC09121A),
         shape = RoundedCornerShape(12.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.85f)),
         modifier = modifier.height(26.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = iconText,
-                fontSize = 10.sp
-            )
-            Spacer(modifier = Modifier.width(3.dp))
-            Text(
-                text = valueText,
-                color = Color.White,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace
-            )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = iconText,
+                    fontSize = 10.sp
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(
+                    text = animatedValueText,
+                    color = Color.White,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            if (glitchFlash.value > 0.02f) {
+                CyberGlitchOverlay(
+                    intensity = glitchFlash.value,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     }
 }
@@ -1826,7 +1894,7 @@ fun CyberDepotSyncBanner(
                 ) {
                     Text(
                         text = if (isDepotReady) "ГОТОВО" else "⏱ $depotCountdownText",
-                        color = if (isDepotReady) Color(0xFF00FF66) else Color(0xFFFFD700),
+                        color = if (isDepotReady) Color(0xFF00FF66) else ZzzGold,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace
@@ -1907,7 +1975,7 @@ fun HazardStripesCanvas(modifier: Modifier = Modifier) {
                 lineTo(startX - size.height, size.height)
                 close()
             }
-            drawPath(path, color = Color(0xFFFFD700))
+            drawPath(path, color = ZzzGold)
         }
     }
 }
@@ -1972,8 +2040,11 @@ fun CyberTacticalOpsCard(
 fun CyberWorldBossBanner(
     bossHp: Long,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bossMaxHp: Long = 984124510L,
+    bossCycle: Int = 1
 ) {
+    val bossHpPercent = if (bossMaxHp > 0) (bossHp * 100 / bossMaxHp).coerceIn(0L, 100L) else 0L
     Surface(
         color = Color(0xEB160508),
         shape = CutCornerShape(8.dp),
@@ -2040,11 +2111,13 @@ fun CyberWorldBossBanner(
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .fillMaxWidth((bossHp.toFloat() / 1000000000f).coerceIn(0f, 1f))
+                            .fillMaxWidth(
+                                (if (bossMaxHp > 0) bossHp.toFloat() / bossMaxHp.toFloat() else 0f).coerceIn(0f, 1f)
+                            )
                             .clip(RoundedCornerShape(3.dp))
                             .background(
                                 Brush.horizontalGradient(
-                                    listOf(Color(0xFFFF003C), Color(0xFFFF5252))
+                                    listOf(Color(0xFFFF003C), ZzzDangerRed)
                                 )
                             )
                     )
@@ -2056,15 +2129,22 @@ fun CyberWorldBossBanner(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "HP: ${bossHp / 1000000}M / 1000M ⚠ ///",
+                        text = "HP: ${String.format(java.util.Locale.US, "%,d", bossHp)} / ${String.format(java.util.Locale.US, "%,d", bossMaxHp)} ($bossHpPercent%) ///",
                         color = Color(0xFFFF003C),
                         fontSize = 8.5.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
+                        text = "ЦИКЛ #$bossCycle",
+                        color = ZzzGold,
+                        fontSize = 8.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
                         text = "[АТАКОВАТЬ]",
-                        color = Color(0xFFFFD700),
+                        color = ZzzGold,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Black

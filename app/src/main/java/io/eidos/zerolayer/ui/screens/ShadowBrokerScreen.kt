@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.data.Player
 import io.eidos.zerolayer.data.GameRepository.ItemMetadata
 import io.eidos.zerolayer.ui.theme.EidosGlass
+import io.eidos.zerolayer.ui.theme.ZzzGold
+import io.eidos.zerolayer.ui.theme.ZzzDangerRed
 import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
@@ -168,7 +170,7 @@ fun ShadowBrokerScreen(
                 ) {
                     Column {
                         Text("XP БАЛАНС: ${player?.xp ?: 0} XP", color = neonPink, fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                        Text("BC БАЛАНС: ${player?.biocoin ?: 0} BC", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                        Text("BC БАЛАНС: ${player?.biocoin ?: 0} BC", color = ZzzGold, fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                     }
                     Surface(
                         color = purpleAccent.copy(alpha = 0.2f),
@@ -262,8 +264,8 @@ fun ShadowBrokerScreen(
                 ) {
                     items(current5Items, key = { it.id }) { item ->
                         val rarityColor = when (item.rarity.lowercase()) {
-                            "relic" -> Color(0xFFFF1744)
-                            "cursed" -> Color(0xFFFF5252)
+                            "relic" -> ZzzDangerRed
+                            "cursed" -> ZzzDangerRed
                             "legendary" -> Color(0xFFFF7043)
                             "epic" -> Color(0xFFAB47BC)
                             else -> neonPink
@@ -382,18 +384,18 @@ fun ShadowBrokerScreen(
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFFFFB300).copy(alpha = 0.2f),
+                                            containerColor = ZzzGold.copy(alpha = 0.2f),
                                             disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
                                         ),
                                         enabled = (player?.biocoin ?: 0) >= bcPrice,
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if ((player?.biocoin ?: 0) >= bcPrice) Color(0xFFFFB300) else Color.DarkGray),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if ((player?.biocoin ?: 0) >= bcPrice) ZzzGold else Color.DarkGray),
                                         shape = CutCornerShape(4.dp),
                                         modifier = Modifier.weight(1f),
                                         contentPadding = PaddingValues(vertical = 8.dp)
                                     ) {
                                         Text(
                                             "$bcPrice BC",
-                                            color = if ((player?.biocoin ?: 0) >= bcPrice) Color(0xFFFFB300) else Color.Gray,
+                                            color = if ((player?.biocoin ?: 0) >= bcPrice) ZzzGold else Color.Gray,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             fontFamily = FontFamily.Monospace
