@@ -52,6 +52,7 @@ import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.ZzzGold
 import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
+import io.eidos.zerolayer.ui.theme.ZzzCyanBright
 import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.components.cyber3DTilt
 import io.eidos.zerolayer.ui.utils.EidosAudioManager
@@ -888,7 +889,7 @@ fun EquipDollSection(
                     val chipAccent = when (chipColor) {
                         ChipColor.RED -> Color(0xFFFF3D00)
                         ChipColor.GREEN -> Color(0xFF00E676)
-                        ChipColor.BLUE -> Color(0xFF00E5FF)
+                        ChipColor.BLUE -> ZzzCyanBright
                         ChipColor.CURSED -> Color(0xFFE040FB)
                         ChipColor.NEUTRAL -> EidosNeon
                     }

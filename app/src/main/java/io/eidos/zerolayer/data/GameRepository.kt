@@ -56,6 +56,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     private val dbMutex = Mutex()
 
+    // Ежедневные Директивы: prefs-based daily quest storage (no Room migration)
+    val dailyQuestStorage: DailyQuestStorage = DailyQuestStorage.getInstance(context)
+
+    /** Универсальная точка прогресса дейликов (быстрая, безопасна внутри мьютексов). */
+    fun recordDailyQuestEvent(uid: Long, type: String, amount: Int = 1) {
+        runCatching { dailyQuestStorage.recordProgress(uid, type, amount) }
+    }
+
     // Fire-and-forget scope for background work that must never extend a dbMutex
     // critical section (e.g. cloud log sync). SupervisorJob: one failure
     // doesn't cancel pending children.
@@ -1243,6 +1251,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
         
         dao.updatePlayer(player.copy(biocoin = player.biocoin - meta.price, state_version = player.state_version + 1))
+        recordDailyQuestEvent(uid, "SPEND", meta.price.toInt().coerceAtLeast(1))
         val existing = dao.getInventoryFlow(uid).first().find { it.item_id == itemId }
         if (existing != null && (meta.type == "consumable" || meta.type == "material")) {
             dao.updateInventoryItem(existing.copy(quantity = existing.quantity + 1))
@@ -2086,6 +2095,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         dao.updatePlayer(player.copy(biocoin = player.biocoin - cost))
         dao.updateInventoryItem(item.copy(durability = 100f))
+        recordDailyQuestEvent(uid, "SPEND", cost.toInt().coerceAtLeast(1))
         log(uid, "Успешно отремонтировано ${meta.name} за $cost BC.", "info")
     }
 
@@ -2604,7 +2614,25 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
         dao.updatePlayer(workingPlayer)
 
-        val newDepth = session.depth + (5..15).random()
+        var newDepth = session.depth + (5..15).random()
+        // Ежедневная директива: пройденный квантовый сектор
+        recordDailyQuestEvent(uid, "DEPTH")
+
+        // 🔴 Реликвия «Шлем Бога Скорости» (АУРА: ГИПЕРПРОСТРАНСТВО):
+        // шаг превращается в рывок на 3/5/10 шагов вперёд. Энергия и XP -
+        // как за обычный шаг, промежуточные события пропускаются.
+        val equippedForRelic = dao.getInventoryFlow(uid).first().filter { it.is_equipped }
+        if (equippedForRelic.any { it.item_id == "relic_speed" }) {
+            val skipSteps = when ((0..99).random()) {
+                in 0..49 -> 3   // 50%
+                in 50..84 -> 5  // 35%
+                else -> 10      // 15%
+            }
+            val stepDist = newDepth - session.depth
+            newDepth = session.depth + stepDist * skipSteps
+            recordDailyQuestEvent(uid, "DEPTH", skipSteps - 1)
+            log(uid, "⚡️ [ГИПЕРПРОСТРАНСТВО]: Шлем Бога Скорости рвёт ткань Слоя - рывок на $skipSteps шагов (+${newDepth - session.depth}м) за цену одного!", "loot")
+        }
         val activeStats = getActiveStats(uid)
         val gravesList = dao.getAllGraves()
 
@@ -3525,6 +3553,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     suspend fun claimChestLoot(uid: Long, isCursed: Boolean): Triple<Long, Long, List<String>> = dbMutex.withLock {
         val session = dao.getRaidSession(uid) ?: return Triple(0L, 0L, emptyList())
+        // Ежедневная директива: вскрытый кэш-контейнер
+        recordDailyQuestEvent(uid, "CHEST")
         val depth = session.depth
         val isDoubleDrop = session.active_mutator == io.eidos.zerolayer.domain.combat.CombatEngine.AFFIX_DOUBLE_DROP
         val baseCoins = if (isCursed) (500L..1200L).random() + (depth * 2L) else (150L..350L).random() + (depth / 4L)
@@ -4016,6 +4046,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             "info"
         )
         log(uid, "✨ Загружено +$totalXp XP (Бонус серии: +${(currentPlayer.streak * 10)}%).", "loot")
+        // Ежедневная директива: синхронизация протокола
+        recordDailyQuestEvent(uid, "SYNC")
 
         // Glitch chance (7%)
         if ((0..100).random() < 7) {
@@ -4606,6 +4638,35 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val existing = dao.getBestiaryEntry(enemyId)
         val kills = (existing?.killed_count ?: 0) + 1
         dao.insertBestiaryEntry(BestiaryEntry(enemy_id = enemyId, encountered = true, killed_count = kills))
+        recordDailyQuestEvent(getActiveUid(), "KILLS")
+    }
+
+    // --- ЕЖЕДНЕВНЫЕ ДИРЕКТИВЫ ---
+
+    /** Возвращает 3 суточных квеста, генерируя их при смене даты. */
+    suspend fun getDailyQuests(uid: Long): List<DailyQuest> {
+        val player = dao.getPlayer(uid)
+        dailyQuestStorage.ensureGenerated(uid, player?.level ?: 1)
+        return dailyQuestStorage.getQuests(uid)
+    }
+
+    /** Забрать награду за выполненную директиву. */
+    suspend fun claimDailyQuest(uid: Long, questId: String): Boolean = dbMutex.withLock {
+        val quests = dailyQuestStorage.getQuests(uid)
+        val quest = quests.find { it.id == questId } ?: return@withLock false
+        if (quest.isClaimed || quest.progress < quest.target) return@withLock false
+        if (dailyQuestStorage.readClaimed(uid, questId)) return@withLock false
+
+        dailyQuestStorage.setClaimed(uid, questId)
+        val player = dao.getPlayer(uid) ?: return@withLock false
+        val updated = player.copy(
+            biocoin = player.biocoin + quest.rewardCoins,
+            xp = player.xp + quest.rewardXp
+        )
+        val (leveled, _) = updated.checkAndApplyLevelUp()
+        dao.updatePlayer(leveled)
+        log(uid, "🎯 [ДИРЕКТИВА ВЫПОЛНЕНА]: «${quest.title}» - награда: +${quest.rewardCoins} BC, +${quest.rewardXp} XP!", "loot")
+        true
     }
 
     // --- GACHA & LOOTBOX SYSTEM ---

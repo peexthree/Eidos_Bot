@@ -214,7 +214,7 @@ fun EidosSectionHeader(
 fun rarityColor(rarity: String): Color = when (rarity.lowercase()) {
     "legendary" -> Color(0xFFFFB800)
     "epic" -> Color(0xFFA855F7)
-    "rare" -> Color(0xFF00F0FF)
+    "rare" -> ZzzCyanBright
     "uncommon" -> Color(0xFF00E676)
     else -> Color(0xFF94A3B8)
 }

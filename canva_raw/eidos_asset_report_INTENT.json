@@ -1,0 +1,306 @@
+{
+  "confirm": [
+    "architect_eye.jpg",
+    "backdoor_js.jpg",
+    "banhammer_shard.jpg",
+    "banner_hazard_stripes.png",
+    "blood_miner.jpg",
+    "bruteforce_exe.jpg",
+    "cache_wiper.jpg",
+    "monster_2.jpg",
+    "monster_1.jpg",
+    "kinetic_core.jpg",
+    "kevlar_vest.jpg",
+    "karma_inversion.jpg",
+    "kamikaze_protocol.jpg",
+    "judas_shell.jpg",
+    "imposter_syndrome.jpg",
+    "holo_poverty.jpg",
+    "grandfather_paradox.jpg",
+    "glitch_filter.jpg",
+    "gacha_cube_lootbox.png",
+    "exoskeleton_frame.jpg",
+    "error_404.jpg",
+    "empath_whip.jpg",
+    "doll_operator_rig.png",
+    "death_mask.jpg",
+    "cpu_booster.jpg",
+    "credit_slicer.jpg",
+    "cipher_lock.jpg",
+    "monster_20.jpg",
+    "monster_21.jpg",
+    "monster_22.jpg",
+    "monster_23.jpg",
+    "monster_24.jpg",
+    "monster_25.jpg",
+    "monster_3.jpg",
+    "monster_4.jpg",
+    "monster_5.jpg",
+    "monster_6.jpg",
+    "neuro_link.jpg",
+    "nomad_goggles.jpg",
+    "oblivion_chip.jpg",
+    "panel_card_glass.png",
+    "quantum_chip.jpg",
+    "raid_chest.jpg",
+    "reality_silencer.jpg",
+    "scavenger_mask.jpg",
+    "schrodingers_armor.jpg",
+    "sniffer.jpg",
+    "tactical_helmet.jpg",
+    "thermonuclear_shroud.jpg",
+    "trojan_bat.jpg",
+    "vpn_ghost.jpg"
+  ],
+  "rename": [
+    {
+      "file": "abyssal_key.jpg",
+      "newName": "⚪️ 🗝 МАГНИТНАЯ ОТМЫЧКА"
+    },
+    {
+      "file": "aegis.jpg",
+      "newName": ""
+    },
+    {
+      "file": "battery.jpg",
+      "newName": ""
+    },
+    {
+      "file": "bio_plating.jpg",
+      "newName": "🟠 🧿 ГЕНЕРАТОР СИЛОВОГО ПОЛЯ"
+    },
+    {
+      "file": "chest_plate_forged.jpg",
+      "newName": "🟠 💠 ДОСПЕХИ РЕАЛЬНОСТИ"
+    },
+    {
+      "file": "chrono_drive.jpg",
+      "newName": "🟠 👑 GOD-ПРОТОКОЛ"
+    },
+    {
+      "file": "chrono_drive_core.jpg",
+      "newName": ""
+    },
+    {
+      "file": "combat_goggles.jpg",
+      "newName": "🟠 🎭 ЛИЦО АРХИТЕКТОРА"
+    },
+    {
+      "file": "crowbar.jpg",
+      "newName": "🟣 🧬 НАНО-КЛИНОК"
+    },
+    {
+      "file": "cyber_katana.jpg",
+      "newName": "⚪️ 🔪 РЖАВЫЙ ТЕСАК"
+    },
+    {
+      "file": "cyber_mask.jpg",
+      "newName": "🔴 🕯 НИМБ МУЧЕНИКА"
+    },
+    {
+      "file": "cyber_vest.jpg",
+      "newName": "🟣 🦠 СИМБИОТИЧЕСКИЙ НАНО-КОСТЮМ"
+    },
+    {
+      "file": "data_bat.jpg",
+      "newName": "🟠 🌌 ПУШКА ПУСТОТЫ"
+    },
+    {
+      "file": "data_fragment.jpg",
+      "newName": "🔵 💉 НЕЙРО-СТИМУЛЯТОР"
+    },
+    {
+      "file": "ddos_cannon.jpg",
+      "newName": "🔴 DDoS-Пушка"
+    },
+    {
+      "file": "eidos_crown.jpg",
+      "newName": "🟣 🪖 ШЛЕМ ПОДАВИТЕЛЬ РЕАЛЬНОСТИ"
+    },
+    {
+      "file": "emp_grenade.jpg",
+      "newName": "⚪️ 🔋 ЭНЕРГО-ЯЧЕЙКА"
+    },
+    {
+      "file": "flash_storage.jpg",
+      "newName": "🔵 Файрвол 1.0"
+    },
+    {
+      "file": "holo_hood.jpg",
+      "newName": "🟠 🌌 КАПЮШОН ПУСТОТНОГО ШАГА"
+    },
+    {
+      "file": "hoodie.jpg",
+      "newName": "🟣 🦇 ПЛАЩ ФАНТОМА"
+    },
+    {
+      "file": "laser_pistol.jpg",
+      "newName": "🔵 🦯 ШОКОВАЯ ДУБИНКА"
+    },
+    {
+      "file": "martyrs_halo.jpg",
+      "newName": "🟣 👑 ВЕНЕЦ РАЗГОНА"
+    },
+    {
+      "file": "master_key.jpg",
+      "newName": "⚪️ 🧭 КОМПАС ПУСТОШИ"
+    },
+    {
+      "file": "medkit_small.jpg",
+      "newName": "🟣 👁‍🗨 КЛЮЧ ОТ БЕЗДНЫ"
+    },
+    {
+      "file": "monster_10.jpg",
+      "newName": "💀 Кибер-Лич"
+    },
+    {
+      "file": "monster_11.jpg",
+      "newName": "🏗 Архитектор Кошмаров"
+    },
+    {
+      "file": "monster_12.jpg",
+      "newName": "🍽 Пожиратель Кода"
+    },
+    {
+      "file": "monster_13.jpg",
+      "newName": "🛡 Страж Ядра"
+    },
+    {
+      "file": "monster_14.jpg",
+      "newName": "⚛️ Омни-Синтез"
+    },
+    {
+      "file": "monster_15.jpg",
+      "newName": "🤖 Бог Машины"
+    },
+    {
+      "file": "monster_16.jpg",
+      "newName": "🌌 Пустотный Странник"
+    },
+    {
+      "file": "monster_17.jpg",
+      "newName": "🌀 Энтропия"
+    },
+    {
+      "file": "monster_18.jpg",
+      "newName": "❌ Фатальный Сбой"
+    },
+    {
+      "file": "monster_19.jpg",
+      "newName": "🗡 Ассасин Даркнета"
+    },
+    {
+      "file": "firewall_10.jpg",
+      "newName": "🔵 Файрвол 1.0"
+    },
+    {
+      "file": "data_spike.jpg",
+      "newName": "📡 ТАКТИЧЕСКИЙ СКАНЕР"
+    },
+    {
+      "file": "compass.jpg",
+      "newName": ""
+    },
+    {
+      "file": "cryo_capsule.jpg",
+      "newName": "👁 СИНХРОНИЗАТОР АБСОЛЮТА"
+    },
+    {
+      "file": "data_shard.jpg",
+      "newName": "🔵 Ядро Эгиды"
+    },
+    {
+      "file": "monster_7.jpg",
+      "newName": "🧠 ИИ-Доминатор"
+    },
+    {
+      "file": "monster_8.jpg",
+      "newName": "⬛ Стиратель"
+    },
+    {
+      "file": "monster_9.jpg",
+      "newName": "👻 Нейро-Призрак"
+    },
+    {
+      "file": "nano_armor.jpg",
+      "newName": "⚪️ 🥼 БАЛАХОН СКВИТТЕРА"
+    },
+    {
+      "file": "nano_blade.jpg",
+      "newName": "⚪️ 🏏 БИТА-НОСИТЕЛЬ"
+    },
+    {
+      "file": "neural_injector.jpg",
+      "newName": "🔵 🪛 ДАТА-ШИП"
+    },
+    {
+      "file": "neuro_crown.jpg",
+      "newName": "🔴 ⚡️ ШЛЕМ БОГА СКОРОСТИ (Реликвия)"
+    },
+    {
+      "file": "overclock_module.jpg",
+      "newName": "♻️ СИНХРОН ОЧИЩЕНИЯ"
+    },
+    {
+      "file": "plasma_rifle.jpg",
+      "newName": "⚪️ 🔧 МОНТИРОВКА ХАКЕРА"
+    },
+    {
+      "file": "quantum_coil.jpg",
+      "newName": "💥 ЛОВУШКА-ОБМАНКА"
+    },
+    {
+      "file": "reflex_boost.jpg",
+      "newName": "🔴 👁‍🗨 ЧИП ЗАБВЕНИЯ"
+    },
+    {
+      "file": "reflex_visor.jpg",
+      "newName": "🟣 🪩 ГОЛОГРАФИЧЕСКИЙ НИМБ"
+    },
+    {
+      "file": "regen_kit.jpg",
+      "newName": "🔵 💣 EMP-ЗАРЯД"
+    },
+    {
+      "file": "rusty_knife.jpg",
+      "newName": "🟠 🌠 МЕЧ СИНГУЛЯРНОСТИ"
+    },
+    {
+      "file": "sentinel_visor.jpg",
+      "newName": "🔵 🩸 НЕЙРО-ВИЗОР «ПИЯВКА»"
+    },
+    {
+      "file": "shadow_cowl.jpg",
+      "newName": "🔴 🦇 КОРОНА ИСТИННОЙ КРОВИ (Реликвия)"
+    },
+    {
+      "file": "shock_baton.jpg",
+      "newName": "🔵 🗡 КИБЕР-КАТАНА"
+    },
+    {
+      "file": "singularity_sword.jpg",
+      "newName": "🟣 🔭 ПЛАЗМЕННЫЙ РЕЛЬСОТРОН"
+    },
+    {
+      "file": "stim_pack.jpg",
+      "newName": "🔵 💉 НЕЙРО-СТИМУЛЯТОР"
+    },
+    {
+      "file": "tachyon_core.jpg",
+      "newName": "⚪️ 📟 RAM Модификатор"
+    },
+    {
+      "file": "thermal_plating.jpg",
+      "newName": "⚪️ 🧥 КУРТКА СИНДИКАТА"
+    },
+    {
+      "file": "void_armor.jpg",
+      "newName": "🔵 🥋 ТАКТИЧЕСКИЙ КОМБИНЕЗОН"
+    },
+    {
+      "file": "void_cannon.jpg",
+      "newName": "🔵 🔫 ЛАЗЕРНЫЙ ИЗЛУЧАТЕЛЬ"
+    }
+  ],
+  "delete": []
+}

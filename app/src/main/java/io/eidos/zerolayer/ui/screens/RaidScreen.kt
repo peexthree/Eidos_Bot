@@ -72,6 +72,8 @@ import io.eidos.zerolayer.ui.theme.EidosOrange
 import io.eidos.zerolayer.ui.theme.ZzzGold
 import io.eidos.zerolayer.ui.theme.ZzzDangerRed
 import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
+import io.eidos.zerolayer.ui.theme.ZzzCyanBright
+import io.eidos.zerolayer.ui.theme.ZzzMint
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
 import io.eidos.zerolayer.ui.components.EidosStatBar
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
@@ -263,7 +265,7 @@ fun RaidScreen(
                 } else {
                     audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER, pitch = 1.05f)
                     floatingDamageText = event.textPopup ?: "-${event.damage}"
-                    floatingDamageColor = if (event.isEchoAttack) Color(0xFF00FFCC) else EidosCyan
+                    floatingDamageColor = if (event.isEchoAttack) ZzzMint else EidosCyan
                     floatingDamageScale = 1.1f
                 }
             }
@@ -1102,14 +1104,14 @@ fun DeathScreenOverlay(
                         // 3. Grave creation
                         Surface(
                             color = Color(0xFF041218),
-                            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.4f)),
+                            border = BorderStroke(1.dp, ZzzCyanBright.copy(alpha = 0.4f)),
                             shape = CutCornerShape(6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
                                 Text(
                                     "3. МОГИЛА ОПЕРАТОРА (СЛОЙ ${report.depth}м):",
-                                    color = Color(0xFF00E5FF),
+                                    color = ZzzCyanBright,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace
@@ -1494,8 +1496,8 @@ fun RaidHUD(
                     Box(
                         modifier = Modifier
                             .clip(CutCornerShape(4.dp))
-                            .background(Color(0xFF00FFCC).copy(alpha = 0.2f))
-                            .border(1.dp, Color(0xFF00FFCC), CutCornerShape(4.dp))
+                            .background(ZzzMint.copy(alpha = 0.2f))
+                            .border(1.dp, ZzzMint, CutCornerShape(4.dp))
                             .clickable {
                                 onShowTooltip(
                                     BuffTooltipInfo(
@@ -1509,7 +1511,7 @@ fun RaidHUD(
                                             else -> "Активный временный модификатор параметров оператора в Нулевом Слое."
                                         },
                                         iconRes = buffIcon,
-                                        accentColor = Color(0xFF00FFCC)
+                                        accentColor = ZzzMint
                                     )
                                 )
                             }
@@ -1520,7 +1522,7 @@ fun RaidHUD(
                             Spacer(Modifier.width(3.dp))
                             Text(
                                 "$buffName (${timeLeftSec}с)",
-                                color = Color(0xFF00FFCC),
+                                color = ZzzMint,
                                 fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
@@ -1760,12 +1762,12 @@ fun CombatArenaCard(
 
     val passiveDefMap = remember {
         mapOf(
-            "vampire_visor" to ("ВИЗОР ВАМПИРА" to Color(0xFF00FFCC)),
-            "relic_vampire" to ("КОРОНА КРОВИ" to Color(0xFF00FFCC)),
-            "architect_mask" to ("ЛИЦО АРХИТЕКТОРА" to Color(0xFF00E5FF)),
-            "tactical_helmet" to ("ТАКТИЧЕСКИЙ ШЛЕМ" to Color(0xFF00E5FF)),
+            "vampire_visor" to ("ВИЗОР ВАМПИРА" to ZzzMint),
+            "relic_vampire" to ("КОРОНА КРОВИ" to ZzzMint),
+            "architect_mask" to ("ЛИЦО АРХИТЕКТОРА" to ZzzCyanBright),
+            "tactical_helmet" to ("ТАКТИЧЕСКИЙ ШЛЕМ" to ZzzCyanBright),
             "cyber_halo" to ("КИБЕР-НИМБ" to ZzzGold),
-            "aegis" to ("ЭГИДА" to Color(0xFF00E5FF)),
+            "aegis" to ("ЭГИДА" to ZzzCyanBright),
             "overclock_crown" to ("ВЕНЕЦ РАЗГОНА" to ZzzDangerRed),
             "credit_slicer" to ("РЕЗАК КРЕДИТОВ" to ZzzGold),
             "grandfather_paradox" to ("ПАРАДОКС ДЕДА" to ZzzDangerRed),
@@ -1979,9 +1981,9 @@ fun CombatArenaCard(
                 ) {
                     latestProc?.let { proc ->
                         val (bannerBg, bannerBorder) = when (proc.colorType) {
-                            io.eidos.zerolayer.data.ProcColorType.HEAL_NEON -> Color(0xFF00382B) to Color(0xFF00FFCC)
+                            io.eidos.zerolayer.data.ProcColorType.HEAL_NEON -> Color(0xFF00382B) to ZzzMint
                             io.eidos.zerolayer.data.ProcColorType.CURSED_RED -> Color(0xFF38000F) to ZzzDangerRed
-                            io.eidos.zerolayer.data.ProcColorType.SHIELD_CYAN -> Color(0xFF002B3D) to Color(0xFF00E5FF)
+                            io.eidos.zerolayer.data.ProcColorType.SHIELD_CYAN -> Color(0xFF002B3D) to ZzzCyanBright
                             io.eidos.zerolayer.data.ProcColorType.GOLD_CRIT -> Color(0xFF3D3200) to ZzzGold
                         }
                         Box(
@@ -2892,7 +2894,7 @@ fun RaidControls(
             // QuickUseRow (36.dp) with Available Consumables
             data class QuickConsumableInfo(val id: String, val label: String, val iconRes: Int, val color: Color)
             val quickConsumables = listOf(
-                QuickConsumableInfo("battery", "БАТАРЕЯ", R.drawable.ic_item_battery, Color(0xFF00E5FF)),
+                QuickConsumableInfo("battery", "БАТАРЕЯ", R.drawable.ic_item_battery, ZzzCyanBright),
                 QuickConsumableInfo("neural_stimulator", "СТИМ", R.drawable.ic_item_medkit, Color(0xFF00E676)),
                 QuickConsumableInfo("emp_grenade", "ЭМИ", R.drawable.ic_item_emp_grenade, Color(0xFFFF9100)),
                 QuickConsumableInfo("stealth_spray", "ТУМАН", R.drawable.ic_action_flee, Color(0xFFB388FF))

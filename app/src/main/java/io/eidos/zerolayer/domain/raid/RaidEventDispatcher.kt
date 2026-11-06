@@ -359,7 +359,8 @@ object RaidEventDispatcher {
         depth < 7000 -> 15
         depth < 8500 -> 20
         depth < 10000 -> 25
-        else -> 30
+        depth < 12000 -> 30
+        else -> 35
     }
 
     private fun handleCombatEvent(depth: Int, flags: EquipmentFlags): DispatchResult {

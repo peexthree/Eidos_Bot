@@ -120,7 +120,7 @@ fun ZzzCyberSonarRadar(
                 ringRadii.forEachIndexed { idx, frac ->
                     val r = maxRadius * frac
                     drawCircle(
-                        color = Color(0xFF00FF66).copy(alpha = 0.25f),
+                        color = ZzzNeonGreen.copy(alpha = 0.25f),
                         radius = r,
                         center = center,
                         style = Stroke(
@@ -132,13 +132,13 @@ fun ZzzCyberSonarRadar(
 
                 // Crosshairs
                 drawLine(
-                    color = Color(0xFF00FF66).copy(alpha = 0.2f),
+                    color = ZzzNeonGreen.copy(alpha = 0.2f),
                     start = Offset(center.x, center.y - maxRadius),
                     end = Offset(center.x, center.y + maxRadius),
                     strokeWidth = 1f
                 )
                 drawLine(
-                    color = Color(0xFF00FF66).copy(alpha = 0.2f),
+                    color = ZzzNeonGreen.copy(alpha = 0.2f),
                     start = Offset(center.x - maxRadius, center.y),
                     end = Offset(center.x + maxRadius, center.y),
                     strokeWidth = 1f
@@ -147,10 +147,10 @@ fun ZzzCyberSonarRadar(
                 // Sweeping Radar Beam (Sweep Gradient Cone)
                 rotate(sweepAngle, pivot = center) {
                     val sweepBrush = Brush.sweepGradient(
-                        0.0f to Color(0xFF00FF66).copy(alpha = 0.0f),
-                        0.75f to Color(0xFF00FF66).copy(alpha = 0.0f),
-                        0.98f to Color(0xFF00FF66).copy(alpha = 0.35f),
-                        1.0f to Color(0xFF00FF66).copy(alpha = 0.85f),
+                        0.0f to ZzzNeonGreen.copy(alpha = 0.0f),
+                        0.75f to ZzzNeonGreen.copy(alpha = 0.0f),
+                        0.98f to ZzzNeonGreen.copy(alpha = 0.35f),
+                        1.0f to ZzzNeonGreen.copy(alpha = 0.85f),
                         center = center
                     )
                     drawCircle(
@@ -160,7 +160,7 @@ fun ZzzCyberSonarRadar(
                     )
                     // Leading beam line
                     drawLine(
-                        color = Color(0xFF00FF66),
+                        color = ZzzNeonGreen,
                         start = center,
                         end = Offset(center.x + maxRadius, center.y),
                         strokeWidth = 2f
@@ -213,7 +213,7 @@ fun ZzzCyberSonarRadar(
                     (center.y - lootDist * sin(lootAngle)).toFloat()
                 )
                 drawCircle(
-                    color = Color(0xFF00F0FF),
+                    color = ZzzCyanBright,
                     radius = 4f,
                     center = lootPos
                 )
@@ -262,7 +262,7 @@ fun ZzzCyberSonarRadar(
                 // Loot tag (bottom-right)
                 Text(
                     "◆ Лут [${lootDistanceM}м]",
-                    color = Color(0xFF00F0FF),
+                    color = ZzzCyanBright,
                     fontSize = 8.5.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -282,13 +282,13 @@ fun ZzzCyberSonarRadar(
                 .padding(horizontal = 16.dp)
                 .clip(CutCornerShape(4.dp))
                 .background(Color(0xFF08150D))
-                .border(1.dp, Color(0xFF00FF66).copy(alpha = 0.3f), CutCornerShape(4.dp))
+                .border(1.dp, ZzzNeonGreen.copy(alpha = 0.3f), CutCornerShape(4.dp))
                 .padding(vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 "СТАТУС: ПОГРУЖЕНИЕ // ЦЕЛЬ: ИССЛЕДОВАТЬ СЕКТОР",
-                color = Color(0xFF00FF66),
+                color = ZzzNeonGreen,
                 fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold
@@ -370,7 +370,7 @@ fun ZzzCyberMannequinDeck(
                 var y = 0f
                 while (y < h) {
                     drawLine(
-                        color = Color(0xFF00F0FF).copy(alpha = 0.08f),
+                        color = ZzzCyanBright.copy(alpha = 0.08f),
                         start = Offset(0f, y),
                         end = Offset(size.width, y),
                         strokeWidth = 1f
@@ -381,7 +381,7 @@ fun ZzzCyberMannequinDeck(
                 // Neon Mannequin Silhouette wireframe
                 // Head
                 drawCircle(
-                    color = Color(0xFF00F0FF).copy(alpha = pulseAlpha),
+                    color = ZzzCyanBright.copy(alpha = pulseAlpha),
                     radius = 16f,
                     center = Offset(cx, 28f),
                     style = Stroke(width = 2.5f)
@@ -395,7 +395,7 @@ fun ZzzCyberMannequinDeck(
                 )
                 // Torso / Spine
                 drawLine(
-                    color = Color(0xFF00F0FF).copy(alpha = pulseAlpha),
+                    color = ZzzCyanBright.copy(alpha = pulseAlpha),
                     start = Offset(cx, 46f),
                     end = Offset(cx, 110f),
                     strokeWidth = 3f
@@ -412,26 +412,26 @@ fun ZzzCyberMannequinDeck(
                 drawPath(chestPath, Color(0xFF9C27B0).copy(alpha = pulseAlpha), style = Stroke(width = 2f))
 
                 // Arms
-                drawLine(Color(0xFF00F0FF).copy(alpha = pulseAlpha), Offset(cx - 24f, 54f), Offset(cx - 36f, 100f), 2f)
-                drawLine(Color(0xFF00F0FF).copy(alpha = pulseAlpha), Offset(cx + 24f, 54f), Offset(cx + 36f, 100f), 2f)
+                drawLine(ZzzCyanBright.copy(alpha = pulseAlpha), Offset(cx - 24f, 54f), Offset(cx - 36f, 100f), 2f)
+                drawLine(ZzzCyanBright.copy(alpha = pulseAlpha), Offset(cx + 24f, 54f), Offset(cx + 36f, 100f), 2f)
 
                 // Legs
-                drawLine(Color(0xFF00F0FF).copy(alpha = pulseAlpha), Offset(cx - 14f, 110f), Offset(cx - 20f, 168f), 2.5f)
-                drawLine(Color(0xFF00F0FF).copy(alpha = pulseAlpha), Offset(cx + 14f, 110f), Offset(cx + 20f, 168f), 2.5f)
+                drawLine(ZzzCyanBright.copy(alpha = pulseAlpha), Offset(cx - 14f, 110f), Offset(cx - 20f, 168f), 2.5f)
+                drawLine(ZzzCyanBright.copy(alpha = pulseAlpha), Offset(cx + 14f, 110f), Offset(cx + 20f, 168f), 2.5f)
 
                 // Circuit Connector Lines to Left/Right
                 // Line to Head
-                drawLine(Color(0xFF00F0FF).copy(alpha = 0.5f), Offset(cx - 16f, 28f), Offset(10f, 28f), 1f)
+                drawLine(ZzzCyanBright.copy(alpha = 0.5f), Offset(cx - 16f, 28f), Offset(10f, 28f), 1f)
                 // Line to Weapon
                 drawLine(ZzzWarningOrange.copy(alpha = 0.5f), Offset(cx - 36f, 100f), Offset(10f, 85f), 1f)
                 // Line to Torso
                 drawLine(Color(0xFF9C27B0).copy(alpha = 0.5f), Offset(cx - 16f, 70f), Offset(10f, 145f), 1f)
 
                 // Connector lines to right (Chips)
-                drawLine(Color(0xFF00FF66).copy(alpha = 0.5f), Offset(cx + 16f, 65f), Offset(size.width - 10f, 30f), 1f)
-                drawLine(Color(0xFF00FF66).copy(alpha = 0.5f), Offset(cx + 16f, 85f), Offset(size.width - 10f, 75f), 1f)
-                drawLine(Color(0xFF00FF66).copy(alpha = 0.5f), Offset(cx + 14f, 120f), Offset(size.width - 10f, 120f), 1f)
-                drawLine(Color(0xFF00FF66).copy(alpha = 0.5f), Offset(cx + 18f, 150f), Offset(size.width - 10f, 160f), 1f)
+                drawLine(ZzzNeonGreen.copy(alpha = 0.5f), Offset(cx + 16f, 65f), Offset(size.width - 10f, 30f), 1f)
+                drawLine(ZzzNeonGreen.copy(alpha = 0.5f), Offset(cx + 16f, 85f), Offset(size.width - 10f, 75f), 1f)
+                drawLine(ZzzNeonGreen.copy(alpha = 0.5f), Offset(cx + 14f, 120f), Offset(size.width - 10f, 120f), 1f)
+                drawLine(ZzzNeonGreen.copy(alpha = 0.5f), Offset(cx + 18f, 150f), Offset(size.width - 10f, 160f), 1f)
             }
         }
 
@@ -566,7 +566,7 @@ fun ZzzForgeHologramChamber(
                 .height(140.dp)
                 .clip(CutCornerShape(6.dp))
                 .background(Color(0xFF04070A))
-                .border(1.dp, Color(0xFF00F0FF).copy(alpha = 0.3f), CutCornerShape(6.dp)),
+                .border(1.dp, ZzzCyanBright.copy(alpha = 0.3f), CutCornerShape(6.dp)),
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -576,7 +576,7 @@ fun ZzzForgeHologramChamber(
                 // Rotating Dashed Reticle
                 rotate(reticleAngle, pivot = Offset(cx, cy)) {
                     drawCircle(
-                        color = Color(0xFF00F0FF).copy(alpha = 0.35f),
+                        color = ZzzCyanBright.copy(alpha = 0.35f),
                         radius = 55.dp.toPx(),
                         center = Offset(cx, cy),
                         style = Stroke(

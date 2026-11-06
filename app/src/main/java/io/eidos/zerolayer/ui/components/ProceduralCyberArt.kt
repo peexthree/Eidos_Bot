@@ -32,6 +32,9 @@ import io.eidos.zerolayer.ui.theme.ZzzElectricCyan
 import io.eidos.zerolayer.ui.theme.ZzzHotMagenta
 import io.eidos.zerolayer.ui.theme.ZzzGold
 import io.eidos.zerolayer.ui.theme.ZzzDangerRed
+import io.eidos.zerolayer.ui.theme.ZzzNeonGreen
+import io.eidos.zerolayer.ui.theme.ZzzCyanBright
+import io.eidos.zerolayer.ui.theme.ZzzMint
 import kotlin.math.*
 
 /**
@@ -313,8 +316,8 @@ fun ProceduralRaidChest(
             )
 
             // 5. LED Status Dots
-            drawCircle(Color(0xFF00FF66), radius = 2.5f, center = Offset(center.x - halfW * 0.65f, center.y - halfH * 0.65f))
-            drawCircle(Color(0xFF00E5FF), radius = 2.5f, center = Offset(center.x - halfW * 0.45f, center.y - halfH * 0.65f))
+            drawCircle(ZzzNeonGreen, radius = 2.5f, center = Offset(center.x - halfW * 0.65f, center.y - halfH * 0.65f))
+            drawCircle(ZzzCyanBright, radius = 2.5f, center = Offset(center.x - halfW * 0.45f, center.y - halfH * 0.65f))
             drawCircle(ZzzDangerRed, radius = 2.5f, center = Offset(center.x - halfW * 0.25f, center.y - halfH * 0.65f))
         }
 
@@ -447,7 +450,7 @@ fun ProceduralLevelCore(
     val tierColor = when {
         level >= 16 -> ZzzHotMagenta          // Tier 4: Singularity Plasma
         level >= 11 -> ZzzGold      // Tier 3: Overclock Amber Gold
-        level >= 6 -> Color(0xFF00FF66)       // Tier 2: Acid Neural Green
+        level >= 6 -> ZzzNeonGreen       // Tier 2: Acid Neural Green
         else -> ZzzElectricCyan               // Tier 1: Cold Pure Cyan
     }
 
@@ -605,7 +608,7 @@ fun ProceduralMonsterMask(
     val threatColor = when {
         monsterIndex >= 15 -> EidosRed            // Singularity Apex Boss
         monsterIndex >= 8 -> ZzzHotMagenta        // Elite Nightmares
-        else -> Color(0xFF00E5FF)                // Deep Network Glitches
+        else -> ZzzCyanBright                // Deep Network Glitches
     }
 
     Box(
@@ -763,15 +766,15 @@ fun ProceduralEquipmentCard(
                 name.contains("glitch") || name.contains("abyssal") || name.contains("void") || name.contains("скверн") -> ZzzDangerRed
                 name.contains("god") || name.contains("legendary") || name.contains("banhammer") || name.contains("золот") -> ZzzGold
                 name.contains("epic") || name.contains("hyper") || name.contains("quantum") -> Color(0xFFB026FF)
-                name.contains("rare") || name.contains("proto") -> Color(0xFF00E5FF)
-                name.contains("uncommon") -> Color(0xFF00FF66)
+                name.contains("rare") || name.contains("proto") -> ZzzCyanBright
+                name.contains("uncommon") -> ZzzNeonGreen
                 subType.startsWith("weapon") -> Color(0xFFFF3366)
-                subType.startsWith("armor") -> Color(0xFF00E5FF)
+                subType.startsWith("armor") -> ZzzCyanBright
                 subType.startsWith("helmet") -> ZzzGold
                 subType.startsWith("relic") -> ZzzDangerRed
                 subType == "chip" -> Color(0xFF9933FF)
-                subType == "tool_compass" -> Color(0xFF00E5FF)
-                else -> Color(0xFF00FFCC)
+                subType == "tool_compass" -> ZzzCyanBright
+                else -> ZzzMint
             }
         }
     }
@@ -1248,7 +1251,7 @@ private fun DrawScope.drawVectorEnergyCell(color: Color, center: Offset, size: F
     for (i in 0 until 4) {
         val barY = body.top + (i * (h / 4.5f)) + size * 0.08f
         val barRect = Rect(center.x - w * 0.35f, barY, center.x + w * 0.35f, barY + size * 0.12f)
-        drawRect(Color(0xFF00F0FF).copy(alpha = 0.85f), topLeft = barRect.topLeft, size = barRect.size)
+        drawRect(ZzzCyanBright.copy(alpha = 0.85f), topLeft = barRect.topLeft, size = barRect.size)
         drawLine(Color.White, Offset(barRect.left + 3f, barRect.center.y), Offset(barRect.right - 3f, barRect.center.y), 1.5f)
     }
 
@@ -1282,8 +1285,8 @@ private fun DrawScope.drawVectorCryoCapsule(color: Color, center: Offset, size: 
         arcTo(Rect(left, bottom - capsuleWidth, right, bottom), 0f, 180f, false)
         close()
     }
-    drawPath(pillPath, Color(0xFF00E5FF).copy(alpha = 0.25f))
-    drawPath(pillPath, Color(0xFF00E5FF), style = Stroke(width = 2.2f))
+    drawPath(pillPath, ZzzCyanBright.copy(alpha = 0.25f))
+    drawPath(pillPath, ZzzCyanBright, style = Stroke(width = 2.2f))
 
     // Metallic Restraint Rings
     drawRect(color, topLeft = Offset(left - 3f, center.y - size * 0.25f), size = Size(capsuleWidth + 6f, size * 0.10f))
@@ -1304,7 +1307,7 @@ private fun DrawScope.drawVectorEmpSphere(color: Color, center: Offset, size: Fl
     // Concentric Electromagnetic Pulse Grenade
     val r = size * 0.7f
     drawCircle(Color(0xFF7000FF).copy(alpha = 0.25f), radius = r, center = center)
-    drawCircle(Color(0xFF00F0FF), radius = r, center = center, style = Stroke(width = 2.2f))
+    drawCircle(ZzzCyanBright, radius = r, center = center, style = Stroke(width = 2.2f))
     drawCircle(color, radius = r * 0.65f, center = center, style = Stroke(width = 1.5f))
 
     // 4 Magnetic Discharger Nodes on rim
@@ -1322,7 +1325,7 @@ private fun DrawScope.drawVectorEmpSphere(color: Color, center: Offset, size: Fl
         lineTo(center.x + r * 0.1f, center.y - r * 0.1f)
         lineTo(center.x + r * 0.5f, center.y + r * 0.2f)
     }
-    drawPath(arc1, Color(0xFF00F0FF), style = Stroke(width = 2.2f))
+    drawPath(arc1, ZzzCyanBright, style = Stroke(width = 2.2f))
     drawCircle(Color.White, radius = size * 0.12f, center = center)
 }
 
@@ -1383,7 +1386,7 @@ private fun DrawScope.drawVectorShard(color: Color, center: Offset, size: Float)
 
     // Inner Glowing Core
     drawCircle(Color.White, radius = size * 0.15f, center = center)
-    drawCircle(Color(0xFF00F0FF), radius = size * 0.08f, center = center)
+    drawCircle(ZzzCyanBright, radius = size * 0.08f, center = center)
 }
 
 private fun DrawScope.drawVectorDemonHead(color: Color, center: Offset, size: Float) {

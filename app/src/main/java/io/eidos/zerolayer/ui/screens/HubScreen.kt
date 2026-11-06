@@ -53,6 +53,11 @@ import io.eidos.zerolayer.ui.components.zzz.ZzzHeaderBadge
 import io.eidos.zerolayer.ui.components.zzz.ZzzSegmentedGauge
 import io.eidos.zerolayer.ui.components.ShadowBrokerCountdownBadge
 import io.eidos.zerolayer.ui.components.premiumCyberClickable
+import android.content.Context
+import io.eidos.zerolayer.data.DailyQuest
+import io.eidos.zerolayer.ui.components.CyberSkeletonLoader
+import io.eidos.zerolayer.ui.components.ZzzWindowCard
+import io.eidos.zerolayer.ui.components.DEFAULT_EARTH_RELICS
 import io.eidos.zerolayer.ui.components.EarthRelic
 import io.eidos.zerolayer.ui.components.cyberClickable
 import io.eidos.zerolayer.ui.components.cyber3DTilt
@@ -107,6 +112,7 @@ fun HubScreen(
     var showTerminalTutorialDialog by remember { mutableStateOf(false) }
     var showRelicShowcaseDialog by remember { mutableStateOf(false) }
     var activeRelic by remember { mutableStateOf<EarthRelic?>(null) }
+    var isRelicsExpanded by remember { mutableStateOf(false) }
 
     var currentTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -168,11 +174,25 @@ fun HubScreen(
 
     // isBrokerActive is updated every 30s to avoid full-screen 1000ms recompositions
 
-    // World Boss: live state from the persistent shared pool (Room) via MainViewModel
+    // World Boss and Daily Quests: live state via MainViewModel
     val mainViewModel: MainViewModel = viewModel()
     val worldBossState by mainViewModel.worldBossState.collectAsState()
     val bossTop by mainViewModel.bossTop.collectAsState()
-    LaunchedEffect(Unit) { mainViewModel.refreshWorldBoss() }
+    val dailyQuests by mainViewModel.dailyQuests.collectAsState()
+    val audio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
+    LaunchedEffect(Unit) {
+        mainViewModel.refreshWorldBoss()
+        mainViewModel.refreshDailyQuests()
+    }
+
+    // Auto-launch Terminal Tutorial once for new players with 0 raids
+    LaunchedEffect(player?.raids_done) {
+        val tutorialPrefs = context.getSharedPreferences("eidos_tutorial_prefs", Context.MODE_PRIVATE)
+        val tutorialShown = tutorialPrefs.getBoolean("tutorial_shown_hub", false)
+        if ((player?.raids_done ?: 0) == 0 && !tutorialShown) {
+            showTerminalTutorialDialog = true
+        }
+    }
     val bossHp = worldBossState?.boss_hp ?: 984124510L
     val bossMaxHp = worldBossState?.boss_max_hp ?: 984124510L
     val bossCycle = worldBossState?.cycle ?: 1
@@ -285,7 +305,7 @@ fun HubScreen(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF00FF66))
+                                    .background(ZzzNeonGreen)
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
@@ -318,7 +338,7 @@ fun HubScreen(
                             label = "ЭНЕРГИЯ ПОГРУЖЕНИЯ",
                             current = player?.energy ?: 100,
                             max = player?.max_energy ?: 100,
-                            barColor = Color(0xFF00FF66),
+                            barColor = ZzzNeonGreen,
                             bgColor = Color(0xFF082218)
                         )
 
@@ -369,7 +389,7 @@ fun HubScreen(
                 ) {
                     Text(
                         text = "EIDOS: CHRONICLES",
-                        color = Color(0xFF00E5FF),
+                        color = ZzzCyanBright,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
@@ -382,7 +402,7 @@ fun HubScreen(
                     ) {
                         Text(
                             text = "///",
-                            color = Color(0xFF00E5FF),
+                            color = ZzzCyanBright,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace
@@ -399,7 +419,7 @@ fun HubScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "///",
-                            color = Color(0xFF00E5FF),
+                            color = ZzzCyanBright,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace
@@ -489,7 +509,7 @@ fun HubScreen(
                         CyberTacticalOpsCard(
                             title = if (isPvpAvailable) "СЕТЕВАЯ ВОЙНА" else "СЕТЕВАЯ ВОЙНА [LVL 4]",
                             iconRes = if (isPvpAvailable) R.drawable.ic_action_attack else R.drawable.ic_ui_locked,
-                            accentColor = if (isPvpAvailable) Color(0xFF00F0FF) else Color.Gray,
+                            accentColor = if (isPvpAvailable) ZzzCyanBright else Color.Gray,
                             onClick = {
                                 if (isPvpAvailable) {
                                     onNavigateToPvp()
@@ -514,7 +534,7 @@ fun HubScreen(
                         CyberTacticalOpsCard(
                             title = "ТЕНЕВОЙ БРОКЕР [ONLINE]",
                             iconRes = R.drawable.ic_action_scan,
-                            accentColor = Color(0xFF00FF66),
+                            accentColor = ZzzNeonGreen,
                             onClick = {
                                 if (activity != null && BiometricHelper.isBiometricAvailable(context)) {
                                     BiometricHelper.authenticateOperator(
@@ -539,6 +559,28 @@ fun HubScreen(
                     bossMaxHp = bossMaxHp,
                     bossCycle = bossCycle,
                     onClick = { showBossDialog = true }
+                )
+
+                // 7. ЕЖЕДНЕВНЫЕ ДИРЕКТИВЫ
+                CyberDailyDirectivesCard(
+                    dailyQuests = dailyQuests,
+                    onClaimQuest = { questId ->
+                        haptics.click()
+                        audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.ITEM_LOOT)
+                        mainViewModel.claimDailyQuest(questId)
+                    }
+                )
+
+                // 8. РЕЛИКВИИ ЗЕМЛИ // АРТЕФАКТЫ ПРОШЛОГО
+                EarthRelicsHubSection(
+                    activeRelic = activeRelic,
+                    isExpanded = isRelicsExpanded,
+                    onToggleExpand = { isRelicsExpanded = !isRelicsExpanded },
+                    onSelectRelic = { relic ->
+                        activeRelic = relic
+                        audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.RELIC_UNLOCK)
+                    },
+                    onOpenShowcase = { showRelicShowcaseDialog = true }
                 )
             }
         }
@@ -1136,8 +1178,15 @@ fun HubScreen(
     // 6. Interactive Terminal Tutorial Dialog
     if (showTerminalTutorialDialog) {
         TerminalTutorialDialog(
-            onDismiss = { showTerminalTutorialDialog = false },
+            onDismiss = {
+                val tutorialPrefs = context.getSharedPreferences("eidos_tutorial_prefs", Context.MODE_PRIVATE)
+                tutorialPrefs.edit().putBoolean("tutorial_shown_hub", true).apply()
+                showTerminalTutorialDialog = false
+            },
             onCompleteTutorial = {
+                val tutorialPrefs = context.getSharedPreferences("eidos_tutorial_prefs", Context.MODE_PRIVATE)
+                tutorialPrefs.edit().putBoolean("tutorial_shown_hub", true).apply()
+                showTerminalTutorialDialog = false
                 onClaimSupplyDrop() // Grants bonus supply rewards
             }
         )
@@ -1823,7 +1872,7 @@ fun CyberDepotSyncBanner(
         shape = RoundedCornerShape(8.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.2.dp,
-            if (isDepotReady) Color(0xFF00FF66) else Color(0xFF00E5FF)
+            if (isDepotReady) ZzzNeonGreen else ZzzCyanBright
         ),
         modifier = modifier
             .fillMaxWidth()
@@ -1845,13 +1894,13 @@ fun CyberDepotSyncBanner(
                         .size(36.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(Color(0xFF0A2433))
-                        .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(6.dp)),
+                        .border(1.dp, ZzzCyanBright.copy(alpha = 0.5f), RoundedCornerShape(6.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(modifier = Modifier.size(20.dp)) {
                         rotate(spinnerAngle) {
                             drawArc(
-                                color = if (isDepotReady) Color(0xFF00FF66) else Color(0xFF00E5FF),
+                                color = if (isDepotReady) ZzzNeonGreen else ZzzCyanBright,
                                 startAngle = 0f,
                                 sweepAngle = 260f,
                                 useCenter = false,
@@ -1872,7 +1921,7 @@ fun CyberDepotSyncBanner(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isDepotReady) "ПРИПАСЫ ХРАНИЛИЩА ГОТОВЫ" else "ПЕРЕЗАРЯДКА ШЛЮЗА ДЕПО",
-                        color = if (isDepotReady) Color(0xFF00FF66) else Color(0xFF7090A8),
+                        color = if (isDepotReady) ZzzNeonGreen else Color(0xFF7090A8),
                         fontSize = 8.5.sp,
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 0.5.sp
@@ -1885,7 +1934,7 @@ fun CyberDepotSyncBanner(
                 shape = RoundedCornerShape(4.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     0.8.dp,
-                    if (isDepotReady) Color(0xFF00FF66) else Color(0xFF334A5E)
+                    if (isDepotReady) ZzzNeonGreen else Color(0xFF334A5E)
                 )
             ) {
                 Row(
@@ -1894,7 +1943,7 @@ fun CyberDepotSyncBanner(
                 ) {
                     Text(
                         text = if (isDepotReady) "ГОТОВО" else "⏱ $depotCountdownText",
-                        color = if (isDepotReady) Color(0xFF00FF66) else ZzzGold,
+                        color = if (isDepotReady) ZzzNeonGreen else ZzzGold,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace
@@ -1913,7 +1962,7 @@ fun CyberHazardRaidButton(
     Surface(
         color = Color(0xEB04121C),
         shape = CutCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF00E5FF)),
+        border = androidx.compose.foundation.BorderStroke(2.dp, ZzzCyanBright),
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
@@ -2291,5 +2340,388 @@ private fun BottomNavItem(
             fontFamily = FontFamily.Monospace,
             maxLines = 1
         )
+    }
+}
+
+// ============================================================================
+// 7. ЕЖЕДНЕВНЫЕ ДИРЕКТИВЫ (DAILY QUESTS)
+// ============================================================================
+
+@Composable
+fun CyberDailyDirectivesCard(
+    dailyQuests: List<DailyQuest>,
+    onClaimQuest: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val completedCount = dailyQuests.count { it.isClaimed }
+    val totalCount = dailyQuests.size.coerceAtLeast(3)
+
+    ZzzWindowCard(
+        title = "ЕЖЕДНЕВНЫЕ ДИРЕКТИВЫ",
+        subTitle = "СУТОЧНЫЙ ЦИКЛ // КВАНТОВЫЙ РЕЗОНАНС",
+        headerBadge = "$completedCount/$totalCount ВЫПОЛНЕНО",
+        borderColor = ZzzCyanBright,
+        backgroundColor = Color(0xEB0A121D),
+        cornerSize = 10.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (dailyQuests.isEmpty()) {
+                repeat(3) {
+                    CyberSkeletonLoader(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                    )
+                }
+            } else {
+                dailyQuests.forEach { quest ->
+                    DailyQuestRow(
+                        quest = quest,
+                        onClaim = { onClaimQuest(quest.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyQuestRow(
+    quest: DailyQuest,
+    onClaim: () -> Unit
+) {
+    val iconRes = when (quest.type) {
+        "KILLS" -> R.drawable.ic_action_attack
+        "DEPTH" -> R.drawable.ic_event_evac
+        "SYNC" -> R.drawable.ic_action_scan
+        "SPEND" -> R.drawable.ic_res_biocoin
+        "CHEST" -> R.drawable.ic_ui_locked
+        else -> R.drawable.ic_event_unknown
+    }
+    val typeColor = when (quest.type) {
+        "KILLS" -> ZzzDangerRed
+        "DEPTH" -> ZzzCyanBright
+        "SYNC" -> ZzzMint
+        "SPEND" -> ZzzGold
+        "CHEST" -> ZzzPurple
+        else -> ZzzCyanBright
+    }
+
+    val progressFraction = if (quest.target > 0) (quest.progress.toFloat() / quest.target.toFloat()).coerceIn(0f, 1f) else 0f
+    val isReadyToClaim = quest.progress >= quest.target && !quest.isClaimed
+
+    Surface(
+        color = Color(0xFF0F1722),
+        shape = CutCornerShape(6.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isReadyToClaim) ZzzDesignSystem.VoltYellow else Color(0xFF1E2A3A)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Icon box
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CutCornerShape(4.dp))
+                    .background(Color.Black)
+                    .border(1.dp, typeColor.copy(alpha = 0.8f), CutCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                ZzzIcon(iconRes = iconRes, size = 16.dp, tint = typeColor)
+            }
+
+            // Info column
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = quest.title,
+                        color = if (quest.isClaimed) Color.Gray else Color.White,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "+${quest.rewardCoins} BC / +${quest.rewardXp} XP",
+                        color = if (quest.isClaimed) Color.DarkGray else ZzzGold,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Progress bar row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color(0xFF0A0F15))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(progressFraction)
+                                .background(
+                                    if (quest.isClaimed) Color.Gray
+                                    else if (isReadyToClaim) ZzzDesignSystem.VoltYellow
+                                    else typeColor
+                                )
+                        )
+                    }
+
+                    Text(
+                        text = "${quest.progress}/${quest.target}",
+                        color = if (quest.isClaimed) Color.Gray else Color.LightGray,
+                        fontSize = 8.5.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            // Button / Status badge
+            when {
+                quest.isClaimed -> {
+                    Surface(
+                        color = Color(0xFF14241B),
+                        shape = CutCornerShape(4.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E5E3D))
+                    ) {
+                        Text(
+                            text = "ПОЛУЧЕНО",
+                            color = Color(0xFF6ECB8B),
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                isReadyToClaim -> {
+                    Button(
+                        onClick = onClaim,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ZzzDesignSystem.VoltYellow,
+                            contentColor = Color.Black
+                        ),
+                        shape = CutCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text(
+                            text = "ЗАБРАТЬ",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+                else -> {
+                    Text(
+                        text = "${(progressFraction * 100).toInt()}%",
+                        color = Color.Gray,
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// 8. РЕЛИКВИИ ЗЕМЛИ // АРТЕФАКТЫ ПРОШЛОГО (EARTH RELICS COLLAPSIBLE SECTION)
+// ============================================================================
+
+@Composable
+fun EarthRelicsHubSection(
+    activeRelic: EarthRelic?,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onSelectRelic: (EarthRelic) -> Unit,
+    onOpenShowcase: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color(0xEB120E08),
+        shape = CutCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, ZzzGold.copy(alpha = 0.6f)),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Header Row (Clickable to expand/collapse)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleExpand() },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("📼", fontSize = 16.sp)
+                    Column {
+                        Text(
+                            text = "РЕЛИКВИИ ЗЕМЛИ // АРТЕФАКТЫ ПРОШЛОГО",
+                            color = ZzzGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = if (activeRelic != null) "РЕЗОНАТОР: ${activeRelic.name}" else "5 АРТЕФАКТОВ // СТОЙКА РЕЗОНАТОРА",
+                            color = Color.LightGray,
+                            fontSize = 8.5.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Text(
+                    text = if (isExpanded) "[СВЕРНУТЬ ▲]" else "[РАСКРЫТЬ ▼]",
+                    color = ZzzCyanBright,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            // Expanded content
+            if (isExpanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    DEFAULT_EARTH_RELICS.forEach { relic ->
+                        val isEquipped = relic.id == activeRelic?.id
+                        Surface(
+                            color = if (isEquipped) ZzzGold.copy(alpha = 0.12f) else Color(0xFF161410),
+                            shape = CutCornerShape(4.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isEquipped) ZzzGold else Color(0xFF2E2618)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(relic.icon, fontSize = 20.sp)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = relic.name,
+                                        color = if (isEquipped) ZzzGold else Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        text = relic.buffDescription,
+                                        color = ZzzNeonGreen,
+                                        fontSize = 8.5.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+
+                                if (isEquipped) {
+                                    Surface(
+                                        color = ZzzGold.copy(alpha = 0.2f),
+                                        shape = CutCornerShape(4.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold)
+                                    ) {
+                                        Text(
+                                            text = "АКТИВЕН",
+                                            color = ZzzGold,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = { onSelectRelic(relic) },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF2E2618),
+                                            contentColor = ZzzGold
+                                        ),
+                                        shape = CutCornerShape(4.dp),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(26.dp)
+                                    ) {
+                                        Text(
+                                            text = "ВЫБРАТЬ",
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    OutlinedButton(
+                        onClick = onOpenShowcase,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ZzzGold),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold),
+                        shape = CutCornerShape(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)
+                    ) {
+                        Text(
+                            text = "ПОЛНАЯ СТОЙКА РЕЛИКВИЙ ➔",
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+        }
     }
 }

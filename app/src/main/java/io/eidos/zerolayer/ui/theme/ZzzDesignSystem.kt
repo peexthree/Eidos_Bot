@@ -54,3 +54,6 @@ val ZzzDangerRed = Color(0xFFFF5252)       // Unified danger red (damage, errors
 val ZzzWarningOrange = Color(0xFFFF9800)   // Unified warning orange (cooldowns, cautions)
 val ZzzPurple = Color(0xFFA855F7)          // Standard accent purple (relics, rare loot)
 val ZzzGlassBase = Color(0xE60A111A)       // Base glassmorphism surface (90% opacity)
+val ZzzNeonGreen = Color(0xFF00FF66)       // Unified neon green (collapse target: 00FF66/00FF99/66FF99)
+val ZzzCyanBright = Color(0xFF00E5FF)      // Bright electric cyan (collapse target: 00E5FF/00F0FF; distinct from ZzzElectricCyan 00FFF6)
+val ZzzMint = Color(0xFF00FFCC)            // Distinct mint accent (heals, echo popups)

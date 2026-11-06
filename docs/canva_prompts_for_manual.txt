@@ -1,0 +1,125 @@
+================================================================
+CANVA MAGIC MEDIA - 36 ПРОМПТОВ ДЛЯ ГЕНЕРАЦИИ
+================================================================
+Как генерировать (в твоём Chrome, аккаунт уже залогинен):
+1. canva.com -> в поиске дизайн-типов набери "Magic Media" (или
+   canva.com/ai-image-generator)
+2. Вставь промпт из блока ниже -> Generate
+3. Из 4 вариантов скачай лучший (кнопка Download / стрелка)
+4. Сохрани файл в D:\EDO\canva_raw\ под ИМЕНЕМ, указанным в шапке блока
+   (например monster_20.png). Расширение любое - я приведу сам.
+5. Если вариант не понравился - Generate ещё раз (та же кнопка).
+
+Советы: соотношение сторон выбирай Portrait (вертикаль) если спроит.
+Все промпты на английском - так Magic Media работает лучше.
+Можно генерить в любом порядке, какие нравятся.
+================================================================
+
+
+### ai_core
+glowing AI companion core, crystalline neural sphere with a soft face-like inner light, floating holographic rings, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### backup_drive
+rugged black data drive with glowing backup indicator strip, scratched metal casing, emergency vibe, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### chronometer
+chrome wrist implant chronometer with glowing sand flowing inside glass tubes, time-device, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### cleanse_sync
+white purification module with cyan cleansing beams, medical-tech symmetry, purification drone core, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### crypto_fog
+device emitting dense digital fog made of tiny hex symbols, green-amber glow inside gray mist, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### emp_charge
+compact electromagnetic charge device, coil rings crackling with blue-white electricity arcs, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### energy_cell
+sleek energy battery cell with liquid cyan power core visible through glass, charging ports, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### exo_skeleton
+heavy-duty mining exoskeleton frame with hydraulic arms, industrial orange accents, worn steel, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### force_field
+floating generator projecting a translucent blue energy dome shield, hexagon pattern, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### god_mode_chip
+golden legendary microchip with crown etched on die, divine golden circuitry glow, rare artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### leather_jacket
+worn black syndicate leather jacket with neon cyan piping and hidden pockets, cyberpunk fashion, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### logic_gate
+ancient-looking logic gate relic, brass and glass computing device with floating binary glyphs, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### memory_eraser
+surgical memory eraser module with violet laser emitter and extraction canister, ominous, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### memory_wiper
+violet swirling memory wipe device, spiral pattern pulling particles inward, mind-tech, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### nano_suit
+form-fitting nano-fiber suit on invisible mannequin, iridescent dark material with circuit veins, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### neural_link
+sleek neural interface headset with spine cable and glowing connection node at temple, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### neural_stimulator
+medical neural stimulator with pulsing synapse-light nodes on flexible pads, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### overclocker
+overclocker module with exposed capacitors venting steam, red-hot frequency dial maxed out, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### phantom_cloak
+shredded phantom cloak dissolving into static pixels at the edges, ghostly transparency, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### purge_sync
+Purge Sync inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### quantum_shield
+КВАНТОВЫЙ БАРЬЕР inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### ram_chip
+RAM Модификатор inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### reality_armor
+ДОСПЕХИ РЕАЛЬНОСТИ inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### scanner
+Scanner inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### stealth_spray
+КРИПТО-ТУМАН inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### sync_accelerator
+Sync Accelerator inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### sync_booster
+Sync Booster inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### tactical_scanner
+ТАКТИЧЕСКИЙ СКАНЕР inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### tactical_suit
+ТАКТИЧЕСКИЙ КОМБИНЕЗОН inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### wasteland_compass
+Wasteland Compass inventory artifact, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### monster_20
+cascading waterfall of collapsing glitch transaction waves, cyan-teal energy flood with digital debris, vertical enemy art, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### monster_21
+lone humanoid avatar with severed power cable trailing behind, dim static silhouette, pale flickering light, melancholic, vertical enemy art, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### monster_22
+giant surveillance spider-program weaving glowing data-web between dead servers, wireframe web, predatory, vertical enemy art, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### monster_23
+hypnotic floating magnet entity, concentric pulsing rings dragging the eye inward, violet-magenta spiral core, vertical enemy art, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### monster_24
+inverted rewind-wave entity, arrows and glitch trails flowing backwards, reality peeling, sickly green-gold light, vertical enemy art, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border
+
+### monster_25
+colossal cracked obsidian god-monolith with burning violet circuitry veins, ancient machine deity, volumetric light, vertical boss art, dark cyberpunk game asset art, Eidos Zero Layer style, vertical composition, neon cyan and magenta rim lighting on deep black background, high detail, digital painting, centered subject, no text, no watermark, no border

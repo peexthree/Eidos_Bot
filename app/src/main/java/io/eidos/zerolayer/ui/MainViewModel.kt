@@ -502,6 +502,27 @@ class MainViewModel(
         }
     }
 
+    // Ежедневные Директивы (3 суточных квеста)
+    private val _dailyQuests = kotlinx.coroutines.flow.MutableStateFlow<List<io.eidos.zerolayer.data.DailyQuest>>(emptyList())
+    val dailyQuests: kotlinx.coroutines.flow.StateFlow<List<io.eidos.zerolayer.data.DailyQuest>> = _dailyQuests
+
+    fun refreshDailyQuests() {
+        viewModelScope.launch {
+            runCatching { repository.getDailyQuests(_uid.value) }
+                .onSuccess { _dailyQuests.value = it }
+        }
+    }
+
+    fun claimDailyQuest(questId: String) {
+        audio.playSound(EidosAudioManager.SoundType.ITEM_LOOT)
+        viewModelScope.launch {
+            val ok = repository.claimDailyQuest(_uid.value, questId)
+            if (ok) {
+                refreshDailyQuests()
+            }
+        }
+    }
+
     fun nextStep(chosenMutatorId: String? = null, costEnergyOverride: Int? = null) {
         haptics.step()
         audio.playSound(EidosAudioManager.SoundType.RAID_STEP)
