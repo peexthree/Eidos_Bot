@@ -112,6 +112,7 @@ fun RaidScreen(
     onBack: () -> Unit,
     onStartRaid: () -> Unit = {},
     raidAdvice: String? = null,
+    onHeal: () -> Unit = {},
     onScanSector: () -> Unit = {},
     onDefend: () -> Unit = {},
     onUseAbility: () -> Unit = {},
@@ -372,6 +373,7 @@ fun RaidScreen(
                     innerPadding = innerPadding,
                     onStartRaid = onStartRaid,
                     raidAdvice = raidAdvice,
+                    onHeal = onHeal,
                     haptics = haptics,
                     audio = audio
                 )
@@ -1109,6 +1111,14 @@ fun DeathScreenOverlay(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    "📉 ПРОГРЕСС ГЛУБИНЫ СБРОШЕН: следующая вылазка - с 1 уровня. Сигнал не восстановлен: лечение за валюту (капсула на шлюзе).",
+                                    color = ZzzWarningOrange,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     "3. МОГИЛА ОПЕРАТОРА (СЛОЙ ${report.depth}м):",
                                     color = ZzzCyanBright,
@@ -2962,39 +2972,41 @@ fun RaidControls(
                 }
             }
 
-            // Tactical 2x2 Combat Matrix
+            // Tactical Combat Matrix: Атака - большая центральная,
+            // Защита/Навык - вторым рядом, Отход - маленькая с подтверждением.
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Row 1: Attack + Defend
+                // Row 1: Attack (hero action - full width)
+                Button(
+                    onClick = {
+                        haptics.criticalHit()
+                        audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
+                        onAttack()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14).copy(alpha = 0.85f)),
+                    border = BorderStroke(2.dp, EidosRed),
+                    shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 24.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text("АТАКА", color = ZzzDangerRed, fontWeight = FontWeight.Black, fontSize = 15.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        Text("УДАР (${activeStats?.attack ?: player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+
+                // Row 2: Defend + Ability
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Button(
-                        onClick = {
-                            haptics.criticalHit()
-                            audio.playSound(EidosAudioManager.SoundType.CRITICAL_STRIKE)
-                            onAttack()
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF380C14).copy(alpha = 0.85f)),
-                        border = BorderStroke(1.5.dp, EidosRed),
-                        shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 22.dp)
-                                Spacer(Modifier.width(5.dp))
-                                Text("АТАКА", color = ZzzDangerRed, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                            }
-                            Text("УДАР (${activeStats?.attack ?: player?.attack ?: 10} ATK)", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
-                        }
-                    }
-
                     Button(
                         onClick = {
                             haptics.step()
@@ -3003,27 +3015,18 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818).copy(alpha = 0.85f)),
                         border = BorderStroke(1.5.dp, EidosNeon),
                         shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(iconRes = R.drawable.ic_action_defense, size = 22.dp)
-                                Spacer(Modifier.width(5.dp))
-                                Text("ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                            }
-                            Text("БЛОК -60% // +8 EP", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ZzzIcon(iconRes = R.drawable.ic_action_defense, size = 18.dp)
+                            Spacer(Modifier.width(5.dp))
+                            Text("ЗАЩИТА", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
-                }
 
-                // Row 2: Ability + Flee
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
                     Button(
                         onClick = {
                             haptics.criticalHit()
@@ -3032,7 +3035,7 @@ fun RaidControls(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (hasAbilityEnergy) Color(0xFF0A2B38).copy(alpha = 0.85f) else Color(0xFF380C14).copy(alpha = 0.85f)
                         ),
@@ -3042,54 +3045,70 @@ fun RaidControls(
                         ),
                         shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(
-                                    iconRes = if (hasAbilityEnergy) R.drawable.ic_action_skill else R.drawable.ic_action_blood_overdrive,
-                                    size = 20.dp
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                Text(
-                                    if (hasAbilityEnergy) "НАВЫК [-10 EP]" else "НАВЫК [-8% HP]",
-                                    color = if (hasAbilityEnergy) EidosCyan else ZzzDangerRed,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                            Text(
-                                "$factionAbilityTitle // ПРОБИТИЕ",
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 8.sp,
-                                fontFamily = FontFamily.Monospace,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        Text(
+                            if (hasAbilityEnergy) "НАВЫК [-10 EP]" else "НАВЫК [-8% HP]",
+                            color = if (hasAbilityEnergy) EidosCyan else ZzzDangerRed,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
+                }
 
-                    Button(
-                        onClick = {
-                            haptics.step()
-                            audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
-                            onFlee()
+                // Row 3: Flee - критичное действие: маленькая, по центру, с подтверждением
+                var showFleeConfirm by remember { mutableStateOf(false) }
+                Button(
+                    onClick = {
+                        haptics.click()
+                        showFleeConfirm = true
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906).copy(alpha = 0.6f)),
+                    border = BorderStroke(1.dp, EidosOrange.copy(alpha = 0.6f)),
+                    shape = CutCornerShape(4.dp),
+                    modifier = Modifier.align(Alignment.CenterHorizontally).height(30.dp)
+                ) {
+                    Text("ОТХОД // ШАНС 75%", color = EidosOrange.copy(alpha = 0.9f), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                }
+
+                if (showFleeConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showFleeConfirm = false },
+                        title = {
+                            Text("ОТСТУПИТЬ?", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
                         },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906).copy(alpha = 0.85f)),
-                        border = BorderStroke(1.5.dp, EidosOrange),
-                        shape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZzzIcon(iconRes = R.drawable.ic_action_flee, size = 22.dp)
-                                Spacer(Modifier.width(5.dp))
-                                Text("ОТХОД", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                        text = {
+                            Text(
+                                "Шанс успешного отхода: 75%. При провале враг наносит удар. Пропущенные трофеи сектора теряются.",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    haptics.glitchPulse()
+                                    audio.playSound(EidosAudioManager.SoundType.ERROR_GLITCH)
+                                    showFleeConfirm = false
+                                    onFlee()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261906)),
+                                border = BorderStroke(1.dp, EidosOrange)
+                            ) {
+                                Text("ОТСТУПИТЬ", color = EidosOrange, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                             }
-                            Text("ШАНС 75%", color = Color.White.copy(alpha = 0.9f), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
-                        }
-                    }
+                        },
+                        dismissButton = {
+                            Button(
+                                onClick = { showFleeConfirm = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D2818)),
+                                border = BorderStroke(1.dp, EidosNeon)
+                            ) {
+                                Text("ОСТАТЬСЯ", color = EidosNeon, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                            }
+                        },
+                        containerColor = Color(0xFF070B10)
+                    )
                 }
             }
         } else if (isAnomaly && anomalyData != null) {

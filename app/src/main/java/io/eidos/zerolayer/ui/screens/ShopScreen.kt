@@ -70,6 +70,7 @@ fun ShopScreen(
     searchQuery: String = "",
     onSearchQueryChange: (String) -> Unit = {},
     onBuy: (String) -> Unit,
+    onEquipNow: (String) -> Unit = {},
     onRollGacha: () -> Unit = {},
     onSynthesizeFragments: () -> Unit = {},
     dataFragmentsCount: Int = 0,
@@ -1133,6 +1134,12 @@ fun ShopScreen(
     if (acquiredCelebrationItem != null) {
         ItemAcquiredCelebrationDialog(
             item = acquiredCelebrationItem!!,
+            onEquipNow = if (acquiredCelebrationItem!!.type in EQUIPMENT_ITEM_TYPES) {
+                {
+                    onEquipNow(acquiredCelebrationItem!!.id)
+                    acquiredCelebrationItem = null
+                }
+            } else null,
             onDismiss = { acquiredCelebrationItem = null }
         )
     }
@@ -1225,6 +1232,7 @@ fun CurrencySpendConfirmDialog(
 @Composable
 fun ItemAcquiredCelebrationDialog(
     item: ItemMetadata,
+    onEquipNow: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1377,6 +1385,34 @@ fun ItemAcquiredCelebrationDialog(
         }
     },
     confirmButton = {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (onEquipNow != null) {
+                Button(
+                    onClick = {
+                        haptics.click()
+                        audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.ITEM_CRAFT)
+                        onEquipNow()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ZzzCyanBright),
+                    shape = CutCornerShape(4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZzzIcon(iconRes = R.drawable.ic_nav_inventory, size = 16.dp, tint = Color.Black)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "НАДЕТЬ СРАЗУ",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            }
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(containerColor = itemRarityColor),
@@ -1397,7 +1433,8 @@ fun ItemAcquiredCelebrationDialog(
                     )
                 }
             }
-        },
+        }
+    },
         containerColor = Color(0xFF070B10),
         shape = CutCornerShape(10.dp),
         modifier = Modifier.border(1.5.dp, itemRarityColor.copy(alpha = 0.8f), CutCornerShape(10.dp))

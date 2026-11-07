@@ -1792,6 +1792,34 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         capPlayerHp(uid)
     }
 
+    /** А2 UX: надеть только что купленный предмет (первый неэкипированный экземпляр). */
+    suspend fun equipLatestItemById(uid: Long, itemId: String): Boolean {
+        val item = dao.getInventoryFlow(uid).first()
+            .find { it.item_id == itemId && !it.is_equipped } ?: return false
+        equipItem(uid, item)
+        return true
+    }
+
+    /** А5 UX: платное полное восстановление Сигнала (мед-капсула на шлюзе). */
+    suspend fun getHealCost(uid: Long): Long {
+        val p = dao.getPlayer(uid) ?: return 0L
+        val missing = (p.max_hp - p.hp).coerceAtLeast(0)
+        return (missing * 2L).coerceAtLeast(50L) // 2 BC за 1 HP, минимум 50
+    }
+
+    suspend fun healForCurrency(uid: Long): Boolean = dbMutex.withLock {
+        val p = dao.getPlayer(uid) ?: return@withLock false
+        if (p.hp >= p.max_hp) return@withLock false
+        val cost = getHealCost(uid)
+        if (p.biocoin < cost) {
+            log(uid, "❌ [МЕД-КАПСУЛА]: Недостаточно BC. Требуется $cost BC за полное восстановление.", "error")
+            return@withLock false
+        }
+        dao.updatePlayer(p.copy(hp = p.max_hp, biocoin = p.biocoin - cost))
+        log(uid, "💊 [МЕД-КАПСУЛА]: Сигнал полностью восстановлен! Оплачено: $cost BC.", "heal")
+        true
+    }
+
     suspend fun equipItem(uid: Long, item: InventoryItem) {
         val player = dao.getPlayer(uid) ?: return
         val meta = getItemMetadata(item.item_id)
@@ -2337,6 +2365,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun getTopWorldBossContributors(): List<BossContributor> =
         dao.getTopWorldBossContributors(5)
 
+    /** Личный суммарный вклад оператора в текущий пул World Boss. */
+    suspend fun getMyWorldBossDamage(uid: Long): Long =
+        dao.getMyWorldBossDamage(uid) ?: 0L
+
     // --- Singularity Terminal (endgame finale + NG+ prestige) ---
 
     suspend fun isSingularityTerminalReady(uid: Long): Boolean {
@@ -2472,7 +2504,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         dao.updatePlayer(player.copy(
             biocoin = feeCoins,
-            hp = player.max_hp,
+            // Сигнал и энергия НЕ восстанавливаются халявой: лечение - за валюту
+            // (мед-модули / капсула на шлюзе). Энергия - таймгейт, остаётся полной.
             energy = player.max_energy
         ))
 
@@ -3164,13 +3197,17 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 // Reset overdrive
                 setOverdriveCharge(uid, 0)
 
+                // 🔄 СМЕРТЬ: сброс прогресса глубины к поверхности + БЕЗ бесплатного хила.
+                // max_depth = 0 -> следующая вылазка начнётся с 1 уровня глубины.
+                // Сигнал остаётся на 1 HP: лечение - мед-модули или платная капсула.
                 dao.updatePlayer(player.copy(
-                    max_depth = maxOf(player.max_depth, session.depth),
-                    hp = player.max_hp,
+                    max_depth = 0,
+                    hp = 1,
                     energy = player.max_energy,
                     overdriveCharge = 0,
                     kills = maxOf(player.kills, player.kills + session.kills)
                 ))
+                log(uid, "📉 [СБРОС ГЛУБИНЫ]: Прогресс погружения аннулирован - следующая вылазка начнётся с 1 уровня. Сигнал критически слаб: лечение за валюту (мед-модули / капсула на шлюзе).", "error")
 
                 val durationSec = ((System.currentTimeMillis() - session.start_time).coerceAtLeast(0L)) / 1000L
                 deathReportFlow.value = DeathReport(
@@ -3509,6 +3546,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             }
         }
     }
+
+    /** А4 UX: непрочитанные (невостребованные) радио-передачи для бейджа на Хабе. */
+    suspend fun getUnclaimedRadioCount(uid: Long): Int =
+        dao.getAllRadioMessages(uid).count { !it.isClaimed }
 
     suspend fun claimRadioMessageReward(uid: Long, messageId: Long) {
         val player = dao.getPlayer(uid) ?: return
@@ -4678,6 +4719,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             return null
         }
         dao.updatePlayer(player.copy(biocoin = player.biocoin - cost))
+        recordDailyQuestEvent(uid, "SPEND", cost.toInt().coerceAtMost(Int.MAX_VALUE))
         val result = GachaSystem.rollGacha()
         
         val invItem = InventoryItem(
@@ -4743,6 +4785,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             biocoin = player.biocoin - hardware.priceBc,
             installed_hardware = currentHw.joinToString(",")
         ))
+        recordDailyQuestEvent(uid, "SPEND", hardware.priceBc.toInt().coerceAtMost(Int.MAX_VALUE))
         log(uid, "💾 [КИБЕР-ДЕКА]: Установлен модуль [${hardware.label}]! (-${hardware.priceBc} BC)", "info")
         return true
     }

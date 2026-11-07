@@ -86,6 +86,7 @@ fun InventoryScreen(
     onStartDecryption: (InventoryItem) -> Unit,
     onInstantDecrypt: (InventoryItem) -> Unit,
     onClaimDecryptedCache: (InventoryItem) -> Unit,
+    onToForge: (InventoryItem) -> Unit = {},
     onBack: () -> Unit
 ) {
     var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
@@ -634,6 +635,20 @@ fun InventoryScreen(
                         ) {
                             Text("ИСПОЛЬЗОВАТЬ", color = EidosNeon, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         }
+                    }
+
+                    Button(
+                        onClick = {
+                            haptics.click()
+                            audio.playSound(EidosAudioManager.SoundType.ITEM_CRAFT)
+                            onToForge(item)
+                            selectedItem = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF182230)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF9C6B30)),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text("🔧 ВЕРСТАК", color = Color(0xFF9C6B30), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                     }
 
                     Button(

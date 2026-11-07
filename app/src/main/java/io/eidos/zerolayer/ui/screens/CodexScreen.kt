@@ -40,6 +40,9 @@ import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.ZzzIcon
+import io.eidos.zerolayer.ui.components.EarthRelic
+import io.eidos.zerolayer.ui.components.DEFAULT_EARTH_RELICS
+import io.eidos.zerolayer.ui.components.RelicShowcaseDialog
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import io.eidos.zerolayer.ui.theme.*
@@ -277,6 +280,13 @@ fun CodexScreen(
 fun LoreBookSection(player: Player?, onSingularityEnding: (String) -> Unit = {}) {
     var activeChapterToRead by remember { mutableStateOf<StoryChapterData?>(null) }
     val unlockedCount = STORY_CHAPTERS.count { it.isUnlocked(player) }
+
+    // РЕЛИКВИИ ЗЕМЛИ (перенесено из Хаба, B1): локальные состояния секции
+    val relicContext = LocalContext.current
+    val relicAudio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(relicContext) }
+    var showRelicShowcaseDialog by remember { mutableStateOf(false) }
+    var activeRelic by remember { mutableStateOf<EarthRelic?>(null) }
+    var isRelicsExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -628,6 +638,29 @@ fun LoreBookSection(player: Player?, onSingularityEnding: (String) -> Unit = {})
                 }
             }
         }
+
+        // --- РЕЛИКВИИ ЗЕМЛИ // АРТЕФАКТЫ ПРОШЛОГО (перенесено из Хаба, B1) ---
+        EarthRelicsHubSection(
+            activeRelic = activeRelic,
+            isExpanded = isRelicsExpanded,
+            onToggleExpand = { isRelicsExpanded = !isRelicsExpanded },
+            onSelectRelic = { relic ->
+                activeRelic = relic
+                relicAudio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.RELIC_UNLOCK)
+            },
+            onOpenShowcase = { showRelicShowcaseDialog = true }
+        )
+    }
+
+    // Relic Showcase Dialog (переезжает вместе с секцией из Хаба)
+    if (showRelicShowcaseDialog) {
+        RelicShowcaseDialog(
+            activeRelicId = activeRelic?.id,
+            onSelectResonator = { relic ->
+                activeRelic = relic
+            },
+            onDismiss = { showRelicShowcaseDialog = false }
+        )
     }
 }
 
@@ -1605,5 +1638,174 @@ fun ArchitectAudioLogsSection(player: Player?) {
                 }
             }
         )
+    }
+}
+
+// ============================================================================
+// 8. РЕЛИКВИИ ЗЕМЛИ // АРТЕФАКТЫ ПРОШЛОГО (EARTH RELICS COLLAPSIBLE SECTION)
+// (перенесено из HubScreen, задача B1 - раздел lore_story, после Терминала Сингулярности)
+// ============================================================================
+
+@Composable
+fun EarthRelicsHubSection(
+    activeRelic: EarthRelic?,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onSelectRelic: (EarthRelic) -> Unit,
+    onOpenShowcase: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color(0xEB120E08),
+        shape = CutCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, ZzzGold.copy(alpha = 0.6f)),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Header Row (Clickable to expand/collapse)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleExpand() },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("📼", fontSize = 16.sp)
+                    Column {
+                        Text(
+                            text = "РЕЛИКВИИ ЗЕМЛИ // АРТЕФАКТЫ ПРОШЛОГО",
+                            color = ZzzGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = if (activeRelic != null) "РЕЗОНАТОР: ${activeRelic.name}" else "5 АРТЕФАКТОВ // СТОЙКА РЕЗОНАТОРА",
+                            color = Color.LightGray,
+                            fontSize = 8.5.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Text(
+                    text = if (isExpanded) "[СВЕРНУТЬ ▲]" else "[РАСКРЫТЬ ▼]",
+                    color = ZzzCyanBright,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            // Expanded content
+            if (isExpanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    DEFAULT_EARTH_RELICS.forEach { relic ->
+                        val isEquipped = relic.id == activeRelic?.id
+                        Surface(
+                            color = if (isEquipped) ZzzGold.copy(alpha = 0.12f) else Color(0xFF161410),
+                            shape = CutCornerShape(4.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isEquipped) ZzzGold else Color(0xFF2E2618)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(relic.icon, fontSize = 20.sp)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = relic.name,
+                                        color = if (isEquipped) ZzzGold else Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        text = relic.buffDescription,
+                                        color = ZzzNeonGreen,
+                                        fontSize = 8.5.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+
+                                if (isEquipped) {
+                                    Surface(
+                                        color = ZzzGold.copy(alpha = 0.2f),
+                                        shape = CutCornerShape(4.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold)
+                                    ) {
+                                        Text(
+                                            text = "АКТИВЕН",
+                                            color = ZzzGold,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = { onSelectRelic(relic) },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF2E2618),
+                                            contentColor = ZzzGold
+                                        ),
+                                        shape = CutCornerShape(4.dp),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(26.dp)
+                                    ) {
+                                        Text(
+                                            text = "ВЫБРАТЬ",
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    OutlinedButton(
+                        onClick = onOpenShowcase,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ZzzGold),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzGold),
+                        shape = CutCornerShape(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)
+                    ) {
+                        Text(
+                            text = "ПОЛНАЯ СТОЙКА РЕЛИКВИЙ ➔",
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+        }
     }
 }

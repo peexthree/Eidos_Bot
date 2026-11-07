@@ -60,6 +60,7 @@ fun ForgeScreen(
     player: io.eidos.zerolayer.data.Player?,
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
+    preselectedItem: InventoryItem? = null,
     onDismantle: (InventoryItem) -> Unit,
     onMerge: (InventoryItem) -> Unit,
     onCraft: (String) -> Unit,
@@ -90,6 +91,13 @@ fun ForgeScreen(
     var prospectiveEquipment by remember { mutableStateOf<io.eidos.zerolayer.data.CyberEquipment?>(null) }
     var prospectiveRarity by remember { mutableStateOf("common") }
     var prospectiveCost by remember { mutableStateOf(250L) }
+
+    // A1 UX: предмет, переданный из Инвентаря (кнопка «🔧 ВЕРСТАК»), сразу в моддинг
+    androidx.compose.runtime.LaunchedEffect(preselectedItem) {
+        if (preselectedItem != null) {
+            currentModItem = preselectedItem
+        }
+    }
 
     Scaffold(
         topBar = {

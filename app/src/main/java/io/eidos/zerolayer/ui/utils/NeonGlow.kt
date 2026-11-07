@@ -27,7 +27,7 @@ import androidx.compose.ui.graphics.Shape
 
 @Composable
 fun Modifier.neonGlowPulse(
-    glowColor: Color = Color(0xFF00E5FF),
+    glowColor: Color = io.eidos.zerolayer.ui.theme.ZzzCyanBright,
     baseWidth: Dp = 2.dp,
     shape: Shape = RoundedCornerShape(12.dp),
     durationMs: Int = 1200

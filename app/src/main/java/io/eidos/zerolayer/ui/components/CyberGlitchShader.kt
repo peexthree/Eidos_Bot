@@ -68,14 +68,19 @@ fun Modifier.cyberGlitchEffect(
 
             onDrawWithContent {
                 val shader = runtimeShader
-                if (shader != null) {
+                val brush = shaderBrush
+                if (shader != null && brush != null) {
                     try {
                         shader.setFloatUniform("resolution", size.width, size.height)
                         shader.setFloatUniform("time", (System.currentTimeMillis() % 1000000) / 1000f)
                         shader.setFloatUniform("glitchIntensity", glitchIntensity)
                     } catch (_: Throwable) {}
+                    // Рисуем контент ЧЕРЕЗ шейдер: ShaderBrush инжектит
+                    // composable-контент в uniform-вход 'composable' AGSL-кода.
+                    drawRect(brush = brush)
+                } else {
+                    drawContent()
                 }
-                drawContent()
             }
         }
     } else {

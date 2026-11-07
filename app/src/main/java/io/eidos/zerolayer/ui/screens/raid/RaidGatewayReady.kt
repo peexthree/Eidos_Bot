@@ -40,14 +40,17 @@ internal fun RaidGatewayReadyContent(
     innerPadding: PaddingValues,
     onStartRaid: () -> Unit,
     raidAdvice: String? = null,
+    onHeal: () -> Unit = {},
     haptics: HapticFeedbackManager,
     audio: EidosAudioManager
 ) {
     // Gateway Ready State: Enter Abyss
     val playerCoins = player?.biocoin ?: 0
     val playerHp = player?.hp ?: 100
+    val playerMaxHp = player?.max_hp ?: 100
     val isLowHp = playerHp < 25
     val isEmergencyBreach = playerCoins < 20
+    val healCost = ((playerMaxHp - playerHp).coerceAtLeast(0) * 2L).coerceAtLeast(50L)
     val equippedWeaponName = remember(inventory) {
         inventory.find { it.is_equipped && (it.slot == "weapon" || it.item_id.contains("sword") || it.item_id.contains("blade") || it.item_id.contains("knife") || it.item_id.contains("katana") || it.item_id.contains("cannon") || it.item_id.contains("rifle")) }?.item_id?.let { getItemNameReadable(it) } ?: "Импульсный излучатель"
     }
@@ -192,6 +195,30 @@ internal fun RaidGatewayReadyContent(
                                 fontFamily = FontFamily.Monospace,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // 💊 МЕД-КАПСУЛА: платное лечение (смерть больше не лечит халявно)
+                    if (playerHp < playerMaxHp) {
+                        Button(
+                            onClick = {
+                                haptics.click()
+                                audio.playSound(EidosAudioManager.SoundType.ITEM_CRAFT)
+                                onHeal()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF12241A)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E676)),
+                            shape = androidx.compose.foundation.shape.CutCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth().height(40.dp)
+                        ) {
+                            Text(
+                                "💊 МЕД-КАПСУЛА: +100% СИГНАЛА (-$healCost BC)",
+                                color = Color(0xFF00E676),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))

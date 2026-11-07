@@ -123,6 +123,9 @@ class MainViewModel(
     private val _topPlayers = MutableStateFlow<List<SupabasePlayer>>(emptyList())
     val topPlayers: StateFlow<List<SupabasePlayer>> = _topPlayers.asStateFlow()
 
+    private val _pvpChallengeTarget = MutableStateFlow<SupabasePlayer?>(null)
+    val pvpChallengeTarget: StateFlow<SupabasePlayer?> = _pvpChallengeTarget.asStateFlow()
+
     private val _authSession = MutableStateFlow(repository.getAuthSession())
     val authSession: StateFlow<AuthSession> = _authSession.asStateFlow()
 
@@ -291,6 +294,15 @@ class MainViewModel(
                 }
             }
         }
+    }
+
+    // PvP challenge from Leaderboard (Profile) -> PvpScreen pre-selected target
+    fun challengePlayer(target: SupabasePlayer) {
+        _pvpChallengeTarget.value = target
+    }
+
+    fun consumePvpChallengeTarget() {
+        _pvpChallengeTarget.value = null
     }
 
     data class SyncConflict(val local: Player, val remote: SupabasePlayer)
@@ -499,6 +511,47 @@ class MainViewModel(
         audio.playSound(EidosAudioManager.SoundType.RELIC_UNLOCK)
         viewModelScope.launch {
             repository.completeSingularityEnding(_uid.value, endingId)
+        }
+    }
+
+    // А5 UX: платная мед-капсула на шлюзе (смерть больше не лечит халявно)
+    fun healForCurrency() {
+        viewModelScope.launch {
+            val ok = runCatching { repository.healForCurrency(_uid.value) }.getOrDefault(false)
+            if (ok) {
+                player.value // player flow обновится через dao
+            }
+        }
+    }
+
+    // Инвентарь -> Кузница: передача выбранного предмета (А1 UX-плана)
+    private val _forgeTargetItem = kotlinx.coroutines.flow.MutableStateFlow<io.eidos.zerolayer.data.InventoryItem?>(null)
+    val forgeTargetItem: kotlinx.coroutines.flow.StateFlow<io.eidos.zerolayer.data.InventoryItem?> = _forgeTargetItem
+
+    fun sendToForge(item: io.eidos.zerolayer.data.InventoryItem) {
+        _forgeTargetItem.value = item
+    }
+    fun consumeForgeTarget() {
+        _forgeTargetItem.value = null
+    }
+
+    // А4 UX: бейдж непрочитанных радио-передач (Кассандра и др.)
+    private val _unreadRadio = kotlinx.coroutines.flow.MutableStateFlow(0)
+    val unreadRadio: kotlinx.coroutines.flow.StateFlow<Int> = _unreadRadio
+
+    fun refreshUnreadRadio() {
+        viewModelScope.launch {
+            _unreadRadio.value = runCatching { repository.getUnclaimedRadioCount(_uid.value) }.getOrDefault(0)
+        }
+    }
+
+    // А2 UX: «НАДЕТЬ СРАЗУ» из церемонии покупки
+    fun equipLatestOf(itemId: String) {
+        viewModelScope.launch {
+            val ok = runCatching { repository.equipLatestItemById(_uid.value, itemId) }.getOrDefault(false)
+            if (ok) {
+                audio.playSound(EidosAudioManager.SoundType.ITEM_CRAFT)
+            }
         }
     }
 

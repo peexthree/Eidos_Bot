@@ -297,6 +297,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onSendSignal = { to, msg -> mainViewModel.sendSignalToOperator(to, msg) },
                         onClaimAchievement = { mainViewModel.claimAchievement(it) },
                         onTriggerTestLevelUp = { mainViewModel.triggerTestLevelUp() },
+                        onChallengePlayer = { mainViewModel.challengePlayer(it) },
                         onBack = { navController.popBackStack() },
                         onNavigateToSettings = { navController.navigate(EidosSettings) },
                         onNavigateToCodex = { navController.navigate(Codex) }
@@ -320,6 +321,10 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onStartDecryption = { mainViewModel.startDecryption(it) },
                         onInstantDecrypt = { mainViewModel.instantDecrypt(it) },
                         onClaimDecryptedCache = { mainViewModel.claimDecryptedCache(it) },
+                        onToForge = { item ->
+                            mainViewModel.sendToForge(item)
+                            navController.navigate(Forge) { launchSingleTop = true }
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -329,6 +334,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         player = player,
                         logs = logs,
                         raidAdvice = mainViewModel.raidAdvice.collectAsStateWithLifecycle().value,
+                        onHeal = { mainViewModel.healForCurrency() },
                         anomalyData = mainViewModel.getAnomalyData(raidSession?.current_anomaly_id),
                         inventory = inventory,
                         allItemsMetadata = mainViewModel.getAllItemsMetadata(),
@@ -370,10 +376,12 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                     )
                 }
                 composable<Forge> {
+                    val forgeTarget by mainViewModel.forgeTargetItem.collectAsStateWithLifecycle()
                     ForgeScreen(
                         player = player,
                         inventory = inventory,
                         allItemsMetadata = mainViewModel.getAllItemsMetadata(),
+                        preselectedItem = forgeTarget,
                         onDismantle = { mainViewModel.dismantle(it) },
                         onMerge = { mainViewModel.mergeItems(it.item_id) },
                         onCraft = { mainViewModel.craft(it) },
@@ -388,7 +396,10 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onInsertChip = { item, index, chip -> mainViewModel.insertChipToEquipment(item, index, chip) },
                         onRemoveChip = { item, index -> mainViewModel.removeChipFromEquipment(item, index) },
                         onApplyCustomMod = { item, eq, cost, logMsg -> mainViewModel.applyCustomEquipmentMod(item, eq, cost, logMsg) },
-                        onBack = { navController.popBackStack() }
+                        onBack = {
+                            mainViewModel.consumeForgeTarget()
+                            navController.popBackStack()
+                        }
                     )
                 }
                 composable<Shop> {
@@ -400,6 +411,7 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         items = mainViewModel.getAllItemsMetadata(),
                         selectedCategory = shopTab,
                         onCategoryChange = { mainViewModel.setShopSelectedTab(it) },
+                        onEquipNow = { mainViewModel.equipLatestOf(it) },
                         searchQuery = shopSearch,
                         onSearchQueryChange = { mainViewModel.setShopSearchQuery(it) },
                         onBuy = { mainViewModel.buyItem(it) },
@@ -411,9 +423,12 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                 }
                 composable<Pvp> {
                     val topPlayers by mainViewModel.topPlayers.collectAsStateWithLifecycle()
+                    val pvpChallengeTarget by mainViewModel.pvpChallengeTarget.collectAsStateWithLifecycle()
                     PvpScreen(
                         player = player,
                         phantoms = topPlayers,
+                        challengeTarget = pvpChallengeTarget,
+                        onChallengeConsumed = { mainViewModel.consumePvpChallengeTarget() },
                         onSetupDefense = { p1, p2, p3 -> mainViewModel.setupPvpDefense(p1, p2, p3) },
                         onBuyHardware = { hw -> mainViewModel.buyPvpHardware(hw) },
                         onActivateShield = { hours -> mainViewModel.activatePvpShield(hours) },

@@ -112,6 +112,7 @@ fun ProfileScreen(
     onSendSignal: (String, String) -> Unit = { _, _ -> },
     onClaimAchievement: (Achievement) -> Unit = {},
     onTriggerTestLevelUp: () -> Unit = {},
+    onChallengePlayer: (SupabasePlayer) -> Unit = {},
     onBack: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToCodex: () -> Unit = {}
@@ -1284,6 +1285,27 @@ fun ProfileScreen(
                                             Column(horizontalAlignment = Alignment.End) {
                                                 Text("УР. ${p.level}", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                                 Text("${p.exp} XP", color = Color.LightGray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                                if (!isMe) {
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    Button(
+                                                        onClick = {
+                                                            hapticManager.click()
+                                                            onChallengePlayer(p)
+                                                        },
+                                                        modifier = Modifier.height(28.dp),
+                                                        colors = ButtonDefaults.buttonColors(containerColor = EidosRed),
+                                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                                        shape = CutCornerShape(4.dp)
+                                                    ) {
+                                                        Text(
+                                                            "ВЫЗОВ",
+                                                            color = Color.White,
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontFamily = FontFamily.Monospace
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }

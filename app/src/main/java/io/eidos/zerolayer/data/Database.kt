@@ -141,6 +141,9 @@ interface EidosDao {
             "ORDER BY c.total_damage DESC LIMIT :limit"
     )
     suspend fun getTopWorldBossContributors(limit: Int): List<BossContributor>
+
+    @Query("SELECT total_damage FROM world_boss_contrib WHERE player_uid = :uid")
+    suspend fun getMyWorldBossDamage(uid: Long): Long?
 }
 
 val MIGRATION_10_11 = object : Migration(10, 11) {

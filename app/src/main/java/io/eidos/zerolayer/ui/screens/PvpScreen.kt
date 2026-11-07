@@ -59,6 +59,8 @@ import kotlinx.coroutines.launch
 fun PvpScreen(
     player: Player?,
     phantoms: List<SupabasePlayer> = emptyList(),
+    challengeTarget: SupabasePlayer? = null,
+    onChallengeConsumed: () -> Unit = {},
     onSetupDefense: (PvpProgram, PvpProgram, PvpProgram) -> Unit = { _, _, _ -> },
     onBuyHardware: (HardwareType) -> Unit = {},
     onActivateShield: (Int) -> Unit = {},
@@ -99,6 +101,23 @@ fun PvpScreen(
     val validTargets = remember(phantoms, player) {
         val now = System.currentTimeMillis()
         phantoms.filter { it.deviceId != player?.uid?.toString() && it.pvp_proxy_until <= now }
+    }
+
+    // Leaderboard challenge (A3): pre-select the challenged operator as the raid target
+    // once the network list resolves, then release the one-shot challenge event.
+    LaunchedEffect(challengeTarget, validTargets) {
+        val requested = challengeTarget ?: return@LaunchedEffect
+        if (validTargets.isEmpty()) return@LaunchedEffect // ждём скан сети
+        val match = validTargets.find { it.deviceId == requested.deviceId }
+        if (match != null) {
+            selectedTab = 0 // вкладка атаки
+            selectedTarget = match
+            isRevengeRaid = false
+            selectedAttackPrograms.clear()
+            activeDuelResult = null
+            haptics.click()
+        }
+        onChallengeConsumed()
     }
 
     // Tactical scan skeleton: show loading placeholders for ~1s on first compose
