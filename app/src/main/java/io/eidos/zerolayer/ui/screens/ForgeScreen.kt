@@ -37,6 +37,11 @@ import io.eidos.zerolayer.ui.theme.EidosPurple
 import io.eidos.zerolayer.ui.theme.ZzzGold
 import io.eidos.zerolayer.ui.theme.ZzzDangerRed
 import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
+import io.eidos.zerolayer.ui.theme.ZzzToxicGreen
+import io.eidos.zerolayer.ui.theme.ZzzAcidYellow
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -104,26 +109,30 @@ fun ForgeScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("КВАНТОВАЯ КУЗНИЦА EIDOS", color = ZzzWarningOrange, fontWeight = FontWeight.Black, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Ур. ${player?.level ?: 1} Оператор", color = Color.LightGray, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
-                            Spacer(Modifier.width(6.dp))
-                            ZzzIcon(R.drawable.ic_res_biocoin, size = 10.dp)
-                            Spacer(Modifier.width(2.dp))
-                            Text("${player?.biocoin ?: 0} BC", color = Color.LightGray, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
-                            Spacer(Modifier.width(6.dp))
-                            ZzzIcon(R.drawable.ic_res_eidos_shard, size = 10.dp)
-                            Spacer(Modifier.width(2.dp))
-                            Text("${inventory.find { it.item_id == "eidos_shard" }?.quantity ?: 0} Осколков", color = Color.LightGray, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
-                        }
+                        Text(
+                            buildAnnotatedString {
+                                withStyle(SpanStyle(color = EidosCyan)) { append("КУЗНЯ ") }
+                                withStyle(SpanStyle(color = ZzzAcidYellow)) { append("// МОДЕРНИЗАЦИЯ") }
+                            },
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            "СЫРЬЕ: ${inventory.find { it.item_id == "eidos_shard" }?.quantity ?: 0} ОСКОЛКОВ | ${player?.biocoin ?: 0} BC | УР. ${player?.level ?: 1}",
+                            color = Color.Gray,
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = ZzzWarningOrange)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosCyan)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0C0904))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         containerColor = Color(0xFF060402)
@@ -193,6 +202,7 @@ fun ForgeScreen(
 
                 when (selectedTab) {
                     0 -> SynthesisTab(
+                        player = player,
                         inventory = inventory,
                         allItemsMetadata = allItemsMetadata,
                         onDismantle = onDismantle,
@@ -330,6 +340,7 @@ fun ForgeScreen(
 
 @Composable
 fun SynthesisTab(
+    player: io.eidos.zerolayer.data.Player?,
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     onDismantle: (InventoryItem) -> Unit,
@@ -540,6 +551,8 @@ fun SynthesisTab(
                 ) {
                     items(recipes, key = { it.id }) { recipe ->
                         val hasEnoughShards = shards >= recipe.shardCost
+                        val hasEnoughBc = (player?.biocoin ?: 0L) >= recipe.creditCost
+                        val canAffordRecipe = hasEnoughShards && hasEnoughBc
                         var hasAllIngredients = hasEnoughShards
                         val ingStatusList = mutableListOf<String>()
 
@@ -566,7 +579,17 @@ fun SynthesisTab(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text(recipe.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // Индикатор доступности: зеленая точка - хватает осколков и BC, красная - нет
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(if (canAffordRecipe) ZzzToxicGreen else ZzzDangerRed)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(recipe.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
                                 if (recipe.description.isNotEmpty()) {
                                     Text(recipe.description, color = Color.Gray, fontSize = 9.sp)
                                 }

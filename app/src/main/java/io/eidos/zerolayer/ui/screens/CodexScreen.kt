@@ -711,13 +711,21 @@ fun BestiaryBookSection(
             val killed = entry?.killed_count ?: 0
             val unlocked = killed > 0 || (entry?.encountered == true)
 
+            // Индикатор опасности по уровню
+            val dangerColor = when {
+                villain.level >= 26 -> Color(0xFFFF1744)
+                villain.level >= 16 -> Color(0xFFFF9800)
+                villain.level >= 6 -> EidosCyan
+                else -> Color(0xFF00E676)
+            }
+
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = if (unlocked) EidosGlass else Color.Black.copy(alpha = 0.5f)
                 ),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (unlocked) EidosNeon.copy(alpha = 0.5f) else Color.DarkGray
+                    if (unlocked) dangerColor.copy(alpha = 0.6f) else Color.DarkGray
                 ),
                 shape = CutCornerShape(6.dp),
                 modifier = Modifier
@@ -766,8 +774,12 @@ fun BestiaryBookSection(
                                     fontFamily = FontFamily.Monospace
                                 )
                                 Text(
-                                    text = "Тип: Аномалия • Уровень ${villain.level}",
-                                    color = Color.Gray,
+                                    text = "Ур. ${villain.level} • " + if (killed > 0) "☠ УБИТО: $killed" else "НЕ ВСТРЕЧЕН",
+                                    color = when {
+                                        killed >= 10 && unlocked -> Color(0xFF00E676)
+                                        unlocked -> Color.Gray
+                                        else -> Color.DarkGray
+                                    },
                                     fontSize = 9.sp,
                                     fontFamily = FontFamily.Monospace
                                 )

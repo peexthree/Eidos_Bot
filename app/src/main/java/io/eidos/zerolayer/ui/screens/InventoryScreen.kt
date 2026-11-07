@@ -53,6 +53,10 @@ import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.ZzzGold
 import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
 import io.eidos.zerolayer.ui.theme.ZzzCyanBright
+import io.eidos.zerolayer.ui.theme.ZzzAcidYellow
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import io.eidos.zerolayer.ui.components.ZzzIcon
 import io.eidos.zerolayer.ui.components.cyber3DTilt
 import io.eidos.zerolayer.ui.utils.EidosAudioManager
@@ -137,10 +141,12 @@ fun InventoryScreen(
                     title = {
                         Column {
                             Text(
-                                "ИНВЕНТАРЬ // DECK_OS",
-                                color = EidosCyan,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 15.sp,
+                                buildAnnotatedString {
+                                    withStyle(SpanStyle(color = EidosCyan)) { append("КЭШ-МЕНЕДЖЕР ") }
+                                    withStyle(SpanStyle(color = ZzzAcidYellow)) { append("// ИНВЕНТАРЬ") }
+                                },
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 14.sp,
                                 fontFamily = FontFamily.Monospace,
                                 letterSpacing = 1.sp
                             )
@@ -396,13 +402,34 @@ fun InventoryScreen(
                         "consumable" -> "РАСХОДНЫЙ ПРЕДМЕТ"
                         else -> "МАТЕРИАЛ ДЛЯ КУЗНИЦЫ"
                     }
-                    Text(
-                        typeLabel,
-                        color = EidosCyan,
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            typeLabel,
+                            color = EidosCyan,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Цветной бейдж редкости предмета
+                        Surface(
+                            color = rarityColor.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, rarityColor),
+                            shape = CutCornerShape(3.dp)
+                        ) {
+                            Text(
+                                rarity.uppercase(),
+                                color = rarityColor,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     if (isEquippable(item.item_id, itemMeta)) {
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
@@ -414,13 +441,32 @@ fun InventoryScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        desc,
-                        color = Color(0xFFB0BEC5),
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    // Краткая подсказка "Что делает": описание предмета в терминальном блоке
+                    Surface(
+                        color = rarityColor.copy(alpha = 0.08f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, rarityColor.copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(
+                                "ЧТО ДЕЛАЕТ //",
+                                color = rarityColor,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                desc,
+                                color = Color(0xFFB0BEC5),
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(10.dp))
 
                     if (item.durability >= 0 && isEquippable(item.item_id, itemMeta)) {

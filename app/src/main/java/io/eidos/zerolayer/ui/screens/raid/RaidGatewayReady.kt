@@ -25,6 +25,7 @@ import io.eidos.zerolayer.ui.screens.getItemNameReadable
 import io.eidos.zerolayer.ui.theme.EidosCyan
 import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
+import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
 import io.eidos.zerolayer.ui.utils.EidosAudioManager
 import io.eidos.zerolayer.ui.utils.HapticFeedbackManager
 
@@ -129,10 +130,37 @@ internal fun RaidGatewayReadyContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             ZzzIcon(iconRes = R.drawable.ic_action_attack, size = 12.dp, tint = EidosCyan)
                             Spacer(Modifier.width(4.dp))
-                            Text("ЭКИПИРОВКА:", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            Text("ОРУЖИЕ:", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         }
                         Text(equippedWeaponName, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     }
+
+                    // Броня и шлем
+                    val armorName = inventory.find { it.is_equipped && it.slot == "armor" }?.item_id?.let { getItemNameReadable(it) } ?: "—"
+                    val headName = inventory.find { it.is_equipped && it.slot == "head" }?.item_id?.let { getItemNameReadable(it) } ?: "—"
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.CutCornerShape(4.dp))
+                            .background(Color(0xFF0D1520))
+                            .border(0.8.dp, EidosCyan.copy(alpha = 0.25f), androidx.compose.foundation.shape.CutCornerShape(4.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("🛡 $armorName", color = Color.LightGray, fontSize = 9.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
+                        Text("🪖 $headName", color = Color.LightGray, fontSize = 9.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
+                    }
+
+                    // Энергия: сколько шагов хватит
+                    val energy = player?.energy ?: 0
+                    val maxEnergy = player?.max_energy ?: 100
+                    val stepsAvailable = energy / 5
+                    Text(
+                        "⚡ Энергия: $energy/$maxEnergy — хватит на ~$stepsAvailable шагов",
+                        color = if (stepsAvailable < 5) ZzzWarningOrange else Color.Gray,
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
 
                     Spacer(modifier = Modifier.height(8.dp))
 

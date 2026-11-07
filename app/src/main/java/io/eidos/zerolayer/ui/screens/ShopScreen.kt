@@ -41,8 +41,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.R
 import io.eidos.zerolayer.data.Player
+import io.eidos.zerolayer.data.InventoryItem
 import io.eidos.zerolayer.data.GameRepository.ItemMetadata
 import io.eidos.zerolayer.ui.theme.*
+import io.eidos.zerolayer.ui.MainViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
@@ -77,6 +83,11 @@ fun ShopScreen(
     onBack: () -> Unit
 ) {
     val amberColor = ZzzGold
+
+    // QoL: живой поток инвентаря оператора для пометки "В НАЛИЧИИ" (тот же паттерн viewModel(), что в HubScreen)
+    val mainViewModel: MainViewModel = viewModel()
+    val shopInventory by mainViewModel.inventory.collectAsState()
+
     var sortBy by remember { mutableStateOf("price_asc") } // "price_asc", "price_desc", "name"
     var selectedInspectItem by remember { mutableStateOf<ItemMetadata?>(null) }
     var buyQuantity by remember { mutableStateOf(1) }
@@ -128,11 +139,14 @@ fun ShopScreen(
                 title = {
                     Column {
                         Text(
-                            "ЧЕРНЫЙ РЫНОК // ТОРГОВЫЙ ТЕРМИНАЛ",
-                            color = amberColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            fontFamily = FontFamily.Monospace
+                            buildAnnotatedString {
+                                withStyle(SpanStyle(color = EidosCyan)) { append("ЧЁРНЫЙ РЫНОК ") }
+                                withStyle(SpanStyle(color = ZzzAcidYellow)) { append("// ТОРГОВЛЯ") }
+                            },
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.sp
                         )
                         Text(
                             "ПРЯМАЯ ПОСТАВКА ИЗ СЕКТОРОВ Z-LAYER",
@@ -144,7 +158,7 @@ fun ShopScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = amberColor)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosCyan)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
@@ -739,6 +753,10 @@ fun ShopScreen(
                 ) {
                     items(filteredItems, key = { it.id }) { item ->
                         val itemRarityColor = rarityColor(item.rarity)
+                        // QoL: сколько единиц товара уже лежит в инвентаре оператора
+                        val ownedCount = shopInventory
+                            .filter { it.item_id == item.id }
+                            .sumOf { it.quantity.coerceAtLeast(1) }
                         val effectivePrice = if (item.price > 0) item.price else when (item.rarity.lowercase()) {
                             "uncommon" -> 350
                             "rare" -> 1200
@@ -826,6 +844,17 @@ fun ShopScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(3.dp))
+
+                                // QoL: пометка о наличии в инвентаре оператора
+                                Text(
+                                    "В НАЛИЧИИ: $ownedCount",
+                                    color = if (ownedCount > 0) EidosNeon else Color.Gray,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
                                 )
 
                                 Spacer(modifier = Modifier.height(3.dp))
