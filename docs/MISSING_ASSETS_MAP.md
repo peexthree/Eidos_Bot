@@ -13,16 +13,16 @@
 | 4 | `backup_drive.jpg` | Предмет (предмет) | **🟣 💽 РЕЗЕРВНЫЙ НАКОПИТЕЛЬ** | `COMMON` | - |
 | 5 | `battery.jpg` | Предмет (предмет) | **⚪️ 🔋 ЭНЕРГО-ЯЧЕЙКА** | `COMMON` | - |
 | 6 | `chronometer.jpg` | Предмет (предмет) | **🟠 ⏳ ХРОНОС-ИМПЛАНТ** | `COMMON` | - |
-| 7 | `cleanse_sync.jpg` | Экипировка / Модуль | **Cleanse Sync** | `COMMON` | - |
+| 7 | `cleanse_sync.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Экипировка / Модуль | **Cleanse Sync** | `COMMON` | - |
 | 8 | `compass.jpg` | Предмет (предмет) | **⚪️ 🧭 КОМПАС ПУСТОШИ** | `COMMON` | - |
 | 9 | `cpu_booster.jpg` | Предмет (предмет) | **🔵 🎛 CPU Акселератор** | `COMMON` | - |
 | 10 | `crowbar.jpg` | Предмет (предмет) | **⚪️ 🔧 МОНТИРОВКА ХАКЕРА** | `COMMON` | - |
 | 11 | `cryo_capsule.jpg` | Расходник | **Cryo Capsule** | `COMMON` | - |
-| 12 | `crypto_fog.jpg` | Экипировка / Модуль | **Crypto Fog** | `COMMON` | - |
+| 12 | `crypto_fog.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Экипировка / Модуль | **Crypto Fog** | `COMMON` | - |
 | 13 | `data_spike.jpg` | Предмет (consumable) | **🔵 🪛 ДАТА-ШИП** | `COMMON` | - |
-| 14 | `emp_charge.jpg` | Экипировка / Модуль | **Emp Charge** | `COMMON` | - |
+| 14 | `emp_charge.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Экипировка / Модуль | **Emp Charge** | `COMMON` | - |
 | 15 | `emp_grenade.jpg` | Предмет (consumable) | **🔵 💣 EMP-ЗАРЯД** | `COMMON` | - |
-| 16 | `energy_cell.jpg` | Расходник | **Energy Cell** | `COMMON` | - |
+| 16 | `energy_cell.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Расходник | **Energy Cell** | `COMMON` | - |
 | 17 | `exo_skeleton.jpg` | Предмет (предмет) | **🟣 🦾 ГОРНОПРОХОДЧЕСКИЙ ЭКЗОСКЕЛЕТ** | `COMMON` | - |
 | 18 | `force_field.jpg` | Предмет (предмет) | **🟠 🧿 ГЕНЕРАТОР СИЛОВОГО ПОЛЯ** | `COMMON` | - |
 | 19 | `glitch_filter.jpg` | Предмет (предмет) | **🔵 🕸 ФИЛЬТР АНОМАЛИЙ** | `COMMON` | - |
@@ -51,7 +51,7 @@
 | 42 | `lvl_8.jpg` | Уровень персонажа | **Уровень Ядра 8** | `LVL 8` | Эволюция формы оператора на 8 этапе сингулярности матрицы |
 | 43 | `lvl_9.jpg` | Уровень персонажа | **Уровень Ядра 9** | `LVL 9` | Эволюция формы оператора на 9 этапе сингулярности матрицы |
 | 44 | `master_key.jpg` | Предмет (предмет) | **⚪️ 🗝 МАГНИТНАЯ ОТМЫЧКА** | `COMMON` | - |
-| 45 | `memory_eraser.jpg` | Экипировка / Модуль | **Memory Eraser** | `COMMON` | - |
+| 45 | `memory_eraser.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Экипировка / Модуль | **Memory Eraser** | `COMMON` | - |
 | 46 | `memory_wiper.jpg` | Предмет (consumable) | **🟣 🌀 СТИРАТЕЛЬ ПАМЯТИ** | `COMMON` | - |
 | 47 | `monster_1.jpg` | Монстр / Босс Бездны | **Цифровой Паразит** | `NORMAL` | Враждебная сущность #1 из реестра бестиария Нулевого Слоя |
 | 48 | `monster_10.jpg` | Монстр / Босс Бездны | **Стиратель** | `ELITE` | Враждебная сущность #10 из реестра бестиария Нулевого Слоя |
@@ -111,14 +111,14 @@
 | 102 | `photo_2026_02_22_06_42_04.jpg` | Архивный фотокадр | **Архивная хроника (photo_2026_02_22_06_42_04)** | `LORE` | Снимок из архивов памяти Архитекторов |
 | 103 | `photo_2026_02_23_00_47_51.jpg` | Архивный фотокадр | **Архивная хроника (photo_2026_02_23_00_47_51)** | `LORE` | Снимок из архивов памяти Архитекторов |
 | 104 | `photo_2026_08_13_22_32_01.jpg` | Архивный фотокадр | **Архивная хроника (photo_2026_08_13_22_32_01)** | `LORE` | Снимок из архивов памяти Архитекторов |
-| 105 | `purge_sync.jpg` | Экипировка / Модуль | **Purge Sync** | `COMMON` | - |
+| 105 | `purge_sync.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Экипировка / Модуль | **Purge Sync** | `COMMON` | - |
 | 106 | `quantum_shield.jpg` | Предмет (предмет) | **🟠 🛡 КВАНТОВЫЙ БАРЬЕР** | `COMMON` | - |
 | 107 | `ram_chip.jpg` | Предмет (предмет) | **⚪️ 📟 RAM Модификатор** | `COMMON` | - |
 | 108 | `reality_armor.jpg` | Предмет (предмет) | **🟠 💠 ДОСПЕХИ РЕАЛЬНОСТИ** | `COMMON` | - |
-| 109 | `scanner.jpg` | Экипировка / Модуль | **Scanner** | `COMMON` | - |
+| 109 | `scanner.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Экипировка / Модуль | **Scanner** | `COMMON` | - |
 | 110 | `stealth_spray.jpg` | Предмет (consumable) | **🟣 🌫 КРИПТО-ТУМАН** | `COMMON` | - |
-| 111 | `sync_accelerator.jpg` | Экипировка / Модуль | **Sync Accelerator** | `COMMON` | - |
-| 112 | `sync_booster.jpg` | Нейрочип | **Sync Booster** | `RARE` | - |
+| 111 | `sync_accelerator.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Экипировка / Модуль | **Sync Accelerator** | `COMMON` | - |
+| 112 | `sync_booster.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Нейрочип | **Sync Booster** | `RARE` | - |
 | 113 | `tactical_scanner.jpg` | Предмет (предмет) | **📡 ТАКТИЧЕСКИЙ СКАНЕР** | `COMMON` | - |
 | 114 | `tactical_suit.jpg` | Предмет (предмет) | **🔵 🥋 ТАКТИЧЕСКИЙ КОМБИНЕЗОН** | `COMMON` | - |
-| 115 | `wasteland_compass.jpg` | Экипировка / Модуль | **Wasteland Compass** | `COMMON` | - |
+| 115 | `wasteland_compass.jpg` [МЁРТВАЯ СТРОКА: id нет в items.json] | Экипировка / Модуль | **Wasteland Compass** | `COMMON` | - |
