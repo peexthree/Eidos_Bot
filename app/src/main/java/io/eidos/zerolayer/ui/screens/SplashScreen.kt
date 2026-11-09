@@ -37,9 +37,33 @@ fun SplashScreen(onFinish: () -> Unit) {
     val context = LocalContext.current
     var isSkipped by remember { mutableStateOf(false) }
 
+    val introVoiceResId = remember {
+        val direct = context.resources.getIdentifier("eva_intro_voice", "raw", context.packageName)
+        if (direct != 0) direct else 0
+    }
+
+    val voicePlayer = remember(introVoiceResId) {
+        if (introVoiceResId != 0) {
+            try {
+                android.media.MediaPlayer.create(context, introVoiceResId)?.apply {
+                    setVolume(1.0f, 1.0f)
+                    isLooping = false
+                }
+            } catch (_: Throwable) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
     fun completeIntro() {
         if (!isSkipped) {
             isSkipped = true
+            try {
+                voicePlayer?.stop()
+                voicePlayer?.release()
+            } catch (_: Throwable) {}
             onFinish()
         }
     }
@@ -60,7 +84,7 @@ fun SplashScreen(onFinish: () -> Unit) {
                     setMediaItem(mediaItem)
                     repeatMode = Player.REPEAT_MODE_OFF
                     videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-                    volume = 1.0f // Maintain native intro video audio without external music
+                    volume = 0.45f // Duck native video audio so EVA's intro voiceover is clearly audible
                     playWhenReady = true
 
                     addListener(object : Player.Listener {
@@ -83,10 +107,15 @@ fun SplashScreen(onFinish: () -> Unit) {
         }
     }
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer, voicePlayer) {
+        voicePlayer?.start()
         onDispose {
             exoPlayer?.stop()
             exoPlayer?.release()
+            try {
+                voicePlayer?.stop()
+                voicePlayer?.release()
+            } catch (_: Throwable) {}
         }
     }
 
