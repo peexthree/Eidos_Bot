@@ -621,6 +621,29 @@ fun RaidScreen(
         )
     }
 
+    // EVA-09 Tactical Comms on Raid Entry
+    var hasPlayedStepLoopThisRaid by rememberSaveable(session?.uid) { mutableStateOf(false) }
+    LaunchedEffect(session?.uid) {
+        if (session != null && !hasPlayedStepLoopThisRaid && !audio.isVoicePlaying) {
+            hasPlayedStepLoopThisRaid = true
+            audio.playEvaStepLoop()
+        }
+    }
+
+    // Narrative Sound Pack Triggers
+    LaunchedEffect(session?.next_event_type, session?.current_enemy_id) {
+        if (session?.next_event_type == "maxwells_demon") {
+            audio.playSound(EidosAudioManager.SoundType.ANOMALY_PULSE)
+        } else if (session?.next_event_type == "combat") {
+            val enemy = session?.current_enemy_id.orEmpty()
+            if (enemy.contains("0001")) {
+                audio.playSound(EidosAudioManager.SoundType.DRONE_RADIO)
+            } else if (enemy.contains("АРХИВ ВЭНСА") || enemy.contains("Монолит-00")) {
+                audio.playSound(EidosAudioManager.SoundType.VANCE_ARCHIVE)
+            }
+        }
+    }
+
     // Maxwell's Demon Encounter Modal (Isolated strictly to RaidScreen at depth 50+)
     if (session?.next_event_type == "maxwells_demon") {
         val hasEquipInBuffer = session.buffer_items.split(",").any { it.isNotBlank() }

@@ -27,3 +27,4 @@ parse_data*.py
 update_*.py
 replace_*.py
 app/applet/*.py
+canva_raw/_*

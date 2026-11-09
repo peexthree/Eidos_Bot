@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,6 +108,16 @@ internal fun StoryMilestoneChapterDialog(
     haptics: io.eidos.zerolayer.ui.utils.HapticFeedbackManager,
     onDismiss: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val audio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
+
+    androidx.compose.runtime.DisposableEffect(chapter.requiredDepth) {
+        audio.playEvaMilestoneVoice(chapter.requiredDepth)
+        onDispose {
+            audio.stopVoice()
+        }
+    }
+
     androidx.compose.ui.window.Dialog(
         onDismissRequest = { onDismiss() },
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
@@ -177,6 +188,50 @@ internal fun StoryMilestoneChapterDialog(
                         textAlign = TextAlign.Center,
                         lineHeight = 16.sp
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val evaTransmission = when (chapter.requiredDepth) {
+                        100 -> "Оператор... ты на глубине 100 метров. Добро пожаловать в Нулевой Слой. Первый Архив был именно здесь. Осторожнее."
+                        500 -> "500 метров. Это отметка Великого Глитча. Те стены, что ты видишь - они помнят тот день."
+                        1200 -> "1200 метров. Скверна здесь плотнее. Если твоя память начнет размываться - это не сбой. Это Скверна."
+                        2500 -> "2500 метров. Оператор... мне нужно тебе кое-что рассказать. Загляни в Кодекс. Глава IV разблокирована. И прости меня за то, что молчала."
+                        4000 -> "4000 метров. Демон Максвелла наблюдает за тобой. Любой контракт с ним добровольный. Формально."
+                        5000 -> "5000 метров. Мы дошли. Оператор... это был честный путь. Терминал Сингулярности активирован. Выбор за тобой."
+                        else -> "Оператор, зафиксирован новый слой квантового кодекса. Данные загружены в терминал."
+                    }
+
+                    Surface(
+                        color = Color(0x2200FFF6),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ZzzElectricCyan.copy(alpha = 0.6f)),
+                        shape = CutCornerShape(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("📻", fontSize = 16.sp)
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    "ЕВА-09 // ПРЯМОЙ ПЕРЕХВАТ ШЛЮЗА [🔊 АУДИОСИГНАЛ]:",
+                                    color = ZzzElectricCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    evaTransmission,
+                                    color = Color.White,
+                                    fontSize = 10.5.sp,
+                                    lineHeight = 14.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(18.dp))
 

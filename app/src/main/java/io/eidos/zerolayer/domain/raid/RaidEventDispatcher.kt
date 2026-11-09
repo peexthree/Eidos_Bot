@@ -378,6 +378,30 @@ object RaidEventDispatcher {
             )
         }
 
+        // Easter Egg: Earth-memory drone #0001 (rare encounter)
+        if (depth >= 500 && Random.nextInt(100) < 3) {
+            val droneHp = maxOf(120, (65 * (1.0f + depth * 0.0075f)).toInt())
+            return DispatchResult.CombatEncounter(
+                enemyName = "🚁 Дрон-Страж #0001 [ПАМЯТЬ ЗЕМЛИ]",
+                enemyHp = droneHp,
+                enemyLevel = maxOf(2, maxMonsterLevel),
+                isGlitchPhantom = false,
+                message = "🚁 ДРОН-СТРАЖ #0001: «Идентификатор не распознан... 15 октября 2098 года. Небо было синим. Я помню небо.»"
+            )
+        }
+
+        // Director climax encounter: Sector Archive-00 in deep abyss (5000m+)
+        if (depth >= 5000 && Random.nextInt(100) < 5) {
+            val vanceHp = maxOf(600, (300 * (1.0f + depth * 0.0075f)).toInt())
+            return DispatchResult.CombatEncounter(
+                enemyName = "🏛️ Монолит-00 [АРХИВ ВЭНСА]",
+                enemyHp = vanceHp,
+                enemyLevel = 35,
+                isGlitchPhantom = false,
+                message = "🏛️ [АРХИВ-00 // ВЭНС]: «Архитектор Вэнс. Статус: НЕ ОЦИФРОВАН. Он остался на Земле один.»"
+            )
+        }
+
         val candidates = io.eidos.zerolayer.data.GameData.VILLAINS.filter { it.level <= maxMonsterLevel }
         val villain = if (candidates.isNotEmpty()) {
             candidates.takeLast(3).random()
@@ -389,12 +413,18 @@ object RaidEventDispatcher {
         val baseMinHp = 50 + (villain.level * 25) + (depth / 4)
         val scaledHp = maxOf(baseMinHp, (villain.hp * depthScale).toInt())
 
+        val combatMessage = if (villain.name.contains("Монолит")) {
+            "🗿 [МОНОЛИТ-ЯДРА]: «Ты... снова. Я считаю твои посещения. Ты первый, кто возвращается. Я не хочу тебя удалять. Я хочу... поговорить.» [КВЕСТ: ЧЕРНОВИК БОГА]"
+        } else {
+            "⚠️ ${villain.name} [УР ${villain.level}] (HP: $scaledHp) перехватил ваш сигнал!"
+        }
+
         return DispatchResult.CombatEncounter(
             enemyName = villain.name,
             enemyHp = scaledHp,
             enemyLevel = villain.level,
             isGlitchPhantom = false,
-            message = "⚠️ ${villain.name} [УР ${villain.level}] (HP: $scaledHp) перехватил ваш сигнал!"
+            message = combatMessage
         )
     }
 }

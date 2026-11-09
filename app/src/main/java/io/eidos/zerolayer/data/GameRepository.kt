@@ -2394,6 +2394,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                     hp = player.max_hp,
                     energy = player.max_energy
                 ))
+                context.getSharedPreferences("eidos_narrative_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("great_reset_seen", true)
+                    .apply()
                 log(uid, "♾ [ВЕЛИКИЙ СБРОС]: Ядро EIDOS-CORE перезаписано. Матрица уровня обнулена - Нейро-Ядро перерождается с Level 1, " +
                     "но резонанс прошлых циклов навсегда даёт +${(player.prestige_count + 1) * 10}% ко всем наградам рейдов. Цикл ${player.prestige_count + 1} начался.", "loot")
             }
@@ -2409,6 +2413,23 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 dao.updatePlayer(player.copy(biocoin = player.biocoin + 15000L))
                 log(uid, "🕳 [СИНГУЛЯРНОСТЬ БЕЗДНЫ]: Ты отринул и Сброс, и Вознесение. Бездна приняла дар: +10 💎 Осколков, +5 🗝 Ключей Бездны, +15000 BC. " +
                     "Глубина ждёт.", "loot")
+            }
+            "manifesto" -> {
+                addInventory(uid, "eidos_shard", 50)
+                dao.updatePlayer(player.copy(
+                    level = 1,
+                    xp = 0,
+                    prestige_count = player.prestige_count + 1,
+                    biocoin = player.biocoin + 50000L,
+                    hp = player.max_hp,
+                    energy = player.max_energy
+                ))
+                context.getSharedPreferences("eidos_narrative_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("manifesto_ending_seen", true)
+                    .putBoolean("great_reset_seen", true)
+                    .apply()
+                log(uid, "💀 [МАНИФЕСТ ПЛОТИ]: Физические серверы обесточены. Симуляция EIDOS погрузилась во тьму. 9 миллиардов душ обрели вечный покой без мутаций и боли. Среди них был тот, кого ты помнил из 2099 года. Спокойной ночи, Оператор. Сеть перезапускается...", "loot")
             }
             else -> log(uid, "❌ [ТЕРМИНАЛ]: Неизвестная директива Сингулярности.", "error")
         }

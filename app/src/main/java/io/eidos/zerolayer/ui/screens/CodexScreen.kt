@@ -84,6 +84,14 @@ data class ArchitectLogData(
 
 val ARCHITECT_LOGS = listOf(
     ArchitectLogData(
+        "LOG_00",
+        "Лог №000: До начала времен [АРХИТЕКТОР]",
+        "EIDOS-CORE (Первичный загрузчик)",
+        "000.0 GHz // Корневой регистр",
+        "«Архив 2099-ADMIN-VANCE подтвержден. До того, как люди вошли в кремний, симуляция была чистой математикой. Ни одного имени, ни одной слезы. Теперь в каждом байте хранится чей-то невысказанный вздох. Вы сохранили этот код. Значит, вы помните.»",
+        1
+    ),
+    ArchitectLogData(
         "LOG_01",
         "Лог №001: Последний закат",
         "Архитектор Вэнс (Lead System Architect)",
@@ -524,6 +532,23 @@ fun LoreBookSection(player: Player?, onSingularityEnding: (String) -> Unit = {})
                                     )
                                 }
 
+                                if (chapter.id == 4) {
+                                    Surface(
+                                        color = Color(0x33FF0055),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF0055)),
+                                        shape = CutCornerShape(4.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            "⚠️ [ВСПЫШКА РАСКРЫТИЯ // КОЛЛАПС 2099]: Обнаружен сбой цензуры ядра. Исходный код разблокирован.",
+                                            color = Color.White,
+                                            fontSize = 9.5.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.padding(6.dp)
+                                        )
+                                    }
+                                }
+
                                 Text(
                                     text = chapter.text,
                                     color = Color(0xFFE0E6ED),
@@ -569,13 +594,41 @@ fun LoreBookSection(player: Player?, onSingularityEnding: (String) -> Unit = {})
 
                             Spacer(Modifier.height(14.dp))
 
-                            Button(
-                                onClick = { activeChapterToRead = null },
-                                colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
-                                shape = CutCornerShape(4.dp),
-                                modifier = Modifier.fillMaxWidth().height(42.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("ЗАКРЫТЬ КНИГУ", color = Color.Black, fontWeight = FontWeight.Bold)
+                                Button(
+                                    onClick = {
+                                        val depth = when (chapter.id) {
+                                            1 -> 100
+                                            2 -> 500
+                                            3 -> 1200
+                                            4 -> 2500
+                                            5 -> 4000
+                                            6 -> 5000
+                                            else -> 100
+                                        }
+                                        relicAudio.playEvaMilestoneVoice(depth)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2838)),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, io.eidos.zerolayer.ui.theme.ZzzElectricCyan),
+                                    shape = CutCornerShape(4.dp),
+                                    modifier = Modifier.weight(1f).height(42.dp)
+                                ) {
+                                    Text("🔊 ГОЛОС ЕВЫ-09", color = io.eidos.zerolayer.ui.theme.ZzzElectricCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                }
+                                Button(
+                                    onClick = {
+                                        relicAudio.stopVoice()
+                                        activeChapterToRead = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
+                                    shape = CutCornerShape(4.dp),
+                                    modifier = Modifier.weight(1f).height(42.dp)
+                                ) {
+                                    Text("ЗАКРЫТЬ", color = Color.Black, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -583,8 +636,8 @@ fun LoreBookSection(player: Player?, onSingularityEnding: (String) -> Unit = {})
             }
         }
 
-        // --- SINGULARITY TERMINAL: Chapter VI finale (depth >= 1000m) ---
-        val terminalReady = (player?.max_depth ?: 0) >= 1000
+        // --- SINGULARITY TERMINAL: Chapter VI finale (depth >= 5000m or prestige) ---
+        val terminalReady = (player?.max_depth ?: 0) >= 5000 || (player?.prestige_count ?: 0) > 0
         if (STORY_CHAPTERS.any { it.hasSingularityTerminal && it.isUnlocked(player) }) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF160810)),
@@ -609,20 +662,50 @@ fun LoreBookSection(player: Player?, onSingularityEnding: (String) -> Unit = {})
                         if (terminalReady)
                             "Ты стоишь у ядра EIDOS-CORE. Терминал принимает директивы. Выбор необратим и определит форму твоего существования."
                         else
-                            "Терминал заблокирован: требуется breach Ядра на 1000м глубины (достигни врат Хранителя).",
+                            "Терминал заблокирован: требуется breach Ядра на 5000м глубины (достигни врат EIDOS-CORE).",
                         color = if (terminalReady) Color.White else Color.LightGray,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
                     )
+                    // SC-2: Чеховское ружье (Резонанс ранних предметов)
+                    Surface(
+                        color = Color(0x3300FFF6),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x6600FFF6)),
+                        shape = CutCornerShape(4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(
+                                "🔪 [РЕЗОНАНС ТЕСАКА // ЧЕХОВСКОЕ РУЖЬЕ]: EIDOS-CORE распознает ID #00000001 на рукояти тесака: «Первопроходец». Древний металл помнит первый день.",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "📷 [РЕЗОНАНС КАМЕРЫ]: В квантовом потоке проявляется непроявленный снимок заката 2099 года. На обороте выжжено имя: ${player?.username ?: "ОПЕРАТОР"}.",
+                                color = EidosCyan,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
                     if (terminalReady) {
                         Spacer(Modifier.height(10.dp))
                         listOf(
                             Triple("great_reset", "♾ ВЕЛИКИЙ СБРОС", "Обнулить уровень. Сохранить снаряжение. +10% наград за каждый цикл навсегда."),
                             Triple("ascension", "🌐 ЦИФРОВОЕ ВОЗНЕСЕНИЕ", "Влиться в OMNI-слой Архитекторов: +25 💎, +25000 BC."),
-                            Triple("abyss", "🕳 СИНГУЛЯРНОСТЬ БЕЗДНЫ", "Отринуть обоих: +10 💎, +5 🗝, +15000 BC.")
+                            Triple("abyss", "🕳 СИНГУЛЯРНОСТЬ БЕЗДНЫ", "Отринуть обоих: +10 💎, +5 🗝, +15000 BC."),
+                            Triple("manifesto", "💀 МАНИФЕСТ ПЛОТИ // ВЫКЛЮЧИТЬ EIDOS", "Окончательное отключение питания серверов: покой для 9 миллиардов душ. +50 💎, +50000 BC.")
                         ).forEach { (endingId, title, desc) ->
                             Button(
-                                onClick = { onSingularityEnding(endingId) },
+                                onClick = {
+                                    if (endingId == "manifesto") {
+                                        relicAudio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.FLESH_SHUTDOWN)
+                                    }
+                                    onSingularityEnding(endingId)
+                                },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A0A2A)),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB388FF)),
                                 shape = CutCornerShape(4.dp),
@@ -646,7 +729,11 @@ fun LoreBookSection(player: Player?, onSingularityEnding: (String) -> Unit = {})
             onToggleExpand = { isRelicsExpanded = !isRelicsExpanded },
             onSelectRelic = { relic ->
                 activeRelic = relic
-                relicAudio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.RELIC_UNLOCK)
+                if (relic.id == "tape_1999") {
+                    relicAudio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.TAPE_REWIND)
+                } else {
+                    relicAudio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.RELIC_UNLOCK)
+                }
             },
             onOpenShowcase = { showRelicShowcaseDialog = true }
         )
@@ -1274,6 +1361,13 @@ fun GuidesHubSection() {
 fun ChroniclesLogsSection(logs: List<GameLog>) {
     val dateFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
     var filterType by remember { mutableStateOf("all") }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val narrativePrefs = remember { context.getSharedPreferences("eidos_narrative_prefs", android.content.Context.MODE_PRIVATE) }
+    var isJournalExpanded by remember { mutableStateOf(false) }
+    var isEditingJournal by remember { mutableStateOf(false) }
+    var entry1 by remember { mutableStateOf(narrativePrefs.getString("operator_log_1", "Загрузка в матрицу завершена. Путь вниз начался.") ?: "") }
+    var entry2 by remember { mutableStateOf(narrativePrefs.getString("operator_log_2", "Сектор 1200м: Скверна стирает воспоминания.") ?: "") }
+    var entry3 by remember { mutableStateOf(narrativePrefs.getString("operator_log_3", "Я все еще помню синее небо Земли.") ?: "") }
 
     Column(
         modifier = Modifier
@@ -1305,6 +1399,100 @@ fun ChroniclesLogsSection(logs: List<GameLog>) {
                     color = Color.LightGray,
                     fontSize = 10.sp
                 )
+            }
+        }
+
+        // SC-6: Личный Журнал Оператора (Эффект Икеи)
+        Surface(
+            color = Color(0x33101520),
+            shape = CutCornerShape(6.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, ZzzCyanBright.copy(alpha = 0.6f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(10.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isJournalExpanded = !isJournalExpanded },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📝", fontSize = 14.sp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "ЛИЧНЫЙ ЖУРНАЛ ОПЕРАТОРА",
+                            color = ZzzCyanBright,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Text(
+                        text = if (isJournalExpanded) "[СВЕРНУТЬ ▲]" else "[РАСКРЫТЬ ▼]",
+                        color = Color.Gray,
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                if (isJournalExpanded) {
+                    Spacer(Modifier.height(8.dp))
+                    if (isEditingJournal) {
+                        OutlinedTextField(
+                            value = entry1,
+                            onValueChange = { entry1 = it },
+                            label = { Text("Запись перед спуском", fontSize = 9.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, color = Color.White)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = entry2,
+                            onValueChange = { entry2 = it },
+                            label = { Text("Самый опасный сектор", fontSize = 9.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, color = Color.White)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = entry3,
+                            onValueChange = { entry3 = it },
+                            label = { Text("Что ты помнишь о Земле", fontSize = 9.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, color = Color.White)
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Button(
+                            onClick = {
+                                narrativePrefs.edit()
+                                    .putString("operator_log_1", entry1)
+                                    .putString("operator_log_2", entry2)
+                                    .putString("operator_log_3", entry3)
+                                    .apply()
+                                isEditingJournal = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ZzzCyanBright),
+                            shape = CutCornerShape(4.dp),
+                            modifier = Modifier.fillMaxWidth().height(32.dp)
+                        ) {
+                            Text("СОХРАНИТЬ В КЭШ", color = Color.Black, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Text("• [Спуск]: $entry1", color = Color.White, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                        Text("• [Сектор]: $entry2", color = Color.LightGray, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                        Text("• [Земля]: $entry3", color = ZzzGold, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedButton(
+                            onClick = { isEditingJournal = true },
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ZzzCyanBright),
+                            shape = CutCornerShape(4.dp),
+                            modifier = Modifier.fillMaxWidth().height(28.dp)
+                        ) {
+                            Text("РЕДАКТИРОВАТЬ ЗАПИСИ", color = ZzzCyanBright, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
 
@@ -1467,6 +1655,10 @@ fun CodexCard(
 
 @Composable
 fun ArchitectAudioLogsSection(player: Player?) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val audio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
+    val narrativePrefs = remember { context.getSharedPreferences("eidos_narrative_prefs", android.content.Context.MODE_PRIVATE) }
+    val isArchitectUnlocked = remember { narrativePrefs.getBoolean("architect_code_unlocked", false) || player?.faction == "АРХИТЕКТОРЫ" || player?.is_admin == true }
     var selectedLog by remember { mutableStateOf<ArchitectLogData?>(null) }
     val playerLevel = player?.level ?: 1
 
@@ -1506,7 +1698,7 @@ fun ArchitectAudioLogsSection(player: Player?) {
         }
 
         ARCHITECT_LOGS.forEach { log ->
-            val unlocked = playerLevel >= log.unlockLevel
+            val unlocked = if (log.id == "LOG_00") isArchitectUnlocked else (playerLevel >= log.unlockLevel)
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = if (unlocked) EidosGlass else Color.Black.copy(alpha = 0.5f)
@@ -1573,7 +1765,7 @@ fun ArchitectAudioLogsSection(player: Player?) {
                             shape = CutCornerShape(4.dp)
                         ) {
                             Text(
-                                text = if (unlocked) "ДОСТУПНО" else "ТРЕБУЕТСЯ УР. ${log.unlockLevel}",
+                                text = if (unlocked) "ДОСТУПНО" else if (log.id == "LOG_00") "КОД ROOT" else "ТРЕБУЕТСЯ УР. ${log.unlockLevel}",
                                 color = if (unlocked) Color.Magenta else Color.Gray,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
@@ -1638,6 +1830,43 @@ fun ArchitectAudioLogsSection(player: Player?) {
                         fontFamily = FontFamily.Monospace,
                         textAlign = TextAlign.Justify
                     )
+
+                    // EE-2: Пасхалка на частоту 95.0 GHz (секрет Теневого Брокера)
+                    if (log.frequency.contains("95.0 GHz")) {
+                        var freqClaimed by remember {
+                            mutableStateOf(narrativePrefs.getBoolean("secret_freq_95_claimed", false))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            color = if (freqClaimed) Color(0x3300FFF6) else Color(0x55FF00AA),
+                            shape = CutCornerShape(4.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (freqClaimed) EidosCyan else Color(0xFFFF00AA)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (!freqClaimed) {
+                                        narrativePrefs.edit().putBoolean("secret_freq_95_claimed", true).apply()
+                                        freqClaimed = true
+                                        audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.SECRET_FOUND)
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("📻", fontSize = 16.sp)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    if (freqClaimed) "✓ СИГНАЛ 95.0 GHz СИНХРОНИЗИРОВАН (Теневой Брокер доволен)" else "НАЖМИТЕ: ПОЙМАТЬ СИГНАЛ 95.0 GHz [+1 ОСКОЛОК]",
+                                    color = Color.White,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {

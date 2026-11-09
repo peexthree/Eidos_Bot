@@ -154,7 +154,13 @@ class EidosAudioManager private constructor(private val context: Context) {
         ITEM_LOOT,
         DAMAGE_TAKEN,
         DANGER,
-        LEVEL_UP
+        LEVEL_UP,
+        SECRET_FOUND,
+        TAPE_REWIND,
+        FLESH_SHUTDOWN,
+        DRONE_RADIO,
+        ANOMALY_PULSE,
+        VANCE_ARCHIVE
     }
 
     enum class BgmTrack {
@@ -338,9 +344,31 @@ class EidosAudioManager private constructor(private val context: Context) {
                 .setAudioAttributes(audioAttributes)
                 .build()
 
+            loadRawSoundEffects()
             generateAndLoadCyberSounds()
         } catch (e: Throwable) {
             Log.e("EidosAudio", "Failed to initialize SoundPool", e)
+        }
+    }
+
+    private fun loadRawSoundEffects() {
+        try {
+            val rawSounds = listOf(
+                SoundType.SECRET_FOUND to R.raw.sfx_secret_found,
+                SoundType.TAPE_REWIND to R.raw.sfx_tape_rewind,
+                SoundType.FLESH_SHUTDOWN to R.raw.sfx_flesh_shutdown,
+                SoundType.DRONE_RADIO to R.raw.sfx_drone_radio,
+                SoundType.ANOMALY_PULSE to R.raw.sfx_anomaly_pulse,
+                SoundType.VANCE_ARCHIVE to R.raw.sfx_vance_archive
+            )
+            for ((type, resId) in rawSounds) {
+                val soundId = soundPool?.load(context, resId, 1) ?: 0
+                if (soundId != 0) {
+                    soundMap[type] = soundId
+                }
+            }
+        } catch (e: Throwable) {
+            Log.e("EidosAudio", "Error loading raw sound effects", e)
         }
     }
 
@@ -584,14 +612,44 @@ class EidosAudioManager private constructor(private val context: Context) {
     fun playSound(type: SoundType, pitch: Float = 1.0f) {
         if (!isSoundEnabled) return
         try {
-            soundMap[type]?.let { soundId ->
+            val soundId = soundMap[type]
+            if (soundId != null && soundId != 0) {
                 val vol = effectsVolume
                 val clampedPitch = pitch.coerceIn(0.5f, 2.0f)
-                soundPool?.play(soundId, vol, vol, 1, 0, clampedPitch)
+                val streamId = soundPool?.play(soundId, vol, vol, 1, 0, clampedPitch) ?: 0
+                if (streamId == 0) {
+                    playFallbackMedia(type)
+                }
+            } else {
+                playFallbackMedia(type)
             }
         } catch (e: Throwable) {
             Log.e("EidosAudio", "Error playing sound effect $type", e)
         }
+    }
+
+    private fun playFallbackMedia(type: SoundType) {
+        val resId = when (type) {
+            SoundType.SECRET_FOUND -> R.raw.sfx_secret_found
+            SoundType.TAPE_REWIND -> R.raw.sfx_tape_rewind
+            SoundType.FLESH_SHUTDOWN -> R.raw.sfx_flesh_shutdown
+            SoundType.DRONE_RADIO -> R.raw.sfx_drone_radio
+            SoundType.ANOMALY_PULSE -> R.raw.sfx_anomaly_pulse
+            SoundType.VANCE_ARCHIVE -> R.raw.sfx_vance_archive
+            else -> null
+        } ?: return
+        try {
+            MediaPlayer.create(context, resId)?.apply {
+                val vol = effectsVolume
+                setVolume(vol, vol)
+                setOnCompletionListener { release() }
+                setOnErrorListener { mp, _, _ ->
+                    mp.release()
+                    true
+                }
+                start()
+            }
+        } catch (_: Throwable) {}
     }
 
     private var voicePlayer: MediaPlayer? = null
@@ -623,6 +681,37 @@ class EidosAudioManager private constructor(private val context: Context) {
             isVoicePlaying = false
             duckMusic(false)
         }
+    }
+
+    fun playEvaMilestoneVoice(depth: Int, onComplete: () -> Unit = {}) {
+        val resId = when (depth) {
+            100 -> R.raw.eva_depth_100
+            500 -> R.raw.eva_depth_500
+            1200 -> R.raw.eva_depth_1200
+            2500 -> R.raw.eva_depth_2500
+            4000 -> R.raw.eva_depth_4000
+            5000 -> R.raw.eva_depth_5000
+            else -> null
+        }
+        if (resId != null) {
+            playVoice(resId, onComplete)
+        }
+    }
+
+    fun playEvaEggVoice(key: String, onComplete: () -> Unit = {}) {
+        val clean = key.trim().lowercase()
+        val resId = when {
+            clean.contains("vance") || clean.contains("вэнс") -> R.raw.eva_egg_vance
+            clean.contains("elena") || clean.contains("елена") -> R.raw.eva_egg_elena
+            else -> null
+        }
+        if (resId != null) {
+            playVoice(resId, onComplete)
+        }
+    }
+
+    fun playEvaStepLoop(onComplete: () -> Unit = {}) {
+        playVoice(R.raw.eva_step_loop, onComplete)
     }
 
     fun stopVoice() {

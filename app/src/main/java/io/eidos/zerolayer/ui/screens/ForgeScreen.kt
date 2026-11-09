@@ -97,6 +97,11 @@ fun ForgeScreen(
     var prospectiveRarity by remember { mutableStateOf("common") }
     var prospectiveCost by remember { mutableStateOf(250L) }
 
+    // EE-4: Сервисный Терминал Архитекторов
+    var showRootTerminalDialog by remember { mutableStateOf(false) }
+    var rootInputCode by remember { mutableStateOf("") }
+    var rootTerminalMessage by remember { mutableStateOf<String?>(null) }
+
     // A1 UX: предмет, переданный из Инвентаря (кнопка «🔧 ВЕРСТАК»), сразу в моддинг
     androidx.compose.runtime.LaunchedEffect(preselectedItem) {
         if (preselectedItem != null) {
@@ -130,6 +135,11 @@ fun ForgeScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EidosCyan)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showRootTerminalDialog = true }) {
+                        Text("📟", fontSize = 16.sp)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -334,6 +344,86 @@ fun ForgeScreen(
             containerColor = Color(0xFF0C0904),
             shape = CutCornerShape(8.dp),
             modifier = Modifier.border(1.5.dp, EidosCyan, CutCornerShape(8.dp))
+        )
+    }
+
+    // EE-4: Сервисный Терминал Архитекторов
+    if (showRootTerminalDialog) {
+        val narrativePrefs = remember { context.getSharedPreferences("eidos_narrative_prefs", android.content.Context.MODE_PRIVATE) }
+        AlertDialog(
+            onDismissRequest = {
+                showRootTerminalDialog = false
+                rootTerminalMessage = null
+            },
+            containerColor = Color(0xFF0F151F),
+            shape = CutCornerShape(10.dp),
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📟", fontSize = 18.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("СЕРВИСНЫЙ ТЕРМИНАЛ // ROOT", color = EidosCyan, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Ввод инженерных директив Архитекторов 2099 года для сервисной отладки секторов.",
+                        color = Color.LightGray,
+                        fontSize = 10.sp
+                    )
+                    OutlinedTextField(
+                        value = rootInputCode,
+                        onValueChange = { rootInputCode = it },
+                        placeholder = { Text("Например: 2099-ADMIN-VANCE", color = Color.Gray, fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                    )
+                    rootTerminalMessage?.let { msg ->
+                        Text(
+                            text = msg,
+                            color = if (msg.startsWith("👑")) ZzzGold else ZzzDangerRed,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val clean = rootInputCode.trim().uppercase()
+                        if (clean == "2099-ADMIN-VANCE" || clean == "ADMIN-VANCE") {
+                            narrativePrefs.edit().putBoolean("architect_code_unlocked", true).apply()
+                            onCraft("eidos_shard")
+                            haptics.criticalHit()
+                            audio.playSound(EidosAudioManager.SoundType.SECRET_FOUND)
+                            audio.playEvaEggVoice("vance")
+                            rootTerminalMessage = "👑 [ДОСТУП АРХИТЕКТОРА]: Код 2099-ADMIN-VANCE принят! Разблокирован статус АРХИТЕКТОР, Лог №000 в Кодексе и начислено снабжение!"
+                        } else {
+                            haptics.click()
+                            audio.playSound(EidosAudioManager.SoundType.ERROR_GLITCH)
+                            rootTerminalMessage = "❌ [ОТКАЗ В ДОСТУПЕ]: Неверный сертификат авторизации."
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
+                    shape = CutCornerShape(4.dp)
+                ) {
+                    Text("ВВОД", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showRootTerminalDialog = false
+                        rootTerminalMessage = null
+                    },
+                    shape = CutCornerShape(4.dp)
+                ) {
+                    Text("ЗАКРЫТЬ", color = Color.Gray, fontSize = 11.sp)
+                }
+            }
         )
     }
 }

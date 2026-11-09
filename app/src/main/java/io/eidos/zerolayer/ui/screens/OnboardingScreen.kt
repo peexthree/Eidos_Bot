@@ -134,6 +134,24 @@ fun OnboardingScreen(
         }
     }
 
+    // EVA Easter Egg Voice Lines for special Operator Identifiers
+    LaunchedEffect(nickname) {
+        val clean = nickname.trim().lowercase()
+        if (clean == "vance" || clean == "вэнс") {
+            audioManager.stopVoice()
+            isAudioPlaying = true
+            audioManager.playVoice(R.raw.eva_egg_vance) {
+                isAudioPlaying = false
+            }
+        } else if (clean == "elena" || clean == "елена") {
+            audioManager.stopVoice()
+            isAudioPlaying = true
+            audioManager.playVoice(R.raw.eva_egg_elena) {
+                isAudioPlaying = false
+            }
+        }
+    }
+
     if (showVideoIntro) {
         LogoVideoIntro(onFinish = { showVideoIntro = false })
     } else {
@@ -251,9 +269,30 @@ fun OnboardingScreen(
                     else -> "ШАГ 5: ИНИЦИАЛИЗАЦИЯ"
                 }
 
+                val isTimeLoop = remember {
+                    context.getSharedPreferences("eidos_narrative_prefs", android.content.Context.MODE_PRIVATE)
+                        .getBoolean("great_reset_seen", false)
+                }
+
+                val nicknameEgg = remember(nickname) {
+                    when (nickname.trim().lowercase()) {
+                        "vance", "вэнс" -> "Идентификатор совпадает с Архитектором Вэнсом... Архивы фиксируют его последний лог 44 месяца назад. Добро пожаловать домой, Создатель."
+                        "elena", "елена" -> "Елена... Имя Архитектора Безопасности Ядра. Ты помнишь, что именно ты запустила протокол распада? Или память уже стёрта?"
+                        "admin", "админ", "admin-00" -> "Попытка регистрации с ID admin заблокирована. Статус: АРХИВ. Переназначение логина в реестрах Теневого Брокера..."
+                        "0000", "null", "void" -> "НУЛЕВОЙ ОПЕРАТОР. Это... необычно. Система не знает, что делать с пустым ID. Принимаю решение автономно."
+                        "maxwell", "максвелл" -> "Имя Максвелл обнаружено в базе Демонов Энтропии. Предупреждение: контракты аннулируются при стирании Сигнала."
+                        "p1x3" -> "Приветствую, Создатель матрицы. Корневой доступ подтвержден. Система слушает."
+                        else -> null
+                    }
+                }
+
                 val stepDialogue = when (currentStep) {
-                    0 -> "Привет, Оператор! Я ЕВА-09. Физический мир уничтожен Коллапсом 2099 года. Твоя личность перенесена в квантовую матрицу EIDOS. Готов погрузиться в Нулевой Слой?"
-                    1 -> "Системе необходим твой уникальный крипто-позывной для фиксации в локальных реестрах Сетевой Войны."
+                    0 -> if (isTimeLoop) {
+                        "Оператор... у меня странное ощущение. Как будто этот разговор уже происходил в прошлом цикле. Наверное, это остаточный кэш перерождения. Готов погрузиться в Нулевой Слой?"
+                    } else {
+                        "Привет, Оператор! Я ЕВА-09. Физический мир уничтожен Коллапсом 2099 года. Твоя личность перенесена в квантовую матрицу EIDOS. Готов погрузиться в Нулевой Слой?"
+                    }
+                    1 -> nicknameEgg ?: "Системе необходим твой уникальный крипто-позывной для фиксации в локальных реестрах Сетевой Войны."
                     2 -> "Матрица разделена между тремя Синдикатами. Выбери идеологическую доктрину для стартовых характеристик."
                     3 -> "Загружаю фундаментальные директивы выживания. Глубина увеличивает ценность наград, но 0% Сигнала уничтожит все данные."
                     else -> "Синхронизация профиля завершена. Стартовый набор доставлен в буфер. Шлюз открыт. Инициирую погружение!"
@@ -829,6 +868,34 @@ private fun ZzzNicknameStepContent(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
+
+        val detectedEasterEgg = when (nickname.trim().lowercase()) {
+            "vance", "вэнс" -> "🏛️ [АРХИВЫ ВЭНСА]: Идентификатор Главного Архитектора. Корневой доступ распознан."
+            "elena", "елена" -> "☣️ [ПРОТОКОЛ ЕЛЕНЫ]: Создатель энтропийного распада. Система помнит твой выбор."
+            "admin", "админ", "admin-00" -> "🕶️ [ТЕНЕВОЙ БРОКЕР]: Защищенный шлюз Admin-00 активирован."
+            "0000", "null", "void" -> "🕳️ [НУЛЕВОЙ ОПЕРАТОР]: Пустой вектор. Рождение вне протокола."
+            "maxwell", "максвелл" -> "😈 [ДЕМОН МАКСВЕЛЛА]: Тепловая энтропия колеблется. Контракт подготовлен."
+            "p1x3" -> "👑 [ROOT ARCHITECT]: Сигнатура Создателя EIDOS-BOT. Абсолютный приоритет."
+            else -> null
+        }
+
+        if (detectedEasterEgg != null) {
+            Surface(
+                color = Color(0x33FF007A),
+                shape = CutCornerShape(6.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, ZzzHotMagenta),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Text(
+                    text = detectedEasterEgg,
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
 
         OutlinedTextField(
             value = nickname,

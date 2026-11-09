@@ -189,6 +189,34 @@ fun ShadowBrokerScreen(
                 }
             }
 
+            // DIR-3: Нарративный статус гибели Теневого Брокера (Глубина 4000м+)
+            if ((player?.max_depth ?: 0) >= 4000) {
+                Surface(
+                    color = Color(0x33FF0055),
+                    shape = CutCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF0055)),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            "⚠️ [ПЕРЕХВАТ 95.0 GHz // ПОСЛЕДНИЙ ЛОГ ADMIN-00]:",
+                            color = Color(0xFFFF0055),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "«Инквизиторы Ядра взломали мой узел под ледником. Мой аватар форматируют... Но этот терминал автономного сбыта останется работать для тебя вечно. Забирай всё, что сможешь. И помни Землю.»",
+                            color = Color.White,
+                            fontSize = 9.5.sp,
+                            lineHeight = 14.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+
             if (!isBrokerActive) {
                 // Offline screen view
                 Box(

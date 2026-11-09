@@ -150,7 +150,11 @@ fun RelicShowcaseDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                                    if (relic.id == "tape_1999") {
+                                        audio.playSound(EidosAudioManager.SoundType.TAPE_REWIND)
+                                    } else {
+                                        audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                                    }
                                     selectedRelic = relic
                                 }
                         ) {
@@ -216,7 +220,11 @@ fun RelicShowcaseDialog(
 
                 Button(
                     onClick = {
-                        audio.playSound(EidosAudioManager.SoundType.RELIC_UNLOCK)
+                        if (selectedRelic.id == "tape_1999") {
+                            audio.playSound(EidosAudioManager.SoundType.TAPE_REWIND)
+                        } else {
+                            audio.playSound(EidosAudioManager.SoundType.RELIC_UNLOCK)
+                        }
                         onSelectResonator(selectedRelic)
                     },
                     colors = ButtonDefaults.buttonColors(
