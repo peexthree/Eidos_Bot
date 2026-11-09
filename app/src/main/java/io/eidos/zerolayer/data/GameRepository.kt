@@ -2044,8 +2044,17 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             "aegis" -> {
                 log(uid, "🛡 [ЭГИДА БЕССМЕРТИЯ]: Пассивный защитный артефакт. Автоматически спасет вас от смерти в рейде при падении Сигнала до 0.", "info")
             }
-            "master_key", "abyssal_key", "data_spike" -> {
-                log(uid, "🗝 [КЛЮЧ/ОТМЫЧКА]: Применяется в рейдах для вскрытия Запертых и Проклятых сундуков.", "info")
+            "data_spike" -> {
+                consumeOneItem(uid, item)
+                log(uid, "📌 [ДАТА-ШИП]: Одноразовый шип перегружен импульсом и разрушен при взломе шифра.", "info")
+            }
+            "abyssal_key" -> {
+                consumeOneItem(uid, item)
+                log(uid, "🗝 [КЛЮЧ БЕЗДНЫ]: Древний ключ рассыпался в прах после активации замка Бездны.", "info")
+            }
+            "master_key" -> {
+                consumeOneItem(uid, item)
+                log(uid, "🔑 [МАГНИТНАЯ ОТМЫЧКА]: Магнитный сердечник разрушен при дешифровке замка.", "info")
             }
             "purification_sync" -> {
                 val resetPlayer = player.copy(
@@ -3277,14 +3286,21 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             log(uid, "🚨 [ВЗЛОМ ИЗВНЕ]: Пока вы возвращались, на ваш Хаб напал бот-охотник! Похищено -$lostCoins BC.", "error")
         }
 
+        val isShallowEvac = session.depth < 300 && session.kills == 0
+        val shallowPenalty = if (isShallowEvac) 0.40f else 1.0f
+        if (isShallowEvac) {
+            log(uid, "⚠️ [ЭКСТРЕННАЯ ЭВАКУАЦИЯ]: Выход с поверхности (<300м). Сброшено 60% несохраненного буфера!", "warning")
+        }
+
         val bonusXpMult = if (player.is_premium) 1.5f else 1.0f
         // NG+ prestige: each Singularity cycle grants +10% to all raid rewards
         val prestigeMult = 1.0f + (player.prestige_count * 0.10f)
-        val calculatedXp = (session.buffer_xp * bonusXpMult * prestigeMult).toLong()
+        val calculatedXp = (session.buffer_xp * shallowPenalty * bonusXpMult * prestigeMult).toLong()
 
         // Holo Poverty limit check (max 500 BC extracted)
         val hasHoloPoverty = equippedItems.any { it.item_id == "holo_poverty" }
-        var finalCoins = if (hasHoloPoverty) minOf(500L, session.buffer_coins) else session.buffer_coins
+        val effectiveBufferCoins = (session.buffer_coins * shallowPenalty).toLong()
+        var finalCoins = if (hasHoloPoverty) minOf(500L, effectiveBufferCoins) else effectiveBufferCoins
         if (hasHoloPoverty && session.buffer_coins > 500L) {
             log(uid, "🥋 [ГОЛОГРАММА НИЩЕТЫ]: Вынос валюты ограничен лимитом в 500 BC.", "info")
         }
@@ -4319,7 +4335,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val session = dao.getRaidSession(uid) ?: return null
         val player = dao.getPlayer(uid) ?: return null
 
-        val rawCoins = session.buffer_coins
+        val isShallowEvac = session.depth < 300 && session.kills == 0
+        val shallowPenalty = if (isShallowEvac) 0.40f else 1.0f
+        if (isShallowEvac) {
+            log(uid, "⚠️ [ЭКСТРЕННАЯ ЭВАКУАЦИЯ]: Выход с поверхности (<300м). Сброшено 60% несохраненного буфера!", "warning")
+        }
+
+        val rawCoins = (session.buffer_coins * shallowPenalty).toLong()
         val extractionTax = ZeroLayerEconomy.calculateExtractionTax(rawCoins)
         // Discipline bonus: +5% BC on top for a clean extraction (safe path has
         // no outside-bot risk, the normal endRaid keeps that risk but no tax)
@@ -4332,7 +4354,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val bonusXpMult = if (player.is_premium) 1.5f else 1.0f
         // NG+ prestige: each Singularity cycle grants +10% to all raid rewards
         val prestigeMult = 1.0f + (player.prestige_count * 0.10f)
-        val calculatedXp = (session.buffer_xp * bonusXpMult * prestigeMult).toLong()
+        val calculatedXp = (session.buffer_xp * shallowPenalty * bonusXpMult * prestigeMult).toLong()
 
         val sessionToken = authStore.getSession().accessToken
         if (!sessionToken.isNullOrBlank() && SupabaseClientManager.isConfigured()) {

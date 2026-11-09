@@ -663,6 +663,18 @@ fun RaidScreen(
         )
     }
 
+    // EVA Depth Milestone Voice Lines (100m, 500m, 1200m, 2500m, 4000m, 5000m)
+    val reachedMilestones = rememberSaveable(session?.uid) { mutableSetOf<Int>() }
+    LaunchedEffect(session?.depth) {
+        val d = session?.depth ?: 0
+        val milestones = listOf(100, 500, 1200, 2500, 4000, 5000)
+        val hit = milestones.firstOrNull { d >= it && !reachedMilestones.contains(it) }
+        if (hit != null) {
+            reachedMilestones.add(hit)
+            audio.playEvaMilestoneVoice(hit)
+        }
+    }
+
     // EVA-09 Tactical Comms on Raid Entry
     var hasPlayedStepLoopThisRaid by rememberSaveable(session?.uid) { mutableStateOf(false) }
     LaunchedEffect(session?.uid) {
@@ -682,6 +694,9 @@ fun RaidScreen(
                 audio.playSound(EidosAudioManager.SoundType.DRONE_RADIO)
             } else if (enemy.contains("АРХИВ ВЭНСА") || enemy.contains("Монолит-00")) {
                 audio.playSound(EidosAudioManager.SoundType.VANCE_ARCHIVE)
+                audio.playEvaEggVoice("vance")
+            } else if (enemy.contains("ЕЛЕНА") || enemy.contains("Elena")) {
+                audio.playEvaEggVoice("elena")
             }
         }
     }
@@ -3547,6 +3562,9 @@ fun EvacuationSummaryDialog(
     val coins = session?.buffer_coins ?: 0L
     val xp = session?.buffer_xp ?: 0L
     val depth = session?.depth ?: 0
+    val isShallowEvac = depth < 300 && (session?.kills ?: 0) == 0
+    val displayCoins = if (isShallowEvac) (coins * 0.40f).toLong() else coins
+    val displayXp = if (isShallowEvac) (xp * 0.40f).toLong() else xp
     val itemsStr = session?.buffer_items ?: ""
     val itemsList = if (itemsStr.isBlank()) emptyList() else itemsStr.split(",")
 
@@ -3554,7 +3572,7 @@ fun EvacuationSummaryDialog(
         onDismissRequest = onConfirmExit,
         containerColor = io.eidos.zerolayer.ui.theme.ZzzDarkSurface,
         shape = CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp),
-        modifier = Modifier.border(2.dp, io.eidos.zerolayer.ui.theme.ZzzAcidYellow, CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp)),
+        modifier = Modifier.border(2.dp, if (isShallowEvac) Color(0xFFFF5252) else io.eidos.zerolayer.ui.theme.ZzzAcidYellow, CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp)),
         title = {
             Column {
                 Row(
@@ -3579,9 +3597,9 @@ fun EvacuationSummaryDialog(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // [ S ] RANK Glowing Banner
+                // RANK Glowing Banner
                 Surface(
-                    color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
+                    color = if (isShallowEvac) Color(0xFFD32F2F) else io.eidos.zerolayer.ui.theme.ZzzAcidYellow,
                     shape = CutCornerShape(topStart = 4.dp, bottomEnd = 6.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -3591,8 +3609,8 @@ fun EvacuationSummaryDialog(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            "ЭВАКУАЦИЯ УСПЕШНА",
-                            color = Color.Black,
+                            if (isShallowEvac) "ЭКСТРЕННЫЙ ВЫХОД" else "ЭВАКУАЦИЯ УСПЕШНА",
+                            color = if (isShallowEvac) Color.White else Color.Black,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 13.sp,
                             fontFamily = FontFamily.SansSerif,
@@ -3603,8 +3621,8 @@ fun EvacuationSummaryDialog(
                             shape = CutCornerShape(2.dp)
                         ) {
                             Text(
-                                " [ S ] RANK ",
-                                color = io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
+                                if (isShallowEvac) " [ C ] ШТРАФ -60% " else " [ S ] RANK ",
+                                color = if (isShallowEvac) Color(0xFFFF5252) else io.eidos.zerolayer.ui.theme.ZzzHotMagenta,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
@@ -3619,6 +3637,23 @@ fun EvacuationSummaryDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
+                if (isShallowEvac) {
+                    Surface(
+                        color = Color(0xFF330A0A),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF5252)),
+                        shape = CutCornerShape(4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "⚠️ ШТРАФ ЭВАКУАЦИИ: Выход с глубины менее 300м без побед над противниками. Сброшено 60% буфера!",
+                            color = Color(0xFFFFCDD2),
+                            fontSize = 10.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+
                 // Key Stats Grid
                 Surface(
                     color = Color(0xFF0C0E14),
@@ -3637,7 +3672,7 @@ fun EvacuationSummaryDialog(
                                 Spacer(Modifier.width(4.dp))
                                 Text("BIOCOINS:", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                             }
-                            Text("+$coins BC", color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                            Text("+$displayCoins BC", color = io.eidos.zerolayer.ui.theme.ZzzAcidYellow, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                         }
                         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3645,7 +3680,7 @@ fun EvacuationSummaryDialog(
                                 Spacer(Modifier.width(4.dp))
                                 Text("ОПЫТ (XP):", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                             }
-                            Text("+$xp", color = io.eidos.zerolayer.ui.theme.ZzzToxicGreen, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                            Text("+$displayXp", color = io.eidos.zerolayer.ui.theme.ZzzToxicGreen, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                         }
                     }
                 }

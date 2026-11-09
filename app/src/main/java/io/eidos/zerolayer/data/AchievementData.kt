@@ -750,6 +750,15 @@ class AchievementStorage(context: Context) {
         prefs.edit().putStringSet("claimed_achievements_v2", current).apply()
     }
 
+    fun getUnclaimedCount(player: Player?): Int {
+        val stats = getStats()
+        val unlocked = getUnlockedSet()
+        val claimed = getClaimedSet()
+        return AchievementRegistry.ALL_DEFINITIONS.count { def ->
+            (unlocked.contains(def.id) || (player != null && def.isMet(player, stats))) && !claimed.contains(def.id)
+        }
+    }
+
     fun getStats(): AchievementStats {
         return AchievementStats(
             totalClicks = prefs.getLong("stats_clicks", 0L),

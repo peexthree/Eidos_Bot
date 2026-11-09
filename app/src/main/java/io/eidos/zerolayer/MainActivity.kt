@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -502,12 +503,12 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
             )
         }
 
-        achievements.firstOrNull()?.let { achievement ->
-            AchievementClaimDialog(
-                achievement = achievement,
-                onClaim = { mainViewModel.claimAchievement(achievement) },
-                onDismiss = { mainViewModel.dismissAchievement(achievement.id) }
-            )
+        LaunchedEffect(achievements) {
+            val pending = achievements.firstOrNull()
+            if (pending != null) {
+                mainViewModel.showToast("🏆 ДОСТИЖЕНИЕ: ${pending.title} (Заберите в Профиле)", io.eidos.zerolayer.data.CyberToastType.SUCCESS)
+                mainViewModel.dismissAchievement(pending.id)
+            }
         }
 
         activeLoot?.let { loot ->

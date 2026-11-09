@@ -147,6 +147,8 @@ fun HubScreen(
     }
 
     val context = LocalContext.current
+    val achievementStorage = remember(context) { io.eidos.zerolayer.data.AchievementStorage(context) }
+    val unclaimedAchievements = remember(player) { achievementStorage.getUnclaimedCount(player) }
     val haptics = remember { io.eidos.zerolayer.ui.utils.HapticFeedbackManager.getInstance(context) }
     val activity = context as? FragmentActivity
     val ambientSynth = remember { EidosAmbientSynthesizer.getInstance() }
@@ -295,18 +297,19 @@ fun HubScreen(
                                 level = player?.level ?: 1,
                                 onClick = onNavigateToProfile
                             )
-                            // А4 UX: бейдж непрочитанных радио-передач
-                            if (unreadRadio > 0) {
+                            // А4 UX: бейдж непрочитанных радио-передач и несобранных наград
+                            val totalPendingBadges = unreadRadio + unclaimedAchievements
+                            if (totalPendingBadges > 0) {
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
-                                        .background(Color(0xFFE53935), androidx.compose.foundation.shape.CircleShape)
-                                        .border(1.dp, Color.White, androidx.compose.foundation.shape.CircleShape)
+                                        .background(if (unclaimedAchievements > 0) io.eidos.zerolayer.ui.theme.ZzzAcidYellow else Color(0xFFE53935), androidx.compose.foundation.shape.CircleShape)
+                                        .border(1.dp, Color.Black, androidx.compose.foundation.shape.CircleShape)
                                         .padding(horizontal = 5.dp, vertical = 1.dp)
                                 ) {
                                     Text(
-                                        text = unreadRadio.toString(),
-                                        color = Color.White,
+                                        text = totalPendingBadges.toString(),
+                                        color = Color.Black,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Black
                                     )
@@ -462,8 +465,6 @@ fun HubScreen(
                         if (isDepotReady) {
                             audio.playEvaHubVoice(io.eidos.zerolayer.ui.utils.EidosAudioManager.EvaHubVoiceType.DEPOT_READY)
                         }
-                        onRestoreSignal()
-                        onSyncProtocol()
                         showSupplyDropDialog = true
                     }
                 )
@@ -815,6 +816,8 @@ fun HubScreen(
                                 onClick = {
                                     if (isDepotReady) {
                                         onClaimSupplyDrop()
+                                        onRestoreSignal()
+                                        onSyncProtocol()
                                     }
                                     showSupplyDropDialog = false
                                 },
