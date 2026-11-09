@@ -41,6 +41,7 @@ import io.eidos.zerolayer.R
 import io.eidos.zerolayer.data.Player
 import io.eidos.zerolayer.data.GameLog
 import io.eidos.zerolayer.ui.components.CyberCornerBracketBox
+import io.eidos.zerolayer.ui.components.GoldenThreadCard
 import io.eidos.zerolayer.ui.components.VideoBackground
 import io.eidos.zerolayer.ui.components.CyberdeckVisorOverlay
 import io.eidos.zerolayer.ui.components.AnimatedCyberProgressBar
@@ -453,6 +454,23 @@ fun HubScreen(
                     }
                 )
 
+                // GOLDEN THREAD DIRECTIVE
+                GoldenThreadCard(
+                    player = player,
+                    onNavigate = { screen ->
+                        when (screen) {
+                            "raid" -> onNavigateToRaid()
+                            "forge" -> onNavigateToForge()
+                            "codex" -> onNavigateToCodex()
+                            "shop" -> onNavigateToShop()
+                            "pvp" -> onNavigateToPvp()
+                            "broker" -> onNavigateToShadowBroker()
+                            "gates" -> onNavigateToEidosGates()
+                            "inventory" -> onNavigateToInventory()
+                        }
+                    }
+                )
+
                 // 4. MAIN CENTRAL CTA BUTTON: RAID ENTRY WITH HAZARD STRIPES
                 CyberHazardRaidButton(
                     onClick = onNavigateToRaid
@@ -494,23 +512,42 @@ fun HubScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    val isForgeUnlocked = (player?.max_depth ?: 0) >= 100 || (player?.raids_done ?: 0) >= 1
+                    val isShopUnlocked = (player?.level ?: 1) >= 2
+                    val isBrokerUnlocked = (player?.max_depth ?: 0) >= 500 || (player?.is_admin == true)
+                    val isGatesUnlocked = (player?.max_depth ?: 0) >= 4000 || (player?.is_admin == true)
+
                     // Row 1: Forge & Black Market
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CyberTacticalOpsCard(
-                            title = "КУЗНИЦА И СИНТЕЗ",
-                            iconRes = R.drawable.ic_menu_forge,
-                            accentColor = Color(0xFFFF2A85),
-                            onClick = onNavigateToForge,
+                            title = if (isForgeUnlocked) "КУЗНИЦА И СИНТЕЗ" else "КУЗНИЦА [НУЖЕН РЕЙД]",
+                            iconRes = if (isForgeUnlocked) R.drawable.ic_menu_forge else R.drawable.ic_ui_locked,
+                            accentColor = if (isForgeUnlocked) Color(0xFFFF2A85) else Color.Gray,
+                            onClick = {
+                                if (isForgeUnlocked) {
+                                    onNavigateToForge()
+                                } else {
+                                    haptics.puzzleError()
+                                    android.widget.Toast.makeText(context, "Кузница открывается после 1-го рейда (или 100м)!", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
                             modifier = Modifier.weight(1f)
                         )
                         CyberTacticalOpsCard(
-                            title = "ЧЕРНЫЙ РЫНОК",
-                            iconRes = R.drawable.ic_menu_market,
-                            accentColor = Color(0xFFA855F7),
-                            onClick = onNavigateToShop,
+                            title = if (isShopUnlocked) "ЧЕРНЫЙ РЫНОК" else "ЧЕРНЫЙ РЫНОК [LVL 2]",
+                            iconRes = if (isShopUnlocked) R.drawable.ic_menu_market else R.drawable.ic_ui_locked,
+                            accentColor = if (isShopUnlocked) Color(0xFFA855F7) else Color.Gray,
+                            onClick = {
+                                if (isShopUnlocked) {
+                                    onNavigateToShop()
+                                } else {
+                                    haptics.puzzleError()
+                                    android.widget.Toast.makeText(context, "Черный Рынок открывается со 2 уровня оператора!", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -547,11 +584,14 @@ fun HubScreen(
                     // Optional Broker Row if active
                     if (isBrokerActive) {
                         CyberTacticalOpsCard(
-                            title = "ТЕНЕВОЙ БРОКЕР [ONLINE]",
-                            iconRes = R.drawable.ic_action_scan,
-                            accentColor = ZzzNeonGreen,
+                            title = if (isBrokerUnlocked) "ТЕНЕВОЙ БРОКЕР [ONLINE]" else "ТЕНЕВОЙ БРОКЕР [500М]",
+                            iconRes = if (isBrokerUnlocked) R.drawable.ic_action_scan else R.drawable.ic_ui_locked,
+                            accentColor = if (isBrokerUnlocked) ZzzNeonGreen else Color.Gray,
                             onClick = {
-                                if (activity != null && BiometricHelper.isBiometricAvailable(context)) {
+                                if (!isBrokerUnlocked) {
+                                    haptics.puzzleError()
+                                    android.widget.Toast.makeText(context, "Теневой Брокер требует глубину от 500м!", android.widget.Toast.LENGTH_SHORT).show()
+                                } else if (activity != null && BiometricHelper.isBiometricAvailable(context)) {
                                     BiometricHelper.authenticateOperator(
                                         activity = activity,
                                         title = "EIDOS // НЕЙРО-ИДЕНТИФИКАЦИЯ",
@@ -563,6 +603,17 @@ fun HubScreen(
                                     onNavigateToShadowBroker()
                                 }
                             },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Eidos Gates Row (if unlocked or admin)
+                    if (isGatesUnlocked) {
+                        CyberTacticalOpsCard(
+                            title = "ВРАТА ЭЙДОСА [ОПАСНО]",
+                            iconRes = R.drawable.ic_menu_codex,
+                            accentColor = Color(0xFFFF4444),
+                            onClick = onNavigateToEidosGates,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

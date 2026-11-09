@@ -240,6 +240,11 @@ fun CodexScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
+                io.eidos.zerolayer.ui.components.FirstTimeTooltip(
+                    prefKey = "tooltip_shown_codex",
+                    text = "Читай главы чтобы понять мир Нулевого Слоя, историю Архитекторов и природу Глитча.",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
                 ScrollableTabRow(
                     selectedTabIndex = mainCategories.indexOfFirst { it.first == selectedMainCategory }.coerceAtLeast(0),
                     containerColor = Color(0xFF070C12).copy(alpha = 0.85f),

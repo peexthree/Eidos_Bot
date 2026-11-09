@@ -165,6 +165,11 @@ fun ForgeScreen(
             CyberParticleOverlay(preset = ParticlePreset.FORGE_SPARKS)
 
             Column(modifier = Modifier.fillMaxSize()) {
+                io.eidos.zerolayer.ui.components.FirstTimeTooltip(
+                    prefKey = "tooltip_shown_forge",
+                    text = "Здесь усиливай предметы. Начни с Заточки, чтобы повысить характеристики снаряжения.",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = Color.Black,

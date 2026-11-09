@@ -176,6 +176,11 @@ fun ShopScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
+            io.eidos.zerolayer.ui.components.FirstTimeTooltip(
+                prefKey = "tooltip_shown_shop",
+                text = "Трать BioCoin на расходники, защитные протоколы и редкие кибердеки.",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+            )
             // Balance Panel with animated BioCoins counter
             val targetBioCoins = (player?.biocoin ?: 0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             val animatedBioCoins by animateIntAsState(

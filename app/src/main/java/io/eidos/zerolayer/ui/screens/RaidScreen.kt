@@ -341,15 +341,16 @@ fun RaidScreen(
                         }
                     },
                     actions = {
+                        val isBeginnerMode = (player?.raids_done ?: 0) < 5
                         if (session != null && session.current_enemy_id == null && session.current_anomaly_id == null && !isEvacuatingHold) {
                             io.eidos.zerolayer.ui.components.ZzzDangerButton(
-                                text = "ЭВАКУАЦИЯ",
+                                text = if (isBeginnerMode) "⚡ ЭВАКУАЦИЯ В УБЕЖИЩЕ" else "ЭВАКУАЦИЯ",
                                 onClick = {
                                     haptics.evacuationWarning()
                                     audio.playSound(EidosAudioManager.SoundType.EVAC_WARNING)
                                     isEvacuatingHold = true
                                 },
-                                height = 36.dp
+                                height = if (isBeginnerMode) 44.dp else 36.dp
                             )
                         }
                     },
@@ -384,28 +385,46 @@ fun RaidScreen(
                         .fillMaxSize()
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
+                    val isBeginnerMode = (player?.raids_done ?: 0) < 5
+
+                    // EVA Narrator Banner (first 10 raids)
+                    if ((player?.raids_done ?: 0) < 10) {
+                        val narratorLine = remember(session.depth) {
+                            io.eidos.zerolayer.data.RaidNarratorLines.getLineForDepth(session.depth)
+                        }
+                        io.eidos.zerolayer.ui.components.EvaSpeechBanner(
+                            text = narratorLine,
+                            isSpeaking = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp)
+                        )
+                    }
+
                     // Unified Cyber Telemetry Strip
                     val hasOblivionChip = remember(inventory) { inventory.any { it.is_equipped && it.item_id == "oblivion_chip" } }
                     val hasTacticalScanner = remember(inventory) { inventory.any { it.item_id == "tactical_scanner" } }
                     RaidHUD(
                         session = session,
                         player = player,
-                        hasOblivionChip = hasOblivionChip,
-                        hasTacticalScanner = hasTacticalScanner,
-                        overchargeTier = overchargeTier,
+                        hasOblivionChip = if (isBeginnerMode) false else hasOblivionChip,
+                        hasTacticalScanner = if (isBeginnerMode) false else hasTacticalScanner,
+                        overchargeTier = if (isBeginnerMode) 0 else overchargeTier,
                         onOpenBuffer = { showBufferModal = true },
                         onShowTooltip = { tooltip -> activeBuffTooltip = tooltip },
-                        onBoostOvercharge = onBoostOvercharge
+                        onBoostOvercharge = if (isBeginnerMode) null else onBoostOvercharge
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    ActiveSynergiesBar(
-                        activeSynergies = activeSynergies,
-                        onOpenCodex = { showSynergyCodex = true },
-                        onOpenLogs = { showEventLogsModal = true },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
-                    )
+                    if (!isBeginnerMode) {
+                        ActiveSynergiesBar(
+                            activeSynergies = activeSynergies,
+                            onOpenCodex = { showSynergyCodex = true },
+                            onOpenLogs = { showEventLogsModal = true },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                        )
+                    }
 
                     if (isEvacuatingHold) {
                         // Unstable Evacuation View
