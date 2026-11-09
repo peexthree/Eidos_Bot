@@ -150,18 +150,46 @@ fun ZzzWindowCard(
     headerRightContent: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = CutCornerShape(topStart = cornerSize, bottomEnd = cornerSize, topEnd = 2.dp, bottomStart = 2.dp)
+    val shape = CutCornerShape(topStart = cornerSize, bottomEnd = cornerSize, topEnd = 3.dp, bottomStart = 3.dp)
+
+    val acrylicGradient = remember(backgroundColor) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFA111827),
+                Color(0xF5090E18),
+                Color(0xFA04060C)
+            )
+        )
+    }
 
     Surface(
-        color = backgroundColor,
+        color = Color.Transparent,
         shape = shape,
-        border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
+        border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor.copy(alpha = 0.85f)),
         modifier = modifier
             .fillMaxWidth()
             .cyber3DTilt(enabled = tiltEnabled, maxRotationDegrees = 6f, depthTranslationDp = 10f)
             .clip(shape)
+            .background(acrylicGradient)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
+            // Studio Glass Reflection Top Highlight
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.5.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.35f),
+                                borderColor.copy(alpha = 0.6f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
             if (useGraphicBackground) {
                 Image(
                     painter = painterResource(id = graphicDrawableRes),
@@ -179,8 +207,15 @@ fun ZzzWindowCard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF161922).copy(alpha = 0.9f))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        Color(0xFF1B2230).copy(alpha = 0.95f),
+                                        Color(0xFF101520).copy(alpha = 0.90f)
+                                    )
+                                )
+                            )
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -218,14 +253,14 @@ fun ZzzWindowCard(
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     fontFamily = FontFamily.SansSerif,
-                                    letterSpacing = 1.sp
+                                    letterSpacing = 1.2.sp
                                 )
                             }
 
                             if (subTitle != null) {
                                 Text(
                                     text = "// $subTitle",
-                                    color = Color.Gray,
+                                    color = Color(0xFF94A3B8),
                                     fontSize = 10.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
@@ -234,14 +269,14 @@ fun ZzzWindowCard(
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             headerRightContent?.invoke(this)
 
-                            // Terminal Window Buttons mock [- □ ✕]
+                            // Telemetry + Terminal Window Buttons mock [SEC // ─ □ ✕]
                             Text(
-                                text = "─ □ ✕",
-                                color = borderColor.copy(alpha = 0.7f),
+                                text = "SEC // ─ □ ✕",
+                                color = borderColor.copy(alpha = 0.75f),
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace,
@@ -253,7 +288,7 @@ fun ZzzWindowCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(1.dp)
-                            .background(borderColor.copy(alpha = 0.4f))
+                            .background(borderColor.copy(alpha = 0.45f))
                     )
                 }
 
@@ -261,7 +296,7 @@ fun ZzzWindowCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(10.dp)
+                        .padding(12.dp)
                 ) {
                     content()
                 }

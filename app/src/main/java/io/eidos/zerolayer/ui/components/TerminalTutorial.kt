@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -78,72 +79,132 @@ fun TerminalTutorialDialog(
     var currentStepIndex by remember { mutableIntStateOf(0) }
     val step = TUTORIAL_STEPS[currentStepIndex]
 
+    val dialogShape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp, topEnd = 3.dp, bottomStart = 3.dp)
+
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.Black, CutCornerShape(10.dp))
-                .border(2.dp, EidosCyan, CutCornerShape(10.dp))
+                .clip(dialogShape)
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        listOf(
+                            Color(0xF5121B2D),
+                            Color(0xF80B111E),
+                            Color(0xFE04060D)
+                        )
+                    )
+                )
+                .border(1.5.dp, EidosCyan.copy(alpha = 0.85f), dialogShape)
                 .padding(18.dp)
         ) {
+            // Studio Glass Top Reflection Sheen
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.5.dp)
+                    .background(
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.4f),
+                                EidosCyan,
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Header
+                // Header with live status diode
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "ГОЛОС EIDOS // ИНСТРУКТАЖ",
-                        color = EidosCyan,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Text(
-                        "${currentStepIndex + 1} / ${TUTORIAL_STEPS.size}",
-                        color = EidosNeon,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(EidosCyan)
+                        )
+                        Text(
+                            "ГОЛОС EIDOS // ИНСТРУКТАЖ",
+                            color = EidosCyan,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    Surface(
+                        color = EidosCyan.copy(alpha = 0.15f),
+                        shape = CutCornerShape(topStart = 2.dp, bottomEnd = 4.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            " ${currentStepIndex + 1} / ${TUTORIAL_STEPS.size} ",
+                            color = EidosNeon,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
                 }
 
                 LinearProgressIndicator(
                     progress = { (currentStepIndex + 1).toFloat() / TUTORIAL_STEPS.size },
-                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CutCornerShape(2.dp)),
                     color = EidosNeon,
-                    trackColor = Color.DarkGray
+                    trackColor = Color(0xFF162030)
                 )
 
                 // Step Icon & Title
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = EidosGlass),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan.copy(alpha = 0.6f)),
-                    shape = CutCornerShape(8.dp),
+                Surface(
+                    color = Color(0x6610192A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan.copy(alpha = 0.45f)),
+                    shape = CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp, topEnd = 2.dp, bottomStart = 2.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(step.icon, fontSize = 28.sp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CutCornerShape(4.dp))
+                                .background(Color(0x3300F0FF))
+                                .border(1.dp, EidosCyan.copy(alpha = 0.5f), CutCornerShape(4.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(step.icon, fontSize = 20.sp)
+                        }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
                                 step.title,
                                 color = EidosNeon,
-                                fontSize = 12.sp,
+                                fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.5.sp
                             )
                             Text(
                                 step.hint,
-                                color = Color.Gray,
-                                fontSize = 9.sp,
+                                color = Color(0xFF94A3B8),
+                                fontSize = 9.5.sp,
                                 fontFamily = FontFamily.Monospace
                             )
                         }
@@ -152,25 +213,25 @@ fun TerminalTutorialDialog(
 
                 // Step Text
                 Surface(
-                    color = Color(0xFF0C1017),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray),
-                    shape = CutCornerShape(6.dp),
+                    color = Color(0xEE090E17),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                    shape = CutCornerShape(topStart = 2.dp, bottomEnd = 6.dp, topEnd = 6.dp, bottomStart = 2.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = step.text,
-                        color = Color.LightGray,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = 16.sp,
-                        modifier = Modifier.padding(12.dp)
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 11.5.sp,
+                        fontFamily = FontFamily.SansSerif,
+                        lineHeight = 17.sp,
+                        modifier = Modifier.padding(14.dp)
                     )
                 }
 
                 // Navigation Controls
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (currentStepIndex > 0) {
                         OutlinedButton(
@@ -180,10 +241,10 @@ fun TerminalTutorialDialog(
                             },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = EidosCyan),
                             border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan),
-                            shape = CutCornerShape(4.dp),
+                            shape = CutCornerShape(topStart = 2.dp, bottomEnd = 6.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("НАЗАД", fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            Text("НАЗАД", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         }
                     }
 
@@ -198,15 +259,17 @@ fun TerminalTutorialDialog(
                                 onDismiss()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = EidosNeon),
-                        shape = CutCornerShape(4.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (currentStepIndex < TUTORIAL_STEPS.size - 1) EidosCyan else EidosNeon,
+                            contentColor = Color.Black
+                        ),
+                        shape = CutCornerShape(topStart = 2.dp, bottomEnd = 6.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = if (currentStepIndex < TUTORIAL_STEPS.size - 1) "ДАЛЕЕ ➔" else "ЗАВЕРШИТЬ ОБУЧЕНИЕ (+500 BC)",
-                            color = Color.Black,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = if (currentStepIndex < TUTORIAL_STEPS.size - 1) "ДАЛЕЕ ➔" else "ЗАВЕРШИТЬ (+500 BC)",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace
                         )
                     }

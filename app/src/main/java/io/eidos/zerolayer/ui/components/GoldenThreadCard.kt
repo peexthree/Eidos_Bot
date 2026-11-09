@@ -63,17 +63,45 @@ fun GoldenThreadCard(
         Color(0xFFFFD700).copy(alpha = borderAlpha)
     }
 
+    val cardShape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp, topEnd = 3.dp, bottomStart = 3.dp)
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CutCornerShape(topStart = 10.dp, bottomEnd = 10.dp))
-            .background(Color(0xFF0A0D1A))
-            .border(2.dp, borderColor, CutCornerShape(topStart = 10.dp, bottomEnd = 10.dp))
-            .padding(14.dp)
+            .clip(cardShape)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xF0121A2A),
+                        Color(0xF50A101C),
+                        Color(0xFA05070E)
+                    )
+                )
+            )
+            .border(1.5.dp, borderColor, cardShape)
     ) {
+        // Studio Glass Top Reflection Sheen
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.5.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.4f),
+                            borderColor,
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Header: EVA-09 Status with Voice replay
             Row(
@@ -89,41 +117,66 @@ fun GoldenThreadCard(
                         .clickable { audio.playEvaDirectiveVoice(activeDirective.id) }
                         .padding(vertical = 2.dp, horizontal = 4.dp)
                 ) {
+                    // Pulsing Status Diode
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(if (isAllCompleted) Color(0xFF00E676) else EidosCyan)
+                    )
                     Text(
                         text = "// ЕВА-09 :: АКТИВНАЯ ДИРЕКТИВА",
                         color = EidosCyan,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.2.sp
                     )
                     Text("🔊", fontSize = 11.sp)
                 }
-                Text(
-                    text = "${completedCount}/${totalCount}",
-                    color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.ExtraBold
-                )
+                Surface(
+                    color = borderColor.copy(alpha = 0.15f),
+                    shape = CutCornerShape(topStart = 2.dp, bottomEnd = 4.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, borderColor.copy(alpha = 0.5f))
+                ) {
+                    Text(
+                        text = " ${completedCount}/${totalCount} ",
+                        color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700),
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
             }
 
             // Title with Icon
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = if (isAllCompleted) "✓" else "⚡",
-                    fontSize = 16.sp,
-                    color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CutCornerShape(4.dp))
+                        .background(if (isAllCompleted) Color(0x3300E676) else Color(0x33FFD700))
+                        .border(1.dp, if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700), CutCornerShape(4.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isAllCompleted) "✓" else "⚡",
+                        fontSize = 13.sp,
+                        color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700),
+                        fontWeight = FontWeight.Black
+                    )
+                }
                 Text(
                     text = if (isAllCompleted) "ПРОТОКОЛ ЗАВЕРШЕН // СИНГУЛЯРНОСТЬ ДОСТИГНУТА" else activeDirective.title,
                     color = Color.White,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.3.sp
                 )
             }
 
@@ -134,49 +187,65 @@ fun GoldenThreadCard(
                 } else {
                     activeDirective.description
                 },
-                color = Color.LightGray,
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
+                color = Color(0xFFCBD5E1),
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp,
                 fontFamily = FontFamily.SansSerif
             )
 
-            // Progress bar
+            // Progress bar with high-tech track
             val progress = (completedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(5.dp)
-                        .clip(CutCornerShape(2.dp)),
+                        .height(6.dp)
+                        .clip(CutCornerShape(3.dp)),
                     color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700),
-                    trackColor = Color(0xFF1E2235)
+                    trackColor = Color(0xFF161F30)
                 )
-                Text(
-                    text = "${completedCount}/${totalCount} ДИРЕКТИВ ВЫПОЛНЕНО",
-                    color = Color.Gray,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-
-            // CTA Button
-            if (!isAllCompleted) {
-                FilledTonalButton(
-                    onClick = { onNavigate(activeDirective.targetScreen) },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = CutCornerShape(6.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFFFFD700),
-                        contentColor = Color.Black
-                    )
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "▶ ${activeDirective.ctaLabel}",
+                        text = "${completedCount}/${totalCount} ВЫПОЛНЕНО",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${(progress * 100).toInt()}% СИНХРОНИЗАЦИИ",
+                        color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700),
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // CTA Button with AAA studio styling
+            if (!isAllCompleted) {
+                Button(
+                    onClick = { onNavigate(activeDirective.targetScreen) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = CutCornerShape(topStart = 4.dp, bottomEnd = 8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFFD700),
+                        contentColor = Color(0xFF0B0E14)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                ) {
+                    Text(
+                        text = "▶  ${activeDirective.ctaLabel}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace,
-                        letterSpacing = 0.5.sp
+                        letterSpacing = 1.sp
                     )
                 }
             }

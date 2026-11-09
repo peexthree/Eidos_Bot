@@ -47,35 +47,83 @@ fun FirstTimeTooltip(
         exit = fadeOut() + shrinkVertically(),
         modifier = modifier
     ) {
+        val tooltipShape = CutCornerShape(topStart = 10.dp, bottomEnd = 10.dp, topEnd = 2.dp, bottomStart = 2.dp)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(CutCornerShape(8.dp))
-                .background(Color(0xFF0F1420))
-                .border(1.5.dp, Color(0xFFFFD700), CutCornerShape(8.dp))
-                .padding(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "💡",
-                    fontSize = 16.sp
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "// СОВЕТ ЕВЫ-09",
-                        color = Color(0xFFFFD700),
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
+                .clip(tooltipShape)
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        listOf(
+                            Color(0xF2142033),
+                            Color(0xF50B1320),
+                            Color(0xFA05080E)
+                        )
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                )
+                .border(1.5.dp, Color(0xFFFFD700).copy(alpha = 0.85f), tooltipShape)
+        ) {
+            // Studio Glass Top Reflection Sheen
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.5.dp)
+                    .background(
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.4f),
+                                Color(0xFFFFD700),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CutCornerShape(4.dp))
+                        .background(Color(0x33FFD700))
+                        .border(1.dp, Color(0xFFFFD700), CutCornerShape(4.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "💡",
+                        fontSize = 14.sp
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(Color(0xFFFFD700))
+                        )
+                        Text(
+                            text = "// СОВЕТ ЕВЫ-09  [AI_NAV]",
+                            color = Color(0xFFFFD700),
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = text,
-                        color = Color.White,
+                        color = Color(0xFFF1F5F9),
                         fontSize = 11.5.sp,
                         lineHeight = 16.sp,
                         fontFamily = FontFamily.SansSerif
@@ -87,13 +135,16 @@ fun FirstTimeTooltip(
                         alreadyShown = true
                         visible = false
                     },
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CutCornerShape(4.dp))
+                        .background(Color(0x22FFFFFF))
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Dismiss",
-                        tint = Color.LightGray,
-                        modifier = Modifier.size(16.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }

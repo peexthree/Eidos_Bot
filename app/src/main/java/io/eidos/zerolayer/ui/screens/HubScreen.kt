@@ -1872,14 +1872,43 @@ fun CyberResourcePill(
     }
 
     Surface(
-        color = Color(0xCC09121A),
+        color = Color(0xF00A131C),
         shape = RoundedCornerShape(12.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.85f)),
         modifier = modifier.height(26.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            accentColor.copy(alpha = 0.15f),
+                            Color(0xF5060C14)
+                        )
+                    )
+                )
+        ) {
+            // Glass top specular line
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.35f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
             Row(
-                modifier = Modifier.padding(horizontal = 6.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -1890,9 +1919,9 @@ fun CyberResourcePill(
                 Spacer(modifier = Modifier.width(3.dp))
                 Text(
                     text = animatedValueText,
-                    color = Color.White,
+                    color = Color(0xFFF1F5F9),
                     fontSize = 9.5.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     fontFamily = FontFamily.Monospace
                 )
             }
@@ -1925,24 +1954,54 @@ fun CyberDepotSyncBanner(
         label = "syncSpinner"
     )
 
+    val depotBorderColor = if (isDepotReady) ZzzNeonGreen else ZzzCyanBright
     Surface(
-        color = Color(0xD9061824),
-        shape = RoundedCornerShape(8.dp),
+        color = Color(0xF2081622),
+        shape = CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp, topEnd = 2.dp, bottomStart = 2.dp),
         border = androidx.compose.foundation.BorderStroke(
-            1.2.dp,
-            if (isDepotReady) ZzzNeonGreen else ZzzCyanBright
+            1.4.dp,
+            depotBorderColor.copy(alpha = 0.85f)
         ),
         modifier = modifier
             .fillMaxWidth()
             .clickable { onClick() }
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            depotBorderColor.copy(alpha = 0.12f),
+                            Color(0xFA050E18)
+                        )
+                    )
+                )
         ) {
+            // Glass top specular highlight
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.2.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.35f),
+                                depotBorderColor,
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
@@ -2008,6 +2067,7 @@ fun CyberDepotSyncBanner(
                     )
                 }
             }
+        }
         }
     }
 }
@@ -2095,50 +2155,85 @@ fun CyberTacticalOpsCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cardShape = CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp, topEnd = 4.dp, bottomStart = 4.dp)
     Surface(
-        color = Color(0xDD090F17),
-        shape = CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp, topEnd = 4.dp, bottomStart = 4.dp),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, accentColor),
+        color = Color(0xF00A101A),
+        shape = cardShape,
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, accentColor.copy(alpha = 0.85f)),
         modifier = modifier
-            .height(115.dp)
+            .height(118.dp)
             .clickable { onClick() }
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(accentColor.copy(alpha = 0.14f), Color(0xEE060A10))
+                        listOf(
+                            accentColor.copy(alpha = 0.16f),
+                            Color(0xF5090F18),
+                            Color(0xFA05080E)
+                        )
                     )
                 )
-                .padding(vertical = 12.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Glass top specular highlight line
             Box(
                 modifier = Modifier
-                    .size(46.dp)
-                    .clip(CutCornerShape(6.dp))
-                    .background(Color(0xFF0F1522))
-                    .border(1.dp, accentColor.copy(alpha = 0.6f), CutCornerShape(6.dp)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .height(1.2.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.35f),
+                                accentColor,
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Image(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = title,
-                    modifier = Modifier.size(30.dp)
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CutCornerShape(6.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color(0xFF162032),
+                                    Color(0xFF0C1320)
+                                )
+                            )
+                        )
+                        .border(1.2.dp, accentColor.copy(alpha = 0.75f), CutCornerShape(6.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = iconRes),
+                        contentDescription = title,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                Text(
+                    text = title.uppercase(),
+                    color = Color(0xFFF1F5F9),
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 12.5.sp,
+                    letterSpacing = 0.5.sp,
+                    maxLines = 2
                 )
             }
-            Text(
-                text = title.uppercase(),
-                color = Color.White,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Monospace,
-                textAlign = TextAlign.Center,
-                lineHeight = 12.5.sp,
-                maxLines = 2
-            )
         }
     }
 }
