@@ -415,7 +415,6 @@ fun HubScreen(
                                 modifier = Modifier.weight(1.1f)
                             )
                         }
-                        }
                     }
                 }
 
@@ -1400,6 +1399,7 @@ fun HubScreen(
                 }
             }
         }
+    }
     }
 }
 
