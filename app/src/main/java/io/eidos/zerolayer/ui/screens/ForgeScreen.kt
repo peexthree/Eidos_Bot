@@ -86,6 +86,14 @@ fun ForgeScreen(
     val haptics = remember { HapticFeedbackManager.getInstance(context) }
     val audio = remember { EidosAudioManager.getInstance(context) }
 
+    LaunchedEffect(Unit) {
+        val tutorialPrefs = context.getSharedPreferences("eidos_tutorial_prefs", android.content.Context.MODE_PRIVATE)
+        if (!tutorialPrefs.getBoolean("eva_tip_forge_played", false)) {
+            tutorialPrefs.edit().putBoolean("eva_tip_forge_played", true).apply()
+            audio.playEvaHubVoice(EidosAudioManager.EvaHubVoiceType.TIP_FORGE)
+        }
+    }
+
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("СИНТЕЗ", "МОДДИНГ СОКЕТОВ", "КОРРУПЦИЯ")
 

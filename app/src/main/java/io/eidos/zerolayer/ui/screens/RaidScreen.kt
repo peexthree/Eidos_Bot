@@ -164,6 +164,7 @@ fun RaidScreen(
     LaunchedEffect(session?.kills) {
         val currentKills = session?.kills ?: 0
         if (currentKills > prevKills && currentKills > 0) {
+            audio.playEvaCombatVoice(EidosAudioManager.EvaCombatVoiceType.COMBAT_VICTORY)
             if (currentCinematic == ActiveCinematic.NONE) {
                 currentCinematic = ActiveCinematic.VICTORY
             } else {
@@ -273,11 +274,33 @@ fun RaidScreen(
         }
     }
 
+    var hasWarnedCriticalHp by remember { mutableStateOf(false) }
+    LaunchedEffect(session?.signal) {
+        val signal = session?.signal ?: 100
+        if (signal in 1..25 && !hasWarnedCriticalHp) {
+            hasWarnedCriticalHp = true
+            audio.playEvaCombatVoice(EidosAudioManager.EvaCombatVoiceType.SIGNAL_CRITICAL)
+        } else if (signal > 35) {
+            hasWarnedCriticalHp = false
+        }
+    }
+
+    var hasWarnedOverdrive by remember { mutableStateOf(false) }
+    LaunchedEffect(overdriveCharge) {
+        if (overdriveCharge >= 100 && !hasWarnedOverdrive) {
+            hasWarnedOverdrive = true
+            audio.playEvaCombatVoice(EidosAudioManager.EvaCombatVoiceType.OVERDRIVE_READY)
+        } else if (overdriveCharge < 50) {
+            hasWarnedOverdrive = false
+        }
+    }
+
     // Sound / Haptic trigger when encountering an Anomaly
     LaunchedEffect(session?.current_anomaly_id) {
         if (session?.current_anomaly_id != null) {
             haptics.glitchPulse()
             audio.playSound(EidosAudioManager.SoundType.GLITCH_FOUND)
+            audio.playEvaCombatVoice(EidosAudioManager.EvaCombatVoiceType.ANOMALY_FOUND)
         }
     }
 

@@ -182,6 +182,17 @@ fun HubScreen(
         mainViewModel.refreshUnreadRadio()
     }
 
+    // EVA Welcome Back voice greeting (at most once every 10 min)
+    LaunchedEffect(Unit) {
+        val narrativePrefs = context.getSharedPreferences("eidos_narrative_prefs", Context.MODE_PRIVATE)
+        val lastWelcome = narrativePrefs.getLong("last_eva_welcome", 0L)
+        val now = System.currentTimeMillis()
+        if (now - lastWelcome > 10 * 60 * 1000L) {
+            narrativePrefs.edit().putLong("last_eva_welcome", now).apply()
+            audio.playEvaHubVoice(io.eidos.zerolayer.ui.utils.EidosAudioManager.EvaHubVoiceType.WELCOME_BACK)
+        }
+    }
+
     // Auto-launch Terminal Tutorial once for new players with 0 raids
     LaunchedEffect(player?.raids_done) {
         val tutorialPrefs = context.getSharedPreferences("eidos_tutorial_prefs", Context.MODE_PRIVATE)
@@ -448,6 +459,9 @@ fun HubScreen(
                     isDepotReady = isDepotReady,
                     depotCountdownText = depotCountdownText,
                     onClick = {
+                        if (isDepotReady) {
+                            audio.playEvaHubVoice(io.eidos.zerolayer.ui.utils.EidosAudioManager.EvaHubVoiceType.DEPOT_READY)
+                        }
                         onRestoreSignal()
                         onSyncProtocol()
                         showSupplyDropDialog = true

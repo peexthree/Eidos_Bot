@@ -26,12 +26,17 @@ import io.eidos.zerolayer.data.MainDirectiveEngine
 import io.eidos.zerolayer.data.Player
 import io.eidos.zerolayer.ui.theme.EidosCyan
 
+import androidx.compose.ui.platform.LocalContext
+import io.eidos.zerolayer.ui.utils.EidosAudioManager
+
 @Composable
 fun GoldenThreadCard(
     player: Player?,
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val audio = remember { EidosAudioManager.getInstance(context) }
     val activeDirective = remember(player?.raids_done, player?.max_depth, player?.wins_pvp, player?.prestige_count) {
         MainDirectiveEngine.getActiveDirective(player)
     }
@@ -70,20 +75,30 @@ fun GoldenThreadCard(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Header: EVA-09 Status
+            // Header: EVA-09 Status with Voice replay
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "// ЕВА-09 :: АКТИВНАЯ ДИРЕКТИВА",
-                    color = EidosCyan,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .clip(CutCornerShape(4.dp))
+                        .clickable { audio.playEvaDirectiveVoice(activeDirective.id) }
+                        .padding(vertical = 2.dp, horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = "// ЕВА-09 :: АКТИВНАЯ ДИРЕКТИВА",
+                        color = EidosCyan,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text("🔊", fontSize = 11.sp)
+                }
                 Text(
                     text = "${completedCount}/${totalCount}",
                     color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700),

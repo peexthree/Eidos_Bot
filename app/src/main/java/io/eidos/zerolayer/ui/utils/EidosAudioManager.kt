@@ -683,6 +683,52 @@ class EidosAudioManager private constructor(private val context: Context) {
         }
     }
 
+    enum class EvaCombatVoiceType {
+        SIGNAL_CRITICAL,
+        OVERDRIVE_READY,
+        ANOMALY_FOUND,
+        COMBAT_VICTORY
+    }
+
+    enum class EvaHubVoiceType {
+        WELCOME_BACK,
+        DEPOT_READY,
+        TIP_FORGE,
+        TIP_BROKER
+    }
+
+    fun playEvaDirectiveVoice(directiveId: Int, onComplete: () -> Unit = {}) {
+        val resId = when (directiveId) {
+            1 -> R.raw.eva_directive_init
+            3 -> R.raw.eva_directive_forge
+            10 -> R.raw.eva_directive_singularity
+            else -> null
+        }
+        if (resId != null) {
+            playVoice(resId, onComplete)
+        }
+    }
+
+    fun playEvaCombatVoice(type: EvaCombatVoiceType, onComplete: () -> Unit = {}) {
+        val resId = when (type) {
+            EvaCombatVoiceType.SIGNAL_CRITICAL -> R.raw.eva_signal_critical
+            EvaCombatVoiceType.OVERDRIVE_READY -> R.raw.eva_overdrive_ready
+            EvaCombatVoiceType.ANOMALY_FOUND -> R.raw.eva_anomaly_found
+            EvaCombatVoiceType.COMBAT_VICTORY -> R.raw.eva_combat_victory
+        }
+        playVoice(resId, onComplete)
+    }
+
+    fun playEvaHubVoice(type: EvaHubVoiceType, onComplete: () -> Unit = {}) {
+        val resId = when (type) {
+            EvaHubVoiceType.WELCOME_BACK -> R.raw.eva_welcome_back
+            EvaHubVoiceType.DEPOT_READY -> R.raw.eva_depot_ready
+            EvaHubVoiceType.TIP_FORGE -> R.raw.eva_tip_forge
+            EvaHubVoiceType.TIP_BROKER -> R.raw.eva_tip_broker
+        }
+        playVoice(resId, onComplete)
+    }
+
     fun playEvaMilestoneVoice(depth: Int, onComplete: () -> Unit = {}) {
         val resId = when (depth) {
             100 -> R.raw.eva_depth_100

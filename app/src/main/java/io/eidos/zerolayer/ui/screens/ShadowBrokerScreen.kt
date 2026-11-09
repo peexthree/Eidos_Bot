@@ -108,6 +108,14 @@ fun ShadowBrokerScreen(
     val haptics = remember { HapticFeedbackManager.getInstance(context) }
 
     LaunchedEffect(Unit) {
+        val tutorialPrefs = context.getSharedPreferences("eidos_tutorial_prefs", android.content.Context.MODE_PRIVATE)
+        if (!tutorialPrefs.getBoolean("eva_tip_broker_played", false)) {
+            tutorialPrefs.edit().putBoolean("eva_tip_broker_played", true).apply()
+            audio.playEvaHubVoice(EidosAudioManager.EvaHubVoiceType.TIP_BROKER)
+        }
+    }
+
+    LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
             currentTimeMillis = System.currentTimeMillis()

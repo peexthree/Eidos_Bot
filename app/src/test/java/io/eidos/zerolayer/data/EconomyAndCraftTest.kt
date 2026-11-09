@@ -76,10 +76,10 @@ class EconomyAndCraftTest {
         assertEquals(50000L, ShadowBrokerPrices.getXpPrice(cursedRelic))
 
         // BioCoin Prices
-        assertEquals(1500L, ShadowBrokerPrices.getBcPrice(commonItem))
-        assertEquals(4000L, ShadowBrokerPrices.getBcPrice(epicChip))
-        assertEquals(10000L, ShadowBrokerPrices.getBcPrice(legendaryGun))
-        assertEquals(25000L, ShadowBrokerPrices.getBcPrice(cursedRelic))
+        assertEquals(300L, ShadowBrokerPrices.getBcPrice(commonItem))
+        assertEquals(800L, ShadowBrokerPrices.getBcPrice(epicChip))
+        assertEquals(1800L, ShadowBrokerPrices.getBcPrice(legendaryGun))
+        assertEquals(3500L, ShadowBrokerPrices.getBcPrice(cursedRelic))
     }
 
     @Test
