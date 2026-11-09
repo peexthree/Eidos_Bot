@@ -33,10 +33,12 @@ import io.eidos.zerolayer.ui.utils.EidosAudioManager
 fun GoldenThreadCard(
     player: Player?,
     onNavigate: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenTutorial: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val audio = remember { EidosAudioManager.getInstance(context) }
+    val isNovice = (player?.raids_done ?: 0) == 0
     val activeDirective = remember(player?.raids_done, player?.max_depth, player?.wins_pvp, player?.prestige_count) {
         MainDirectiveEngine.getActiveDirective(player)
     }
@@ -48,10 +50,10 @@ fun GoldenThreadCard(
 
     val infiniteTransition = rememberInfiniteTransition(label = "golden_thread_glow")
     val borderAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
+        initialValue = if (isNovice) 0.35f else 0.5f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(if (isNovice) 900 else 1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "glow_alpha"
@@ -64,6 +66,7 @@ fun GoldenThreadCard(
     }
 
     val cardShape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp, topEnd = 3.dp, bottomStart = 3.dp)
+    val borderWidth = if (isNovice) 2.2.dp else 1.5.dp
 
     Box(
         modifier = modifier
@@ -78,7 +81,7 @@ fun GoldenThreadCard(
                     )
                 )
             )
-            .border(1.5.dp, borderColor, cardShape)
+            .border(borderWidth, borderColor, cardShape)
     ) {
         // Studio Glass Top Reflection Sheen
         Box(
@@ -134,19 +137,41 @@ fun GoldenThreadCard(
                     )
                     Text("🔊", fontSize = 11.sp)
                 }
-                Surface(
-                    color = borderColor.copy(alpha = 0.15f),
-                    shape = CutCornerShape(topStart = 2.dp, bottomEnd = 4.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, borderColor.copy(alpha = 0.5f))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = " ${completedCount}/${totalCount} ",
-                        color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700),
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
+                    if (onOpenTutorial != null) {
+                        Surface(
+                            color = Color(0xFF00394D),
+                            shape = CutCornerShape(4.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan.copy(alpha = 0.8f)),
+                            modifier = Modifier.clickable { onOpenTutorial() }
+                        ) {
+                            Text(
+                                text = " [ ? ] ",
+                                color = EidosCyan,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Surface(
+                        color = borderColor.copy(alpha = 0.15f),
+                        shape = CutCornerShape(topStart = 2.dp, bottomEnd = 4.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = " ${completedCount}/${totalCount} ",
+                            color = if (isAllCompleted) Color(0xFF00E676) else Color(0xFFFFD700),
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 

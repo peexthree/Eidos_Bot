@@ -3227,17 +3227,35 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 // Reset overdrive
                 setOverdriveCharge(uid, 0)
 
-                // 🔄 СМЕРТЬ: сброс прогресса глубины к поверхности + БЕЗ бесплатного хила.
-                // max_depth = 0 -> следующая вылазка начнётся с 1 уровня глубины.
-                // Сигнал остаётся на 1 HP: лечение - мед-модули или платная капсула.
-                dao.updatePlayer(player.copy(
-                    max_depth = 0,
-                    hp = 1,
-                    energy = player.max_energy,
-                    overdriveCharge = 0,
-                    kills = maxOf(player.kills, player.kills + session.kills)
-                ))
-                log(uid, "📉 [СБРОС ГЛУБИНЫ]: Прогресс погружения аннулирован - следующая вылазка начнётся с 1 уровня. Сигнал критически слаб: лечение за валюту (мед-модули / капсула на шлюзе).", "error")
+                // 🔄 СМЕРТЬ: сброс прогресса глубины к поверхности.
+                // Протокол первичной аварии (Grace Period): для новичков (первый спуск)
+                // аварийный фонд Директората восстанавливает Сигнал до 100% и выдает 150 BC.
+                val gracePrefs = context.getSharedPreferences("eidos_grace_prefs", Context.MODE_PRIVATE)
+                val isFirstGraceUsed = gracePrefs.getBoolean("first_death_grace_${uid}", false)
+                val isEligibleForGrace = !isFirstGraceUsed && player.raids_done <= 1
+
+                if (isEligibleForGrace) {
+                    gracePrefs.edit().putBoolean("first_death_grace_${uid}", true).apply()
+                    val grantCoins = if (player.biocoin < 150L) 150L else player.biocoin
+                    dao.updatePlayer(player.copy(
+                        max_depth = 0,
+                        hp = player.max_hp,
+                        biocoin = grantCoins,
+                        energy = player.max_energy,
+                        overdriveCharge = 0,
+                        kills = maxOf(player.kills, player.kills + session.kills)
+                    ))
+                    log(uid, "⚡ [ПРОТОКОЛ ПЕРВИЧНОЙ АВАРИИ]: Аварийный фонд Директората провел полную реанимацию Ядра. Сигнал восстановлен на 100% (+150 BC подъемных). Последующие реанимации оплачиваются оператором.", "heal")
+                } else {
+                    dao.updatePlayer(player.copy(
+                        max_depth = 0,
+                        hp = 1,
+                        energy = player.max_energy,
+                        overdriveCharge = 0,
+                        kills = maxOf(player.kills, player.kills + session.kills)
+                    ))
+                    log(uid, "📉 [СБРОС ГЛУБИНЫ]: Прогресс погружения аннулирован - следующая вылазка начнется с 1 уровня. Сигнал критически слаб: лечение за валюту (мед-модули / капсула на шлюзе).", "error")
+                }
 
                 val durationSec = ((System.currentTimeMillis() - session.start_time).coerceAtLeast(0L)) / 1000L
                 deathReportFlow.value = DeathReport(

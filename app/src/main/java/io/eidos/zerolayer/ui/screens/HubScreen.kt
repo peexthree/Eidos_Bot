@@ -80,6 +80,14 @@ import io.eidos.zerolayer.ui.theme.EidosNeon
 import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.utils.neonGlowPulse
 
+data class EvaLockInfo(
+    val title: String,
+    val requirement: String,
+    val message: String,
+    val ctaText: String = "К РЕЙДУ",
+    val onCta: () -> Unit
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HubScreen(
@@ -108,6 +116,7 @@ fun HubScreen(
     var showBrokerOfflineDialog by remember { mutableStateOf(false) }
     var showMetaTreeDialog by remember { mutableStateOf(false) }
     var showTerminalTutorialDialog by remember { mutableStateOf(false) }
+    var evaLockDialogInfo by remember { mutableStateOf<EvaLockInfo?>(null) }
 
     var currentTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -195,14 +204,7 @@ fun HubScreen(
         }
     }
 
-    // Auto-launch Terminal Tutorial once for new players with 0 raids
-    LaunchedEffect(player?.raids_done) {
-        val tutorialPrefs = context.getSharedPreferences("eidos_tutorial_prefs", Context.MODE_PRIVATE)
-        val tutorialShown = tutorialPrefs.getBoolean("tutorial_shown_hub", false)
-        if ((player?.raids_done ?: 0) == 0 && !tutorialShown) {
-            showTerminalTutorialDialog = true
-        }
-    }
+    // Terminal Tutorial is available on-demand via the [ ? ] button on GoldenThreadCard
     val bossHp = worldBossState?.boss_hp ?: 984124510L
     val bossMaxHp = worldBossState?.boss_max_hp ?: 984124510L
     val bossCycle = worldBossState?.cycle ?: 1
@@ -347,8 +349,13 @@ fun HubScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(2.dp))
+                        val factionText = if (player?.faction.isNullOrBlank() || player?.faction == "NONE") {
+                            "РАНГ: НЕОФИТ // АВТОНОМНЫЙ"
+                        } else {
+                            "ФРАКЦИЯ: ${player?.faction} // СИНХРОНИЗИРОВАН"
+                        }
                         Text(
-                            text = "ФРАКЦИЯ: ${player?.faction ?: "МАТЕРИЯ"} // СИНХРОНИЗИРОВАН",
+                            text = factionText,
                             color = Color(0xFF7DE6F5),
                             fontSize = 7.5.sp,
                             fontFamily = FontFamily.Monospace,
@@ -363,49 +370,51 @@ fun HubScreen(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Energy Gauge Bar (Green neon)
+                        // Signal Stability Bar (Magenta/Pink neon with exact HP)
                         CyberTopGaugeBar(
-                            label = "ЭНЕРГИЯ ПОГРУЖЕНИЯ",
+                            label = "СИГНАЛ // [${player?.hp ?: 100} / ${player?.max_hp ?: 100} HP]",
+                            current = player?.hp ?: 100,
+                            max = player?.max_hp ?: 100,
+                            barColor = Color(0xFFFF007F),
+                            bgColor = Color(0xFF280718)
+                        )
+
+                        // Energy Gauge Bar (Green neon with exact EP)
+                        CyberTopGaugeBar(
+                            label = "ЭНЕРГИЯ ЯДРА // [${player?.energy ?: 100} / ${player?.max_energy ?: 100} EP]",
                             current = player?.energy ?: 100,
                             max = player?.max_energy ?: 100,
                             barColor = ZzzNeonGreen,
                             bgColor = Color(0xFF082218)
                         )
 
-                        // Signal Stability Bar (Magenta/Pink neon)
-                        CyberTopGaugeBar(
-                            label = "СТАБИЛЬНОСТЬ СИГНАЛА",
-                            current = player?.hp ?: 180,
-                            max = player?.max_hp ?: 180,
-                            barColor = Color(0xFFFF007F),
-                            bgColor = Color(0xFF280718)
-                        )
-
                         Spacer(modifier = Modifier.height(2.dp))
 
-                        // 3 Resource Pills Row (HP, EP, BC)
+                        // 3 Resource Pills Row: BioCoins, Rank/Level, Quick Inventory button
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             CyberResourcePill(
-                                iconText = "💎",
-                                valueText = "${player?.hp ?: 180} HP",
-                                accentColor = Color(0xFFFF2A85),
-                                modifier = Modifier.weight(1f)
-                            )
-                            CyberResourcePill(
-                                iconText = "🔋",
-                                valueText = "${player?.energy ?: 100} EP",
-                                accentColor = ZzzGold,
-                                modifier = Modifier.weight(1f)
-                            )
-                            CyberResourcePill(
                                 iconText = "🪙",
-                                valueText = "${player?.biocoin ?: 9478} BC",
+                                valueText = "${player?.biocoin ?: 0} BC",
                                 accentColor = ZzzGold,
+                                modifier = Modifier.weight(1.2f)
+                            )
+                            CyberResourcePill(
+                                iconText = "💠",
+                                valueText = if ((player?.level ?: 1) > 1) "LVL ${player?.level}" else "НЕОФИТ",
+                                accentColor = ZzzCyanBright,
                                 modifier = Modifier.weight(1f)
                             )
+                            CyberResourcePill(
+                                iconText = "🎒",
+                                valueText = "РЮКЗАК",
+                                accentColor = Color(0xFFFF2A85),
+                                onClick = onNavigateToInventory,
+                                modifier = Modifier.weight(1.1f)
+                            )
+                        }
                         }
                     }
                 }
@@ -483,12 +492,16 @@ fun HubScreen(
                             "gates" -> onNavigateToEidosGates()
                             "inventory" -> onNavigateToInventory()
                         }
-                    }
+                    },
+                    onOpenTutorial = { showTerminalTutorialDialog = true }
                 )
 
                 // 4. MAIN CENTRAL CTA BUTTON: RAID ENTRY WITH HAZARD STRIPES
+                val isFirstRaid = (player?.raids_done ?: 0) == 0
                 CyberHazardRaidButton(
-                    onClick = onNavigateToRaid
+                    onClick = onNavigateToRaid,
+                    text = if (isFirstRaid) "/// >>> НАЧАТЬ ПЕРВЫЙ РЕЙД (ЦЕЛЬ: 100м) >>> ///" else "/// >>> СПУСК В НУЛЕВОЙ СЛОЙ >>> ///",
+                    isHighlighted = isFirstRaid
                 )
 
                 // 5. TACTICAL OPERATIONS 2X2 GRID
@@ -538,29 +551,43 @@ fun HubScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CyberTacticalOpsCard(
-                            title = if (isForgeUnlocked) "КУЗНИЦА И СИНТЕЗ" else "КУЗНИЦА [НУЖЕН РЕЙД]",
+                            title = "КУЗНИЦА И СИНТЕЗ",
+                            subtitle = if (isForgeUnlocked) "МОДЫ И СИНТЕЗ" else "ДОСТУП: 1-Й РЕЙД (100м)",
                             iconRes = if (isForgeUnlocked) R.drawable.ic_menu_forge else R.drawable.ic_ui_locked,
                             accentColor = if (isForgeUnlocked) Color(0xFFFF2A85) else Color.Gray,
                             onClick = {
                                 if (isForgeUnlocked) {
                                     onNavigateToForge()
                                 } else {
-                                    haptics.puzzleError()
-                                    android.widget.Toast.makeText(context, "Кузница открывается после 1-го рейда (или 100м)!", android.widget.Toast.LENGTH_SHORT).show()
+                                    haptics.click()
+                                    evaLockDialogInfo = EvaLockInfo(
+                                        title = "КУЗНИЦА И СИНТЕЗ",
+                                        requirement = "ДОСТУП: 1-Й РЕЙД (ИЛИ 100м)",
+                                        message = "Модуль Кузницы заблокирован протоколами безопасности. Для запуска термо-горна требуются первые трофеи из Бездны. Совершите вылазку в Нулевой Слой на глубину 100м.",
+                                        ctaText = "ВХОД В РЕЙД",
+                                        onCta = onNavigateToRaid
+                                    )
                                 }
                             },
                             modifier = Modifier.weight(1f)
                         )
                         CyberTacticalOpsCard(
-                            title = if (isShopUnlocked) "ЧЕРНЫЙ РЫНОК" else "ЧЕРНЫЙ РЫНОК [LVL 2]",
+                            title = "ЧЕРНЫЙ РЫНОК",
+                            subtitle = if (isShopUnlocked) "КОНТРАБАНДА" else "ТРЕБУЕТСЯ: УРОВЕНЬ 2",
                             iconRes = if (isShopUnlocked) R.drawable.ic_menu_market else R.drawable.ic_ui_locked,
                             accentColor = if (isShopUnlocked) Color(0xFFA855F7) else Color.Gray,
                             onClick = {
                                 if (isShopUnlocked) {
                                     onNavigateToShop()
                                 } else {
-                                    haptics.puzzleError()
-                                    android.widget.Toast.makeText(context, "Черный Рынок открывается со 2 уровня оператора!", android.widget.Toast.LENGTH_SHORT).show()
+                                    haptics.click()
+                                    evaLockDialogInfo = EvaLockInfo(
+                                        title = "ЧЕРНЫЙ РЫНОК",
+                                        requirement = "ТРЕБУЕТСЯ: УРОВЕНЬ 2",
+                                        message = "Контрабандный терминал требует репутацию проверенного оператора. Достигните 2-го уровня Ядра для открытия защищенных каналов сбыта.",
+                                        ctaText = "К РЕЙДУ (ДЛЯ ОПЫТА)",
+                                        onCta = onNavigateToRaid
+                                    )
                                 }
                             },
                             modifier = Modifier.weight(1f)
@@ -574,21 +601,29 @@ fun HubScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CyberTacticalOpsCard(
-                            title = if (isPvpAvailable) "СЕТЕВАЯ ВОЙНА" else "СЕТЕВАЯ ВОЙНА [LVL 4]",
+                            title = "СЕТЕВАЯ ВОЙНА",
+                            subtitle = if (isPvpAvailable) "РЕЙТИНГОВЫЕ БОИ" else "ДОСТУП: РАНГ 4",
                             iconRes = if (isPvpAvailable) R.drawable.ic_action_attack else R.drawable.ic_ui_locked,
                             accentColor = if (isPvpAvailable) ZzzCyanBright else Color.Gray,
                             onClick = {
                                 if (isPvpAvailable) {
                                     onNavigateToPvp()
                                 } else {
-                                    haptics.puzzleError()
-                                    android.widget.Toast.makeText(context, "Сетевая Война доступна строго с 4 уровня!", android.widget.Toast.LENGTH_SHORT).show()
+                                    haptics.click()
+                                    evaLockDialogInfo = EvaLockInfo(
+                                        title = "СЕТЕВАЯ ВОЙНА",
+                                        requirement = "ДОСТУП: РАНГ 4",
+                                        message = "Сетевые дуэли операторов открываются на 4-м уровне Ядра. Ваша нейро-матрица пока недостаточно стабилизирована для отражения внешних атак.",
+                                        ctaText = "ПОВЫСИТЬ РАНГ В РЕЙДЕ",
+                                        onCta = onNavigateToRaid
+                                    )
                                 }
                             },
                             modifier = Modifier.weight(1f)
                         )
                         CyberTacticalOpsCard(
-                            title = "КОДЕКС / БАЗА ЗНАНИЙ",
+                            title = "КОДЕКС",
+                            subtitle = "АРХИВ ЗНАНИЙ",
                             iconRes = R.drawable.ic_menu_codex,
                             accentColor = ZzzGold,
                             onClick = onNavigateToCodex,
@@ -599,13 +634,20 @@ fun HubScreen(
                     // Optional Broker Row if active
                     if (isBrokerActive) {
                         CyberTacticalOpsCard(
-                            title = if (isBrokerUnlocked) "ТЕНЕВОЙ БРОКЕР [ONLINE]" else "ТЕНЕВОЙ БРОКЕР [500М]",
+                            title = "ТЕНЕВОЙ БРОКЕР",
+                            subtitle = if (isBrokerUnlocked) "РЕДКИЕ ЧИПЫ [ONLINE]" else "СЕКТОР: С 500м",
                             iconRes = if (isBrokerUnlocked) R.drawable.ic_action_scan else R.drawable.ic_ui_locked,
                             accentColor = if (isBrokerUnlocked) ZzzNeonGreen else Color.Gray,
                             onClick = {
                                 if (!isBrokerUnlocked) {
-                                    haptics.puzzleError()
-                                    android.widget.Toast.makeText(context, "Теневой Брокер требует глубину от 500м!", android.widget.Toast.LENGTH_SHORT).show()
+                                    haptics.click()
+                                    evaLockDialogInfo = EvaLockInfo(
+                                        title = "ТЕНЕВОЙ БРОКЕР",
+                                        requirement = "СЕКТОР: С 500м",
+                                        message = "Теневой Брокер скрывается в глубоких подсетях Нулевого Слоя. Достигните глубины 500м для обнаружения его зашифрованного маяка.",
+                                        ctaText = "СПУСК В СЛОЙ",
+                                        onCta = onNavigateToRaid
+                                    )
                                 } else if (activity != null && BiometricHelper.isBiometricAvailable(context)) {
                                     BiometricHelper.authenticateOperator(
                                         activity = activity,
@@ -625,7 +667,8 @@ fun HubScreen(
                     // Eidos Gates Row (if unlocked or admin)
                     if (isGatesUnlocked) {
                         CyberTacticalOpsCard(
-                            title = "ВРАТА ЭЙДОСА [ОПАСНО]",
+                            title = "ВРАТА ЭЙДОСА",
+                            subtitle = "СИНГУЛЯРНОСТЬ [ОПАСНО]",
                             iconRes = R.drawable.ic_menu_codex,
                             accentColor = Color(0xFFFF4444),
                             onClick = onNavigateToEidosGates,
@@ -639,6 +682,8 @@ fun HubScreen(
                     bossHp = bossHp,
                     bossMaxHp = bossMaxHp,
                     bossCycle = bossCycle,
+                    playerDamage = personalDamage,
+                    playerLevel = player?.level ?: 1,
                     onClick = { showBossDialog = true }
                 )
 
@@ -1263,6 +1308,98 @@ fun HubScreen(
         )
     }
 
+    // 7. Tactical Operations EVA Lock Information Dialog
+    evaLockDialogInfo?.let { lockInfo ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { evaLockDialogInfo = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                io.eidos.zerolayer.ui.components.ZzzWindowCard(
+                    title = "// ЕВА-09 :: ДОСТУП ОГРАНИЧЕН",
+                    borderColor = Color(0xFFFFB300),
+                    modifier = Modifier.fillMaxWidth(0.92f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            color = Color(0x33FFB300),
+                            shape = CutCornerShape(4.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB300))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = lockInfo.title.uppercase(),
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = lockInfo.requirement,
+                                    color = Color(0xFFFFD54F),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = lockInfo.message,
+                            color = Color(0xFFE2E8F0),
+                            fontSize = 11.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 16.sp
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { evaLockDialogInfo = null },
+                                shape = CutCornerShape(4.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("ЗАКРЫТЬ", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                            }
+                            Button(
+                                onClick = {
+                                    evaLockDialogInfo = null
+                                    lockInfo.onCta()
+                                },
+                                shape = CutCornerShape(4.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = ZzzCyanBright),
+                                modifier = Modifier.weight(1.4f)
+                            ) {
+                                Text(
+                                    lockInfo.ctaText,
+                                    color = Color.Black,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1859,7 +1996,8 @@ fun CyberResourcePill(
     iconText: String,
     valueText: String,
     accentColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     // Juice Phase 1: animated counter (tween 600ms) + one-shot glitch pulse when the value changes
     val animatedValueText = animatedResourceText(valueText)
@@ -1874,11 +2012,19 @@ fun CyberResourcePill(
         lastSeenValue = valueText
     }
 
+    val pillModifier = if (onClick != null) {
+        modifier
+            .height(26.dp)
+            .clickable { onClick() }
+    } else {
+        modifier.height(26.dp)
+    }
+
     Surface(
         color = Color(0xF00A131C),
         shape = RoundedCornerShape(12.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.85f)),
-        modifier = modifier.height(26.dp)
+        modifier = pillModifier
     ) {
         Box(
             modifier = Modifier
@@ -2078,12 +2224,25 @@ fun CyberDepotSyncBanner(
 @Composable
 fun CyberHazardRaidButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    text: String = "/// >>> СПУСК В НУЛЕВОЙ СЛОЙ >>> ///",
+    isHighlighted: Boolean = false
 ) {
+    val infiniteTransition = rememberInfiniteTransition(label = "hazardBorder")
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = if (isHighlighted) 0.5f else 0.85f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isHighlighted) 800 else 1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "hazardBorderAlpha"
+    )
+    val borderColor = if (isHighlighted) ZzzAcidYellow.copy(alpha = borderAlpha) else ZzzCyanBright
     Surface(
         color = Color(0xEB04121C),
         shape = CutCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(2.dp, ZzzCyanBright),
+        border = androidx.compose.foundation.BorderStroke(if (isHighlighted) 2.5.dp else 2.dp, borderColor),
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
@@ -2111,9 +2270,9 @@ fun CyberHazardRaidButton(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "/// >>> СПУСК В НУЛЕВОЙ СЛОЙ >>> ///",
+                    text = text,
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 0.5.sp,
@@ -2156,7 +2315,8 @@ fun CyberTacticalOpsCard(
     @androidx.annotation.DrawableRes iconRes: Int,
     accentColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    subtitle: String? = null
 ) {
     val cardShape = CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp, topEnd = 4.dp, bottomStart = 4.dp)
     Surface(
@@ -2225,17 +2385,31 @@ fun CyberTacticalOpsCard(
                         modifier = Modifier.size(28.dp)
                     )
                 }
-                Text(
-                    text = title.uppercase(),
-                    color = Color(0xFFF1F5F9),
-                    fontSize = 9.5.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 12.5.sp,
-                    letterSpacing = 0.5.sp,
-                    maxLines = 2
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = title.uppercase(),
+                        color = Color(0xFFF1F5F9),
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 11.5.sp,
+                        letterSpacing = 0.5.sp,
+                        maxLines = 1
+                    )
+                    if (subtitle != null) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = subtitle,
+                            color = accentColor.copy(alpha = 0.95f),
+                            fontSize = 7.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
+                    }
+                }
             }
         }
     }
@@ -2247,7 +2421,9 @@ fun CyberWorldBossBanner(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     bossMaxHp: Long = 984124510L,
-    bossCycle: Int = 1
+    bossCycle: Int = 1,
+    playerDamage: Long = 0L,
+    playerLevel: Int = 1
 ) {
     val bossHpPercent = if (bossMaxHp > 0) (bossHp * 100 / bossMaxHp).coerceIn(0L, 100L) else 0L
     Surface(
@@ -2291,6 +2467,16 @@ fun CyberWorldBossBanner(
             }
 
             Column(modifier = Modifier.weight(1f)) {
+                // Collective Server Event Tag
+                Text(
+                    text = "[СЕРВЕРНОЕ СОБЫТИЕ // ОБЩИЙ РЕЙД СЕТИ]",
+                    color = ZzzGold,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "МИРОВОЙ БОСС: EIDOS-CORE",
                     color = Color(0xFFFF003C),
@@ -2299,12 +2485,23 @@ fun CyberWorldBossBanner(
                     fontFamily = FontFamily.Monospace
                 )
                 Spacer(modifier = Modifier.height(2.dp))
+                val formattedContribution = String.format(java.util.Locale.US, "%,d", playerDamage)
                 Text(
-                    text = "УГРОЗА: КРИТИЧЕСКИЙ РЕЗОНАНС // СИНДИКАТ",
+                    text = "ВАШ ВКЛАД: $formattedContribution УРОНА | СЕТЬ: ОНЛАЙН",
                     color = Color(0xFFC0A0A0),
-                    fontSize = 8.5.sp,
+                    fontSize = 8.sp,
                     fontFamily = FontFamily.Monospace
                 )
+                if (playerLevel < 3) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "ВНИМАНИЕ: РЕКОМЕНДОВАН 3+ УРОВЕНЬ ЯДРА ДЛЯ АТАК",
+                        color = ZzzAcidYellow,
+                        fontSize = 7.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier
