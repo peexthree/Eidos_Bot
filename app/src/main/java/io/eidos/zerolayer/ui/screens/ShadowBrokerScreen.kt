@@ -28,6 +28,11 @@ import io.eidos.zerolayer.ui.utils.neonGlowPulse
 import io.eidos.zerolayer.ui.components.CyberGridOverlay
 import io.eidos.zerolayer.ui.components.EidosImage
 import io.eidos.zerolayer.data.SupabaseClientManager
+import io.eidos.zerolayer.ui.components.EvaSpeechBanner
+import io.eidos.zerolayer.ui.utils.EidosAudioManager
+import io.eidos.zerolayer.ui.utils.HapticFeedbackManager
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -98,6 +103,9 @@ fun ShadowBrokerScreen(
 ) {
     var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val audio = remember { EidosAudioManager.getInstance(context) }
+    val haptics = remember { HapticFeedbackManager.getInstance(context) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -169,8 +177,20 @@ fun ShadowBrokerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("XP БАЛАНС: ${player?.xp ?: 0} XP", color = neonPink, fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                        Text("BC БАЛАНС: ${player?.biocoin ?: 0} BC", color = ZzzGold, fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                        Text(
+                            "ДОСТУПНЫЕ СРЕДСТВА",
+                            color = Color.LightGray,
+                            fontSize = 9.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "${player?.biocoin ?: 0} BC",
+                            color = ZzzGold,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                     Surface(
                         color = purpleAccent.copy(alpha = 0.2f),
@@ -269,21 +289,11 @@ fun ShadowBrokerScreen(
                 }
             } else {
                 // Active screen view with 5 items
-                Surface(
-                    color = purpleAccent.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, neonPink),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                    shape = CutCornerShape(4.dp)
-                ) {
-                    Text(
-                        text = "ГОЛОС EIDOS: Секретный Ассортимент Теневого Брокера!\nУсловия сделки: В наличии ровно 5 эксклюзивных предметов (реликвии, проклятый шмот, редкие чипы), недоступных в обычном магазине. Успей приобрести их до закрытия шлюза связи!",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp,
-                        modifier = Modifier.padding(8.dp),
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
+                EvaSpeechBanner(
+                    text = "Оператор, связь с Теневым Брокером нестабильна. Доступно 5 эксклюзивных протоколов. Все расчеты ведутся строго в BioCoin. Выбирай осторожно.",
+                    isSpeaking = false,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -299,8 +309,8 @@ fun ShadowBrokerScreen(
                             else -> neonPink
                         }
 
-                        val xpPrice = io.eidos.zerolayer.data.ShadowBrokerPrices.getXpPrice(item)
                         val bcPrice = io.eidos.zerolayer.data.ShadowBrokerPrices.getBcPrice(item)
+                        val canAfford = (player?.biocoin ?: 0) >= bcPrice
 
                         Card(
                             modifier = Modifier
@@ -362,46 +372,13 @@ fun ShadowBrokerScreen(
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    // Buy with XP
-                                    Button(
-                                        onClick = {
-                                            onBuy(item.id, false)
-                                            if (player != null) {
-                                                coroutineScope.launch {
-                                                    SupabaseClientManager.addRaidLog(
-                                                        playerId = player.uid.toString(),
-                                                        logText = "ТЕНЕВАЯ СДЕЛКА: Приобретен [${item.name}] за $xpPrice XP"
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = purpleAccent.copy(alpha = 0.25f),
-                                            disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
-                                        ),
-                                        enabled = (player?.xp ?: 0) >= xpPrice,
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if ((player?.xp ?: 0) >= xpPrice) neonPink else Color.DarkGray),
-                                        shape = CutCornerShape(4.dp),
-                                        modifier = Modifier.weight(1f),
-                                        contentPadding = PaddingValues(vertical = 8.dp)
-                                    ) {
-                                        Text(
-                                            "$xpPrice XP",
-                                            color = if ((player?.xp ?: 0) >= xpPrice) neonPink else Color.Gray,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
-
-                                    // Buy with BioCoin
-                                    Button(
-                                        onClick = {
+                                Button(
+                                    onClick = {
+                                        if (canAfford) {
                                             onBuy(item.id, true)
+                                            audio.playSound(EidosAudioManager.SoundType.ITEM_LOOT)
+                                            haptics.click()
+                                            Toast.makeText(context, "Приобретено: ${item.name}", Toast.LENGTH_SHORT).show()
                                             if (player != null) {
                                                 coroutineScope.launch {
                                                     SupabaseClientManager.addRaidLog(
@@ -410,25 +387,29 @@ fun ShadowBrokerScreen(
                                                     )
                                                 }
                                             }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = ZzzGold.copy(alpha = 0.2f),
-                                            disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
-                                        ),
-                                        enabled = (player?.biocoin ?: 0) >= bcPrice,
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if ((player?.biocoin ?: 0) >= bcPrice) ZzzGold else Color.DarkGray),
-                                        shape = CutCornerShape(4.dp),
-                                        modifier = Modifier.weight(1f),
-                                        contentPadding = PaddingValues(vertical = 8.dp)
-                                    ) {
-                                        Text(
-                                            "$bcPrice BC",
-                                            color = if ((player?.biocoin ?: 0) >= bcPrice) ZzzGold else Color.Gray,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
+                                        } else {
+                                            audio.playSound(EidosAudioManager.SoundType.ERROR_GLITCH)
+                                            haptics.puzzleError()
+                                            Toast.makeText(context, "Недостаточно BioCoin! Нужно $bcPrice BC (У вас: ${player?.biocoin ?: 0} BC)", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (canAfford) ZzzGold.copy(alpha = 0.25f) else Color.DarkGray.copy(alpha = 0.15f),
+                                        disabledContainerColor = Color.DarkGray.copy(alpha = 0.1f)
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (canAfford) ZzzGold else Color.DarkGray),
+                                    shape = CutCornerShape(4.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        text = if (canAfford) "КУПИТЬ ЗА $bcPrice BC" else "ТРЕБУЕТСЯ $bcPrice BC",
+                                        color = if (canAfford) ZzzGold else Color.Gray,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace,
+                                        letterSpacing = 0.5.sp
+                                    )
                                 }
                             }
                         }

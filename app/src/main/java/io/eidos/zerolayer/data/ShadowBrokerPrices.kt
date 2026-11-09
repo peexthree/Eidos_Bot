@@ -34,10 +34,10 @@ object ShadowBrokerPrices {
         val isEpicOrChip = r == "epic" || meta.type == "chip"
 
         val basePrice = when {
-            isCursedOrRelic -> 25000L
-            isLegendary -> 10000L
-            isEpicOrChip -> 4000L
-            else -> 1500L
+            isCursedOrRelic -> 3500L
+            isLegendary -> 1800L
+            isEpicOrChip -> 800L
+            else -> 300L
         }
         return (basePrice * bcMultiplier).toLong()
     }
