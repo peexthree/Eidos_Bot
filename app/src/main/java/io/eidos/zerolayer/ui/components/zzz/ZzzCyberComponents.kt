@@ -86,7 +86,8 @@ fun ZzzActionTile(
         modifier = modifier
             .fillMaxWidth()
             .clip(ZzzDesignSystem.ShapeCard)
-            .background(ZzzDesignSystem.CardSurface)
+            // Полупрозрачная заливка: за кнопкой виден живой фон, а не глухая плашка
+            .background(ZzzDesignSystem.CardSurface.copy(alpha = 0.74f))
             .border(1.5.dp, accentColor.copy(alpha = 0.8f), ZzzDesignSystem.ShapeCard)
             .premiumCyberClickable(onClick = onClick)
             .padding(12.dp)

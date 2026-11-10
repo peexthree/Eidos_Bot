@@ -449,6 +449,35 @@ fun SettingsScreen(
 
                         HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
 
+                        // Золотая нить (советы ЕВЫ-09): опытные операторы могут скрыть её в Хабе
+                        var goldenThreadEnabled by remember {
+                            mutableStateOf(
+                                !context.getSharedPreferences("eidos_tutorial_prefs", android.content.Context.MODE_PRIVATE)
+                                    .getBoolean("golden_thread_hidden", false)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Золотая Нить // Директивы ЕВЫ-09", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Советы-помощник в Хабе. Скрой, если уже опытен - крестик на карточке", color = EidosGold, fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = goldenThreadEnabled,
+                                onCheckedChange = {
+                                    goldenThreadEnabled = it
+                                    context.getSharedPreferences("eidos_tutorial_prefs", android.content.Context.MODE_PRIVATE)
+                                        .edit().putBoolean("golden_thread_hidden", !it).apply()
+                                },
+                                colors = SwitchDefaults.colors(checkedThumbColor = EidosGold, checkedTrackColor = EidosGold.copy(alpha = 0.3f))
+                            )
+                        }
+
+                        HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+
                         // BGM Control Switch
                         Row(
                             modifier = Modifier.fillMaxWidth(),

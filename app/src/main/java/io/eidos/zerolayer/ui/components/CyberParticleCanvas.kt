@@ -22,7 +22,9 @@ enum class ParticlePreset {
     ABYSS_DUST,
     FORGE_SPARKS,
     EVACUATION_VORTEX,
-    NEON_STORM
+    NEON_STORM,
+    /** Рывок между шагами спуска: вертикальные штрихи-скорости (рисуются линиями). */
+    DESCENT_RUSH
 }
 
 private data class CyberParticle(
@@ -84,14 +86,25 @@ fun CyberParticleOverlay(
         val currentFrame = frameState
         val width = size.width
         val height = size.height
+        val isStreakPreset = preset == ParticlePreset.DESCENT_RUSH
 
         for (i in 0 until particles.size) {
             val p = particles[i]
-            drawCircle(
-                color = p.color.copy(alpha = p.alpha),
-                radius = p.radius,
-                center = Offset(p.x.coerceIn(0f, width), p.y.coerceIn(0f, height))
-            )
+            if (isStreakPreset) {
+                // Штрих-скорости: линия по вектору движения, хвост тянется назад
+                drawLine(
+                    color = p.color.copy(alpha = p.alpha),
+                    start = Offset(p.x, p.y),
+                    end = Offset(p.x - p.vx * 2.2f, p.y - p.vy * 2.2f),
+                    strokeWidth = p.radius
+                )
+            } else {
+                drawCircle(
+                    color = p.color.copy(alpha = p.alpha),
+                    radius = p.radius,
+                    center = Offset(p.x.coerceIn(0f, width), p.y.coerceIn(0f, height))
+                )
+            }
         }
     }
 }
@@ -153,6 +166,20 @@ private fun createParticle(preset: ParticlePreset, width: Float, height: Float):
                 color = EidosCyan,
                 life = 0f,
                 maxLife = rng.nextFloat() * 2f + 1f
+            )
+        }
+        // Рывок спуска: камера падает, штрихи летят вверх, хвосты тянутся вниз
+        ParticlePreset.DESCENT_RUSH -> {
+            CyberParticle(
+                x = rng.nextFloat() * width,
+                y = height + 40f,
+                vx = (rng.nextFloat() - 0.5f) * 1.2f,
+                vy = -rng.nextFloat() * 9f - 9f,
+                radius = rng.nextFloat() * 1.4f + 1.2f,
+                alpha = 0.95f,
+                color = if (rng.nextInt(3) == 0) Color.White else EidosCyan,
+                life = 0f,
+                maxLife = rng.nextFloat() * 0.35f + 0.45f
             )
         }
     }

@@ -27,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -897,6 +898,18 @@ private fun ZzzNicknameStepContent(
             }
         }
 
+        // Пульсирующая подсветка формы + автозапуск клавиатуры: видно, что нужно ввести ник
+        val nicknamePulse by rememberInfiniteTransition(label = "nickname_pulse").animateFloat(
+            initialValue = 0.3f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "nicknamePulseAlpha"
+        )
+        val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(600) // дать шагу доездиться из AnimatedContent
+            runCatching { focusRequester.requestFocus() }
+        }
         OutlinedTextField(
             value = nickname,
             onValueChange = onNicknameChange,
@@ -905,15 +918,28 @@ private fun ZzzNicknameStepContent(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
-                focusedBorderColor = ZzzElectricCyan,
-                unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f),
-                cursorColor = ZzzElectricCyan,
+                focusedBorderColor = ZzzElectricCyan.copy(alpha = nicknamePulse),
+                unfocusedBorderColor = ZzzElectricCyan.copy(alpha = 0.25f + 0.55f * nicknamePulse),
                 focusedContainerColor = ZzzDarkSurface,
-                unfocusedContainerColor = ZzzDarkSurface
+                unfocusedContainerColor = ZzzDarkSurface,
+                cursorColor = ZzzElectricCyan
             ),
             shape = CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester),
             singleLine = true
+        )
+        Text(
+            text = "▼ ВВЕДИ ПОЗЫВНОЙ В ПОЛЕ ВЫШЕ",
+            color = ZzzElectricCyan.copy(alpha = 0.55f + 0.4f * nicknamePulse),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(10.dp))

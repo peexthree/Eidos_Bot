@@ -181,6 +181,21 @@ class EidosAudioManager private constructor(private val context: Context) {
     )
     private var currentPlaylistIndex = 0
 
+    // Активные потоки SoundPool по типам: новый звук того же типа глушит предыдущий,
+    // иначе длинные звуки (заевшая пластинка) накладываются друг на друга при каждом клике
+    private val activeStreamIds = mutableMapOf<SoundType, Int>()
+
+    // Одиночный фолбэк-плеер: повторный вызов глушит предыдущий
+    private var fallbackPlayer: MediaPlayer? = null
+
+    /** Индивидуальная громкость отдельных эффектов (длинные raw-звуки тише). */
+    private fun volumeScaleFor(type: SoundType): Float = when (type) {
+        SoundType.TAPE_REWIND -> 0.55f
+        SoundType.SECRET_FOUND -> 0.7f
+        SoundType.DRONE_RADIO -> 0.7f
+        else -> 1f
+    }
+
     init {
         initSoundPool()
     }
@@ -614,10 +629,14 @@ class EidosAudioManager private constructor(private val context: Context) {
         try {
             val soundId = soundMap[type]
             if (soundId != null && soundId != 0) {
-                val vol = effectsVolume
+                // Новый звук того же типа заглушает предыдущий (без наложений)
+                activeStreamIds.remove(type)?.let { prev -> soundPool?.stop(prev) }
+                val vol = (effectsVolume * volumeScaleFor(type)).coerceIn(0f, 1f)
                 val clampedPitch = pitch.coerceIn(0.5f, 2.0f)
                 val streamId = soundPool?.play(soundId, vol, vol, 1, 0, clampedPitch) ?: 0
-                if (streamId == 0) {
+                if (streamId != 0) {
+                    activeStreamIds[type] = streamId
+                } else {
                     playFallbackMedia(type)
                 }
             } else {
@@ -639,8 +658,9 @@ class EidosAudioManager private constructor(private val context: Context) {
             else -> null
         } ?: return
         try {
-            MediaPlayer.create(context, resId)?.apply {
-                val vol = effectsVolume
+            fallbackPlayer?.release()
+            fallbackPlayer = MediaPlayer.create(context, resId)?.apply {
+                val vol = (effectsVolume * volumeScaleFor(type)).coerceIn(0f, 1f)
                 setVolume(vol, vol)
                 setOnCompletionListener { release() }
                 setOnErrorListener { mp, _, _ ->

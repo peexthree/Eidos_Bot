@@ -480,23 +480,36 @@ fun HubScreen(
                     }
                 )
 
-                // GOLDEN THREAD DIRECTIVE
-                GoldenThreadCard(
-                    player = player,
-                    onNavigate = { screen ->
-                        when (screen) {
-                            "raid" -> onNavigateToRaid()
-                            "forge" -> onNavigateToForge()
-                            "codex" -> onNavigateToCodex()
-                            "shop" -> onNavigateToShop()
-                            "pvp" -> onNavigateToPvp()
-                            "broker" -> onNavigateToShadowBroker()
-                            "gates" -> onNavigateToEidosGates()
-                            "inventory" -> onNavigateToInventory()
+                // GOLDEN THREAD DIRECTIVE (скрывается крестиком, вернуть - в Настройках)
+                var goldenThreadHidden by remember {
+                    mutableStateOf(
+                        context.getSharedPreferences("eidos_tutorial_prefs", Context.MODE_PRIVATE)
+                            .getBoolean("golden_thread_hidden", false)
+                    )
+                }
+                if (!goldenThreadHidden) {
+                    GoldenThreadCard(
+                        player = player,
+                        onNavigate = { screen ->
+                            when (screen) {
+                                "raid" -> onNavigateToRaid()
+                                "forge" -> onNavigateToForge()
+                                "codex" -> onNavigateToCodex()
+                                "shop" -> onNavigateToShop()
+                                "pvp" -> onNavigateToPvp()
+                                "broker" -> onNavigateToShadowBroker()
+                                "gates" -> onNavigateToEidosGates()
+                                "inventory" -> onNavigateToInventory()
+                            }
+                        },
+                        onOpenTutorial = { showTerminalTutorialDialog = true },
+                        onHide = {
+                            context.getSharedPreferences("eidos_tutorial_prefs", Context.MODE_PRIVATE)
+                                .edit().putBoolean("golden_thread_hidden", true).apply()
+                            goldenThreadHidden = true
                         }
-                    },
-                    onOpenTutorial = { showTerminalTutorialDialog = true }
-                )
+                    )
+                }
 
                 // 4. MAIN CENTRAL CTA BUTTON: RAID ENTRY WITH HAZARD STRIPES
                 val isFirstRaid = (player?.raids_done ?: 0) == 0
@@ -2334,7 +2347,8 @@ fun CyberTacticalOpsCard(
 ) {
     val cardShape = CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp, topEnd = 4.dp, bottomStart = 4.dp)
     Surface(
-        color = Color(0xF00A101A),
+        // Полупрозрачность: за плитками меню виден живой фон хаба
+        color = Color(0xB40A101A),
         shape = cardShape,
         border = androidx.compose.foundation.BorderStroke(1.5.dp, accentColor.copy(alpha = 0.85f)),
         modifier = modifier
@@ -2348,8 +2362,8 @@ fun CyberTacticalOpsCard(
                     Brush.verticalGradient(
                         listOf(
                             accentColor.copy(alpha = 0.16f),
-                            Color(0xF5090F18),
-                            Color(0xFA05080E)
+                            Color(0x9C090F18),
+                            Color(0xB305080E)
                         )
                     )
                 )

@@ -150,10 +150,12 @@ fun CodexScreen(
 
     // Background soundtrack: bgm_mirror_of_lies through the shared audio manager
     // (was a private MediaPlayer bypassing EidosAudioManager mute/lifecycle logic)
+    // onDispose НЕ глушит музыку: навигационный листенер MainActivity сам вернёт
+    // MAIN_MENU (или ZERO_LAYER для рейда), иначе после выхода из Кодекса в Хабе тишина
     DisposableEffect(isMuted) {
         globalAudio.playBgm(if (isMuted) io.eidos.zerolayer.ui.utils.EidosAudioManager.BgmTrack.NONE else io.eidos.zerolayer.ui.utils.EidosAudioManager.BgmTrack.CODEX)
         onDispose {
-            globalAudio.stopMusic()
+            globalAudio.playBgm(io.eidos.zerolayer.ui.utils.EidosAudioManager.BgmTrack.MAIN_MENU)
         }
     }
 

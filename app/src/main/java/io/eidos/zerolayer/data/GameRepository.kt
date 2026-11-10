@@ -355,7 +355,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
                 ItemMetadata(
                     id = id,
-                    name = jsonItem.name,
+                    // Нормализация глифов: ZWJ-последовательности (👁‍🗨) и variation
+                    // selectors (⚪️) рисуются прямоугольниками в моно-шрифтах диалогов
+                    name = jsonItem.name
+                        .replace("\uD83D\uDC41\u200D\uD83D\uDDE8", "👁")
+                        .replace("\uFE0F", ""),
                     type = slotType,
                     rarity = rarity,
                     icon = jsonItem.name.filter { it.isSurrogate() || it.code > 128 }.take(1).ifEmpty { "❓" },
@@ -987,15 +991,27 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     }
 
     
-    suspend fun mergeItems(uid: Long, itemId: String) {
-        val meta = getItemMetadata(itemId) ?: return
+    /** Синтез 3-в-1: 3 неэкипированных дубликата -> 1 предмет следующего ранга.
+     *  @return сообщение об успехе для тоста UI, null при неудаче (причина в терминале). */
+    suspend fun mergeItems(uid: Long, itemId: String): String? = dbMutex.withLock {
+        val meta = getItemMetadata(itemId)
+        if (meta == null) {
+            log(uid, "❌ [СИНТЕЗ]: Предмет $itemId отсутствует в базе данных EIDOS - слияние невозможно.", "error")
+            return@withLock null
+        }
         val inventory = dao.getInventoryFlow(uid).first()
         val matchingUnequipped = inventory.filter { it.item_id == itemId && !it.is_equipped }
         val totalCount = matchingUnequipped.sumOf { it.quantity.coerceAtLeast(1) }
 
         if (totalCount < 3) {
             log(uid, "❌ [СИНТЕЗ]: Для синтеза требуется 3 неэкипированных шт. ${meta.name} (В наличии: $totalCount).", "error")
-            return
+            return@withLock null
+        }
+
+        // Ключи, валюта и боссовые материалы не сливаются
+        if (itemId in ItemSlotUtils.NON_MERGEABLE) {
+            log(uid, "❌ [СИНТЕЗ]: ${meta.name} не подлежит слиянию.", "error")
+            return@withLock null
         }
 
         val allItems = getAllItemsMetadata()
@@ -1011,17 +1027,29 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             else -> "rare"
         }
 
-        val possibleUpgrades = allItems.filter { it.rarity.equals(nextRarity, ignoreCase = true) && it.id != itemId }
-            .ifEmpty { allItems.filter { it.rarity.equals(nextRarity, ignoreCase = true) } }
+        // Тип-сохраняющий синтез: шлемы в шлемы, броня в броню, оружие в оружие,
+        // расходники в расходники. Результат строго той же категории.
+        val mergeCategory = ItemSlotUtils.mergeCategoryFor(itemId, meta)
+            ?: run {
+                log(uid, "❌ [СИНТЕЗ]: Не удалось определить категорию предмета ${meta.name}.", "error")
+                return@withLock null
+            }
 
-        if (possibleUpgrades.isEmpty()) {
-            log(uid, "❌ [СИНТЕЗ]: База данных EIDOS не нашла прототипов ранга ${nextRarity.uppercase()} для слияния.", "error")
-            return
+        val sameCategory = allItems.filter { candidate ->
+            candidate.rarity.equals(nextRarity, ignoreCase = true) &&
+                candidate.id != itemId &&
+                ItemSlotUtils.NON_MERGEABLE.none { candidate.id == it } &&
+                ItemSlotUtils.mergeCategoryFor(candidate.id, candidate) == mergeCategory
+        }
+
+        if (sameCategory.isEmpty()) {
+            log(uid, "❌ [СИНТЕЗ]: Нет прототипов ранга ${nextRarity.uppercase()} в категории «$mergeCategory» для слияния.", "error")
+            return@withLock null
         }
 
         // Prefer same type if available, otherwise random of next rarity
-        val sameTypeUpgrades = possibleUpgrades.filter { it.type == meta.type }
-        val upgradedItem = if (sameTypeUpgrades.isNotEmpty()) sameTypeUpgrades.random() else possibleUpgrades.random()
+        val sameTypeUpgrades = sameCategory.filter { it.type == meta.type }
+        val upgradedItem = if (sameTypeUpgrades.isNotEmpty()) sameTypeUpgrades.random() else sameCategory.random()
 
         // Consume 3 items from unequipped stack/rows
         var neededToRemove = 3
@@ -1043,6 +1071,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             "🧬 [КВАНТОВЫЙ СИНТЕЗ]: 3x [${meta.name}] расплавлены в Ядре! Получен артефакт ранга [${nextRarity.uppercase()}]: ${upgradedItem.name}!",
             "success"
         )
+        "🧬 3x [${meta.name}] -> [${upgradedItem.name}] (${nextRarity.uppercase()})"
     }
 
     suspend fun dismantleItem(uid: Long, item: InventoryItem) {
@@ -1254,7 +1283,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         if (existing != null && (meta.type == "consumable" || meta.type == "material")) {
             dao.updateInventoryItem(existing.copy(quantity = existing.quantity + 1))
         } else {
-            val defaultEq = PoECraftEngine.generateDefaultEquipment(meta.rarity)
+            val defaultEq = PoECraftEngine.generateDefaultEquipment(meta.rarity, PoECraftEngine.socketLimitFor(itemId))
             val serialized = PoECraftEngine.serializeEquipment(defaultEq)
             dao.insertInventoryItem(InventoryItem(uid = uid, item_id = itemId, quantity = 1, custom_data = serialized))
         }
@@ -1408,7 +1437,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             addInventory(target, "kevlar_vest", 1)
             addInventory(target, "aegis", 1)
             addInventory(target, "medkit_small", 5)
-            addInventory(target, "cpu_booster", 2)
+            // Один чип: слот чипа единственный, второй одинаковый всё равно нельзя надеть
+            addInventory(target, "cpu_booster", 1)
+            addInventory(target, "battery", 1)
         }
     }
 
@@ -1554,7 +1585,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         slot: String? = null
     ) = dbMutex.withLock {
         val meta = getItemMetadata(itemId)
-        val defaultEq = if (meta != null) PoECraftEngine.generateDefaultEquipment(meta.rarity) else null
+        val defaultEq = if (meta != null) PoECraftEngine.generateDefaultEquipment(meta.rarity, PoECraftEngine.socketLimitFor(itemId)) else null
         val serialized = if (defaultEq != null) PoECraftEngine.serializeEquipment(defaultEq) else null
         val effectiveSlot = slot ?: ItemSlotUtils.getSlotForItem(itemId, meta)
         dao.insertInventoryItem(
@@ -4623,6 +4654,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     private suspend fun internalUnsafeApplySocketPuncher(uid: Long, item: InventoryItem) {
         val player = dao.getPlayer(uid) ?: return
+        // Строгий гейт: слайсеры/сокеты/скверна - только на экипировке
+        if (PoECraftEngine.socketLimitFor(item.item_id) <= 0) {
+            log(uid, "❌ [ПРОБОЙНИК ГНЕЗД]: Расходники и материалы не модифицируются - только оружие, броня, шлемы и чипы!", "error")
+            return
+        }
         val costBc = 300L
         val costShards = 1
 
@@ -4645,7 +4681,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             return
         }
 
-        val updatedEq = PoECraftEngine.applySocketPuncher(currentEq, rarity)
+        val updatedEq = PoECraftEngine.applySocketPuncher(currentEq, rarity, PoECraftEngine.socketLimitFor(item.item_id))
         val serialized = PoECraftEngine.serializeEquipment(updatedEq)
 
         dao.updatePlayer(player.copy(biocoin = player.biocoin - costBc))
@@ -4661,6 +4697,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     private suspend fun internalUnsafeApplyChromaticInjector(uid: Long, item: InventoryItem) {
         val player = dao.getPlayer(uid) ?: return
+        // Строгий гейт: только экипировка
+        if (PoECraftEngine.socketLimitFor(item.item_id) <= 0) {
+            log(uid, "❌ [СПЕКТРАЛЬНЫЙ ИНЖЕКТОР]: Расходники и материалы не модифицируются - только оружие, броня, шлемы и чипы!", "error")
+            return
+        }
         val costBc = 150L
 
         if (player.biocoin < costBc) {
@@ -4693,6 +4734,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     private suspend fun internalUnsafeApplyVaalCorruption(uid: Long, item: InventoryItem) {
         val player = dao.getPlayer(uid) ?: return
+        // Строгий гейт: только экипировка
+        if (PoECraftEngine.socketLimitFor(item.item_id) <= 0) {
+            log(uid, "❌ [СКВЕРНА НЕЙРОСЕТИ]: Расходники и материалы не оскверняются - только оружие, броня, шлемы и чипы!", "error")
+            return
+        }
         val costBc = 1000L
         val costShards = 2
 
@@ -4740,6 +4786,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
 
         if (socketIndex !in 0 until currentEq.maxSockets) return
+
+        // Чипы теперь предмет: проверяем наличие (раньше removeInventory молча прощал
+        // отсутствие - чипы спавнились из воздуха в неограниченном количестве)
+        val ownedChip = dao.getInventoryFlow(uid).first().find { it.item_id == chip.id && !it.is_equipped }
+        if (ownedChip == null || ownedChip.quantity < 1) {
+            log(uid, "❌ [СОКЕТ]: Нет чипа [${chip.name}] в инвентаре. Чипы добываются из врагов на глубине 2000м+ и из сундуков.", "error")
+            return
+        }
 
         val newInserted = currentEq.insertedChips.toMutableList()
         while (newInserted.size < currentEq.maxSockets) newInserted.add(null)
@@ -4840,6 +4894,57 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
     /** Серия полных дней (все директивы дня) для зеркала статистики ачивок. */
     fun getFullDaysStreak(uid: Long): Long = dailyQuestStorage.getFullDaysStreak(uid)
+
+    // --- QTE-вставки спуска (quick-time events) ---
+
+    /**
+     * Результат QTE: награда за успех / штраф за провал.
+     * Смерть от QTE невозможна - урон режется полом в 1 HP.
+     */
+    suspend fun applyQteResult(uid: Long, qteTypeId: String, success: Boolean, depth: Int): io.eidos.zerolayer.domain.qte.QteOutcome? = dbMutex.withLock {
+        val player = dao.getPlayer(uid) ?: return@withLock null
+        val outcome = if (success) {
+            when (qteTypeId) {
+                io.eidos.zerolayer.domain.qte.QteType.STABILIZE.id ->
+                    io.eidos.zerolayer.domain.qte.QteOutcome(success = true, energyGain = 3)
+                else -> {
+                    val coins = 20L + (0..40L).random() + (depth / 50L)
+                    io.eidos.zerolayer.domain.qte.QteOutcome(
+                        success = true,
+                        coinGain = coins,
+                        xpGain = 10L + (depth / 100L)
+                    )
+                }
+            }
+        } else {
+            val dmg = maxOf(1, (player.max_hp * 0.08f).toInt())
+            val hpLoss = minOf(dmg, maxOf(0, player.hp - 1)) // пол 1 HP: QTE не убивает
+            io.eidos.zerolayer.domain.qte.QteOutcome(success = false, hpLoss = hpLoss)
+        }
+
+        val updated = player.copy(
+            biocoin = player.biocoin + outcome.coinGain,
+            xp = player.xp + outcome.xpGain,
+            energy = minOf(player.max_energy, player.energy + outcome.energyGain),
+            hp = player.hp - outcome.hpLoss
+        )
+        val (leveled, _) = updated.checkAndApplyLevelUp()
+        dao.updatePlayer(leveled)
+
+        if (outcome.success) {
+            val rewardText = buildString {
+                if (outcome.coinGain > 0) append("+${outcome.coinGain} BC")
+                if (outcome.xpGain > 0) { if (isNotEmpty()) append(", "); append("+${outcome.xpGain} XP") }
+                if (outcome.energyGain > 0) { if (isNotEmpty()) append(", "); append("+${outcome.energyGain} EP") }
+            }
+            log(uid, "⚡ [QTE]: Реакция оператора подтверждена! $rewardText.", "loot")
+        } else if (outcome.hpLoss > 0) {
+            log(uid, "💥 [QTE]: Реакция провалена! Потеряно ${outcome.hpLoss} HP.", "error")
+        } else {
+            log(uid, "🛡 [QTE]: Реакция провалена, но Сигнал уже на минимуме.", "info")
+        }
+        outcome
+    }
 
     // Серия входов: дата последнего клейма в prefs (без миграции Room)
     private val streakPrefs = context.getSharedPreferences("eidos_streak_prefs", Context.MODE_PRIVATE)

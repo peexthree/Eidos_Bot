@@ -67,12 +67,22 @@ object PoECraftEngine {
         val existing = parseEquipment(item.custom_data)
         if (existing != null) return existing
 
-        return generateDefaultEquipment(rarity)
+        return generateDefaultEquipment(rarity, socketLimitFor(item.item_id))
     }
 
-    fun generateDefaultEquipment(rarity: String): CyberEquipment {
+    /** Жёсткие лимиты сокетов по слоту предмета: броня 4, оружие 3, шлем 2, чип 1.
+     *  Не-экипировка (расходники, материалы) - 0: никаких сокетов и слайсеров. */
+    fun socketLimitFor(itemId: String): Int = when (ItemSlotUtils.getSlotForItem(itemId)) {
+        "armor" -> 4
+        "weapon" -> 3
+        "head" -> 2
+        "chip" -> 1
+        else -> 0
+    }
+
+    fun generateDefaultEquipment(rarity: String, slotLimit: Int = Int.MAX_VALUE): CyberEquipment {
         val rarityLower = rarity.lowercase()
-        val (socketCount, maxAffixes) = when (rarityLower) {
+        val (raritySocketCount, maxAffixes) = when (rarityLower) {
             "uncommon" -> Pair(2, 2)
             "rare" -> Pair(3, 3)
             "epic" -> Pair(4, 3)
@@ -80,6 +90,7 @@ object PoECraftEngine {
             "relic", "cursed" -> Pair(6, 4)
             else -> Pair(1, 1)
         }
+        val socketCount = minOf(raritySocketCount, slotLimit).coerceAtLeast(0)
 
         val colors = List(socketCount) {
             ROLLABLE_SOCKET_COLORS.random()
@@ -156,9 +167,9 @@ object PoECraftEngine {
     }
 
     // 🔌 Socket Puncher (Jeweller's Orb): Rerolls sockets count & colors
-    fun applySocketPuncher(current: CyberEquipment, rarity: String): CyberEquipment {
+    fun applySocketPuncher(current: CyberEquipment, rarity: String, slotLimit: Int = Int.MAX_VALUE): CyberEquipment {
         if (current.isCorrupted) return current
-        val maxAllowedSockets = when (rarity.lowercase()) {
+        val rarityMax = when (rarity.lowercase()) {
             "uncommon" -> 2
             "rare" -> 3
             "epic" -> 4
@@ -166,6 +177,7 @@ object PoECraftEngine {
             "cursed" -> 6
             else -> 1
         }
+        val maxAllowedSockets = minOf(rarityMax, slotLimit).coerceAtLeast(1)
         val newCount = (1..maxAllowedSockets).random()
         val newColors = List(newCount) { ROLLABLE_SOCKET_COLORS.random() }
         

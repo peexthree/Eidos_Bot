@@ -326,6 +326,9 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                             mainViewModel.sendToForge(item)
                             navController.navigate(Forge) { launchSingleTop = true }
                         },
+                        onRepairBC = { mainViewModel.repairBC(it) },
+                        onDismantle = { mainViewModel.dismantle(it) },
+                        onMergeItem = { mainViewModel.mergeItems(it) },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -365,6 +368,8 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         onBoostOvercharge = { mainViewModel.boostOvercharge() },
                         onUseConsumable = { mainViewModel.useConsumable(it) },
                         onSalvageBufferItem = { mainViewModel.salvageBufferItem(it) },
+                        activeQte = mainViewModel.activeQte.collectAsStateWithLifecycle().value,
+                        onResolveQte = { qte, success -> mainViewModel.resolveQte(qte, success) },
                         onAcceptMaxwellContract = { mainViewModel.acceptMaxwellContract(it) },
                         onBetDemonHp = { mainViewModel.betMaxwellDemonHp() },
                         onBetDemonBuffer = { mainViewModel.betMaxwellDemonBuffer() },
@@ -479,7 +484,11 @@ fun EidosApp(mainViewModel: MainViewModel = viewModel()) {
                         authError = authError,
                         onLogin = { u, p -> mainViewModel.login(u, p) },
                         onRegister = { u, p -> mainViewModel.register(u, p) },
-                        onLogout = { mainViewModel.logout() },
+                        onLogout = {
+                            mainViewModel.logout()
+                            // После выхода - на онбординг: там вход под другим аккаунтом
+                            navController.navigate(Onboarding) { popUpTo(0) { inclusive = true } }
+                        },
                         onSyncCloud = { mainViewModel.syncCloudProfile() },
                         onBuyPremium = { mainViewModel.buyPremium() },
                         onExport = { mainViewModel.exportData() },

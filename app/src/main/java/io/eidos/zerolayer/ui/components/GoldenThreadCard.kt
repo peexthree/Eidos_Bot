@@ -34,7 +34,8 @@ fun GoldenThreadCard(
     player: Player?,
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onOpenTutorial: (() -> Unit)? = null
+    onOpenTutorial: (() -> Unit)? = null,
+    onHide: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val audio = remember { EidosAudioManager.getInstance(context) }
@@ -157,6 +158,20 @@ fun GoldenThreadCard(
                                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                             )
                         }
+                    }
+                    // Скрыть директиву (для опытных операторов): вернуть можно в Настройках
+                    if (onHide != null) {
+                        Text(
+                            text = "✕",
+                            color = Color.Gray,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier
+                                .clip(CutCornerShape(4.dp))
+                                .clickable { onHide() }
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        )
                     }
                     Surface(
                         color = borderColor.copy(alpha = 0.15f),

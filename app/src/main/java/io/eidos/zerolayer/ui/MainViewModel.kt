@@ -85,6 +85,21 @@ class MainViewModel(
         repository.getRaidSession(id)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    // --- QTE-вставки спуска (quick-time events) ---
+    // ВАЖНО: объявления стоят ДО init-блока - коллекторы в init выполняются
+    // инлайн (Main.immediate) и трогают эти поля уже на этапе конструктора
+    private val _activeQte = kotlinx.coroutines.flow.MutableStateFlow<io.eidos.zerolayer.domain.qte.ActiveQte?>(null)
+    val activeQte: kotlinx.coroutines.flow.StateFlow<io.eidos.zerolayer.domain.qte.ActiveQte?> = _activeQte.asStateFlow()
+
+    private var stepsSinceLastQte = 99
+
+    // Недельные события + стрик входа (та же причина: init-корутины трогают их рано)
+    private val _weeklyEvent = kotlinx.coroutines.flow.MutableStateFlow<io.eidos.zerolayer.domain.weekly.WeeklyEvent?>(null)
+    val weeklyEvent: kotlinx.coroutines.flow.StateFlow<io.eidos.zerolayer.domain.weekly.WeeklyEvent?> = _weeklyEvent.asStateFlow()
+
+    private val _streakClaimedToday = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val streakClaimedToday: kotlinx.coroutines.flow.StateFlow<Boolean> = _streakClaimedToday.asStateFlow()
+
     val overdriveChargeFlow: StateFlow<Int> = repository.overdriveChargeFlow
     val overchargeTierFlow: StateFlow<Int> = repository.overchargeTierFlow
     val combatEventFlow: SharedFlow<CombatVisualEvent> = repository.combatEventFlow
@@ -222,11 +237,11 @@ class MainViewModel(
             val defaultUsername = "Оператор ${deviceUuid.take(8).uppercase()}"
             repository.ensureDevicePlayerExists(effectiveUid, deviceUuid, defaultUsername)
 
-            // Недельное событие: активируем/ротируем модификатор недели для баннера Хаба
-            refreshWeeklyEvent()
-            // Цепочки ачивок: восстанавливаем зеркало серии полных дней дейликов
-            achievementStorage.setFullDaysStreak(repository.getFullDaysStreak(effectiveUid))
-            
+            // ВАЖНО: здесь НЕЛЬЗЯ трогать свойства, объявленные ниже init (_weeklyEvent,
+            // achievementStorage и т.п.) - IO-корутина может обогнать конструктор (NPE).
+            // Ротация недели и зеркало полных дней переехали в refreshDailyQuests/refreshWeeklyEvent,
+            // которые вызываются из HubScreen при входе на Хаб.
+
             // Passive Energy Regeneration (offline calculations with Anti-Time Cheat protection)
             val p = repository.getPlayerSync(effectiveUid)
             if (p != null) {
@@ -297,6 +312,13 @@ class MainViewModel(
                     lastObservedLevel = p.level
                     checkAchievements(p)
                 }
+            }
+        }
+
+        // QTE-вставки спуска: реакция на смену глубины рейда (мирные события - см. QteEngine)
+        viewModelScope.launch {
+            raidSession.map { it?.depth ?: -1 }.distinctUntilChanged().collect { depth ->
+                maybeTriggerQte(depth, raidSession.value?.next_event_type)
             }
         }
     }
@@ -564,14 +586,7 @@ class MainViewModel(
     private val _dailyQuests = kotlinx.coroutines.flow.MutableStateFlow<List<io.eidos.zerolayer.data.DailyQuest>>(emptyList())
     val dailyQuests: kotlinx.coroutines.flow.StateFlow<List<io.eidos.zerolayer.data.DailyQuest>> = _dailyQuests
 
-    // Синхронизация сети (стрик входа) уже забрана сегодня?
-    private val _streakClaimedToday = kotlinx.coroutines.flow.MutableStateFlow(false)
-    val streakClaimedToday: kotlinx.coroutines.flow.StateFlow<Boolean> = _streakClaimedToday.asStateFlow()
-
     // Недельные события (rotating weekly modifiers)
-    private val _weeklyEvent = kotlinx.coroutines.flow.MutableStateFlow<io.eidos.zerolayer.domain.weekly.WeeklyEvent?>(null)
-    val weeklyEvent: kotlinx.coroutines.flow.StateFlow<io.eidos.zerolayer.domain.weekly.WeeklyEvent?> = _weeklyEvent.asStateFlow()
-
     fun refreshWeeklyEvent() {
         viewModelScope.launch {
             runCatching { repository.getWeeklyEvent(_uid.value) }
@@ -584,6 +599,8 @@ class MainViewModel(
             runCatching { repository.getDailyQuests(_uid.value) }
                 .onSuccess { _dailyQuests.value = it }
             _streakClaimedToday.value = repository.isStreakClaimedToday(_uid.value)
+            // Цепочки ачивок: восстанавливаем зеркало серии полных дней (безопасная точка - после конструктора)
+            runCatching { achievementStorage.setFullDaysStreak(repository.getFullDaysStreak(_uid.value)) }
         }
     }
 
@@ -608,6 +625,59 @@ class MainViewModel(
                 repository.processStep(_uid.value, chosenMutatorId = chosenMutatorId, costEnergyOverride = costEnergyOverride)
             } catch (e: Exception) {
                 android.util.Log.e("COMBAT_ERROR", "nextStep failed", e)
+            }
+        }
+    }
+
+    // --- QTE-вставки спуска (quick-time events) ---
+
+    /** Вызывается на каждом новом значении глубины: решает, показать ли QTE. */
+    private fun maybeTriggerQte(depth: Int, nextEventType: String?) {
+        // Выход из рейда (глубина обнулилась) - сброс состояния QTE
+        if (depth <= 0) {
+            _activeQte.value = null
+            stepsSinceLastQte = 99
+            return
+        }
+        // Протухшая QTE (оверлей не успел ответить) не блокирует новые
+        _activeQte.value?.let { stale ->
+            if (System.currentTimeMillis() - stale.id > io.eidos.zerolayer.domain.qte.QteEngine.STALE_MS) {
+                _activeQte.value = null
+            }
+        }
+        if (_activeQte.value != null) return
+        stepsSinceLastQte++
+        if (stepsSinceLastQte <= io.eidos.zerolayer.domain.qte.QteEngine.COOLDOWN_STEPS) return
+        if (nextEventType !in io.eidos.zerolayer.domain.qte.QteEngine.ALLOWED_EVENT_TYPES) return
+        if (kotlin.random.Random.nextFloat() > io.eidos.zerolayer.domain.qte.QteEngine.TRIGGER_CHANCE) return
+
+        stepsSinceLastQte = 0
+        _activeQte.value = io.eidos.zerolayer.domain.qte.ActiveQte(
+            id = System.currentTimeMillis(),
+            type = io.eidos.zerolayer.domain.qte.QteEngine.pickType(),
+            depth = depth,
+            seed = kotlin.random.Random.nextInt(),
+            timeoutMs = io.eidos.zerolayer.domain.qte.QteEngine.TIMEOUT_MS
+        )
+    }
+
+    /** Ответ оператора на QTE (успех/таймаут/промах). Награды/урон - через репозиторий. */
+    fun resolveQte(qte: io.eidos.zerolayer.domain.qte.ActiveQte, success: Boolean) {
+        if (_activeQte.value?.id != qte.id) return
+        _activeQte.value = null
+        viewModelScope.launch {
+            val outcome = runCatching {
+                repository.applyQteResult(_uid.value, qte.type.id, success, qte.depth)
+            }.getOrNull() ?: return@launch
+            if (outcome.success) {
+                val parts = buildList {
+                    if (outcome.coinGain > 0) add("+${outcome.coinGain} BC")
+                    if (outcome.xpGain > 0) add("+${outcome.xpGain} XP")
+                    if (outcome.energyGain > 0) add("+${outcome.energyGain} EP")
+                }
+                showToast("⚡ QTE ПРОЙДЕН: ${parts.joinToString()}", CyberToastType.SUCCESS)
+            } else if (outcome.hpLoss > 0) {
+                showToast("💥 QTE ПРОВАЛЕН: -${outcome.hpLoss} HP", CyberToastType.ALERT)
             }
         }
     }
@@ -697,7 +767,19 @@ class MainViewModel(
     fun mergeItems(itemId: String) {
         haptics.click()
         audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
-        launchRaidAction("mergeItems") { repository.mergeItems(_uid.value, itemId) }
+        viewModelScope.launch {
+            val result = runCatching { repository.mergeItems(_uid.value, itemId) }.getOrNull()
+            if (result != null) {
+                showToast(result, CyberToastType.SUCCESS)
+                haptics.lootLegendary()
+                audio.playSound(EidosAudioManager.SoundType.ITEM_LOOT)
+                val targetUuid = SupabaseClientManager.cachedPlayerUuid
+                if (targetUuid != null) {
+                    runCatching { SupabaseClientManager.deleteInventoryItem(targetUuid, itemId) }
+                }
+                syncWithSupabase()
+            }
+        }
     }
 
     fun dismantle(item: InventoryItem) {

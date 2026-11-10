@@ -50,6 +50,7 @@ import io.eidos.zerolayer.ui.theme.EidosOrange
 import io.eidos.zerolayer.ui.theme.EidosPurple
 import io.eidos.zerolayer.ui.theme.EidosRed
 import io.eidos.zerolayer.ui.theme.EidosCyan
+import io.eidos.zerolayer.ui.theme.ZzzDangerRed
 import io.eidos.zerolayer.ui.theme.ZzzGold
 import io.eidos.zerolayer.ui.theme.ZzzWarningOrange
 import io.eidos.zerolayer.ui.theme.ZzzCyanBright
@@ -91,6 +92,9 @@ fun InventoryScreen(
     onInstantDecrypt: (InventoryItem) -> Unit,
     onClaimDecryptedCache: (InventoryItem) -> Unit,
     onToForge: (InventoryItem) -> Unit = {},
+    onRepairBC: (InventoryItem) -> Unit = {},
+    onDismantle: (InventoryItem) -> Unit = {},
+    onMergeItem: (String) -> Unit = {},
     onBack: () -> Unit
 ) {
     var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
@@ -212,7 +216,8 @@ fun InventoryScreen(
                         "weapon" to "ОРУЖИЕ",
                         "armor" to "БРОНЯ",
                         "chip" to "ЧИПЫ",
-                        "consumable" to "ПРИПАСЫ"
+                        "consumable" to "ПРИПАСЫ",
+                        "broken" to "СЛОМАННЫЕ"
                     )
                     categories.forEach { (catId, catLabel) ->
                         val isSelected = selectedCategory == catId
@@ -282,6 +287,8 @@ fun InventoryScreen(
                                 "armor" -> slot == "armor" || slot == "head"
                                 "chip" -> slot == "chip"
                                 "consumable" -> isConsumable(item.item_id, itemMeta)
+                                // Сломанные: экипировка в красной зоне прочности - бесполезна без ремонта
+                                "broken" -> ItemSlotUtils.isEquippable(item.item_id, itemMeta) && item.durability <= 25f
                                 else -> true
                             }
                         }
@@ -291,7 +298,11 @@ fun InventoryScreen(
                         inventory = filteredInventory,
                         allItemsMetadata = allItemsMetadata,
                         onItemClick = { item -> selectedItem = item },
-                        onStackClick = { stack -> stackInspectorItems = stack }
+                        onStackClick = { stack -> stackInspectorItems = stack },
+                        showBrokenActions = currentCat == "broken",
+                        onRepairBC = onRepairBC,
+                        onSalvage = onDismantle,
+                        onMergeItem = onMergeItem
                     )
                 }
             }
@@ -680,6 +691,34 @@ fun InventoryScreen(
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text("ИСПОЛЬЗОВАТЬ", color = EidosNeon, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+
+                    // Большая кнопка ремонта для изношенной экипировки: цена = BC за недостающую прочность
+                    val dialogRepairCost = if (isEquippable(item.item_id, itemMeta) && item.durability < 100f) {
+                        io.eidos.zerolayer.data.ZeroLayerEconomy.calculateRepairFee(100f - item.durability, rarity)
+                    } else 0L
+                    if (dialogRepairCost > 0L) {
+                        Button(
+                            onClick = {
+                                haptics.click()
+                                audio.playSound(EidosAudioManager.SoundType.ITEM_CRAFT)
+                                onRepairBC(item)
+                            },
+                            enabled = (player?.biocoin ?: 0L) >= dialogRepairCost,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EidosNeon.copy(alpha = 0.18f),
+                                disabledContainerColor = Color(0xFF182230)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EidosNeon),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                "🔧 РЕМОНТ $dialogRepairCost BC",
+                                color = EidosNeon, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace, maxLines = 1
+                            )
                         }
                     }
 
@@ -1293,7 +1332,11 @@ fun ItemListSection(
     inventory: List<InventoryItem>,
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     onItemClick: (InventoryItem) -> Unit,
-    onStackClick: ((List<InventoryItem>) -> Unit)? = null
+    onStackClick: ((List<InventoryItem>) -> Unit)? = null,
+    showBrokenActions: Boolean = false,
+    onRepairBC: ((InventoryItem) -> Unit)? = null,
+    onSalvage: ((InventoryItem) -> Unit)? = null,
+    onMergeItem: ((String) -> Unit)? = null
 ) {
     // Juice Phase 1: haptics + audio for card navigation (managers are app-scoped singletons)
     val context = LocalContext.current
@@ -1346,6 +1389,17 @@ fun ItemListSection(
                 val itemMeta = allItemsMetadata.find { it.id == item.item_id }
                 val rarity = itemMeta?.rarity ?: getItemRarity(item.item_id)
                 val isEquipped = item.is_equipped || stack.any { it.is_equipped }
+                // Скверна (Вал-коррупция из Кузни): читаем PoE-состояние из custom_data
+                val isCorrupted = remember(stack) {
+                    stack.any { io.eidos.zerolayer.data.PoECraftEngine.parseEquipment(it.custom_data)?.isCorrupted == true }
+                }
+                // Синтез 3-в-1 доступен прямо в инвентаре: 3 шт. и предмет сливаемый
+                val canMergeHere = totalCount >= 3 &&
+                    item.item_id !in ItemSlotUtils.NON_MERGEABLE &&
+                    onMergeItem != null
+                val repairCostBc = if (item.durability < 100f) {
+                    io.eidos.zerolayer.data.ZeroLayerEconomy.calculateRepairFee(100f - item.durability, rarity)
+                } else 0L
 
                 val rarityColor = when (rarity) {
                     "cursed", "relic" -> EidosRed
@@ -1360,16 +1414,30 @@ fun ItemListSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .cyber3DTilt(maxRotationDegrees = 5f, depthTranslationDp = 8f)
-                        .height(185.dp)
+                        .height(
+                            when {
+                                showBrokenActions -> 232.dp
+                                canMergeHere -> 212.dp
+                                else -> 185.dp
+                            }
+                        )
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF0A121C).copy(alpha = 0.70f))
                         .border(
                             1.dp,
-                            if (isEquipped) EidosNeon else rarityColor.copy(alpha = 0.6f),
+                            when {
+                                isCorrupted -> ZzzDangerRed
+                                isEquipped -> EidosNeon
+                                else -> rarityColor.copy(alpha = 0.6f)
+                            },
                             RoundedCornerShape(8.dp)
                         )
                         .cyberHudBorder(
-                            color = if (isEquipped) EidosNeon else rarityColor.copy(alpha = 0.8f),
+                            color = when {
+                                isCorrupted -> ZzzDangerRed
+                                isEquipped -> EidosNeon
+                                else -> rarityColor.copy(alpha = 0.8f)
+                            },
                             cornerLength = 8.dp,
                             strokeWidth = 1.5.dp
                         )
@@ -1410,6 +1478,27 @@ fun ItemListSection(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
+
+                            // Пометка СКВЕРНА в углу арта
+                            if (isCorrupted) {
+                                Row(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(4.dp)
+                                        .background(Color.Black.copy(alpha = 0.82f), CutCornerShape(3.dp))
+                                        .border(1.dp, ZzzDangerRed, CutCornerShape(3.dp))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "СКВЕРНА",
+                                        color = ZzzDangerRed,
+                                        fontSize = 7.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
 
                             if (totalCount > 1) {
                                 Box(
@@ -1498,6 +1587,64 @@ fun ItemListSection(
                                         color = if (item.durability < 30) EidosRed else EidosNeon,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+
+                            // Действия прямо в инвентаре: ремонт/распыление для сломанных,
+                            // синтез 3-в-1 когда собраны три штуки сливаемого предмета
+                            if (showBrokenActions && onRepairBC != null && onSalvage != null && isEquippable(item.item_id, itemMeta)) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Button(
+                                        onClick = { onRepairBC(item) },
+                                        enabled = item.durability < 100f,
+                                        colors = ButtonDefaults.buttonColors(containerColor = EidosNeon.copy(alpha = 0.2f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, EidosNeon),
+                                        shape = CutCornerShape(3.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            "🔧 ${repairCostBc} BC",
+                                            color = EidosNeon, fontSize = 7.5.sp, fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace, maxLines = 1
+                                        )
+                                    }
+                                    Button(
+                                        onClick = { onSalvage(item) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = EidosRed.copy(alpha = 0.2f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, EidosRed),
+                                        shape = CutCornerShape(3.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            "♻ РАСПЫЛИТЬ",
+                                            color = EidosRed, fontSize = 7.5.sp, fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace, maxLines = 1
+                                        )
+                                    }
+                                }
+                            } else if (canMergeHere) {
+                                Button(
+                                    onClick = { onMergeItem?.invoke(item.item_id) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = EidosCyan.copy(alpha = 0.22f)),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, EidosCyan),
+                                    shape = CutCornerShape(3.dp),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 4.dp)
+                                ) {
+                                    Text(
+                                        "🧬 СИНТЕЗ 3->1 РАНГ+",
+                                        color = EidosCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace, maxLines = 1
                                     )
                                 }
                             }

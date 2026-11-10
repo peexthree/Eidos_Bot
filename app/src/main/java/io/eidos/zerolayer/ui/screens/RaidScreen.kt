@@ -26,9 +26,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -128,6 +130,8 @@ fun RaidScreen(
     onFlee: () -> Unit = {},
     onSalvageBufferItem: (Int) -> Unit = {},
     onClaimChestLoot: (isCursed: Boolean, onResult: (Long, Long, List<String>) -> Unit) -> Unit = { _, _ -> },
+    activeQte: io.eidos.zerolayer.domain.qte.ActiveQte? = null,
+    onResolveQte: (io.eidos.zerolayer.domain.qte.ActiveQte, Boolean) -> Unit = { _, _ -> },
     deathReport: io.eidos.zerolayer.data.GameRepository.DeathReport? = null,
     onClearDeathReport: () -> Unit = {}
 ) {
@@ -497,10 +501,30 @@ fun RaidScreen(
                         }
                     } else {
                         // Event Display with Hit-Stop Shake & Floating Numbers
+                        // Анимация перехода между шагами: мир уносится вверх (мы спускаемся),
+                        // новая сцена въезжает сверху; штрихи DESCENT_RUSH маскируют подмену
+                        val descentProgress = remember { androidx.compose.animation.core.Animatable(1f) }
+                        var descentRushActive by remember { mutableStateOf(false) }
+                        LaunchedEffect(session.depth) {
+                            if (session.depth > 0) {
+                                descentRushActive = true
+                                descentProgress.snapTo(0f)
+                                descentProgress.animateTo(1f, tween(480, easing = FastOutSlowInEasing))
+                                descentRushActive = false
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .offset(x = cardShakeX.value.dp)
+                                .graphicsLayer {
+                                    val p = descentProgress.value
+                                    alpha = 0.25f + 0.75f * p
+                                    translationY = -(1f - p) * 90f
+                                    val s = 0.95f + 0.05f * p
+                                    scaleX = s
+                                    scaleY = s
+                                }
                         ) {
                             EventCard(
                                 session = session,
@@ -533,11 +557,32 @@ fun RaidScreen(
                                 onInspectVillain = { villain -> inspectVillain = villain }
                             )
 
-                            if (floatingDamageText != null) {
+                            // Рывок спуска: штрихи-скорости + затемняющий банд, маскирующий подмену сцены
+                            if (descentRushActive) {
+                                CyberParticleOverlay(
+                                    preset = ParticlePreset.DESCENT_RUSH,
+                                    particleCount = 26,
+                                    modifier = Modifier.fillMaxSize()
+                                )
                                 Box(
                                     modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .padding(16.dp),
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                0f to Color.Transparent,
+                                                0.5f to Color.Black.copy(alpha = 0.5f * (1f - descentProgress.value)),
+                                                1f to Color.Transparent
+                                            )
+                                        )
+                                )
+                            }
+
+                            if (floatingDamageText != null) {
+                                // Специальная зона урона: верх карточки, не перекрывает взгляд на враге
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .padding(top = 10.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -606,6 +651,14 @@ fun RaidScreen(
                 }
             }
         }
+    }
+
+    // QTE-вставка: интерактивное событие спуска поверх всего экрана рейда
+    activeQte?.let { qte ->
+        io.eidos.zerolayer.ui.components.qte.QteOverlay(
+            qte = qte,
+            onResolve = { success -> onResolveQte(qte, success) }
+        )
     }
 
     if (showBufferModal) {
@@ -2053,10 +2106,10 @@ fun CombatArenaCard(
                     painter = painterResource(id = R.drawable.ic_hud_crosshair),
                     contentDescription = null,
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(104.dp)
                         .align(Alignment.Center)
                         .rotate(rotation)
-                        .alpha(0.65f)
+                        .alpha(0.35f)
                 )
 
                 // Pop-up animated banner for triggered perk
@@ -2944,7 +2997,7 @@ fun RaidControls(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0080)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0080).copy(alpha = 0.82f)),
                     border = BorderStroke(2.dp, ZzzGold),
                     shape = CutCornerShape(6.dp)
                 ) {

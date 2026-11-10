@@ -564,7 +564,7 @@ fun SynthesisTab(
                                 }
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                if (totalCount >= 3) {
+                                if (totalCount >= 3 && repItem.item_id !in io.eidos.zerolayer.data.ItemSlotUtils.NON_MERGEABLE) {
                                     Button(
                                         onClick = { onMerge(repItem) },
                                         colors = ButtonDefaults.buttonColors(containerColor = EidosNeon.copy(alpha = 0.25f)),
@@ -665,7 +665,9 @@ fun SynthesisTab(
                 }
 
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    // weight(1f), а не fillMaxSize: иначе список занимает весь рост колонки
+                    // и нижние карточки уходят за край экрана без возможности доскроллить
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -827,8 +829,68 @@ fun SocketModdingTab(
     onRemoveChip: (InventoryItem, Int) -> Unit,
     onTriggerSlicerReroll: (InventoryItem, io.eidos.zerolayer.data.CyberEquipment, io.eidos.zerolayer.data.CyberEquipment, Long, String) -> Unit
 ) {
-    val equipmentItems = inventory.filter { it.item_id !in listOf("medkit", "energy_cell", "eidos_shard", "battery", "master_key", "corrupted_data_cluster") }
+    // Строго экипировка: расходники/материалы не подлежат слайсерам и сокетам
+    val equipmentItems = inventory.filter { io.eidos.zerolayer.data.PoECraftEngine.socketLimitFor(it.item_id) > 0 }
     val shardsCount = inventory.find { it.item_id == "eidos_shard" }?.quantity ?: 0
+
+    // Пикер чипа: вставлять можно только чипы, что есть в инвентаре
+    // (раньше в пустой сокет вставлялся случайный чип бесплатно - халява из воздуха)
+    var chipPickerFor by remember { mutableStateOf<Pair<InventoryItem, Int>?>(null) }
+    chipPickerFor?.let { (targetItem, socketIdx) ->
+        val ownedChips = inventory.associate { it.item_id to it.quantity }
+        AlertDialog(
+            onDismissRequest = { chipPickerFor = null },
+            title = {
+                Text("ВСТАВИТЬ ЧИП", color = EidosCyan, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+            },
+            text = {
+                Column {
+                    Text(
+                        "Чипы добываются из врагов на глубине 2000м+ и из тайников. Резонанс: цвет чипа = цвет сокета (+25%).",
+                        color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    io.eidos.zerolayer.data.PoECraftEngine.AVAILABLE_DATA_CHIPS.forEach { chip ->
+                        val owned = ownedChips[chip.id] ?: 0
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(CutCornerShape(4.dp))
+                                .background(if (owned > 0) Color(0xFF0F1A24) else Color(0xFF0C0F15))
+                                .border(1.dp, if (owned > 0) EidosCyan.copy(alpha = 0.5f) else Color.DarkGray, CutCornerShape(4.dp))
+                                .clickable(enabled = owned > 0) {
+                                    onInsertChip(targetItem, socketIdx, chip)
+                                    chipPickerFor = null
+                                }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(chip.name, color = if (owned > 0) Color.White else Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "${chip.statBonusType} +${chip.statBonusValue} | ${chip.color.name}",
+                                    color = Color(0xFF9FB3C8), fontSize = 9.sp, fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            Text(
+                                if (owned > 0) "x$owned" else "НЕТ",
+                                color = if (owned > 0) EidosNeon else ZzzDangerRed,
+                                fontSize = 11.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { chipPickerFor = null }) {
+                    Text("ОТМЕНА", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+            },
+            containerColor = Color(0xFF090E14),
+            shape = CutCornerShape(8.dp)
+        )
+    }
 
     if (equipmentItems.isEmpty()) {
         ForgeEmptyWorkbench(hint = "НЕТ СНАРЯЖЕНИЯ ДЛЯ РЕКАЛИБРОВКИ")
@@ -1043,8 +1105,8 @@ fun SocketModdingTab(
                                             if (chip != null) {
                                                 onRemoveChip(item, index)
                                             } else {
-                                                val nextChip = io.eidos.zerolayer.data.PoECraftEngine.AVAILABLE_DATA_CHIPS.random()
-                                                onInsertChip(item, index, nextChip)
+                                                // Чипы - предметы из инвентаря: открываем пикер своих чипов
+                                                chipPickerFor = item to index
                                             }
                                         }
                                 ) {
@@ -1221,10 +1283,55 @@ fun DataCorruptionTab(
     allItemsMetadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata> = emptyList(),
     onVaalCorruption: (InventoryItem) -> Unit
 ) {
+    // Строго экипировка: расходники/материалы не оскверняются
     val uncorruptedEquipment = inventory.filter {
-        it.item_id !in listOf("medkit", "energy_cell", "eidos_shard", "battery", "master_key", "corrupted_data_cluster")
+        io.eidos.zerolayer.data.PoECraftEngine.socketLimitFor(it.item_id) > 0
     }
     val shardsCount = inventory.find { it.item_id == "eidos_shard" }?.quantity ?: 0
+
+    // Обязательное окно предупреждения перед Ваал-осквернением
+    var pendingVaalItem by remember { mutableStateOf<InventoryItem?>(null) }
+    pendingVaalItem?.let { target ->
+        val targetMeta = allItemsMetadata.find { it.id == target.item_id }
+        AlertDialog(
+            onDismissRequest = { pendingVaalItem = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ZzzIcon(R.drawable.ic_event_danger, size = 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("☣️ ОСКВЕРНИТЬ НАВЕЧНО?", color = ZzzDangerRed, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                }
+            },
+            text = {
+                Text(
+                    "«${targetMeta?.name ?: target.item_id.uppercase()}» будет либо УНИЧТОЖЕН безвозвратно, либо получит случайный сверх-модификатор.\n\n" +
+                        "После ритуала предмет ЗАПЕЧАТАН: сокеты, чипы, заточка и перековка заблокированы навсегда.\n\n" +
+                        "Стоимость: 1000 BC + 2 💎. Продолжить?",
+                    color = Color.LightGray, fontSize = 11.sp, fontFamily = FontFamily.Monospace
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onVaalCorruption(target)
+                        pendingVaalItem = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ZzzDangerRed.copy(alpha = 0.3f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ZzzDangerRed),
+                    shape = CutCornerShape(4.dp)
+                ) {
+                    Text("РИСКНУТЬ", color = ZzzDangerRed, fontWeight = FontWeight.Black, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingVaalItem = null }) {
+                    Text("ОТМЕНА", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+            },
+            containerColor = Color(0xFF0A0508),
+            shape = CutCornerShape(8.dp)
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Card(
@@ -1301,7 +1408,7 @@ fun DataCorruptionTab(
 
                         if (!eq.isCorrupted) {
                             Button(
-                                onClick = { onVaalCorruption(item) },
+                                onClick = { pendingVaalItem = item },
                                 enabled = (player?.biocoin ?: 0L) >= 1000L && shardsCount >= 2,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ZzzDangerRed.copy(alpha = 0.2f),

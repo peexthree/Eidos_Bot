@@ -93,8 +93,10 @@ class AuthRepository(
             AuthResult.Error("Offline")
         }
 
-        if (res !is AuthResult.Success) {
-            // Smooth offline login fallback
+        // Локальная сессия ТОЛЬКО когда Supabase не настроен (оффлайн-режим).
+        // Раньше любой провал (в т.ч. неверный пароль) молча подменялся успехом -
+        // вход "работал" с чужим/несуществующим аккаунтом.
+        if (!SupabaseClientManager.isConfigured() && res !is AuthResult.Success) {
             val offlineUserId = "local_${clean.hashCode()}"
             res = AuthResult.Success(
                 user = AuthUser(id = offlineUserId),
@@ -104,6 +106,9 @@ class AuthRepository(
                 isNewAccount = false
             )
         }
+
+        // Реальная ошибка авторизации (неверный пароль, сеть) возвращается как есть
+        if (res !is AuthResult.Success) return res
 
         authStore.saveSession(res.username, res.user.id, res.accessToken, res.refreshToken)
 

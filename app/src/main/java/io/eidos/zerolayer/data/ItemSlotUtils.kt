@@ -87,6 +87,23 @@ object ItemSlotUtils {
         return getSlotForItem(itemId, meta) != null
     }
 
+    /** Предметы, НЕ подлежащие синтезу 3-в-1: ключи, валюта, боссовые материалы. */
+    val NON_MERGEABLE = setOf(
+        "master_key", "abyssal_key", "admin_key", "hub_lock",
+        "eidos_shard", "boss_core", "encrypted_cache"
+    )
+
+    /** Слитый предмет должен остаться в той же категории (шлемы в шлемы, расходники в расходники). */
+    fun mergeCategoryFor(itemId: String, meta: GameRepository.ItemMetadata?): String? {
+        val slot = getSlotForItem(itemId, meta)
+        if (slot != null) return slot
+        return when {
+            isConsumable(itemId, meta) -> "consumable"
+            meta?.type == "material" || itemId == "boss_core" -> "material"
+            else -> null
+        }
+    }
+
     fun isConsumable(itemId: String, meta: GameRepository.ItemMetadata? = null): Boolean {
         if (meta?.type == "consumable") return true
         val id = itemId.lowercase()
