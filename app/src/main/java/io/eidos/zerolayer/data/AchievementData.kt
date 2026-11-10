@@ -29,7 +29,9 @@ data class AchievementStats(
     val zeroLayerEntered: Boolean = false,
     val glitchTriggered: Boolean = false,
     val creatorGazeFound: Boolean = false,
-    val nightOperatorUnlocked: Boolean = false
+    val nightOperatorUnlocked: Boolean = false,
+    /** Цепочки директив: сколько дней подряд закрыты все 3 дейлика. */
+    val fullDaysStreak: Long = 0L
 )
 
 object AchievementRegistry {
@@ -194,6 +196,56 @@ object AchievementRegistry {
             target = 100L,
             getProgress = { p, _ -> p.streak.toLong() },
             isMet = { p, _ -> p.streak >= 100 }
+        ),
+
+        // === 2.5 Цепочки // Директивы (все 3 дейлика N дней подряд) ===
+        Def(
+            id = "ach_fullday_3",
+            category = "Цепочки // Директивы",
+            icon = "⛓️",
+            title = "СТАБИЛЬНОСТЬ",
+            description = "3 дня подряд закрыты все директивы дня",
+            xpReward = 100L,
+            coinReward = 500L,
+            target = 3L,
+            getProgress = { _, s -> s.fullDaysStreak },
+            isMet = { _, s -> s.fullDaysStreak >= 3 }
+        ),
+        Def(
+            id = "ach_fullday_7",
+            category = "Цепочки // Директивы",
+            icon = "🔗",
+            title = "ЖЕЛЕЗНАЯ НЕДЕЛЯ",
+            description = "7 дней подряд закрыты все директивы дня",
+            xpReward = 250L,
+            coinReward = 1500L,
+            target = 7L,
+            getProgress = { _, s -> s.fullDaysStreak },
+            isMet = { _, s -> s.fullDaysStreak >= 7 }
+        ),
+        Def(
+            id = "ach_fullday_14",
+            category = "Цепочки // Директивы",
+            icon = "🧷",
+            title = "КВАНТОВАЯ ДИСЦИПЛИНА",
+            description = "14 дней подряд закрыты все директивы дня",
+            xpReward = 500L,
+            coinReward = 4000L,
+            target = 14L,
+            getProgress = { _, s -> s.fullDaysStreak },
+            isMet = { _, s -> s.fullDaysStreak >= 14 }
+        ),
+        Def(
+            id = "ach_fullday_30",
+            category = "Цепочки // Директивы",
+            icon = "🌀",
+            title = "АБСОЛЮТНАЯ ПЕТЛЯ",
+            description = "30 дней подряд закрыты все директивы дня",
+            xpReward = 500L,
+            coinReward = 15000L,
+            target = 30L,
+            getProgress = { _, s -> s.fullDaysStreak },
+            isMet = { _, s -> s.fullDaysStreak >= 30 }
         ),
 
         // === 3. Финансы (XP/биокоины) ===
@@ -771,8 +823,14 @@ class AchievementStorage(context: Context) {
             zeroLayerEntered = prefs.getBoolean("stats_zero_layer", false),
             glitchTriggered = prefs.getBoolean("stats_glitch", false),
             creatorGazeFound = prefs.getBoolean("stats_creator_gaze", false),
-            nightOperatorUnlocked = prefs.getBoolean("stats_night_op", false)
+            nightOperatorUnlocked = prefs.getBoolean("stats_night_op", false),
+            fullDaysStreak = prefs.getLong("stats_full_days", 0L)
         )
+    }
+
+    /** Цепочки директив: зеркало серии полных дней (обновляется из MainViewModel). */
+    fun setFullDaysStreak(value: Long) {
+        prefs.edit().putLong("stats_full_days", value).apply()
     }
 
     fun incrementClicks(): Long {

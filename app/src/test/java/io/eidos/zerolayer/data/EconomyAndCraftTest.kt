@@ -84,7 +84,7 @@ class EconomyAndCraftTest {
 
     @Test
     fun testForgeRecipeCreation() {
-        val recipe = GameRepository.ForgeRecipeDefinition(
+        val recipe = ForgeRecipeDefinition(
             targetId = "reality_silencer",
             shardCost = 10,
             creditCost = 2500L,
@@ -94,6 +94,17 @@ class EconomyAndCraftTest {
         assertEquals(10, recipe.shardCost)
         assertEquals(2500L, recipe.creditCost)
         assertEquals(1, recipe.additionalIngredients["boss_core"])
+    }
+
+    @Test
+    fun testForgeRecipeRegistryConsistency() {
+        // Единый реестр: id уникальны, у каждого рецепта есть категория
+        val ids = ForgeRecipeRegistry.ALL.map { it.targetId }
+        assertEquals(ids.size, ids.toSet().size)
+        // Рецепты с ингредиентами не должны крафтиться дешевле нуля
+        ForgeRecipeRegistry.ALL.forEach { recipe ->
+            assertTrue("Recipe ${recipe.targetId} has negative costs", recipe.shardCost >= 0 && recipe.creditCost >= 0L)
+        }
     }
 
     @Test

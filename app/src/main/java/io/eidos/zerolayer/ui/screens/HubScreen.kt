@@ -185,11 +185,14 @@ fun HubScreen(
     val worldBossState by mainViewModel.worldBossState.collectAsState()
     val bossTop by mainViewModel.bossTop.collectAsState()
     val dailyQuests by mainViewModel.dailyQuests.collectAsState()
+    val weeklyEvent by mainViewModel.weeklyEvent.collectAsState()
+    val streakClaimedToday by mainViewModel.streakClaimedToday.collectAsState()
     val unreadRadio by mainViewModel.unreadRadio.collectAsState()
     val audio = remember { io.eidos.zerolayer.ui.utils.EidosAudioManager.getInstance(context) }
     LaunchedEffect(Unit) {
         mainViewModel.refreshWorldBoss()
         mainViewModel.refreshDailyQuests()
+        mainViewModel.refreshWeeklyEvent()
         mainViewModel.refreshUnreadRadio()
     }
 
@@ -676,6 +679,11 @@ fun HubScreen(
                     }
                 }
 
+                // 5.5 НЕДЕЛЬНЫЙ МОДИФИКАТОР (вращающееся событие недели)
+                weeklyEvent?.let { ev ->
+                    CyberWeeklyEventBanner(event = ev)
+                }
+
                 // 6. DEDICATED WORLD BOSS BANNER
                 CyberWorldBossBanner(
                     bossHp = bossHp,
@@ -689,6 +697,12 @@ fun HubScreen(
                 // 7. ЕЖЕДНЕВНЫЕ ДИРЕКТИВЫ
                 CyberDailyDirectivesCard(
                     dailyQuests = dailyQuests,
+                    playerStreak = player?.streak ?: 1,
+                    streakClaimedToday = streakClaimedToday,
+                    onClaimStreak = {
+                        audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.ITEM_LOOT)
+                        mainViewModel.claimDailyStreak()
+                    },
                     onClaimQuest = { questId ->
                         haptics.click()
                         audio.playSound(io.eidos.zerolayer.ui.utils.EidosAudioManager.SoundType.ITEM_LOOT)
@@ -2704,7 +2718,10 @@ private fun BottomNavItem(
 fun CyberDailyDirectivesCard(
     dailyQuests: List<DailyQuest>,
     onClaimQuest: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    playerStreak: Int = 1,
+    streakClaimedToday: Boolean = false,
+    onClaimStreak: () -> Unit = {}
 ) {
     val completedCount = dailyQuests.count { it.isClaimed }
     val totalCount = dailyQuests.size.coerceAtLeast(3)
@@ -2739,6 +2756,143 @@ fun CyberDailyDirectivesCard(
                         onClaim = { onClaimQuest(quest.id) }
                     )
                 }
+            }
+
+            // Подтверждение синхронизации сети (стрик входа)
+            Surface(
+                color = Color(0xFF0F1722),
+                shape = CutCornerShape(6.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (streakClaimedToday) Color(0xFF1E2A3A) else ZzzDesignSystem.VoltYellow
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CutCornerShape(4.dp))
+                            .background(Color.Black)
+                            .border(1.dp, ZzzGold.copy(alpha = 0.8f), CutCornerShape(4.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ZzzIcon(iconRes = R.drawable.ic_res_overdrive, size = 16.dp, tint = ZzzGold)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "СИНХРОНИЗАЦИЯ СЕТИ: ${playerStreak}Д",
+                            color = Color.White,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = if (streakClaimedToday) "Цикл подтвержден - возвращайся завтра"
+                            else "Подтверди серию входов: +${150L * playerStreak} BC",
+                            color = if (streakClaimedToday) Color.Gray else ZzzGold,
+                            fontSize = 8.5.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Button(
+                        onClick = onClaimStreak,
+                        enabled = !streakClaimedToday,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (streakClaimedToday) Color.DarkGray.copy(alpha = 0.3f) else ZzzGold.copy(alpha = 0.25f),
+                            disabledContainerColor = Color.DarkGray.copy(alpha = 0.2f)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (streakClaimedToday) Color.Gray.copy(alpha = 0.5f) else ZzzGold
+                        ),
+                        shape = CutCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            "ЗАБРАТЬ",
+                            color = if (streakClaimedToday) Color.LightGray else ZzzGold,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// 6.5 НЕДЕЛЬНЫЙ МОДИФИКАТОР (WEEKLY EVENT BANNER)
+// ============================================================================
+
+@Composable
+fun CyberWeeklyEventBanner(
+    event: io.eidos.zerolayer.domain.weekly.WeeklyEvent,
+    modifier: Modifier = Modifier
+) {
+    val riskColor = Color(event.riskLevel.colorHex)
+    Surface(
+        color = Color(0xEB071320),
+        shape = CutCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.6.dp, riskColor),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CutCornerShape(6.dp))
+                    .background(Color.Black)
+                    .border(1.2.dp, riskColor, CutCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                ZzzIcon(iconRes = event.iconRes, size = 24.dp, tint = riskColor)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "[НЕДЕЛЬНОЕ СОБЫТИЕ // ЦИКЛ СЕТИ]",
+                    color = ZzzGold,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "МОДИФИКАТОР: ${event.title.uppercase()}",
+                    color = riskColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = event.description,
+                    color = Color(0xFFB0C4D8),
+                    fontSize = 8.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "РИСК: ${event.riskLevel.label} | АКТИВНО ДО КОНЦА НЕДЕЛИ",
+                    color = riskColor.copy(alpha = 0.85f),
+                    fontSize = 7.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
     }

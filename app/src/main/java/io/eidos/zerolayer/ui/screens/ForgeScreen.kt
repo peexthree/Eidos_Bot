@@ -23,7 +23,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.eidos.zerolayer.R
+import io.eidos.zerolayer.data.ForgeRecipeCategory
+import io.eidos.zerolayer.data.ForgeRecipeDefinition
+import io.eidos.zerolayer.data.ForgeRecipeRegistry
 import io.eidos.zerolayer.data.InventoryItem
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.platform.LocalContext
 import io.eidos.zerolayer.ui.utils.EidosAudioManager
@@ -451,7 +456,7 @@ fun SynthesisTab(
     onCraft: (String) -> Unit
 ) {
     var subTab by remember { mutableIntStateOf(0) } // 0: РАЗБОР И СЛИЯНИЕ, 1: КОВКА РЕЦЕПТОВ
-    var pendingCraftRecipe by remember { mutableStateOf<Recipe?>(null) }
+    var pendingCraftRecipe by remember { mutableStateOf<ForgeRecipeDefinition?>(null) }
 
     // Visual craft feedback: id of the card currently pulsing (pure presentation, logic untouched)
     var craftingId by remember { mutableStateOf<String?>(null) }
@@ -586,23 +591,21 @@ fun SynthesisTab(
             }
         } else {
             val shards = inventory.find { it.item_id == "eidos_shard" }?.quantity ?: 0
-            val recipes = listOf(
-                Recipe("reality_silencer", 10, 2500L, "Глушитель Реальности", mapOf("boss_core" to 1), "Подавляет искажения пространства"),
-                Recipe("death_mask", 6, 1500L, "Маска Мертвеца", mapOf("data_spike" to 1), "Смертоносный артефакт Бездны"),
-                Recipe("scavenger_mask", 4, 800L, "Маска Мусорщика", mapOf("master_key" to 2), "Повышает шанс ценного лута"),
-                Recipe("nomad_goggles", 5, 1000L, "Очки Кочевника", mapOf("compass" to 1), "Облегчает навигацию по секторам"),
-                Recipe("karma_inversion", 8, 2000L, "Инверсия Кармы", mapOf("abyssal_key" to 1), "Преобразует урон в щиты"),
-                Recipe("holo_poverty", 6, 1200L, "Голографическая Нищета", emptyMap(), "Маскировка от агрессивных программ"),
-                Recipe("aegis", 5, 1000L, "Эгида Бессмертия", mapOf("battery" to 1), "Спасает от смертельного удара"),
-                Recipe("medkit_small", 15, 100L, "Малая Аптечка", emptyMap(), "Восстанавливает HP"),
-                Recipe("battery", 15, 100L, "Энерго-Батарея", emptyMap(), "Заряжает энергоячейки"),
-                Recipe("master_key", 20, 200L, "Магнитная Отмычка", emptyMap(), "Взламывает защищенные контейнеры"),
-                Recipe("data_spike", 25, 300L, "Дата-Шип", emptyMap(), "Пробивает терминалы"),
-                Recipe("compass", 25, 300L, "Компас Пустоши", emptyMap(), "Указывает путь к аномалиям"),
-                Recipe("rusty_knife", 30, 250L, "Ржавый Тесак", emptyMap(), "Базовое оружие ближнего боя"),
-                Recipe("crowbar", 50, 500L, "Монтировка Хакера", emptyMap(), "Оружие и инструмент"),
-                Recipe("hoodie", 40, 400L, "Балахон Сквиттера", emptyMap(), "Легкая защита")
-            )
+
+            // Единый реестр рецептов (ForgeRecipes.kt) + фильтр по категории; крафтабельные поднимаются вверх
+            var recipeFilter by remember { mutableStateOf<ForgeRecipeCategory?>(null) }
+            val filteredRecipes = run {
+                val base = if (recipeFilter == null) ForgeRecipeRegistry.ALL
+                    else ForgeRecipeRegistry.ALL.filter { it.category == recipeFilter }
+                base.sortedWith(
+                    compareByDescending { recipe: ForgeRecipeDefinition ->
+                        shards >= recipe.shardCost && (player?.biocoin ?: 0L) >= recipe.creditCost &&
+                            recipe.additionalIngredients.all { (ingId, qty) ->
+                                (inventory.find { it.item_id == ingId }?.quantity ?: 0) >= qty
+                            }
+                    }
+                )
+            }
 
             Column(modifier = Modifier.fillMaxSize()) {
                 // HIGH-TECH WEAPON CRAFTING CHAMBER (References 1 & 5)
@@ -626,7 +629,7 @@ fun SynthesisTab(
                         maxVaalEssence = 5,
                         onCommenceCraft = {
                             craftingId = "__hologram__"
-                            recipes.firstOrNull()?.let { onCraft(it.id) }
+                            filteredRecipes.firstOrNull()?.let { onCraft(it.targetId) }
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -647,12 +650,27 @@ fun SynthesisTab(
                     Text("Осколков", color = EidosNeon, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 }
 
+                // Фильтры по категориям рецептов
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    ForgeRecipeFilterPill(label = "ВСЕ", selected = recipeFilter == null) { recipeFilter = null }
+                    ForgeRecipeCategory.entries.forEach { cat ->
+                        ForgeRecipeFilterPill(label = cat.label, selected = recipeFilter == cat) { recipeFilter = cat }
+                    }
+                }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(recipes, key = { it.id }) { recipe ->
+                    items(filteredRecipes, key = { it.targetId }) { recipe ->
+                        val recipeDisplayName = resolveForgeRecipeName(recipe, allItemsMetadata)
                         val hasEnoughShards = shards >= recipe.shardCost
                         val hasEnoughBc = (player?.biocoin ?: 0L) >= recipe.creditCost
                         val canAffordRecipe = hasEnoughShards && hasEnoughBc
@@ -669,7 +687,7 @@ fun SynthesisTab(
                         }
 
                         ForgeCraftPulse(
-                            isCrafting = craftingId == recipe.id,
+                            isCrafting = craftingId == recipe.targetId,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                         Row(
@@ -681,6 +699,23 @@ fun SynthesisTab(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CutCornerShape(4.dp))
+                                    .background(Color(0xFF03060A))
+                                    .border(1.dp, if (hasAllIngredients) EidosCyan.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f), CutCornerShape(4.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                EidosImage(
+                                    resName = recipe.targetId,
+                                    borderColor = Color.Transparent,
+                                    borderWidth = 0.dp,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     // Индикатор доступности: зеленая точка - хватает осколков и BC, красная - нет
@@ -691,7 +726,7 @@ fun SynthesisTab(
                                             .background(if (canAffordRecipe) ZzzToxicGreen else ZzzDangerRed)
                                     )
                                     Spacer(Modifier.width(6.dp))
-                                    Text(recipe.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(recipeDisplayName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                                 if (recipe.description.isNotEmpty()) {
                                     Text(recipe.description, color = Color.Gray, fontSize = 9.sp)
@@ -750,7 +785,7 @@ fun SynthesisTab(
             },
             text = {
                 Text(
-                    "Вы действительно хотите синтезировать «${recipe.name}» и списать требуемые компоненты со склада?",
+                    "Вы действительно хотите синтезировать «${resolveForgeRecipeName(recipe, allItemsMetadata)}» и списать требуемые компоненты со склада?",
                     color = Color.LightGray,
                     fontSize = 11.5.sp,
                     fontFamily = FontFamily.Monospace
@@ -759,8 +794,8 @@ fun SynthesisTab(
             confirmButton = {
                 Button(
                     onClick = {
-                        craftingId = recipe.id
-                        onCraft(recipe.id)
+                        craftingId = recipe.targetId
+                        onCraft(recipe.targetId)
                         pendingCraftRecipe = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = EidosCyan),
@@ -1480,12 +1515,27 @@ fun getItemName(id: String): String {
     }
 }
 
-data class Recipe(
-    val id: String,
-    val shardCost: Int,
-    val creditCost: Long,
-    val name: String,
-    val additionalIngredients: Map<String, Int> = emptyMap(),
-    val description: String = ""
-)
+/** Фильтр-пилюля категорий рецептов КОВКИ. */
+@Composable
+fun ForgeRecipeFilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) EidosCyan.copy(alpha = 0.2f) else Color.Transparent
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) EidosCyan else Color.DarkGray),
+        shape = CutCornerShape(4.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+    ) {
+        Text(label, color = if (selected) EidosCyan else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+    }
+}
+
+/** Отображаемое имя рецепта: из реестра, иначе из items.json, иначе верхний регистр id. */
+fun resolveForgeRecipeName(
+    recipe: ForgeRecipeDefinition,
+    metadata: List<io.eidos.zerolayer.data.GameRepository.ItemMetadata>
+): String = recipe.name.ifBlank {
+    metadata.find { it.id == recipe.targetId }?.name ?: getItemName(recipe.targetId)
+}
 

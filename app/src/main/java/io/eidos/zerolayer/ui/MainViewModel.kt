@@ -221,6 +221,11 @@ class MainViewModel(
             }
             val defaultUsername = "Оператор ${deviceUuid.take(8).uppercase()}"
             repository.ensureDevicePlayerExists(effectiveUid, deviceUuid, defaultUsername)
+
+            // Недельное событие: активируем/ротируем модификатор недели для баннера Хаба
+            refreshWeeklyEvent()
+            // Цепочки ачивок: восстанавливаем зеркало серии полных дней дейликов
+            achievementStorage.setFullDaysStreak(repository.getFullDaysStreak(effectiveUid))
             
             // Passive Energy Regeneration (offline calculations with Anti-Time Cheat protection)
             val p = repository.getPlayerSync(effectiveUid)
@@ -559,10 +564,26 @@ class MainViewModel(
     private val _dailyQuests = kotlinx.coroutines.flow.MutableStateFlow<List<io.eidos.zerolayer.data.DailyQuest>>(emptyList())
     val dailyQuests: kotlinx.coroutines.flow.StateFlow<List<io.eidos.zerolayer.data.DailyQuest>> = _dailyQuests
 
+    // Синхронизация сети (стрик входа) уже забрана сегодня?
+    private val _streakClaimedToday = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val streakClaimedToday: kotlinx.coroutines.flow.StateFlow<Boolean> = _streakClaimedToday.asStateFlow()
+
+    // Недельные события (rotating weekly modifiers)
+    private val _weeklyEvent = kotlinx.coroutines.flow.MutableStateFlow<io.eidos.zerolayer.domain.weekly.WeeklyEvent?>(null)
+    val weeklyEvent: kotlinx.coroutines.flow.StateFlow<io.eidos.zerolayer.domain.weekly.WeeklyEvent?> = _weeklyEvent.asStateFlow()
+
+    fun refreshWeeklyEvent() {
+        viewModelScope.launch {
+            runCatching { repository.getWeeklyEvent(_uid.value) }
+                .onSuccess { _weeklyEvent.value = it }
+        }
+    }
+
     fun refreshDailyQuests() {
         viewModelScope.launch {
             runCatching { repository.getDailyQuests(_uid.value) }
                 .onSuccess { _dailyQuests.value = it }
+            _streakClaimedToday.value = repository.isStreakClaimedToday(_uid.value)
         }
     }
 
@@ -572,6 +593,9 @@ class MainViewModel(
             val ok = repository.claimDailyQuest(_uid.value, questId)
             if (ok) {
                 refreshDailyQuests()
+                // Цепочки ачивок: зеркалим серию полных дней в статистику и перепроверяем
+                achievementStorage.setFullDaysStreak(repository.getFullDaysStreak(_uid.value))
+                player.value?.let { checkAchievements(it) }
             }
         }
     }
@@ -952,12 +976,18 @@ class MainViewModel(
     }
 
     fun claimDailyStreak() {
-        haptics.lootLegendary()
-        audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
+        haptics.click()
         viewModelScope.launch {
-            repository.claimDailyStreak(_uid.value)
-            showToast("🎁 СЕТЕВАЯ СИНХРОНИЗАЦИЯ ПОДТВЕРЖДЕНА!", CyberToastType.SUCCESS)
-            trackSyncron()
+            val ok = repository.claimDailyStreak(_uid.value)
+            if (ok) {
+                haptics.lootLegendary()
+                audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
+                showToast("🎁 СЕТЕВАЯ СИНХРОНИЗАЦИЯ ПОДТВЕРЖДЕНА!", CyberToastType.SUCCESS)
+                trackSyncron()
+                _streakClaimedToday.value = true
+            } else {
+                showToast("⏳ Синхронизация за этот цикл уже подтверждена", CyberToastType.INFO)
+            }
         }
     }
 

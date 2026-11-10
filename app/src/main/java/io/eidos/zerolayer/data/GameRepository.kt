@@ -64,6 +64,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         runCatching { dailyQuestStorage.recordProgress(uid, type, amount) }
     }
 
+    // Недельные события: prefs-based rotating weekly modifiers (no Room migration)
+    private val weeklyEventStorage: WeeklyEventStorage = WeeklyEventStorage.getInstance(context)
+
+    /** Активный модификатор недели (лениво ротируется при смене ISO-недели). */
+    fun getWeeklyEvent(uid: Long): io.eidos.zerolayer.domain.weekly.WeeklyEvent =
+        io.eidos.zerolayer.domain.weekly.WeeklyEvent.fromId(weeklyEventStorage.getCurrentEventId(uid))
+            ?: io.eidos.zerolayer.domain.weekly.WeeklyEvent.GOLD_RUSH_WEEK
+
     // Fire-and-forget scope for background work that must never extend a dbMutex
     // critical section (e.g. cloud log sync). SupervisorJob: one failure
     // doesn't cancel pending children.
@@ -410,10 +418,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    fun rollNormalLoot(legendaryBoost: Boolean = false): ItemMetadata? {
+    fun rollNormalLoot(legendaryBoost: Boolean = false, weeklyLegendaryBonusPercent: Int = 0): ItemMetadata? {
         val normalList = getAllItemsMetadata().filter { it.id != "biocoin" && !isRedLoot(it) }
         // GLITCH_STORM mutator: +40% chance to force a legendary drop
         if (legendaryBoost && (0..100).random() < 40) {
+            normalList.filter { it.rarity == "legendary" }.randomOrNull()?.let { return it }
+        }
+        // Недельное событие: бонусный шанс форса легендарки
+        if (weeklyLegendaryBonusPercent > 0 && (0..100).random() < weeklyLegendaryBonusPercent) {
             normalList.filter { it.rarity == "legendary" }.randomOrNull()?.let { return it }
         }
         return normalList.randomOrNull()
@@ -509,6 +521,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val player = dao.getPlayer(uid) ?: return
         val anomalyId = session.current_anomaly_id ?: return
         val isGlitchStorm = session.active_mutator == SectorMutator.GLITCH_STORM.id
+        val weeklyLegendaryBonus = getWeeklyEvent(uid).legendaryChanceBonus
         val gameEvent = io.eidos.zerolayer.data.GameData.EVENTS.find { it.id.toString() == anomalyId }
 
         if (gameEvent == null || optionId == "ignore") {
@@ -586,7 +599,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                             
                             val coins = (250..600).random().toLong() + (session.depth * 2)
                             val xp = (200..400).random().toLong()
-                            val lootMeta = rollNormalLoot(legendaryBoost = isGlitchStorm)
+                            val lootMeta = rollNormalLoot(legendaryBoost = isGlitchStorm, weeklyLegendaryBonusPercent = weeklyLegendaryBonus)
                             val lootItem = lootMeta?.id ?: "quantum_tuner"
                             val lootName = lootMeta?.name ?: lootItem
                             val newBuffer = if (session.buffer_items.isEmpty()) lootItem else "${session.buffer_items},$lootItem"
@@ -612,7 +625,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                             val xp = (300..600).random().toLong()
                             // Guaranteed equipment item
                             val equipItems = itemsMetadata.filter { it.type in listOf("weapon", "armor", "head", "chip") && it.rarity in listOf("rare", "epic", "legendary") }
-                            val lootMeta = equipItems.randomOrNull() ?: rollNormalLoot(legendaryBoost = isGlitchStorm)
+                            val lootMeta = equipItems.randomOrNull() ?: rollNormalLoot(legendaryBoost = isGlitchStorm, weeklyLegendaryBonusPercent = weeklyLegendaryBonus)
                             val lootItem = lootMeta?.id ?: "nano_armor"
                             val lootName = lootMeta?.name ?: lootItem
                             val newBuffer = if (session.buffer_items.isEmpty()) lootItem else "${session.buffer_items},$lootItem"
@@ -639,7 +652,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                             if (roll < successChance) {
                                 val coins = (200..500).random().toLong() + (session.depth * 2)
                                 val xp = (150..350).random().toLong()
-                                val lootMeta = rollNormalLoot(legendaryBoost = isGlitchStorm)
+                                val lootMeta = rollNormalLoot(legendaryBoost = isGlitchStorm, weeklyLegendaryBonusPercent = weeklyLegendaryBonus)
                                 val lootItem = lootMeta?.id ?: "quantum_tuner"
                                 val lootName = lootMeta?.name ?: lootItem
                                 val newBuffer = if (session.buffer_items.isEmpty()) lootItem else "${session.buffer_items},$lootItem"
@@ -1044,6 +1057,8 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             "relic", "cursed" -> 8
             else -> 0
         }
+        // Недельное событие: множитель Осколков Эйдоса из разбора
+        val finalShardCount = (shardCount * getWeeklyEvent(uid).shardMultiplier).toInt()
         val bcReward = maxOf(5L, (meta.price * 0.15f).toLong())
         
         dao.deleteInventoryItem(item)
@@ -1058,14 +1073,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             ))
         }
         
-        if (shardCount > 0) {
+        if (finalShardCount > 0) {
             val currentShards = dao.getInventoryFlow(uid).first().find { it.item_id == "eidos_shard" }
             if (currentShards != null) {
-                dao.updateInventoryItem(currentShards.copy(quantity = currentShards.quantity + shardCount))
+                dao.updateInventoryItem(currentShards.copy(quantity = currentShards.quantity + finalShardCount))
             } else {
-                dao.insertInventoryItem(InventoryItem(uid = uid, item_id = "eidos_shard", quantity = shardCount))
+                dao.insertInventoryItem(InventoryItem(uid = uid, item_id = "eidos_shard", quantity = finalShardCount))
             }
-            log(uid, "♻️ [РАЗБОР]: ${meta.name} утилизирован -> +$shardCount 💎 Осколков & +$bcReward BC.", "loot")
+            log(uid, "♻️ [РАЗБОР]: ${meta.name} утилизирован -> +$finalShardCount 💎 Осколков & +$bcReward BC.", "loot")
         } else {
             log(uid, "♻️ [РАЗБОР]: ${meta.name} утилизирован -> +$bcReward BC.", "loot")
         }
@@ -1073,30 +1088,13 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
 
 
-    data class ForgeRecipeDefinition(
-        val targetId: String,
-        val shardCost: Int,
-        val creditCost: Long,
-        val additionalIngredients: Map<String, Int> = emptyMap()
-    )
-
-    val forgeRecipes: List<ForgeRecipeDefinition> = listOf(
-        ForgeRecipeDefinition("reality_silencer", shardCost = 10, creditCost = 2500L, additionalIngredients = mapOf("boss_core" to 1)),
-        ForgeRecipeDefinition("death_mask", shardCost = 6, creditCost = 1500L, additionalIngredients = mapOf("data_spike" to 1)),
-        ForgeRecipeDefinition("scavenger_mask", shardCost = 4, creditCost = 800L, additionalIngredients = mapOf("master_key" to 2)),
-        ForgeRecipeDefinition("nomad_goggles", shardCost = 5, creditCost = 1000L, additionalIngredients = mapOf("compass" to 1)),
-        ForgeRecipeDefinition("karma_inversion", shardCost = 8, creditCost = 2000L, additionalIngredients = mapOf("abyssal_key" to 1)),
-        ForgeRecipeDefinition("holo_poverty", shardCost = 6, creditCost = 1200L, additionalIngredients = emptyMap()),
-        ForgeRecipeDefinition("aegis", shardCost = 5, creditCost = 1000L, additionalIngredients = mapOf("battery" to 1)),
-        ForgeRecipeDefinition("rusty_knife", shardCost = 30, creditCost = 250L),
-        ForgeRecipeDefinition("crowbar", shardCost = 50, creditCost = 500L),
-        ForgeRecipeDefinition("hoodie", shardCost = 40, creditCost = 400L)
-    )
+    // КОВКА: единый реестр рецептов (см. ForgeRecipes.kt) - один источник истины для логики и UI
+    val forgeRecipes: List<ForgeRecipeDefinition> = ForgeRecipeRegistry.ALL
 
     suspend fun craftItem(uid: Long, targetId: String) {
         val meta = getItemMetadata(targetId) ?: return
         val player = dao.getPlayer(uid) ?: return
-        val recipe = forgeRecipes.find { it.targetId == targetId }
+        val recipe = ForgeRecipeRegistry.byId(targetId)
         
         val shardCost = recipe?.shardCost ?: ((meta.price / 10) + 10)
         val creditCost = recipe?.creditCost ?: (meta.price / 2L)
@@ -1506,6 +1504,10 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val validation = io.eidos.zerolayer.domain.anti_cheat.TimeAntiCheat.validateAndSanitizeTimestamp(context)
         val safeNow = validation.sanitizedCurrentTime
 
+        // Недельное событие: делитель интервала регена (>1 - медленнее, <1 - быстрее)
+        val effectiveIntervalMs = (regenIntervalMs * getWeeklyEvent(uid).energyRegenDivisor)
+            .toLong().coerceAtLeast(60_000L)
+
         if (p.energy >= p.max_energy) {
             if (resetIdleTimestamp) {
                 dao.updatePlayer(p.copy(last_active = safeNow))
@@ -1517,14 +1519,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
             lastActiveTimestamp = p.last_active,
             currentValidatedTimestamp = safeNow
         )
-        if (diffMs < regenIntervalMs) {
+        if (diffMs < effectiveIntervalMs) {
             if (resetIdleTimestamp) {
                 dao.updatePlayer(p.copy(last_active = safeNow))
             }
             return@withLock EnergyRegenReport(validationMessage = validation.message)
         }
 
-        val gained = (diffMs / regenIntervalMs).toInt()
+        val gained = (diffMs / effectiveIntervalMs).toInt()
         if (gained <= 0) {
             return@withLock EnergyRegenReport(validationMessage = validation.message)
         }
@@ -1533,7 +1535,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         // state_version is bumped by the dao wrapper on updatePlayer
         dao.updatePlayer(p.copy(
             energy = newEnergy,
-            last_active = safeNow - (diffMs % regenIntervalMs),
+            last_active = safeNow - (diffMs % effectiveIntervalMs),
             updated_at = safeNow
         ))
         EnergyRegenReport(
@@ -2816,11 +2818,14 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 log(uid, dispatchResult.message, "info")
             }
             is io.eidos.zerolayer.domain.raid.RaidEventDispatcher.DispatchResult.CombatEncounter -> {
-                val enemyStartingHp = if (currentMutator == SectorMutator.FRAGILE_CORE.id) {
-                    maxOf(1, (dispatchResult.enemyHp * 0.5f).toInt())
+                // Недельное событие: множитель HP врага при спавне
+                val weeklyHpMult = getWeeklyEvent(uid).enemyHpMultiplier
+                val mutatorAdjustedHp = if (currentMutator == SectorMutator.FRAGILE_CORE.id) {
+                    dispatchResult.enemyHp * 0.5f
                 } else {
-                    dispatchResult.enemyHp
+                    dispatchResult.enemyHp.toFloat()
                 }
+                val enemyStartingHp = maxOf(1, (mutatorAdjustedHp * weeklyHpMult).toInt())
                 // Gatekeeper reward: at every 1000m the warden carries the Biome Key
                 var bufferForGate = session.buffer_items
                 if (newDepth > 0 && newDepth % 1000 == 0) {
@@ -3313,7 +3318,12 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val bonusXpMult = if (player.is_premium) 1.5f else 1.0f
         // NG+ prestige: each Singularity cycle grants +10% to all raid rewards
         val prestigeMult = 1.0f + (player.prestige_count * 0.10f)
-        val calculatedXp = (session.buffer_xp * shallowPenalty * bonusXpMult * prestigeMult).toLong()
+        // Недельное событие: множитель XP за рейд
+        val weeklyXpMult = getWeeklyEvent(uid).xpMultiplier
+        val calculatedXp = (session.buffer_xp * shallowPenalty * bonusXpMult * prestigeMult * weeklyXpMult).toLong()
+        if (weeklyXpMult != 1f) {
+            log(uid, "📅 [${getWeeklyEvent(uid).title.uppercase()}]: Модификатор недели - опыт x${weeklyXpMult}.", "info")
+        }
 
         // Holo Poverty limit check (max 500 BC extracted)
         val hasHoloPoverty = equippedItems.any { it.item_id == "holo_poverty" }
@@ -3600,6 +3610,23 @@ class GameRepository(private val context: Context, private val originalDao: Eido
                 log(uid, "[ТЕРМИНАЛ СВЯЗИ]: Перехвачена эпизодическая передача: «$title»!", "info")
             }
         }
+
+        // 5. Недельный цикл: анонс недельного модификатора (по одному сообщению на событие)
+        val weeklyEvent = getWeeklyEvent(uid)
+        if (existing.none { it.title == "НЕДЕЛЬНЫЙ ЦИКЛ: ${weeklyEvent.title}" }) {
+            dao.insertRadioMessage(
+                RadioMessageEntity(
+                    uid = uid,
+                    sender = "Ядро EIDOS",
+                    title = "НЕДЕЛЬНЫЙ ЦИКЛ: ${weeklyEvent.title}",
+                    body = "${weeklyEvent.description}\n\nМодификатор активен до конца недели. Следи за баннером в Хабе.",
+                    rewardCoins = 0L,
+                    rewardXp = 0L,
+                    isClaimed = false
+                )
+            )
+            log(uid, "📅 [НЕДЕЛЬНЫЙ ЦИКЛ]: Активирован модификатор недели «${weeklyEvent.title}». ${weeklyEvent.description}", "info")
+        }
     }
 
     /** А4 UX: непрочитанные (невостребованные) радио-передачи для бейджа на Хабе. */
@@ -3658,6 +3685,11 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val overchargeMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeLootMultiplier(overchargeTier)
         var coinReward = (baseCoins * overchargeMult.toDouble()).toLong()
         if (isDoubleDrop) coinReward *= 2
+        // Недельное событие: множитель трофеев за тайник
+        val weeklyChestCoinMult = getWeeklyEvent(uid).coinMultiplier
+        if (weeklyChestCoinMult != 1f) {
+            coinReward = (coinReward * weeklyChestCoinMult).toLong()
+        }
 
         val xpReward = if (isCursed) (300L..600L).random() else (100L..200L).random()
         val items = mutableListOf<String>()
@@ -3720,7 +3752,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         when {
             roll < 35 -> { // Found a random item or material
-                val lootMeta = if ((0..100).random() < 50) rollNormalLoot(legendaryBoost = session.active_mutator == SectorMutator.GLITCH_STORM.id) else null
+                val lootMeta = if ((0..100).random() < 50) rollNormalLoot(legendaryBoost = session.active_mutator == SectorMutator.GLITCH_STORM.id, weeklyLegendaryBonusPercent = getWeeklyEvent(uid).legendaryChanceBonus) else null
                 val foundItemId = lootMeta?.id ?: listOf("battery", "energy_cell", "eidos_shard", "medkit", "master_key", "crowbar").random()
                 val lootName = getItemMetadata(foundItemId)?.name ?: foundItemId
                 val updatedItems = if (session.buffer_items.isEmpty()) foundItemId else "${session.buffer_items},$foundItemId"
@@ -4062,7 +4094,7 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val rewards = mutableListOf<InventoryItem>()
         repeat(2) {
             // Out-of-raid decryption: no session mutator applies here
-            val lootMeta = rollNormalLoot()
+            val lootMeta = rollNormalLoot(weeklyLegendaryBonusPercent = getWeeklyEvent(uid).legendaryChanceBonus)
             if (lootMeta != null) {
                 val lootId = lootMeta.id
                 addInventory(uid, lootId, 1)
@@ -4173,20 +4205,42 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         }
     }
 
-    suspend fun claimDailyStreak(uid: Long) {
-        val player = dao.getPlayer(uid) ?: return
-        val now = System.currentTimeMillis()
-        val currentStreak = player.streak
+    /**
+     * Подтверждение синхронизации сети (стрик входа). Раз в сутки:
+     * клейм вчера -> серия +1; пропуск дня -> серия сбрасывается в 1.
+     * @return true если награда выдана, false если уже забрано сегодня.
+     */
+    suspend fun claimDailyStreak(uid: Long): Boolean {
+        val player = dao.getPlayer(uid) ?: return false
+        val today = streakDayKey()
+        val cal = java.util.Calendar.getInstance()
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        val yesterday = SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(cal.time)
+        val lastDate = streakPrefs.getString("streak_${uid}_last_date", null)
+        if (lastDate == today) {
+            log(uid, "⏳ [СИНХРОНИЗАЦИЯ СЕТИ]: Цикл уже подтвержден. Возвращайся завтра.", "info")
+            return false
+        }
+
+        val currentStreak = when {
+            // Пропуск дня: серия обнуляется
+            lastDate != null && lastDate != yesterday -> 1
+            // Миграция со старых версий (нет даты, но стрик в Player уже > 1):
+            // доверяем старому счетчику последний раз
+            lastDate == null -> player.streak
+            else -> player.streak + 1
+        }
         val coinReward = 150L * currentStreak
         val shardReward = if (currentStreak % 3 == 0) (currentStreak / 3) else 0
 
         val updatedPlayer = player.copy(
-            streak = currentStreak + 1,
+            streak = currentStreak,
             biocoin = player.biocoin + coinReward,
-            last_active = now,
+            last_active = System.currentTimeMillis(),
             hp = player.max_hp
         )
         dao.updatePlayer(updatedPlayer)
+        streakPrefs.edit().putString("streak_${uid}_last_date", today).apply()
 
         if (shardReward > 0) {
             addInventory(uid, "eidos_shard", shardReward)
@@ -4194,7 +4248,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
 
         io.eidos.zerolayer.ui.utils.DailyStreakWorker.schedule(context, 24 * 3600 * 1000L)
 
-        log(uid, "🎁 [СИНХРОНИЗАЦИЯ СЕТИ]: Серия заходов: ${currentStreak + 1} дней! Награда: +$coinReward BC, +$shardReward Осколков Эйдоса.", "loot")
+        val resetNote = if (lastDate != null && lastDate != yesterday) " Серия начата заново." else ""
+        log(uid, "🎁 [СИНХРОНИЗАЦИЯ СЕТИ]: Серия заходов: $currentStreak дней!$resetNote Награда: +$coinReward BC, +$shardReward Осколков Эйдоса.", "loot")
+        return true
     }
 
     suspend fun joinFaction(uid: Long, factionName: String) {
@@ -4229,7 +4285,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val player = dao.getPlayer(uid) ?: return
         dao.updatePlayer(player.copy(biocoin = player.biocoin + bcGain))
         if (shardGain > 0) {
-            addInventory(uid, "eidos_shard", shardGain)
+            // Недельное событие: множитель Осколков Эйдоса из утилизации
+            val finalShardGain = (shardGain * getWeeklyEvent(uid).shardMultiplier).toInt()
+            addInventory(uid, "eidos_shard", finalShardGain)
         }
 
         val itemName = meta?.name ?: item.item_id.uppercase()
@@ -4372,7 +4430,9 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val bonusXpMult = if (player.is_premium) 1.5f else 1.0f
         // NG+ prestige: each Singularity cycle grants +10% to all raid rewards
         val prestigeMult = 1.0f + (player.prestige_count * 0.10f)
-        val calculatedXp = (session.buffer_xp * shallowPenalty * bonusXpMult * prestigeMult).toLong()
+        // Недельное событие: множитель XP за рейд
+        val weeklyXpMult = getWeeklyEvent(uid).xpMultiplier
+        val calculatedXp = (session.buffer_xp * shallowPenalty * bonusXpMult * prestigeMult * weeklyXpMult).toLong()
 
         val sessionToken = authStore.getSession().accessToken
         if (!sessionToken.isNullOrBlank() && SupabaseClientManager.isConfigured()) {
@@ -4768,8 +4828,28 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         val (leveled, _) = updated.checkAndApplyLevelUp()
         dao.updatePlayer(leveled)
         log(uid, "🎯 [ДИРЕКТИВА ВЫПОЛНЕНА]: «${quest.title}» - награда: +${quest.rewardCoins} BC, +${quest.rewardXp} XP!", "loot")
+
+        // Цепочки ачивок: все 3 директивы дня закрыты -> отмечаем "полный день"
+        val refreshed = dailyQuestStorage.getQuests(uid)
+        if (refreshed.size == 3 && refreshed.all { it.isClaimed }) {
+            val fullStreak = dailyQuestStorage.markFullDay(uid)
+            log(uid, "⛓️ [ЦЕПОЧКА ДИРЕКТИВ]: Все директивы дня закрыты! Серия полных дней: $fullStreak.", "info")
+        }
         true
     }
+
+    /** Серия полных дней (все директивы дня) для зеркала статистики ачивок. */
+    fun getFullDaysStreak(uid: Long): Long = dailyQuestStorage.getFullDaysStreak(uid)
+
+    // Серия входов: дата последнего клейма в prefs (без миграции Room)
+    private val streakPrefs = context.getSharedPreferences("eidos_streak_prefs", Context.MODE_PRIVATE)
+
+    private fun streakDayKey(): String =
+        SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date())
+
+    /** Синхронизация сети уже подтверждена сегодня? */
+    fun isStreakClaimedToday(uid: Long): Boolean =
+        streakPrefs.getString("streak_${uid}_last_date", null) == streakDayKey()
 
     // --- GACHA & LOOTBOX SYSTEM ---
     suspend fun buyGachaRoll(uid: Long): GachaRollResult? {
@@ -5355,6 +5435,11 @@ private data class CombatSynergyFlags(
         val activeOverchargeTier = getOverchargeTier(uid)
         val ocLootMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeLootMultiplier(activeOverchargeTier)
         var finalCoins = ((baseCoins - tax) * ocLootMult).toLong()
+        // Недельное событие: множитель трофеев за убийство
+        val weeklyCoinMult = getWeeklyEvent(uid).coinMultiplier
+        if (weeklyCoinMult != 1f) {
+            finalCoins = (finalCoins * weeklyCoinMult).toLong()
+        }
 
         // Synergy Cursed Pact: +25% BC
         if (syn.hasCursedPact) {
@@ -5495,6 +5580,12 @@ private data class CombatSynergyFlags(
             }
             if (session.active_mutator == SectorMutator.NEURO_OVERLOAD.id) {
                 rawVillainAtk = (rawVillainAtk * 1.20f).toInt()
+            }
+
+            // Недельное событие: множитель атаки врагов
+            val weeklyAtkMult = getWeeklyEvent(uid).enemyAtkMultiplier
+            if (weeklyAtkMult != 1f) {
+                rawVillainAtk = (rawVillainAtk * weeklyAtkMult).toInt()
             }
 
             val ocAtkMult = io.eidos.zerolayer.domain.combat.CombatEngine.getOverchargeEnemyAtkMultiplier(getOverchargeTier(uid))
