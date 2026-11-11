@@ -59,7 +59,14 @@ class GameRepository(
         }
     }
 
-    private val dbMutex = Mutex()
+    companion object {
+        // ЕДИНЫЙ на процесс: GameRepository создаётся в каждой MainViewModel,
+        // и экземплярные мьютексы не сериализуют экземпляры между собой -
+        // отсюда гонки клеймов и затирание полей устаревшими копиями.
+        // Вложенные публичные вызовы из-под мьютекса запрещены правилом
+        // проекта: Kotlin Mutex нереентерабельный.
+        private val dbMutex = Mutex()
+    }
 
     // Ежедневные Директивы: prefs-based daily quest storage (no Room migration)
     val dailyQuestStorage: DailyQuestStorage = DailyQuestStorage.getInstance(context)
