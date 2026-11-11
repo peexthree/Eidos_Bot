@@ -4,7 +4,8 @@
 Kotlin 2.3.21, Jetpack Compose (BOM 2026.09), AGP 9.2.1, Gradle 9.8.2, Room 2.8.5, built-in Kotlin (без kotlin-android плагина), KSP 2.3.13, compileSdk 37, targetSdk 35, minSdk 26, JDK 17.
 
 ## Запуск
-- `./gradlew assembleDebug` - сборка, `./gradlew testDebugUnitTest` - 46 тестов
+- `./gradlew assembleDebug` - сборка, `./gradlew testDebugUnitTest` - 50 тестов (вкл. DatabaseMigrationTest)
+- Room-схемы экспортируются в `app/schemas/` (14.json); при подъёме версии коммитить новый JSON и расширять фикстуру v10 в DatabaseMigrationTest
 - Секреты в `local.properties` (gitignored): SUPABASE_URL, SUPABASE_ANON_KEY
 - Release: keystore.properties (gitignored), fallback на debug-ключ
 
@@ -27,6 +28,7 @@ Kotlin 2.3.21, Jetpack Compose (BOM 2026.09), AGP 9.2.1, Gradle 9.8.2, Room 2.8.
 - Дейлики: DailyQuestData.kt (SharedPreferences), 5 типов, клейм наград
 - Мутаторы: все 9 реализованы (GOLD_RUSH шаблон, ANTIGRAVITY=0EP+блок аптечек, GLITCH_STORM=+40% легендарок, ECHOES_PAST=x2 могилы)
 - Паттерн репозитория: `dbMutex.withLock { internalUnsafeXxx() }` - НЕ вызывать публичные обёртки из-под мьютекса (Kotlin Mutex нереентерабельный)
+- Клеймы наград идемпотентны: радио = dbMutex+withTransaction (GameRepository получает EidosDatabase третьим аргументом); дейлики/ачивки = компенсация removeClaimed/markUnclaimed при сбое
 - Ежедневные директивы: SPEND wired на buyItem, repairItemBC, buyGachaRoll, buyPvpHardware
 
 ## UX

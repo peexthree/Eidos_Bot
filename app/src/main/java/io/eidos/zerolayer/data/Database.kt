@@ -185,7 +185,9 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
 @Database(
     entities = [Player::class, InventoryItem::class, RaidSession::class, GameLog::class, VillainStatic::class, GameContent::class, Grave::class, BestiaryEntry::class, RadioMessageEntity::class, UserEquipment::class, WorldBossState::class, WorldBossContrib::class],
     version = 14,
-    exportSchema = false
+    // JSON-схемы пишутся в app/schemas (room.schemaLocation в build.gradle.kts).
+    // Каждое повышение версии обязано попасть в git как 15.json и т.д.
+    exportSchema = true
 )
 abstract class EidosDatabase : RoomDatabase() {
     abstract fun dao(): EidosDao

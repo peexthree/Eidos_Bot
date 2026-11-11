@@ -146,6 +146,11 @@ android {
     }
 }
 
+// Room: экспорт JSON-схем (app/schemas/...) - история версий для миграционных тестов
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     // Material Components (for XML themes)
     implementation("com.google.android.material:material:1.12.0")
@@ -201,6 +206,8 @@ dependencies {
     implementation("com.google.firebase:firebase-crashlytics-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
 
+    // Миграционные тесты Room на JVM: реальный SQLite без эмулятора
+    testImplementation("org.xerial:sqlite-jdbc:3.46.1.3")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

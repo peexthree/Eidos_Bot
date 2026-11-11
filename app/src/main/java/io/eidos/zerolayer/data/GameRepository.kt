@@ -1,6 +1,7 @@
 package io.eidos.zerolayer.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,7 +27,11 @@ import io.eidos.zerolayer.domain.raid.SectorMutator
 
 
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-class GameRepository(private val context: Context, private val originalDao: EidosDao) {
+class GameRepository(
+    private val context: Context,
+    private val originalDao: EidosDao,
+    private val database: EidosDatabase
+) {
 
     private val dao = object : EidosDao by originalDao {
         override suspend fun insertPlayer(player: Player): Long {
@@ -3664,20 +3669,26 @@ class GameRepository(private val context: Context, private val originalDao: Eido
     suspend fun getUnclaimedRadioCount(uid: Long): Int =
         dao.getAllRadioMessages(uid).count { !it.isClaimed }
 
-    suspend fun claimRadioMessageReward(uid: Long, messageId: Long) {
-        val player = dao.getPlayer(uid) ?: return
-        val messages = dao.getAllRadioMessages(uid)
-        val target = messages.firstOrNull { it.id == messageId } ?: return
-        if (target.isClaimed) return
+    /**
+     * Клейм радио-награды: атомарно (мьютекс + Room-транзакция).
+     * Двойной тап или сбой между обновлениями больше не даёт двойной/потерянной
+     * награды: повторный клейм отсекается проверкой isClaimed внутри транзакции.
+     */
+    suspend fun claimRadioMessageReward(uid: Long, messageId: Long) = dbMutex.withLock {
+        database.withTransaction {
+            val player = dao.getPlayer(uid) ?: return@withTransaction
+            val target = dao.getAllRadioMessages(uid).firstOrNull { it.id == messageId } ?: return@withTransaction
+            if (target.isClaimed) return@withTransaction
 
-        val updatedPlayer = player.copy(
-            biocoin = player.biocoin + target.rewardCoins,
-            xp = player.xp + target.rewardXp
-        )
-        val (finalPlayer, _) = updatedPlayer.checkAndApplyLevelUp()
-        dao.updatePlayer(finalPlayer)
-        dao.updateRadioMessage(target.copy(isClaimed = true))
-        log(uid, "🎁 [ТЕРМИНАЛ СВЯЗИ]: Получено вознаграждение: +${target.rewardCoins} BC, +${target.rewardXp} XP!", "loot")
+            val updatedPlayer = player.copy(
+                biocoin = player.biocoin + target.rewardCoins,
+                xp = player.xp + target.rewardXp
+            )
+            val (finalPlayer, _) = updatedPlayer.checkAndApplyLevelUp()
+            dao.updatePlayer(finalPlayer)
+            dao.updateRadioMessage(target.copy(isClaimed = true))
+            log(uid, "🎁 [ТЕРМИНАЛ СВЯЗИ]: Получено вознаграждение: +${target.rewardCoins} BC, +${target.rewardXp} XP!", "loot")
+        }
     }
 
     suspend fun resolveHardGlitch(uid: Long, chosenIndex: Int, correctIndex: Int) {
@@ -4866,21 +4877,32 @@ class GameRepository(private val context: Context, private val originalDao: Eido
         return dailyQuestStorage.getQuests(uid)
     }
 
-    /** Забрать награду за выполненную директиву. */
+    /**
+     * Забрать награду за выполненную директиву.
+     * Идемпотентность: игрок проверяется ДО пометки клейма; сбой начисления
+     * снимает пометку (компенсация), чтобы награда не терялась навсегда.
+     * Процессная смерть между setClaimed и updatePlayer - остаточный риск
+     * (SharedPreferences и Room нельзя объединить в одну транзакцию).
+     */
     suspend fun claimDailyQuest(uid: Long, questId: String): Boolean = dbMutex.withLock {
         val quests = dailyQuestStorage.getQuests(uid)
         val quest = quests.find { it.id == questId } ?: return@withLock false
         if (quest.isClaimed || quest.progress < quest.target) return@withLock false
         if (dailyQuestStorage.readClaimed(uid, questId)) return@withLock false
 
-        dailyQuestStorage.setClaimed(uid, questId)
         val player = dao.getPlayer(uid) ?: return@withLock false
-        val updated = player.copy(
-            biocoin = player.biocoin + quest.rewardCoins,
-            xp = player.xp + quest.rewardXp
-        )
-        val (leveled, _) = updated.checkAndApplyLevelUp()
-        dao.updatePlayer(leveled)
+        dailyQuestStorage.setClaimed(uid, questId)
+        try {
+            val updated = player.copy(
+                biocoin = player.biocoin + quest.rewardCoins,
+                xp = player.xp + quest.rewardXp
+            )
+            val (leveled, _) = updated.checkAndApplyLevelUp()
+            dao.updatePlayer(leveled)
+        } catch (e: Exception) {
+            dailyQuestStorage.removeClaimed(uid, questId)
+            throw e
+        }
         log(uid, "🎯 [ДИРЕКТИВА ВЫПОЛНЕНА]: «${quest.title}» - награда: +${quest.rewardCoins} BC, +${quest.rewardXp} XP!", "loot")
 
         // Цепочки ачивок: все 3 директивы дня закрыты -> отмечаем "полный день"

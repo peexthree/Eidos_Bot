@@ -156,8 +156,9 @@ fun HubScreen(
     }
 
     val context = LocalContext.current
-    val achievementStorage = remember(context) { io.eidos.zerolayer.data.AchievementStorage(context) }
-    val unclaimedAchievements = remember(player) { achievementStorage.getUnclaimedCount(player) }
+    // Бейдж ачивок: наблюдаемый StateFlow (SharedPreferences напрямую в Compose не наблюдаемы)
+    val mainViewModel: MainViewModel = viewModel()
+    val unclaimedAchievements by mainViewModel.unclaimedAchievementCount.collectAsState()
     val haptics = remember { io.eidos.zerolayer.ui.utils.HapticFeedbackManager.getInstance(context) }
     val activity = context as? FragmentActivity
     val ambientSynth = remember { EidosAmbientSynthesizer.getInstance() }
@@ -181,7 +182,6 @@ fun HubScreen(
     // isBrokerActive is updated every 30s to avoid full-screen 1000ms recompositions
 
     // World Boss and Daily Quests: live state via MainViewModel
-    val mainViewModel: MainViewModel = viewModel()
     val worldBossState by mainViewModel.worldBossState.collectAsState()
     val bossTop by mainViewModel.bossTop.collectAsState()
     val dailyQuests by mainViewModel.dailyQuests.collectAsState()
@@ -194,6 +194,7 @@ fun HubScreen(
         mainViewModel.refreshDailyQuests()
         mainViewModel.refreshWeeklyEvent()
         mainViewModel.refreshUnreadRadio()
+        mainViewModel.refreshUnclaimedAchievements()
     }
 
     // EVA Welcome Back voice greeting (at most once every 10 min)

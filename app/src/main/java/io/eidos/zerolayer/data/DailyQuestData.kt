@@ -100,6 +100,12 @@ class DailyQuestStorage private constructor(context: Context) {
         prefs.edit().putBoolean(key(uid, "slot_${slot}_claimed"), true).apply()
     }
 
+    /** Компенсация: снять пометку клейма при сбое начисления награды. */
+    fun removeClaimed(uid: Long, questId: String) {
+        val slot = questId.removePrefix("slot_").toIntOrNull() ?: return
+        prefs.edit().putBoolean(key(uid, "slot_${slot}_claimed"), false).apply()
+    }
+
     fun readClaimed(uid: Long, questId: String): Boolean {
         val slot = questId.removePrefix("slot_").toIntOrNull() ?: return true
         return prefs.getBoolean(key(uid, "slot_${slot}_claimed"), false)

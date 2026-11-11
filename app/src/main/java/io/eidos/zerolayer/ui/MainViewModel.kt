@@ -19,7 +19,7 @@ class MainViewModel(
     private val savedStateHandle: androidx.lifecycle.SavedStateHandle
 ) : AndroidViewModel(application) {
     private val database = EidosDatabase.getDatabase(application)
-    private val repository = GameRepository(application, database.dao())
+    private val repository = GameRepository(application, database.dao(), database)
 
     // Process Death proof states for search queries and filters
     val codexSelectedCategory = savedStateHandle.getStateFlow("codex_category", "lore_story")
@@ -1444,6 +1444,19 @@ class MainViewModel(
     private val _achievements = MutableStateFlow<List<Achievement>>(emptyList())
     val achievements: StateFlow<List<Achievement>> = _achievements.asStateFlow()
 
+    /** Бейдж Хаба: незабранные ачивки. SharedPreferences не наблюдаемы из Compose,
+     *  поэтому счётчик держится в StateFlow и пересчитывается при событиях. */
+    private val _unclaimedAchievementCount = MutableStateFlow(0)
+    val unclaimedAchievementCount: StateFlow<Int> = _unclaimedAchievementCount.asStateFlow()
+
+    /** Пересчитать бейдж незабранных ачивок (вызывается при unlock/claim/трекерах). */
+    fun refreshUnclaimedAchievements() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val p = repository.getPlayerSync(_uid.value)
+            _unclaimedAchievementCount.value = achievementStorage.getUnclaimedCount(p)
+        }
+    }
+
     private val _levelUpEvent = MutableStateFlow<LevelUpEvent?>(null)
     val levelUpEvent: StateFlow<LevelUpEvent?> = _levelUpEvent.asStateFlow()
 
@@ -1476,15 +1489,25 @@ class MainViewModel(
                 audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
             }
         }
+        refreshUnclaimedAchievements()
     }
 
     fun claimAchievement(achievement: Achievement) {
         val key = achievement.achievementKey.ifBlank { achievement.title }
+        // Идемпотентность: повторный клейм (двойной тап) отсекается сразу
+        if (achievementStorage.isClaimed(key)) return
         achievementStorage.markClaimed(key)
-        
+        refreshUnclaimedAchievements()
+
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val currentP = repository.getPlayerSync(_uid.value)
-            if (currentP != null) {
+            try {
+                val currentP = repository.getPlayerSync(_uid.value)
+                if (currentP == null) {
+                    // Начислять некому - возвращаем ачивку в доступные, иначе награда потеряна
+                    achievementStorage.markUnclaimed(key)
+                    refreshUnclaimedAchievements()
+                    return@launch
+                }
                 val newXp = currentP.xp + achievement.xpReward
                 val newCoins = currentP.biocoin + achievement.coinReward
                 val (updatedP, didLevelUp) = currentP.copy(
@@ -1497,8 +1520,14 @@ class MainViewModel(
                     repository.handleLevelUpRewards(_uid.value, currentP.level, updatedP.level)
                     showToast("🎉 УРОВЕНЬ ПОВЫШЕН: ${updatedP.level}!", CyberToastType.SUCCESS)
                 }
-                syncWithSupabase()
+            } catch (e: Exception) {
+                // Сбой начисления: компенсация, чтобы игрок мог забрать награду повторно
+                achievementStorage.markUnclaimed(key)
+                refreshUnclaimedAchievements()
+                android.util.Log.e("ACHIEVEMENT", "Claim failed, reverted claim for '$key'", e)
+                return@launch
             }
+            syncWithSupabase()
         }
         
         val rewardMsg = when {

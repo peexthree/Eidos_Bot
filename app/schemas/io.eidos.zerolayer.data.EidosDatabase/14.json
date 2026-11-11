@@ -1,0 +1,1126 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 14,
+    "identityHash": "99f3bcaf2ca830cbfc920c7b88f77156",
+    "entities": [
+      {
+        "tableName": "players",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uid` INTEGER NOT NULL, `username` TEXT, `first_name` TEXT, `path` TEXT NOT NULL, `xp` INTEGER NOT NULL, `biocoin` INTEGER NOT NULL, `level` INTEGER NOT NULL, `highest_level` INTEGER NOT NULL, `streak` INTEGER NOT NULL, `energy` INTEGER NOT NULL, `max_energy` INTEGER NOT NULL, `hp` INTEGER NOT NULL, `max_hp` INTEGER NOT NULL, `attack` INTEGER NOT NULL, `defense` INTEGER NOT NULL, `luck` INTEGER NOT NULL, `last_active` INTEGER NOT NULL, `total_spent` INTEGER NOT NULL, `is_admin` INTEGER NOT NULL, `is_active` INTEGER NOT NULL, `max_depth` INTEGER NOT NULL, `faction` TEXT NOT NULL, `kills` INTEGER NOT NULL, `raids_done` INTEGER NOT NULL, `perfect_raids` INTEGER NOT NULL, `skill_hacker_1` INTEGER NOT NULL, `skill_hacker_2` INTEGER NOT NULL, `skill_hacker_3` INTEGER NOT NULL, `skill_berserk_1` INTEGER NOT NULL, `skill_berserk_2` INTEGER NOT NULL, `skill_berserk_3` INTEGER NOT NULL, `skill_medic_1` INTEGER NOT NULL, `skill_medic_2` INTEGER NOT NULL, `skill_medic_3` INTEGER NOT NULL, `is_premium` INTEGER NOT NULL, `last_supply_drop` INTEGER NOT NULL, `last_recharge` INTEGER NOT NULL, `last_signal_restore` INTEGER NOT NULL, `last_sync` INTEGER NOT NULL, `sync_accel_expiry` INTEGER NOT NULL, `cyber_deck_slots` INTEGER NOT NULL, `wins_pvp` INTEGER NOT NULL, `losses_pvp` INTEGER NOT NULL, `pvp_shield_until` INTEGER NOT NULL, `pvp_proxy_until` INTEGER NOT NULL, `defense_program_1` TEXT NOT NULL, `defense_program_2` TEXT NOT NULL, `defense_program_3` TEXT NOT NULL, `installed_hardware` TEXT NOT NULL, `vendetta_logs` TEXT NOT NULL, `reputation` INTEGER NOT NULL, `referral_code` TEXT, `referred_by` TEXT, `telegram_id` INTEGER, `telegram_username` TEXT, `meta_signal_level` INTEGER NOT NULL, `meta_key_level` INTEGER NOT NULL, `meta_luck_level` INTEGER NOT NULL, `meta_power_level` INTEGER NOT NULL, `weapon_level` INTEGER NOT NULL, `isGlitched` INTEGER NOT NULL, `anomalyBuffType` TEXT, `anomalyBuffExpiry` INTEGER NOT NULL, `lastHardGlitchTimestamp` INTEGER NOT NULL, `glitchEncounterCounter` INTEGER NOT NULL, `overdriveCharge` INTEGER NOT NULL, `overchargeTier` INTEGER NOT NULL, `state_version` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `prestige_count` INTEGER NOT NULL, PRIMARY KEY(`uid`))",
+        "fields": [
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "username",
+            "columnName": "username",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "first_name",
+            "columnName": "first_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "xp",
+            "columnName": "xp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "biocoin",
+            "columnName": "biocoin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "level",
+            "columnName": "level",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "highest_level",
+            "columnName": "highest_level",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "streak",
+            "columnName": "streak",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "energy",
+            "columnName": "energy",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "max_energy",
+            "columnName": "max_energy",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hp",
+            "columnName": "hp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "max_hp",
+            "columnName": "max_hp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attack",
+            "columnName": "attack",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defense",
+            "columnName": "defense",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "luck",
+            "columnName": "luck",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "last_active",
+            "columnName": "last_active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "total_spent",
+            "columnName": "total_spent",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "is_admin",
+            "columnName": "is_admin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "is_active",
+            "columnName": "is_active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "max_depth",
+            "columnName": "max_depth",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "faction",
+            "columnName": "faction",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kills",
+            "columnName": "kills",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "raids_done",
+            "columnName": "raids_done",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "perfect_raids",
+            "columnName": "perfect_raids",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_hacker_1",
+            "columnName": "skill_hacker_1",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_hacker_2",
+            "columnName": "skill_hacker_2",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_hacker_3",
+            "columnName": "skill_hacker_3",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_berserk_1",
+            "columnName": "skill_berserk_1",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_berserk_2",
+            "columnName": "skill_berserk_2",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_berserk_3",
+            "columnName": "skill_berserk_3",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_medic_1",
+            "columnName": "skill_medic_1",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_medic_2",
+            "columnName": "skill_medic_2",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skill_medic_3",
+            "columnName": "skill_medic_3",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "is_premium",
+            "columnName": "is_premium",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "last_supply_drop",
+            "columnName": "last_supply_drop",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "last_recharge",
+            "columnName": "last_recharge",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "last_signal_restore",
+            "columnName": "last_signal_restore",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "last_sync",
+            "columnName": "last_sync",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sync_accel_expiry",
+            "columnName": "sync_accel_expiry",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cyber_deck_slots",
+            "columnName": "cyber_deck_slots",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wins_pvp",
+            "columnName": "wins_pvp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "losses_pvp",
+            "columnName": "losses_pvp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pvp_shield_until",
+            "columnName": "pvp_shield_until",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pvp_proxy_until",
+            "columnName": "pvp_proxy_until",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defense_program_1",
+            "columnName": "defense_program_1",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defense_program_2",
+            "columnName": "defense_program_2",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defense_program_3",
+            "columnName": "defense_program_3",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "installed_hardware",
+            "columnName": "installed_hardware",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vendetta_logs",
+            "columnName": "vendetta_logs",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reputation",
+            "columnName": "reputation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "referral_code",
+            "columnName": "referral_code",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referred_by",
+            "columnName": "referred_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "telegram_id",
+            "columnName": "telegram_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "telegram_username",
+            "columnName": "telegram_username",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "meta_signal_level",
+            "columnName": "meta_signal_level",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "meta_key_level",
+            "columnName": "meta_key_level",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "meta_luck_level",
+            "columnName": "meta_luck_level",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "meta_power_level",
+            "columnName": "meta_power_level",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weapon_level",
+            "columnName": "weapon_level",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isGlitched",
+            "columnName": "isGlitched",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "anomalyBuffType",
+            "columnName": "anomalyBuffType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "anomalyBuffExpiry",
+            "columnName": "anomalyBuffExpiry",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastHardGlitchTimestamp",
+            "columnName": "lastHardGlitchTimestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "glitchEncounterCounter",
+            "columnName": "glitchEncounterCounter",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overdriveCharge",
+            "columnName": "overdriveCharge",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overchargeTier",
+            "columnName": "overchargeTier",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state_version",
+            "columnName": "state_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updated_at",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "prestige_count",
+            "columnName": "prestige_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "uid"
+          ]
+        }
+      },
+      {
+        "tableName": "inventory",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` INTEGER NOT NULL, `item_id` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `durability` REAL NOT NULL, `is_equipped` INTEGER NOT NULL, `slot` TEXT, `custom_data` TEXT, FOREIGN KEY(`uid`) REFERENCES `players`(`uid`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "item_id",
+            "columnName": "item_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durability",
+            "columnName": "durability",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "is_equipped",
+            "columnName": "is_equipped",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "slot",
+            "columnName": "slot",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "custom_data",
+            "columnName": "custom_data",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_inventory_uid",
+            "unique": false,
+            "columnNames": [
+              "uid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inventory_uid` ON `${TABLE_NAME}` (`uid`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "players",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "uid"
+            ],
+            "referencedColumns": [
+              "uid"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "raid_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uid` INTEGER NOT NULL, `depth` INTEGER NOT NULL, `signal` INTEGER NOT NULL, `buffer_xp` INTEGER NOT NULL, `buffer_coins` INTEGER NOT NULL, `buffer_items` TEXT NOT NULL, `kills` INTEGER NOT NULL, `riddles_solved` INTEGER NOT NULL, `next_event_type` TEXT, `current_anomaly_id` TEXT, `event_streak` INTEGER NOT NULL, `current_enemy_id` TEXT, `current_enemy_hp` INTEGER NOT NULL, `start_time` INTEGER NOT NULL, `combat_turn` INTEGER NOT NULL, `damage_buffer` INTEGER NOT NULL, `is_scanned` INTEGER NOT NULL, `combo_count` INTEGER NOT NULL, `overdrive_turns` INTEGER NOT NULL, `active_mutator` TEXT, `drone_turns_left` INTEGER NOT NULL, `extract_multiplier` REAL NOT NULL, `raid_damage_buff` INTEGER NOT NULL, `boss_defeated_at` INTEGER NOT NULL, `active_aggro` INTEGER NOT NULL, `has_scanned_next_room` INTEGER NOT NULL, PRIMARY KEY(`uid`))",
+        "fields": [
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "depth",
+            "columnName": "depth",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "signal",
+            "columnName": "signal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "buffer_xp",
+            "columnName": "buffer_xp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "buffer_coins",
+            "columnName": "buffer_coins",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "buffer_items",
+            "columnName": "buffer_items",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kills",
+            "columnName": "kills",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "riddles_solved",
+            "columnName": "riddles_solved",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "next_event_type",
+            "columnName": "next_event_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "current_anomaly_id",
+            "columnName": "current_anomaly_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "event_streak",
+            "columnName": "event_streak",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "current_enemy_id",
+            "columnName": "current_enemy_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "current_enemy_hp",
+            "columnName": "current_enemy_hp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "start_time",
+            "columnName": "start_time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "combat_turn",
+            "columnName": "combat_turn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "damage_buffer",
+            "columnName": "damage_buffer",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "is_scanned",
+            "columnName": "is_scanned",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "combo_count",
+            "columnName": "combo_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overdrive_turns",
+            "columnName": "overdrive_turns",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "active_mutator",
+            "columnName": "active_mutator",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "drone_turns_left",
+            "columnName": "drone_turns_left",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "extract_multiplier",
+            "columnName": "extract_multiplier",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "raid_damage_buff",
+            "columnName": "raid_damage_buff",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "boss_defeated_at",
+            "columnName": "boss_defeated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "active_aggro",
+            "columnName": "active_aggro",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "has_scanned_next_room",
+            "columnName": "has_scanned_next_room",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "uid"
+          ]
+        }
+      },
+      {
+        "tableName": "game_logs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` INTEGER NOT NULL, `message` TEXT NOT NULL, `type` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, FOREIGN KEY(`uid`) REFERENCES `players`(`uid`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "message",
+            "columnName": "message",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_game_logs_uid",
+            "unique": false,
+            "columnNames": [
+              "uid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_game_logs_uid` ON `${TABLE_NAME}` (`uid`)"
+          },
+          {
+            "name": "index_game_logs_uid_timestamp",
+            "unique": false,
+            "columnNames": [
+              "uid",
+              "timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_game_logs_uid_timestamp` ON `${TABLE_NAME}` (`uid`, `timestamp`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "players",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "uid"
+            ],
+            "referencedColumns": [
+              "uid"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "villains_static",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `level` INTEGER NOT NULL, `hp` INTEGER NOT NULL, `atk` INTEGER NOT NULL, `def` INTEGER NOT NULL, `xp` INTEGER NOT NULL, `coin` INTEGER NOT NULL, `desc` TEXT NOT NULL, `image` TEXT, PRIMARY KEY(`name`))",
+        "fields": [
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "level",
+            "columnName": "level",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hp",
+            "columnName": "hp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "atk",
+            "columnName": "atk",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "def",
+            "columnName": "def",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "xp",
+            "columnName": "xp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coin",
+            "columnName": "coin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "desc",
+            "columnName": "desc",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "image",
+            "columnName": "image",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "name"
+          ]
+        }
+      },
+      {
+        "tableName": "game_content",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `level` TEXT NOT NULL, `type` TEXT NOT NULL, `path` TEXT NOT NULL, `text` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "level",
+            "columnName": "level",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "graves",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` INTEGER NOT NULL, `owner_name` TEXT NOT NULL, `depth` INTEGER NOT NULL, `coins` INTEGER NOT NULL, `items` TEXT NOT NULL, `timestamp` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "owner_name",
+            "columnName": "owner_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "depth",
+            "columnName": "depth",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coins",
+            "columnName": "coins",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "items",
+            "columnName": "items",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "bestiary_entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`enemy_id` TEXT NOT NULL, `encountered` INTEGER NOT NULL, `killed_count` INTEGER NOT NULL, PRIMARY KEY(`enemy_id`))",
+        "fields": [
+          {
+            "fieldPath": "enemy_id",
+            "columnName": "enemy_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "encountered",
+            "columnName": "encountered",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "killed_count",
+            "columnName": "killed_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "enemy_id"
+          ]
+        }
+      },
+      {
+        "tableName": "radio_messages",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` INTEGER NOT NULL, `sender` TEXT NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, `rewardCoins` INTEGER NOT NULL, `rewardXp` INTEGER NOT NULL, `isClaimed` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sender",
+            "columnName": "sender",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rewardCoins",
+            "columnName": "rewardCoins",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rewardXp",
+            "columnName": "rewardXp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isClaimed",
+            "columnName": "isClaimed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "user_equipment",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`player_uid` INTEGER NOT NULL, `head` TEXT, `armor` TEXT, `weapon` TEXT, `chip` TEXT, `eidos_shard` TEXT, PRIMARY KEY(`player_uid`))",
+        "fields": [
+          {
+            "fieldPath": "player_uid",
+            "columnName": "player_uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "head",
+            "columnName": "head",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "armor",
+            "columnName": "armor",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "weapon",
+            "columnName": "weapon",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "chip",
+            "columnName": "chip",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eidos_shard",
+            "columnName": "eidos_shard",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "player_uid"
+          ]
+        }
+      },
+      {
+        "tableName": "world_boss_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `boss_hp` INTEGER NOT NULL, `boss_max_hp` INTEGER NOT NULL, `cycle` INTEGER NOT NULL, `last_reset_month` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "boss_hp",
+            "columnName": "boss_hp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "boss_max_hp",
+            "columnName": "boss_max_hp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cycle",
+            "columnName": "cycle",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "last_reset_month",
+            "columnName": "last_reset_month",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "world_boss_contrib",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`player_uid` INTEGER NOT NULL, `total_damage` INTEGER NOT NULL, PRIMARY KEY(`player_uid`))",
+        "fields": [
+          {
+            "fieldPath": "player_uid",
+            "columnName": "player_uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "total_damage",
+            "columnName": "total_damage",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "player_uid"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '99f3bcaf2ca830cbfc920c7b88f77156')"
+    ]
+  }
+}
