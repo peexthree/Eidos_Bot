@@ -175,24 +175,32 @@ class DailyQuestStorage private constructor(context: Context) {
         }
 
         private fun rewardCoinsFor(type: String, target: Int): Long =
-            (when (type) {
-                "KILLS" -> 150L
-                "DEPTH" -> 200L
-                "SYNC" -> 120L
-                "SPEND" -> 250L
-                "CHEST" -> 180L
-                else -> 150L
-            } * target) + 100L
+            when (type) {
+                // SPEND: таргет в BC (150-300), не в штуках - умножение давало
+                // 37,600-75,100 BC за потраченные 300 (инфляция x100, найдено
+                // симуляцией 2026-11-12). Фикс: кэшбек x1.5 от потраченного.
+                "SPEND" -> (target * 1.5).toLong() + 100L
+                else -> (when (type) {
+                    "KILLS" -> 150L
+                    "DEPTH" -> 200L
+                    "SYNC" -> 120L
+                    "CHEST" -> 180L
+                    else -> 150L
+                } * target) + 100L
+            }
 
         private fun rewardXpFor(type: String, target: Int): Long =
-            (when (type) {
-                "KILLS" -> 60L
-                "DEPTH" -> 90L
-                "SYNC" -> 40L
-                "SPEND" -> 80L
-                "CHEST" -> 70L
-                else -> 60L
-            } * target)
+            when (type) {
+                // SPEND: та же инфляция XP (80 * 300 = 24,000 XP) - фикс
+                "SPEND" -> 200L
+                else -> (when (type) {
+                    "KILLS" -> 60L
+                    "DEPTH" -> 90L
+                    "SYNC" -> 40L
+                    "CHEST" -> 70L
+                    else -> 60L
+                } * target)
+            }
 
         @Volatile
         private var INSTANCE: DailyQuestStorage? = null
