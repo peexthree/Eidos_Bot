@@ -11,6 +11,41 @@ interface EidosDao {
     @Query("SELECT * FROM players WHERE uid = :uid")
     suspend fun getPlayer(uid: Long): Player?
 
+    /**
+     * Условный клейм суточного депо: строка обновляется только если
+     * last_supply_drop всё ещё равен ожидаемому значению, прочитанному
+     * перед клеймом. Двойной вызов (два экземпляра репозитория/VM, гонка
+     * тапов) не пройдёт вторым: обновится 0 строк. Играет роль компенсации
+     * того, что dbMutex у GameRepository экземплярный и не сериализует
+     * клеймы между разными экземплярами.
+     */
+    @Query(
+        "UPDATE players SET last_supply_drop = :now, energy = :energy " +
+            "WHERE uid = :uid AND last_supply_drop = :expectedLastDrop"
+    )
+    suspend fun conditionalClaimSupplyDrop(
+        uid: Long,
+        now: Long,
+        energy: Int,
+        expectedLastDrop: Long
+    ): Int
+
+    /**
+     * Точечное обновление энергии/активности без перезаписи всей строки:
+     * полная копия игрока из старого кода затирала параллельные изменения
+     * (например, свежий last_supply_drop после клейма депо).
+     */
+    @Query(
+        "UPDATE players SET energy = :energy, last_active = :lastActive, " +
+            "updated_at = :updatedAt, state_version = state_version + 1 WHERE uid = :uid"
+    )
+    suspend fun updateEnergyState(uid: Long, energy: Int, lastActive: Long, updatedAt: Long): Int
+
+    @Query(
+        "UPDATE players SET last_active = :lastActive, state_version = state_version + 1 WHERE uid = :uid"
+    )
+    suspend fun updateLastActive(uid: Long, lastActive: Long): Int
+
     @Query("SELECT * FROM players WHERE uid = :uid")
     fun getPlayerFlow(uid: Long): Flow<Player?>
 

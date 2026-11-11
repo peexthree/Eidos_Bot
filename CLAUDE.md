@@ -4,7 +4,9 @@
 Kotlin 2.3.21, Jetpack Compose (BOM 2026.09), AGP 9.2.1, Gradle 9.8.2, Room 2.8.5, built-in Kotlin (без kotlin-android плагина), KSP 2.3.13, compileSdk 37, targetSdk 35, minSdk 26, JDK 17.
 
 ## Запуск
-- `./gradlew assembleDebug` - сборка, `./gradlew testDebugUnitTest` - 50 тестов (вкл. DatabaseMigrationTest)
+- `./gradlew assembleDebug` - сборка, `./gradlew testDebugUnitTest` - 50+ тестов (вкл. DatabaseMigrationTest)
+- `./gradlew connectedDebugAndroidTest` - 4 сквозных UI-теста (androidTest/.../OnboardingAndNavigationTest.kt): онбординг->хаб, гейт кузницы, инвентарь, кузница с предзаполненным прогрессом; депо-тест в @Ignore (stale-writer last_supply_drop, вернуть на П4)
+- CI: .github/workflows/android-ci.yml - unit-джоб (15 мин) + instrumented на эмуляторе API 34 (reactivecircus/android-emulator-runner), бейдж в README
 - Room-схемы экспортируются в `app/schemas/` (14.json); при подъёме версии коммитить новый JSON и расширять фикстуру v10 в DatabaseMigrationTest
 - Секреты в `local.properties` (gitignored): SUPABASE_URL, SUPABASE_ANON_KEY
 - Release: keystore.properties (gitignored), fallback на debug-ключ
@@ -27,8 +29,9 @@ Kotlin 2.3.21, Jetpack Compose (BOM 2026.09), AGP 9.2.1, Gradle 9.8.2, Room 2.8.
 - Терминал Сингулярности: 3 финала (престиж NG+ +10%/цикл, Вознесение, Бездна)
 - Дейлики: DailyQuestData.kt (SharedPreferences), 5 типов, клейм наград
 - Мутаторы: все 9 реализованы (GOLD_RUSH шаблон, ANTIGRAVITY=0EP+блок аптечек, GLITCH_STORM=+40% легендарок, ECHOES_PAST=x2 могилы)
-- Паттерн репозитория: `dbMutex.withLock { internalUnsafeXxx() }` - НЕ вызывать публичные обёртки из-под мьютекса (Kotlin Mutex нереентерабельный)
-- Клеймы наград идемпотентны: радио = dbMutex+withTransaction (GameRepository получает EidosDatabase третьим аргументом); дейлики/ачивки = компенсация removeClaimed/markUnclaimed при сбое
+- Паттерн репозитория: `dbMutex.withLock { internalUnsafeXxx() }` - НЕ вызывать публичные обёртки из-под мьютекса (Kotlin Mutex нереентерабельный). ВАЖНО: dbMutex - поле экземпляра, а GameRepository создаётся в каждой MainViewModel - разные экземпляры НЕ сериализуются между собой; для критичных к двойному клейму операций использовать условный UPDATE (... WHERE last_supply_drop = :expected) внутри withTransaction
+- Клеймы наград идемпотентны: радио = dbMutex+withTransaction (GameRepository получает EidosDatabase третьим аргументом); дейлики/ачивки = компенсация removeClaimed/markUnclaimed при сбое; депо = conditionalClaimSupplyDrop (условный UPDATE, 2026-11-12)
+- Полные копии игрока в updatePlayer затирают параллельные записи полей: regenerateEnergy переведён на точечные updateEnergyState/updateLastActive; остальные писатели - тот же риск (кандидат на аудит П4)
 - Ежедневные директивы: SPEND wired на buyItem, repairItemBC, buyGachaRoll, buyPvpHardware
 
 ## UX

@@ -1,5 +1,7 @@
 # Eidos RPG (Android)
 
+[![Android CI](https://github.com/peexthree/Eidos_Bot/actions/workflows/android-ci.yml/badge.svg)](https://github.com/peexthree/Eidos_Bot/actions/workflows/android-ci.yml)
+
 A cyberpunk RPG adventure set in the virtual world of Eidos, rewritten as a native Android application using Kotlin and Jetpack Compose.
 
 ## Features

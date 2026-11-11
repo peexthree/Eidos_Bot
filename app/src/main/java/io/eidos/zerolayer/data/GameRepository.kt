@@ -1546,7 +1546,7 @@ class GameRepository(
 
         if (p.energy >= p.max_energy) {
             if (resetIdleTimestamp) {
-                dao.updatePlayer(p.copy(last_active = safeNow))
+                dao.updateLastActive(uid, safeNow)
             }
             return@withLock EnergyRegenReport(validationMessage = validation.message)
         }
@@ -1557,7 +1557,7 @@ class GameRepository(
         )
         if (diffMs < effectiveIntervalMs) {
             if (resetIdleTimestamp) {
-                dao.updatePlayer(p.copy(last_active = safeNow))
+                dao.updateLastActive(uid, safeNow)
             }
             return@withLock EnergyRegenReport(validationMessage = validation.message)
         }
@@ -1568,12 +1568,13 @@ class GameRepository(
         }
 
         val newEnergy = minOf(p.max_energy, p.energy + gained)
-        // state_version is bumped by the dao wrapper on updatePlayer
-        dao.updatePlayer(p.copy(
+        // Точечный апдейт: полная копия игрока затирала параллельные записи полей
+        dao.updateEnergyState(
+            uid = uid,
             energy = newEnergy,
-            last_active = safeNow - (diffMs % effectiveIntervalMs),
-            updated_at = safeNow
-        ))
+            lastActive = safeNow - (diffMs % effectiveIntervalMs),
+            updatedAt = safeNow
+        )
         EnergyRegenReport(
             validationMessage = validation.message,
             gained = gained,
@@ -2217,34 +2218,44 @@ class GameRepository(
         log(uid, "⚡ [ЗАРЯДНАЯ СТАНЦИЯ]: Батарея заряжена на +50 ед.", "info")
     }
 
-    suspend fun claimDailySupplyDrop(uid: Long): List<InventoryItem>? {
-        val player = dao.getPlayer(uid) ?: return null
-        val now = System.currentTimeMillis()
-        val nextDropTime = player.last_supply_drop + (24 * 3600 * 1000)
-        if (now < nextDropTime) {
-            val remainHours = ((nextDropTime - now) / 3600000).toInt()
-            log(uid, "Следующие припасы через $remainHours часов.", "error")
-            return null
+    suspend fun claimDailySupplyDrop(uid: Long): List<InventoryItem>? = dbMutex.withLock {
+        database.withTransaction {
+            val player = dao.getPlayer(uid) ?: return@withTransaction null
+            val now = System.currentTimeMillis()
+            val nextDropTime = player.last_supply_drop + (24 * 3600 * 1000L)
+            if (now < nextDropTime) {
+                val remainHours = ((nextDropTime - now) / 3600000).toInt()
+                log(uid, "Следующие припасы через $remainHours часов.", "error")
+                return@withTransaction null
+            }
+
+            // Условная запись: если другой экземпляр репозитория успел клеймнуть
+            // первым (dbMutex экземплярный), обновится 0 строк - награда не выдаётся
+            val updatedRows = dao.conditionalClaimSupplyDrop(
+                uid = uid,
+                now = now,
+                energy = minOf(player.max_energy, player.energy + 50),
+                expectedLastDrop = player.last_supply_drop
+            )
+            if (updatedRows == 0) {
+                log(uid, "Суточные припасы уже получены.", "error")
+                return@withTransaction null
+            }
+
+            val consumables = listOf("battery", "master_key", "neural_stimulator")
+            val dropItem = consumables.random()
+
+            val invItem = InventoryItem(uid = uid, item_id = dropItem, quantity = 1)
+            val existing = dao.getInventorySync(uid).find { it.item_id == dropItem }
+            if (existing != null) {
+                dao.updateInventoryItem(existing.copy(quantity = existing.quantity + 1))
+            } else {
+                dao.insertInventoryItem(invItem)
+            }
+
+            log(uid, "📦 [СИНХРОНИЗАЦИЯ ДЕПО]: Получены суточные припасы! +50 Энергии, +1 ${dropItem.uppercase()}", "loot")
+            listOf(invItem)
         }
-
-        val consumables = listOf("battery", "master_key", "neural_stimulator")
-        val dropItem = consumables.random()
-
-        dao.updatePlayer(player.copy(
-            energy = minOf(player.max_energy, player.energy + 50),
-            last_supply_drop = now
-        ))
-
-        val invItem = InventoryItem(uid = uid, item_id = dropItem, quantity = 1)
-        val existing = dao.getInventoryFlow(uid).first().find { it.item_id == dropItem }
-        if (existing != null) {
-            dao.updateInventoryItem(existing.copy(quantity = existing.quantity + 1))
-        } else {
-            dao.insertInventoryItem(invItem)
-        }
-
-        log(uid, "📦 [СИНХРОНИЗАЦИЯ ДЕПО]: Получены суточные припасы! +50 Энергии, +1 ${dropItem.uppercase()}", "loot")
-        return listOf(invItem)
     }
 
     suspend fun buyPremium(uid: Long) {

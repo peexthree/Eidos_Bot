@@ -1048,11 +1048,15 @@ class MainViewModel(
         audio.playSound(EidosAudioManager.SoundType.HACK_SUCCESS)
         notifications.notifySupplyDropReady()
         viewModelScope.launch {
-            val rewards = repository.claimDailySupplyDrop(_uid.value)
-            if (rewards != null) {
-                showLoot(rewards, "СУТОЧНЫЕ ПРИПАСЫ")
-                showToast("📦 ГРУЗ ПОЛУЧЕН", CyberToastType.SUCCESS)
-                trackSyncron()
+            try {
+                val rewards = repository.claimDailySupplyDrop(_uid.value)
+                if (rewards != null) {
+                    showLoot(rewards, "СУТОЧНЫЕ ПРИПАСЫ")
+                    showToast("📦 ГРУЗ ПОЛУЧЕН", CyberToastType.SUCCESS)
+                    trackSyncron()
+                }
+            } catch (e: Throwable) {
+                repository.log(_uid.value, "Ошибка клейма депо: ${e.message}", "error")
             }
         }
     }
