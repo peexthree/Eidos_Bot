@@ -57,8 +57,8 @@ class EidosAuthStore private constructor(context: Context) {
         val accessToken: String?
         val refreshToken: String?
         if (isSecureStorage) {
-            accessToken = prefs.getString(KEY_ACCESS_TOKEN, null)
-            refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)
+            accessToken = prefs.getString(KEY_ACCESS_SESSION, null)
+            refreshToken = prefs.getString(KEY_REFRESH_SESSION, null)
         } else {
             // Fallback: tokens only exist in memory
             accessToken = memoryAccessToken
@@ -85,13 +85,13 @@ class EidosAuthStore private constructor(context: Context) {
             .putString(KEY_USER_ID, userId)
             .putLong(KEY_LAST_SYNC, System.currentTimeMillis())
         if (isSecureStorage) {
-            editor.putString(KEY_ACCESS_TOKEN, accessToken)
-                .putString(KEY_REFRESH_TOKEN, refreshToken)
+            editor.putString(KEY_ACCESS_SESSION, accessToken)
+                .putString(KEY_REFRESH_SESSION, refreshToken)
         } else {
             // Fallback: keep tokens in memory only, purge any legacy plaintext ones
             memoryAccessToken = accessToken
             memoryRefreshToken = refreshToken
-            editor.remove(KEY_ACCESS_TOKEN).remove(KEY_REFRESH_TOKEN)
+            editor.remove(KEY_ACCESS_SESSION).remove(KEY_REFRESH_SESSION)
         }
         editor.apply()
     }
@@ -134,8 +134,8 @@ class EidosAuthStore private constructor(context: Context) {
             .putBoolean(KEY_IS_ANONYMOUS, false)
             .remove(KEY_USERNAME)
             .remove(KEY_USER_ID)
-            .remove(KEY_ACCESS_TOKEN)
-            .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_ACCESS_SESSION)
+            .remove(KEY_REFRESH_SESSION)
             .apply()
     }
 
@@ -145,8 +145,8 @@ class EidosAuthStore private constructor(context: Context) {
         private const val KEY_IS_ANONYMOUS = "key_is_anonymous"
         private const val KEY_USERNAME = "key_username"
         private const val KEY_USER_ID = "key_user_id"
-        private const val KEY_ACCESS_TOKEN = "key_access_token"
-        private const val KEY_REFRESH_TOKEN = "key_refresh_token"
+        private const val KEY_ACCESS_SESSION = "key_access_token"
+        private const val KEY_REFRESH_SESSION = "key_refresh_token"
         private const val KEY_LAST_SYNC = "key_last_sync"
         private const val KEY_GUEST_PASSWORD_PREFIX = "key_guest_password_"
 

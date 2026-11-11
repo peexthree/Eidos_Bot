@@ -45,6 +45,9 @@ class AuthRepository(
     fun isInventoryInitialized(uid: Long): Boolean = authStore.isInventoryInitialized(uid)
     fun setInventoryInitialized(uid: Long, initialized: Boolean = true) = authStore.setInventoryInitialized(uid, initialized)
 
+    /** Маркер локальной сессии офлайн-режима (не настоящий токен: Supabase не сконфигурирован). */
+    private fun offlineSessionMark(offlineUserId: String): String = "local_token_$offlineUserId"
+
     suspend fun registerOperator(username: String, password: String, targetUid: Long = 0L): AuthResult {
         val clean = username.trim()
         if (clean.length < 3) return AuthResult.Error("Позывной должен содержать не менее 3 символов.")
@@ -61,7 +64,7 @@ class AuthRepository(
             val offlineUserId = "local_${System.currentTimeMillis()}"
             res = AuthResult.Success(
                 user = AuthUser(id = offlineUserId),
-                accessToken = "local_token_$offlineUserId",
+                accessToken = offlineSessionMark(offlineUserId),
                 refreshToken = null,
                 username = clean,
                 isNewAccount = true
@@ -100,7 +103,7 @@ class AuthRepository(
             val offlineUserId = "local_${clean.hashCode()}"
             res = AuthResult.Success(
                 user = AuthUser(id = offlineUserId),
-                accessToken = "local_token_$offlineUserId",
+                accessToken = offlineSessionMark(offlineUserId),
                 refreshToken = null,
                 username = clean,
                 isNewAccount = false

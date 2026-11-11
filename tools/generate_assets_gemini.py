@@ -1,5 +1,5 @@
-import sys, io, os, re, json, base64, time
-import urllib.request, urllib.error
+import sys, io, os, re, json, base64, time, socket, ipaddress
+import urllib.request, urllib.error, urllib.parse
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
@@ -40,8 +40,18 @@ MODELS = [
     'gemini-2.0-flash-exp',        # experimental with image output
 ]
 
+GEMINI_HOST = 'generativelanguage.googleapis.com'
+
 def gen_image(model, prompt):
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}'
+    url = f'https://{GEMINI_HOST}/v1beta/models/{model}:generateContent?key={key}'
+    # SSRF-гвард: только https, только официальный хост, только публичные IP
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != 'https' or parts.hostname != GEMINI_HOST:
+        raise ValueError('unexpected target: %s' % url)
+    for ai in socket.getaddrinfo(GEMINI_HOST, 443):
+        ip = ipaddress.ip_address(ai[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            raise ValueError('blocked non-public address: %s' % ip)
     body = {
         'contents': [{'parts': [{'text': prompt}]}],
         'generationConfig': {'responseModalities': ['TEXT', 'IMAGE']},
