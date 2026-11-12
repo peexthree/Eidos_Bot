@@ -6,7 +6,7 @@ Kotlin 2.3.21, Jetpack Compose (BOM 2026.09), AGP 9.2.1, Gradle 9.8.2, Room 2.8.
 ## Запуск
 - `./gradlew assembleDebug` - сборка, `./gradlew testDebugUnitTest` - 50+ тестов (вкл. DatabaseMigrationTest)
 - `./gradlew connectedDebugAndroidTest` - 4 сквозных UI-теста (androidTest/.../OnboardingAndNavigationTest.kt): онбординг->хаб, гейт кузницы, инвентарь, кузница с предзаполненным прогрессом; депо-тест в @Ignore (stale-writer last_supply_drop, вернуть на П4)
-- CI: .github/workflows/android-ci.yml - unit-джоб (15 мин) + instrumented на эмуляторе API 34 (reactivecircus/android-emulator-runner), бейдж в README
+- CI: .github/workflows/android-ci.yml - unit-джоб (15 мин) + instrumented на эмуляторе API 34 (reactivecircus/android-emulator-runner, boot-timeout 900), бейдж в README; инструментальные тесты через ручной adb install + am instrument (UTP-установщик Gradle падает error 2002, ручной install работает)
 - Room-схемы экспортируются в `app/schemas/` (14.json); при подъёме версии коммитить новый JSON и расширять фикстуру v10 в DatabaseMigrationTest
 - Секреты в `local.properties` (gitignored): SUPABASE_URL, SUPABASE_ANON_KEY
 - Release: keystore.properties (gitignored), fallback на debug-ключ
@@ -41,7 +41,8 @@ Kotlin 2.3.21, Jetpack Compose (BOM 2026.09), AGP 9.2.1, Gradle 9.8.2, Room 2.8.
 - Атомарный артовый свап: читать всё в память, потом писать (НЕ последовательные свопы!)
 
 ## Остатки
-- B3: единый хедер на Inventory/Shop/Forge/Codex/Pvp (паттерн Settings)
+- П2 вёрстка по макетам (docs/mockups/EDO-экраны-макеты.html): инвентарь (a6f8ff6), нижний бар хаба и вкладки кузни (3483de9) - ГОТОВО; QTE - соответствует макету без правок (QteOverlay полноэкранный, 3 типа, вспышка результата); Терминал - финалы в EidosGatesScreen за гейтами (перенос в список менять доступ не только вид - верстать при живой проверке); слоты экипировки - риг оператора сохранён большим (решение владельца делегировано, выбран арт)
 - Живые SFX: пользователь зальёт в canva_raw/sfx/
 - Retrofit 3.x / OkHttp 5 / Coil 3 миграции (сознательно отложены)
 - targetSdk 36 (когда Play потребует)
+- stale-writer для last_supply_drop: один сброс остался, депо-тест в @Ignore до П4
