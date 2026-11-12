@@ -86,7 +86,25 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: ./gradlew connectedDebugAndroidTest --stacktrace --console=plain
+          script: |
+            adb shell getprop ro.build.version.sdk
+            df -h /data | tail -1
+            adb install -r app/build/outputs/apk/debug/app-debug.apk > install_out.txt 2>&1 || true
+            cat install_out.txt
+            ./gradlew connectedDebugAndroidTest --stacktrace --console=plain || { adb logcat -d > logcat_fail.txt 2>&1; tail -100 logcat_fail.txt; exit 1; }
+
+      - name: Upload instrumented test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumented-test-logs
+          path: |
+            instr_build_log.txt
+            install_out.txt
+            logcat_fail.txt
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          retention-days: 7
 
       - name: Upload instrumented test report on failure
         if: failure()
