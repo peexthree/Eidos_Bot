@@ -88,11 +88,25 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: |
-            adb shell getprop ro.build.version.sdk
-            df -h /data | tail -1
-            adb install -r app/build/outputs/apk/debug/app-debug.apk > install_out.txt 2>&1 || true
-            cat install_out.txt
-            ./gradlew connectedDebugAndroidTest --stacktrace --console=plain || { adb logcat -d > logcat_fail.txt 2>&1; tail -100 logcat_fail.txt; exit 1; }
+            # UTP-установщик Gradle падает (error 2002), ручной adb install работает -
+            # ставим оба APK руками и гоняем тесты через am instrument (обход UTP)
+            adb install -r -t app/build/outputs/apk/debug/app-debug.apk | tee install_app.txt
+            adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk | tee install_test.txt
+            adb shell am instrument -w io.eidos.zerolayer.test/androidx.test.runner.AndroidJUnitRunner > instrumentation_out.txt 2>&1 || true
+            tail -30 instrumentation_out.txt
+            grep -qE "^OK \([0-9]+ tests?\)" instrumentation_out.txt
+
+      - name: Upload instrumented test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumented-test-logs
+          path: |
+            install_app.txt
+            install_test.txt
+            instrumentation_out.txt
+            app/build/reports/androidTests/
+          retention-days: 7
 
       - name: Upload instrumented test report on failure
         if: failure()
