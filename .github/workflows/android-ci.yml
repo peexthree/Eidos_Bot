@@ -26,18 +26,33 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Show SDK state
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+          ls "$ANDROID_HOME/build-tools" || true
+
       - name: Assemble (debug)
-        run: ./gradlew assembleDebug --stacktrace --console=plain
+        run: |
+          ./gradlew assembleDebug --stacktrace --console=plain > build_log.txt 2>&1 || true
+          tail -60 build_log.txt
+          grep -q "BUILD SUCCESSFUL" build_log.txt
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace --console=plain
+        run: |
+          ./gradlew testDebugUnitTest --stacktrace --console=plain > unit_log.txt 2>&1 || true
+          tail -40 unit_log.txt
+          grep -q "BUILD SUCCESSFUL" unit_log.txt
 
-      - name: Upload test report on failure
+      - name: Upload logs and reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-reports
-          path: app/build/reports/tests/
+          name: unit-job-logs
+          path: |
+            build_log.txt
+            unit_log.txt
+            app/build/reports/tests/
           retention-days: 7
 
   instrumented-tests:
@@ -58,7 +73,10 @@ jobs:
 
       # Собираем оба APK до старта эмулятора - ошибки компиляции фейлятся быстро
       - name: Assemble debug + androidTest APK
-        run: ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace --console=plain
+        run: |
+          ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace --console=plain > instr_build_log.txt 2>&1 || true
+          tail -60 instr_build_log.txt
+          grep -q "BUILD SUCCESSFUL" instr_build_log.txt
 
       - name: Run instrumented tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -74,8 +92,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: instrumented-test-reports
+          name: instrumented-test-logs
           path: |
+            instr_build_log.txt
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
           retention-days: 7
