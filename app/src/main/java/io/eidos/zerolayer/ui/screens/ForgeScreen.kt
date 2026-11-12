@@ -476,26 +476,26 @@ fun SynthesisTab(
             Button(
                 onClick = { subTab = 0 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (subTab == 0) EidosCyan.copy(alpha = 0.2f) else Color.Transparent
+                    containerColor = if (subTab == 0) ZzzGold.copy(alpha = 0.16f) else Color.Transparent
                 ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (subTab == 0) EidosCyan else Color.DarkGray),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (subTab == 0) ZzzGold else Color.DarkGray),
                 shape = CutCornerShape(4.dp),
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(2.dp)
             ) {
-                Text("УТИЛИЗАЦИЯ / СЛИЯНИЕ", color = if (subTab == 0) EidosCyan else Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("УТИЛИЗАЦИЯ / СЛИЯНИЕ", color = if (subTab == 0) ZzzGold else Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
             Button(
                 onClick = { subTab = 1 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (subTab == 1) EidosCyan.copy(alpha = 0.2f) else Color.Transparent
+                    containerColor = if (subTab == 1) ZzzGold.copy(alpha = 0.16f) else Color.Transparent
                 ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (subTab == 1) EidosCyan else Color.DarkGray),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (subTab == 1) ZzzGold else Color.DarkGray),
                 shape = CutCornerShape(4.dp),
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(2.dp)
             ) {
-                Text("КОВКА ШЕЙДЕРОВ", color = if (subTab == 1) EidosCyan else Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("КОВКА ШЕЙДЕРОВ", color = if (subTab == 1) ZzzGold else Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
 

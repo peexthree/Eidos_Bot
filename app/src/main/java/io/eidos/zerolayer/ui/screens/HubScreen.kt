@@ -2693,18 +2693,18 @@ private fun BottomNavItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // П2: активный таб - жёлтая верхняя линия (канон VoltYellow)
+        Box(
+            modifier = Modifier
+                .width(30.dp)
+                .height(2.dp)
+                .background(if (isSelected) ZzzGold else Color.Transparent)
+        )
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .height(34.dp)
                 .width(44.dp)
-                .then(
-                    if (isSelected) {
-                        Modifier
-                            .background(Color(0xFF00FFF6).copy(alpha = 0.22f), RoundedCornerShape(8.dp))
-                            .border(1.2.dp, Color(0xFF00FFF6), RoundedCornerShape(8.dp))
-                    } else Modifier
-                )
         ) {
             Image(
                 painter = painterResource(id = iconRes),
@@ -2716,7 +2716,7 @@ private fun BottomNavItem(
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
-            color = if (isSelected) Color(0xFF00FFF6) else Color(0xFF708090),
+            color = if (isSelected) ZzzGold else Color(0xFF708090),
             fontSize = 7.5.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             fontFamily = FontFamily.Monospace,
