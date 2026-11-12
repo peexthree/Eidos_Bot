@@ -227,11 +227,11 @@ fun InventoryScreen(
                                 .height(30.dp)
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(
-                                    if (isSelected) EidosCyan.copy(alpha = 0.22f) else Color(0xFF0F1722)
+                                    if (isSelected) ZzzGold.copy(alpha = 0.18f) else Color(0xFF0F1722)
                                 )
                                 .border(
                                     1.dp,
-                                    if (isSelected) EidosCyan else Color(0xFF1E2E3E),
+                                    if (isSelected) ZzzGold else Color(0xFF1E2E3E),
                                     RoundedCornerShape(6.dp)
                                 )
                                 .cyberClickable {
@@ -243,7 +243,7 @@ fun InventoryScreen(
                         ) {
                             Text(
                                 text = catLabel,
-                                color = if (isSelected) EidosCyan else Color(0xFF90A4AE),
+                                color = if (isSelected) ZzzGold else Color(0xFF90A4AE),
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
@@ -302,7 +302,12 @@ fun InventoryScreen(
                         showBrokenActions = currentCat == "broken",
                         onRepairBC = onRepairBC,
                         onSalvage = onDismantle,
-                        onMergeItem = onMergeItem
+                        onMergeItem = onMergeItem,
+                        onEquip = onEquip,
+                        onUnequip = onUnequip,
+                        onUseConsumable = onUseConsumable,
+                        onStartDecryption = onStartDecryption,
+                        onToForge = onToForge
                     )
                 }
             }
@@ -1336,7 +1341,12 @@ fun ItemListSection(
     showBrokenActions: Boolean = false,
     onRepairBC: ((InventoryItem) -> Unit)? = null,
     onSalvage: ((InventoryItem) -> Unit)? = null,
-    onMergeItem: ((String) -> Unit)? = null
+    onMergeItem: ((String) -> Unit)? = null,
+    onEquip: ((InventoryItem) -> Unit)? = null,
+    onUnequip: ((InventoryItem) -> Unit)? = null,
+    onUseConsumable: ((InventoryItem) -> Unit)? = null,
+    onStartDecryption: ((InventoryItem) -> Unit)? = null,
+    onToForge: ((InventoryItem) -> Unit)? = null
 ) {
     // Juice Phase 1: haptics + audio for card navigation (managers are app-scoped singletons)
     val context = LocalContext.current
@@ -1378,6 +1388,164 @@ fun ItemListSection(
                 Triple(representative, totalCount, items)
             }
         }
+
+        // П2 макет: обычный режим - горизонтальные карточки-список с полосой
+        // редкости и действиями прямо в карточке; режим СЛОМАННЫХ - прежняя сетка
+        if (!showBrokenActions) {
+            androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(groupedItems, key = { it.first.id }) { (item, totalCount, stack) ->
+                    val itemMeta = allItemsMetadata.find { it.id == item.item_id }
+                    val rarity = itemMeta?.rarity ?: getItemRarity(item.item_id)
+                    val isEquipped = item.is_equipped || stack.any { it.is_equipped }
+                    val rarityColor = when (rarity) {
+                        "cursed", "relic" -> EidosRed
+                        "legendary" -> EidosOrange
+                        "epic" -> EidosPurple
+                        "rare" -> EidosCyan
+                        "uncommon" -> EidosNeon
+                        else -> Color(0xFF546E7A)
+                    }
+                    val equippable = isEquippable(item.item_id, itemMeta)
+                    val isCache = item.item_id == "corrupted_data_cluster"
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(72.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF0A121C).copy(alpha = 0.72f))
+                            .border(
+                                1.dp,
+                                when {
+                                    isEquipped -> EidosNeon
+                                    else -> rarityColor.copy(alpha = 0.55f)
+                                },
+                                RoundedCornerShape(8.dp)
+                            )
+                            .cyberClickable {
+                                haptics.click()
+                                audio.playSound(EidosAudioManager.SoundType.CLICK_CYBER)
+                                if (stack.size > 1 && onStackClick != null) onStackClick(stack) else onItemClick(item)
+                            },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Полоса редкости во всю высоту карточки
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .fillMaxHeight()
+                                .background(rarityColor)
+                        )
+                        EidosImage(
+                            resName = item.item_id,
+                            borderColor = Color.Transparent,
+                            borderWidth = 0.dp,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(52.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF03060A))
+                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    itemMeta?.name ?: getItemName(item.item_id),
+                                    fontSize = 10.5.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (totalCount > 1) {
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        "x$totalCount",
+                                        fontSize = 9.sp,
+                                        color = EidosCyan,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                            Text(
+                                rarity.uppercase(),
+                                fontSize = 7.5.sp,
+                                color = rarityColor,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            if (equippable && item.durability >= 0) {
+                                Text(
+                                    "${item.durability.toInt()}%",
+                                    fontSize = 7.5.sp,
+                                    color = if (item.durability < 30) EidosRed else EidosNeon,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                        // Действия прямо в карточке (П2): по одной главной кнопке,
+                        // тап по карточке открывает полный осмотр
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            when {
+                                isCache && onStartDecryption != null -> CompactCardAction(
+                                    text = "РАСШИФРОВАТЬ",
+                                    color = EidosCyan
+                                ) {
+                                    onStartDecryption(item)
+                                }
+                                isEquipped && equippable && onUnequip != null -> CompactCardAction(
+                                    text = "СНЯТЬ",
+                                    color = EidosNeon
+                                ) {
+                                    onUnequip(item)
+                                }
+                                equippable && !isEquipped && onEquip != null -> CompactCardAction(
+                                    text = "НАДЕТЬ",
+                                    color = EidosCyan
+                                ) {
+                                    onEquip(item)
+                                }
+                                isConsumable(item.item_id, itemMeta) && onUseConsumable != null -> CompactCardAction(
+                                    text = "ИСПОЛЬЗОВАТЬ",
+                                    color = EidosNeon
+                                ) {
+                                    onUseConsumable(item)
+                                }
+                                else -> CompactCardAction(
+                                    text = "ОСМОТР",
+                                    color = EidosCyan
+                                ) {
+                                    if (stack.size > 1 && onStackClick != null) onStackClick(stack) else onItemClick(item)
+                                }
+                            }
+                            if (equippable && onToForge != null) {
+                                CompactCardAction(
+                                    text = "ВЕРСТАК",
+                                    color = Color(0xFF9C6B30),
+                                    outlined = true
+                                ) {
+                                    onToForge(item)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -1653,6 +1821,35 @@ fun ItemListSection(
                 }
             }
         }
+        } // else: showBrokenActions - прежняя сетка
+    }
+}
+
+/** Компактная кнопка действия прямо в карточке предмета (П2 макет). */
+@Composable
+private fun CompactCardAction(
+    text: String,
+    color: Color,
+    outlined: Boolean = false,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (outlined) Color(0xFF182230) else color.copy(alpha = 0.25f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color),
+        shape = CutCornerShape(4.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text,
+            color = color,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1
+        )
     }
 }
 
