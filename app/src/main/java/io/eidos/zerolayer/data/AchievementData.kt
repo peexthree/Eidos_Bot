@@ -802,6 +802,13 @@ class AchievementStorage(context: Context) {
         prefs.edit().putStringSet("claimed_achievements_v2", current).apply()
     }
 
+    /** Компенсация: вернуть ачивку в незаклеймленные при сбое начисления награды. */
+    fun markUnclaimed(id: String) {
+        val current = getClaimedSet().toMutableSet()
+        current.remove(id)
+        prefs.edit().putStringSet("claimed_achievements_v2", current).apply()
+    }
+
     fun getUnclaimedCount(player: Player?): Int {
         val stats = getStats()
         val unlocked = getUnlockedSet()
