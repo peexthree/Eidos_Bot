@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ru" data-zcode-design>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDO: макеты пяти экранов (П2)</title>
+<style>
+/* ==== Токены из app/src/main/java/io/eidos/zerolayer/ui/theme/ZzzDesignSystem.kt ==== */
+:root{
+  --obsidian:#0D0F14; --surface:#161922; --elevated:#1D2230; --tech-grey:#262C3A; --tech-grey-l:#4A5568;
+  --volt:#FFE600; --signal:#00F0FF; --crimson:#FF2A55; --toxic:#10FFA0; --quantum:#B537F2;
+  --zgold:#FFD700; --zred:#FF5252; --zwarn:#FF9800; --zpurple:#A855F7; --zgreen:#00FF66; --zcyan:#00E5FF;
+  --text:#E8EAF0; --text-dim:#8A93A6; --mono:'Cascadia Mono',Consolas,'Courier New',monospace;
+  --radius:10px; --cut:10px 3px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07090D;color:var(--text);font-family:var(--mono);padding:28px 20px 60px}
+h1{font-size:20px;letter-spacing:2px;color:var(--volt)}
+h1 span{color:var(--signal)}
+.sub{color:var(--text-dim);font-size:11px;margin:6px 0 24px;line-height:1.6}
+.board{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+.cell{width:390px;flex:0 0 auto}
+.cell h2{font-size:12px;letter-spacing:2px;color:var(--signal);margin:0 0 8px;font-weight:700}
+.cell h2 em{color:var(--text-dim);font-style:normal;font-weight:400;font-size:10px;margin-left:8px}
+.phone{width:390px;height:844px;background:var(--obsidian);border:1px solid var(--tech-grey);border-radius:18px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.diff{margin-top:12px;font-size:10.5px;line-height:1.7;color:var(--text-dim)}
+.diff b{color:var(--volt);font-weight:700}
+.diff li{margin-left:14px;margin-top:2px;list-style:none}
+.diff li::before{content:"+ ";color:var(--toxic);font-weight:700}
+
+/* общие внутреэкранные примитивы */
+.hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(7,12,18,.8);border-bottom:1px solid var(--tech-grey)}
+.hdr .back{width:30px;height:30px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:var(--signal);border:1px solid var(--tech-grey);border-radius:4px}
+.hdr .t{font-size:13px;font-weight:800;letter-spacing:1px}
+.hdr .t i{color:var(--volt);font-style:normal}
+.hdr .s{font-size:9px;color:var(--text-dim);letter-spacing:1px}
+.hdr .r{margin-left:auto;display:flex;gap:6px;align-items:center}
+.chip{font-size:9px;padding:3px 8px;border:1px solid var(--tech-grey-l);border-radius:4px;color:var(--text-dim)}
+.body{flex:1;overflow:hidden;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.navbar{display:flex;border-top:1px solid var(--tech-grey);background:rgba(7,12,18,.92)}
+.navbar div{flex:1;text-align:center;padding:9px 0 7px;font-size:8.5px;letter-spacing:1px;color:var(--text-dim);border-top:2px solid transparent}
+.navbar .on{color:var(--volt);border-top-color:var(--volt)}
+.navbar svg{display:block;margin:0 auto 3px}
+.bar{height:5px;border-radius:3px;background:var(--tech-grey);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px}
+.card{background:var(--surface);border:1px solid var(--tech-grey);border-radius:var(--cut);padding:10px 12px}
+.btn{border:none;font-family:var(--mono);font-weight:800;letter-spacing:1px;font-size:11px;padding:12px;border-radius:4px;cursor:pointer}
+/* редкость - левая полоса */
+.rar{border-left:3px solid}
+
+/* SVG иконки (monoline 1.7px) */
+svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</head>
+<body>
+<h1>EDO: ZERO LAYER <span>// П2 МАКЕТЫ 5 ЭКРАНОВ</span></h1>
+<p class="sub">Черновик на согласование (docs/TZ_UPGRADE_2026-11-11.md, П2). Палитра и типографика - канон ZzzDesignSystem (VoltYellow, SignalCyan, CrimsonHazard). Под каждым экраном - diff-лист: что меняется относительно текущей вёрстки. Внутриигровые эмодзи в названиях предметов показаны нейтральными метками - в игре они остаются.</p>
+
+<div class="board">
+
+<!-- ============ 1. ХАБ ============ -->
+<div class="cell">
+<h2>1. ХАБ <em>CYBER HUB</em></h2>
+<div class="phone">
+  <div class="hdr">
+    <div style="width:34px;height:34px;border-radius:50%;border:1.6px solid var(--signal);display:flex;align-items:center;justify-content:center;color:var(--signal)">
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.4"/><path d="M5.5 19c1.2-3.2 3.6-4.8 6.5-4.8s5.3 1.6 6.5 4.8"/></svg>
+    </div>
+    <div>
+      <div class="t">TEST_DEPOT <i>// РАЗУМ</i></div>
+      <div class="s">УР 1 · НЕОФИТ · СИНХРОНИЗИРОВАН</div>
+    </div>
+    <div class="r">
+      <span class="chip" style="color:var(--zgold);border-color:var(--zgold)">500 BC</span>
+      <span class="chip" style="color:var(--signal);border-color:var(--signal)">100 EP</span>
+    </div>
+  </div>
+  <div class="body">
+    <div class="card" style="border-color:var(--crimson);display:flex;align-items:center;gap:12px">
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--crimson)">СИГНАЛ // <span id="hp">100 / 100</span> HP</div>
+        <div class="bar" style="margin-top:6px"><i style="width:100%;background:linear-gradient(90deg,#FF2A55,#FF5252)"></i></div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--toxic);margin-top:8px">ЭНЕРГИЯ ЯДРА // 100 / 100 EP</div>
+        <div class="bar" style="margin-top:6px"><i style="width:100%;background:linear-gradient(90deg,#00FF66,#10FFA0)"></i></div>
+      </div>
+    </div>
+    <div class="card rar" style="border-left-color:var(--toxic)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <svg class="ic" style="color:var(--toxic)" viewBox="0 0 24 24"><path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1px">ДЕПО // СИНХРОНИЗАЦИЯ</div>
+          <div style="font-size:9px;color:var(--text-dim)">ПРИПАСЫ ХРАНИЛИЩА ГОТОВЫ</div>
+        </div>
+        <button class="btn" style="background:var(--toxic);color:#04140C;font-size:9px;padding:8px 10px">СИНХРОН</button>
+      </div>
+    </div>
+    <div class="card" style="background:linear-gradient(135deg,#1D2230,#141821);border-color:var(--volt);text-align:center;padding:16px">
+      <div style="font-size:10px;color:var(--text-dim);letter-spacing:2px">/// ГЛАВНАЯ ОПЕРАЦИЯ ///</div>
+      <div style="font-size:15px;font-weight:800;letter-spacing:2px;color:var(--volt);margin:8px 0 2px">НАЧАТЬ РЕЙД</div>
+      <div style="font-size:9px;color:var(--text-dim)">ЦЕЛЬ: 100 М · МУТАТОР НЕДЕЛИ: GOLD_RUSH</div>
+      <button class="btn" style="background:var(--volt);color:#0D0F14;width:100%;margin-top:12px">ВОЙТИ В БЕЗДНУ</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="card" style="text-align:center;padding:14px 10px">
+        <svg class="ic" style="color:var(--signal);width:20px;height:20px;margin:0 auto 6px" viewBox="0 0 24 24"><path d="M6 20V9l6-5 6 5v11"/><path d="M10 20v-6h4v6"/></svg>
+        <div style="font-size:10px;font-weight:800;letter-spacing:1px">КУЗНИЦА</div>
+        <div style="font-size:8px;color:var(--text-dim)">ДОСТУП: 1-Й РЕЙД</div>
+      </div>
+      <div class="card" style="text-align:center;padding:14px 10px">
+        <svg class="ic" style="color:var(--zpurple);width:20px;height:20px;margin:0 auto 6px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>
+        <div style="font-size:10px;font-weight:800;letter-spacing:1px">ЧЁРНЫЙ РЫНОК</div>
+        <div style="font-size:8px;color:var(--text-dim)">ТРЕБУЕТСЯ: УР 2</div>
+      </div>
+      <div class="card" style="text-align:center;padding:14px 10px">
+        <svg class="ic" style="color:var(--signal);width:20px;height:20px;margin:0 auto 6px" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h10"/></svg>
+        <div style="font-size:10px;font-weight:800;letter-spacing:1px">ТЕРМИНАЛ</div>
+        <div style="font-size:8px;color:var(--text-dim)">ЛОГИ · СИНГУЛЯРНОСТЬ</div>
+      </div>
+      <div class="card" style="text-align:center;padding:14px 10px">
+        <svg class="ic" style="color:var(--crimson);width:20px;height:20px;margin:0 auto 6px" viewBox="0 0 24 24"><path d="M17 12h5l-3 4 3 4h-6"/><path d="M9 4L4 12l5 8"/><path d="M13 4l-4 16"/></svg>
+        <div style="font-size:10px;font-weight:800;letter-spacing:1px">PVP СЕТЬ</div>
+        <div style="font-size:8px;color:var(--text-dim)">УР 4 · СЕЗОН 30 ДН</div>
+      </div>
+    </div>
+  </div>
+  <div class="navbar">
+    <div class="on"><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg>ХАБ</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>ИНВЕНТАРЬ</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>БЕЗДНА</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg>PVP</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.2 2.2M16.2 16.2l2.2 2.2M18.4 5.6l-2.2 2.2M7.8 16.2l-2.2 2.2"/></svg>ПРОФИЛЬ</div>
+  </div>
+</div>
+<ul class="diff">
+  <li><b>Иерархия:</b> рейд - единственный крупный CTA (сейчас тонет среди карточек); операции - сетка 2x2 с SVG-иконками вместо замков-картинок.</li>
+  <li><b>Состояние замка</b> читается в подзаголовке карточки, не отдельной иконкой замка.</li>
+  <li><b>HP/EP-бары</b> собраны в один компактыый HUD-блок сверху (сейчас две разнесённые строки-гейджа).</li>
+  <li><b>Нижний бар:</b> активный таб - жёлтая верхняя линия (сейчас только цвет иконки).</li>
+  <li><b>Композиция остаётся:</b> порядок блоков, копирайт "СИНХРОНИЗАЦИЯ ДЕПО", кулдаун-логика, все гейты доступа.</li>
+</ul>
+</div>
+
+<!-- ============ 2. КУЗНЯ ============ -->
+<div class="cell">
+<h2>2. КУЗНЯ <em>FORGE</em></h2>
+<div class="phone">
+  <div class="hdr">
+    <div class="back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+    <div>
+      <div class="t">КУЗНЯ <i>// МОДЕРНИЗАЦИЯ</i></div>
+      <div class="s">СЫРЬЁ: 34 ОСКОЛКА · 500 BC · УР. 1</div>
+    </div>
+    <div class="r"><span class="chip">📟 ТЕРМИНАЛ</span></div>
+  </div>
+  <div class="body">
+    <div style="display:flex;gap:6px">
+      <button class="btn" style="flex:1;background:var(--surface);color:var(--text-dim);border:1px solid var(--tech-grey);padding:9px">УТИЛИЗАЦИЯ / СЛИЯНИЕ</button>
+      <button class="btn" style="flex:1;background:var(--volt);color:#0D0F14;padding:9px">КОВКА ШЕЙДЕРОВ</button>
+    </div>
+    <div class="card">
+      <div style="font-size:9px;letter-spacing:2px;color:var(--text-dim)">БАЗОВЫЙ ПРЕДМЕТ</div>
+      <div class="card rar" style="border-left-color:var(--signal);margin-top:6px;display:flex;gap:10px;align-items:center;background:var(--elevated)">
+        <div style="width:40px;height:40px;border-radius:6px;background:var(--tech-grey);display:flex;align-items:center;justify-content:center;color:var(--signal)">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M13 7l4 4"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:800">CPU АКСЕЛЕРАТОР</div>
+          <div style="font-size:8.5px;color:var(--signal);letter-spacing:1px">UNCOMMON · УР 3 · 100%</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:9px;letter-spacing:2px;color:var(--text-dim)">АФФИКСЫ (3 СОКЕТА)</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <div style="flex:1;border:1px dashed var(--tech-grey-l);border-radius:6px;padding:8px;text-align:center;font-size:8.5px;color:var(--text-dim)">СОКЕТ 1<br><span style="color:var(--toxic)">+12% ATK</span></div>
+        <div style="flex:1;border:1px dashed var(--tech-grey-l);border-radius:6px;padding:8px;text-align:center;font-size:8.5px;color:var(--text-dim)">СОКЕТ 2<br><span style="color:var(--signal)">+8% DEF</span></div>
+        <div style="flex:1;border:1px dashed var(--tech-grey-l);border-radius:6px;padding:8px;text-align:center;font-size:8.5px;color:var(--text-dim)">СОКЕТ 3<br>пусто</div>
+      </div>
+      <button class="btn" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--volt);color:var(--volt);font-size:10px">РЕРОЛЛ АФФИКСОВ - 500 BC + 1 ОСКОЛОК</button>
+    </div>
+    <div class="card" style="border-color:var(--quantum)">
+      <div style="font-size:9px;letter-spacing:2px;color:var(--zpurple)">СИНТЕЗ 3 -&gt; 1 РАНГ+</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <div style="flex:1;height:34px;border:1px solid var(--tech-grey-l);border-radius:6px"></div>
+        <div style="flex:1;height:34px;border:1px solid var(--tech-grey-l);border-radius:6px"></div>
+        <div style="flex:1;height:34px;border:1px solid var(--tech-grey-l);border-radius:6px"></div>
+        <svg class="ic" style="color:var(--zpurple)" viewBox="0 0 24 24"><path d="M5 12h12M13 6l6 6-6 6"/></svg>
+        <div style="width:44px;height:44px;border:1.6px solid var(--zpurple);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--zpurple);font-weight:800;font-size:11px">R+</div>
+      </div>
+    </div>
+    <button class="btn" style="background:var(--volt);color:#0D0F14">СИНТЕЗИРОВАТЬ</button>
+  </div>
+  <div class="navbar">
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg>ХАБ</div>
+    <div class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>ИНВЕНТАРЬ</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/></svg>БЕЗДНА</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg>PVP</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>ПРОФИЛЬ</div>
+  </div>
+</div>
+<ul class="diff">
+  <li><b>Реестр ковки виден сразу:</b> базовый предмет, аффикс-сокеты и синтез - в одном экране без прокрутки-квеста (сейчас - длинная вертикаль).</li>
+  <li><b>Цены внутри кнопок</b> ("РЕРОЛЛ - 500 BC + 1 ОСКОЛОК"): игрок видит стоимость до тапа.</li>
+  <li><b>Синтез 3-&gt;1</b> - визуальная формула слотов со стрелкой (сейчас текстовая кнопка).</li>
+  <li><b>Вкладки</b> подсвечены контрастом (актив - жёлтый), не серым текстом.</li>
+  <li><b>Композиция остаётся:</b> две вкладки, лимиты сокетов 4/3/2/1, тип-сохраняющий синтез, цены ZeroLayerEconomy.</li>
+</ul>
+</div>
+
+<!-- ============ 3. ИНВЕНТАРЬ ============ -->
+<div class="cell">
+<h2>3. ИНВЕНТАРЬ <em>CACHE MANAGER</em></h2>
+<div class="phone">
+  <div class="hdr">
+    <div class="back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+    <div>
+      <div class="t">КЭШ-МЕНЕДЖЕР <i>// ИНВЕНТАРЬ</i></div>
+      <div class="s">СНАРЯЖЕНИЕ &amp; МОДИФИКАЦИИ ЯДРА</div>
+    </div>
+    <div class="r"><span class="chip">ВСЕГО: 6</span></div>
+  </div>
+  <div class="body">
+    <div style="display:flex;gap:6px">
+      <div style="flex:1;text-align:center;padding:7px 0;border:1px solid var(--tech-grey-l);border-radius:6px;font-size:8.5px;color:var(--text-dim)">ШЛЕМ <b style="color:var(--text-dim)">+</b></div>
+      <div style="flex:1;text-align:center;padding:7px 0;border:1.4px solid var(--signal);border-radius:6px;font-size:8.5px;color:var(--signal)">ОРУЖИЕ <b>КОРОВАР</b></div>
+      <div style="flex:1;text-align:center;padding:7px 0;border:1.4px solid var(--signal);border-radius:6px;font-size:8.5px;color:var(--signal)">БРОНЯ <b>КУРТКА</b></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <span class="chip" style="color:var(--volt);border-color:var(--volt)">ВСЕ</span>
+      <span class="chip">ОРУЖИЕ</span><span class="chip">БРОНЯ</span><span class="chip">ЧИПЫ</span><span class="chip">ПРИПАСЫ</span>
+    </div>
+    <div class="card rar" style="border-left-color:var(--signal);display:flex;gap:10px;align-items:center">
+      <div style="width:46px;height:46px;border-radius:6px;background:var(--elevated);display:flex;align-items:center;justify-content:center;color:var(--signal)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M13 7l4 4"/></svg>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:800">CROWBAR</div>
+        <div style="font-size:8.5px;color:var(--signal);letter-spacing:1px">ОБЫЧНЫЙ · АТК 8 · 100%</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="btn" style="background:var(--signal);color:#04121A;font-size:8.5px;padding:6px 10px">СНЯТЬ</button>
+        <button class="btn" style="background:var(--surface);border:1px solid var(--volt);color:var(--volt);font-size:8.5px;padding:6px 10px">ВЕРСТАК</button>
+      </div>
+    </div>
+    <div class="card rar" style="border-left-color:var(--zpurple);display:flex;gap:10px;align-items:center">
+      <div style="width:46px;height:46px;border-radius:6px;background:var(--elevated);display:flex;align-items:center;justify-content:center;color:var(--zpurple)">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:800">ЭГИДА БЕССМЕРТИЯ</div>
+        <div style="font-size:8.5px;color:var(--zpurple);letter-spacing:1px">ЭПИЧЕСКИЙ · БРОНЯ 25</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="btn" style="background:var(--zpurple);color:#150522;font-size:8.5px;padding:6px 10px">НАДЕТЬ</button>
+      </div>
+    </div>
+    <div class="card rar" style="border-left-color:var(--tech-grey-l);display:flex;gap:10px;align-items:center;opacity:.85">
+      <div style="width:46px;height:46px;border-radius:6px;background:var(--elevated);display:flex;align-items:center;justify-content:center;color:var(--text-dim)">
+        <svg class="ic" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M9 7V5a3 3 0 016 0v2"/></svg>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:800">ЗАШИФРОВАННЫЙ КЭШ x2</div>
+        <div style="font-size:8.5px;color:var(--text-dim);letter-spacing:1px">ТРЕБУЕТСЯ РАСШИФРОВКА</div>
+      </div>
+      <button class="btn" style="background:var(--surface);border:1px solid var(--zwarn);color:var(--zwarn);font-size:8.5px;padding:6px 10px">РАСШИФРОВАТЬ</button>
+    </div>
+    <div class="card rar" style="border-left-color:var(--toxic);display:flex;gap:10px;align-items:center">
+      <div style="width:46px;height:46px;border-radius:6px;background:var(--elevated);display:flex;align-items:center;justify-content:center;color:var(--toxic)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M10 4h4v5h5v4h-5v5h-4v-5H5V9h5z"/></svg>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:800">АПТЕЧКА x5</div>
+        <div style="font-size:8.5px;color:var(--toxic);letter-spacing:1px">ОБЫЧНЫЙ · РАСХОДНИК</div>
+      </div>
+      <button class="btn" style="background:var(--surface);border:1px solid var(--toxic);color:var(--toxic);font-size:8.5px;padding:6px 10px">ИСПОЛЬЗОВАТЬ</button>
+    </div>
+  </div>
+  <div class="navbar">
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg>ХАБ</div>
+    <div class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>ИНВЕНТАРЬ</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/></svg>БЕЗДНА</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg>PVP</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>ПРОФИЛЬ</div>
+  </div>
+</div>
+<ul class="diff">
+  <li><b>Слоты экипировки</b> - компактная строка-триптих (сейчас три крупных блока с "ВЫБРАТЬ" съедают экран).</li>
+  <li><b>Полоса редкости</b> слева у каждой карточки: редкость считывается без чтения текста.</li>
+  <li><b>Действия в карточке</b> (СНЯТЬ/НАДЕТЬ/ВЕРСТАК) - больше не нужен осмотр-диалог для базовых операций.</li>
+  <li><b>Фильтры-чипы</b> с активным жёлтым состоянием (сейчас широкие кнопки-вкладки).</li>
+  <li><b>Композиция остаётся:</b> хедер, секция "КЭШ ПРЕДМЕТОВ", счётчик ВСЕГО, кнопка верстака на карточках.</li>
+</ul>
+</div>
+
+<!-- ============ 4. QTE-СПУСК ============ -->
+<div class="cell">
+<h2>4. РЕЙД: QTE-СПУСК <em>DESCENT</em></h2>
+<div class="phone">
+  <div class="hdr">
+    <div class="back" style="color:var(--crimson)"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+    <div>
+      <div class="t" style="color:var(--crimson)">БЕЗДНА <i>// ГЛУБИНА 340 М</i></div>
+      <div class="s">МУТАТОР: GOLD_RUSH · РИСК: ВЫСОКИЙ</div>
+    </div>
+    <div class="r"><span class="chip" style="color:var(--zgold);border-color:var(--zgold)">буфер 120 BC</span></div>
+  </div>
+  <div class="body" style="align-items:center;justify-content:center;gap:18px">
+    <div style="position:relative;width:230px;height:230px;display:flex;align-items:center;justify-content:center">
+      <svg width="230" height="230" viewBox="0 0 100 100" style="position:absolute;inset:0">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="#262C3A" stroke-width="5"/>
+        <circle cx="50" cy="50" r="44" fill="none" stroke="#FFE600" stroke-width="5" stroke-dasharray="207 276" stroke-linecap="round" transform="rotate(-90 50 50)"/>
+      </svg>
+      <div style="text-align:center">
+        <div style="font-size:44px;font-weight:800;color:var(--volt)">0.68</div>
+        <div style="font-size:9px;color:var(--text-dim);letter-spacing:2px">СЕКУНД ДО ЗОНЫ</div>
+      </div>
+    </div>
+    <div style="width:100%;height:56px;border:1.6px solid var(--volt);border-radius:8px;position:relative;overflow:hidden;background:rgba(255,230,0,.05)">
+      <div style="position:absolute;left:42%;top:0;bottom:0;width:16%;background:rgba(255,230,0,.25);border-left:1.6px solid var(--volt);border-right:1.6px solid var(--volt)"></div>
+      <div style="position:absolute;left:0;right:0;top:50%;height:1.6px;background:var(--signal)"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);letter-spacing:1px">ТАП, КОГДА СТРЕЛКА В ЖЁЛТОЙ ЗОНЕ</div>
+    <button class="btn" style="width:78%;height:74px;background:var(--volt);color:#0D0F14;font-size:15px;letter-spacing:3px;border-radius:12px">ЖМИ</button>
+    <div style="display:flex;gap:8px;width:100%">
+      <div class="chip" style="flex:1;text-align:center;color:var(--toxic);border-color:var(--toxic)">СЕРИЯ x3</div>
+      <div class="chip" style="flex:1;text-align:center">ШАГОВ ДО ГЕЙТА: 6</div>
+      <div class="chip" style="flex:1;text-align:center;color:var(--signal);border-color:var(--signal)">РЫВОК ГОТОВ</div>
+    </div>
+  </div>
+  <div class="navbar">
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg>ХАБ</div>
+    <div class="on"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/></svg>БЕЗДНА</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>ИНВЕНТАРЬ</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg>PVP</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>ПРОФИЛЬ</div>
+  </div>
+</div>
+<ul class="diff">
+  <li><b>Одно главное действие на экран:</b> таймер-дуга + зона тапа + гигантская кнопка (сейчас QTE-элементы смешаны с логами).</li>
+  <li><b>Успех/провал</b> - полноэкранная вспышка ToxicGreen/CrimsonHazard на 300 мс, без редиректа внимания.</li>
+  <li><b>Контекст в чипах</b> внизу: серия, шагов до гейткипера, готовность рывка - всё видно периферией.</li>
+  <li><b>Композиция остаётся:</b> глубина в хедере, мутатор недели, буфер BC, механика шага и гейткиперов без изменений.</li>
+</ul>
+</div>
+
+<!-- ============ 5. ТЕРМИНАЛ ============ -->
+<div class="cell">
+<h2>5. ТЕРМИНАЛ <em>SINGULARITY</em></h2>
+<div class="phone">
+  <div class="hdr">
+    <div class="back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+    <div>
+      <div class="t">ТЕРМИНАЛ <i>// ЛОГИ</i></div>
+      <div class="s">НЕЙРО-ЯДРО · СИНХРОНИЗАЦИЯ 0%</div>
+    </div>
+    <div class="r"><span class="chip" style="color:var(--toxic);border-color:var(--toxic)">ONLINE</span></div>
+  </div>
+  <div class="body" style="font-size:9.5px;line-height:1.8;background:#05070B">
+    <div style="color:var(--text-dim)">2026-11-13 02:14 <span style="color:var(--signal)">[info]</span> ядро синхронизировано</div>
+    <div style="color:var(--text-dim)">2026-11-13 02:11 <span style="color:var(--toxic)">[loot]</span> 📦 [СИНХРОНИЗАЦИЯ ДЕПО]: +50 Энергии, +1 BATTERY</div>
+    <div style="color:var(--text-dim)">2026-11-13 01:58 <span style="color:var(--zred)">[error]</span> Следующие припасы через 23 часов.</div>
+    <div style="color:var(--text-dim)">2026-11-13 01:41 <span style="color:var(--zwarn)">[warn]</span> обнаружен конфликт синхронизации: облако v7 / локально v9</div>
+    <div style="color:var(--text-dim)">2026-11-13 01:40 <span style="color:var(--toxic)">[loot]</span> 📦 [СИНХРОНИЗАЦИЯ ДЕПО]: +50 Энергии, +1 NEURAL_STIMULATOR</div>
+    <div style="margin-top:10px;border:1px solid var(--quantum);border-radius:var(--cut);padding:12px;background:rgba(181,55,242,.06)">
+      <div style="font-size:10px;font-weight:800;letter-spacing:2px;color:var(--zpurple)">СИНГУЛЯРНОСТЬ // ВЫБОР ФИНАЛА</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+        <button class="btn" style="background:var(--surface);border:1px solid var(--zpurple);color:var(--zpurple);text-align:left;font-size:10px;padding:9px">ПРЕСТИЖ NG+ <span style="float:right;color:var(--text-dim)">+10% ЗА ЦИКЛ</span></button>
+        <button class="btn" style="background:var(--surface);border:1px solid var(--zpurple);color:var(--text);text-align:left;font-size:10px;padding:9px">ВОЗНЕСЕНИЕ <span style="float:right;color:var(--text-dim)">недоступно</span></button>
+        <button class="btn" style="background:var(--surface);border:1px solid var(--crimson);color:var(--crimson);text-align:left;font-size:10px;padding:9px">БЕЗДНА <span style="float:right;color:var(--text-dim)">недоступно</span></button>
+      </div>
+    </div>
+  </div>
+  <div class="navbar">
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg>ХАБ</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>ИНВЕНТАРЬ</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/></svg>БЕЗДНА</div>
+    <div><svg class="ic" viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg>PVP</div>
+    <div class="on"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>ПРОФИЛЬ</div>
+  </div>
+</div>
+<ul class="diff">
+  <li><b>Логи выровнены в сетку:</b> время - тип (цвет) - текст; типовые цвета = палитра (info синий, loot зелёный, error красный, warn оранжевый).</li>
+  <li><b>Финалы Терминала</b> - три кнопки-карточки с состояниями доступности прямо в списке (сейчас - в отдельном диалоге).</li>
+  <li><b>Моноширинная сетка</b> сохранена - это терминал, а не лендинг.</li>
+  <li><b>Композиция остаётся:</b> содержимое логов, формулировки финалов, блокировка недоступных веток.</li>
+</ul>
+</div>
+
+</div>
+
+<script>
+/* лёгкая живость: HP/EP-бары хаба и дуга QTE дышат */
+(function(){
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce) return;
+  var arc=document.querySelectorAll('circle[stroke-dasharray]');
+  var p=207,dir=-1;
+  setInterval(function(){
+    p+=dir*6; if(p<40)dir=1; if(p>207)dir=-1;
+    arc.forEach(function(c){c.setAttribute('stroke-dasharray',p+' 276')});
+    var t=document.querySelector('.phone .body div[style*="font-size:44px"]');
+    if(t) t.textContent=(p/276*1.5).toFixed(2);
+  },60);
+})();
+</script>
+</body>
+</html>
