@@ -46,3 +46,19 @@
 
 `python -I tools/balance_sim.py`
 Константы в шапке скрипта; ASSUME-блоки помечены.
+
+## П1 ИНВЕНТАРИЗАЦИЯ АССЕТОВ (2026-11-12, ночная сессия)
+
+docs/asset_usage_map.csv - карта 288 drawable: статические ссылки (R.drawable),
+динамические (getIdentifier по items.json/villains.json/GameData.kt/EidosImage.kt
+через пересечение ВСЕХ строковых литералов кода с именами файлов).
+
+ВЫВОД: мёртвых ассетов НЕТ - все 288 живые (4 первичных кандидата
+ic_app_logo/ic_launcher_background/ic_launcher_foreground/ic_menu_inventory
+оказались частями launcher-иконки через mipmap XML-ссылки).
+
+Заметка П1: ic_app_logo.png (315 KB) внутри launcher foreground - кандидат на
+webp-конверсию при следующем арт-проходе.
+
+Урок методологии: статический grep R.drawable даёт 181 ложных "мёртвых";
+только пересечение литералов кода с именами файлов даёт правду.
