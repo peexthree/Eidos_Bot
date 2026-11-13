@@ -46,6 +46,74 @@ interface EidosDao {
     )
     suspend fun updateLastActive(uid: Long, lastActive: Long): Int
 
+    /**
+     * Точечный UPDATE заряда Овердрайва: setOverdriveCharge вызывается на
+     * каждый удар, полная копия строки (чтение + @Update всех 70 колонок)
+     * держала окно гонки с параллельными писателями (аудит П4).
+     * WHERE по старому значению = атомарный check-and-set: 0 строк означает,
+     * значение не изменилось, записи и бампа state_version не было
+     * (эквивалент прежней проверки player.overdriveCharge != clamped).
+     */
+    @Query(
+        "UPDATE players SET overdriveCharge = :charge, updated_at = :now, " +
+            "state_version = state_version + 1 WHERE uid = :uid AND overdriveCharge != :charge"
+    )
+    suspend fun updateOverdriveCharge(uid: Long, charge: Int, now: Long): Int
+
+    @Query(
+        "UPDATE players SET overchargeTier = :tier, updated_at = :now, " +
+            "state_version = state_version + 1 WHERE uid = :uid AND overchargeTier != :tier"
+    )
+    suspend fun updateOverchargeTier(uid: Long, tier: Int, now: Long): Int
+
+    /** Инкремент версии состояния без перезаписи всей строки (надеть/снять предмет). */
+    @Query(
+        "UPDATE players SET state_version = state_version + 1, updated_at = :now WHERE uid = :uid"
+    )
+    suspend fun bumpStateVersion(uid: Long, now: Long): Int
+
+    /** Точечный писатель kills (bestiary-миграция в getPlayerSync). */
+    @Query(
+        "UPDATE players SET kills = :kills, updated_at = :now, " +
+            "state_version = state_version + 1 WHERE uid = :uid AND kills != :kills"
+    )
+    suspend fun updateKills(uid: Long, kills: Int, now: Long): Int
+
+    /** Атомарный +1 к счётчику убийств (боевой ход: база не читается - гонок нет). */
+    @Query(
+        "UPDATE players SET kills = kills + 1, updated_at = :now, " +
+            "state_version = state_version + 1 WHERE uid = :uid"
+    )
+    suspend fun incrementKills(uid: Long, now: Long): Int
+
+    /** Точечное обновление энергии без перезаписи остальных полей строки. */
+    @Query(
+        "UPDATE players SET energy = :energy, updated_at = :now, " +
+            "state_version = state_version + 1 WHERE uid = :uid"
+    )
+    suspend fun updateEnergy(uid: Long, energy: Int, now: Long): Int
+
+    /** Точечное обновление HP без перезаписи остальных полей строки. */
+    @Query(
+        "UPDATE players SET hp = :hp, updated_at = :now, " +
+            "state_version = state_version + 1 WHERE uid = :uid"
+    )
+    suspend fun updateHp(uid: Long, hp: Int, now: Long): Int
+
+    /** Атомарное списание BioCoin: 0 строк = средств не хватило (гонки безопасны). */
+    @Query(
+        "UPDATE players SET biocoin = biocoin - :amount, updated_at = :now, " +
+            "state_version = state_version + 1 WHERE uid = :uid AND biocoin >= :amount"
+    )
+    suspend fun spendBiocoin(uid: Long, amount: Long, now: Long): Int
+
+    /** Атомарное начисление BioCoin. */
+    @Query(
+        "UPDATE players SET biocoin = biocoin + :amount, updated_at = :now, " +
+            "state_version = state_version + 1 WHERE uid = :uid"
+    )
+    suspend fun addBiocoin(uid: Long, amount: Long, now: Long): Int
+
     @Query("SELECT * FROM players WHERE uid = :uid")
     fun getPlayerFlow(uid: Long): Flow<Player?>
 

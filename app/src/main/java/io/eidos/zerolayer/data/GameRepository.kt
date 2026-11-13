@@ -148,10 +148,10 @@ class GameRepository(
         val clamped = charge.coerceIn(0, 100)
         overdriveChargeMap[uid] = clamped
         _overdriveChargeFlow.value = clamped
-        val player = dao.getPlayer(uid)
-        if (player != null && player.overdriveCharge != clamped) {
-            dao.updatePlayer(player.copy(overdriveCharge = clamped))
-        }
+        // П4: точечный UPDATE вместо чтения + полной строки - вызывается на
+        // каждый удар. WHERE по старому значению сохраняет прежнее "пишем
+        // только при изменении" без окна гонки между чтением и записью.
+        dao.updateOverdriveCharge(uid, clamped, System.currentTimeMillis())
     }
 
     fun getOverchargeTier(uid: Long): Int = overchargeTierMap.getOrDefault(uid, 0)
@@ -159,10 +159,7 @@ class GameRepository(
         val clamped = tier.coerceIn(0, 3)
         overchargeTierMap[uid] = clamped
         _overchargeTierFlow.value = clamped
-        val player = dao.getPlayer(uid)
-        if (player != null && player.overchargeTier != clamped) {
-            dao.updatePlayer(player.copy(overchargeTier = clamped))
-        }
+        dao.updateOverchargeTier(uid, clamped, System.currentTimeMillis())
     }
 
     suspend fun boostOvercharge(uid: Long): Int = dbMutex.withLock {
@@ -1489,7 +1486,8 @@ class GameRepository(
                 }.getOrDefault(0)
                 if (totalBestiaryKills > 0) {
                     effectivePlayer = player.copy(kills = totalBestiaryKills)
-                    dao.updatePlayer(effectivePlayer)
+                    // П4: точечный UPDATE - read-метод не должен перезаписывать всю строку
+                    dao.updateKills(uid, totalBestiaryKills, System.currentTimeMillis())
                 }
             }
 
@@ -1827,13 +1825,13 @@ class GameRepository(
         val itemsInSlot = inventory.filter {
             it.is_equipped && (it.slot == slot || ItemSlotUtils.getSlotForItem(it.item_id, getItemMetadata(it.item_id)) == slot)
         }
-        val player = dao.getPlayer(uid)
         itemsInSlot.forEach { item ->
             dao.updateInventoryItem(item.copy(is_equipped = false, slot = null))
             SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), item.item_id, false)
         }
         syncUserEquipmentToDb(uid)
-        if (player != null) dao.updatePlayer(player.copy(state_version = player.state_version + 1))
+        // П4: bump версии без перезаписи всей строки
+        dao.bumpStateVersion(uid, System.currentTimeMillis())
         log(uid, "Слот $slot очищен.", "info")
         capPlayerHp(uid)
     }
@@ -1920,17 +1918,16 @@ class GameRepository(
         dao.updateInventoryItem(item.copy(is_equipped = true, slot = targetSlot))
         syncUserEquipmentToDb(uid)
         SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), item.item_id, true)
-        dao.updatePlayer(player.copy(state_version = player.state_version + 1))
+        dao.bumpStateVersion(uid, System.currentTimeMillis()) // П4: без полной записи строки
         log(uid, "Надето: ${meta?.name ?: item.item_id} в слот $targetSlot (Lvl $reqLevel).", "info")
         capPlayerHp(uid)
     }
 
     suspend fun unequipItem(uid: Long, item: InventoryItem) {
-        val player = dao.getPlayer(uid)
         dao.updateInventoryItem(item.copy(is_equipped = false, slot = null))
         syncUserEquipmentToDb(uid)
         SupabaseClientManager.updateInventoryItemEquipped(uid.toString(), item.item_id, false)
-        if (player != null) dao.updatePlayer(player.copy(state_version = player.state_version + 1))
+        dao.bumpStateVersion(uid, System.currentTimeMillis()) // П4: без полной записи строки
         log(uid, "Предмет снят.", "info")
         capPlayerHp(uid)
     }
@@ -2147,7 +2144,6 @@ class GameRepository(
     }
 
     private suspend fun consumeOneItem(uid: Long, item: InventoryItem) {
-        val player = dao.getPlayer(uid)
         if (item.quantity > 1) {
             dao.updateInventoryItem(item.copy(quantity = item.quantity - 1))
         } else {
@@ -2157,9 +2153,7 @@ class GameRepository(
                 SupabaseClientManager.deleteInventoryItem(targetUuid, item.item_id)
             }
         }
-        if (player != null) {
-            dao.updatePlayer(player.copy(state_version = player.state_version + 1))
-        }
+        dao.bumpStateVersion(uid, System.currentTimeMillis()) // П4: без полной записи строки
     }
 
     suspend fun repairItemBC(uid: Long, item: InventoryItem) {
@@ -3067,8 +3061,10 @@ class GameRepository(
 
         // Mutator Cyber-Vampirism: Guard posture costs 5 EP
         if (isGuarding && session.active_mutator == SectorMutator.CYBER_VAMPIRISM.id) {
-            val costE = maxOf(0, player.energy - 5)
-            dao.updatePlayer(player.copy(energy = costE))
+            // П4: точечный UPDATE - полная копия от старта хода затирала параллельные изменения
+            val curP = dao.getPlayer(uid) ?: player
+            val costE = maxOf(0, curP.energy - 5)
+            dao.updateEnergy(uid, costE, System.currentTimeMillis())
             log(uid, "🩸 [КИБЕР-ВАМПИРИЗМ]: Защитная стойка потребовала -5 EP!", "info")
         }
 
@@ -5335,8 +5331,10 @@ private data class CombatSynergyFlags(
             // Cursed weapon credit_slicer logic
             if (weaponItem?.item_id == "credit_slicer") {
                 if (player.biocoin > 0) {
-                    val burned = minOf(250L, maxOf(1L, (player.biocoin * 0.01).toLong()))
-                    dao.updatePlayer(player.copy(biocoin = player.biocoin - burned))
+                    // П4: свежее чтение + атомарное списание вместо полной строки
+                    val curP = dao.getPlayer(uid) ?: player
+                    val burned = minOf(250L, maxOf(1L, (curP.biocoin * 0.01).toLong()))
+                    dao.spendBiocoin(uid, burned, System.currentTimeMillis())
                     val bonusAtk = (burned * 1.5).toInt()
                     baseDamage = io.eidos.zerolayer.domain.combat.CombatEngine.calculateBasePlayerDamage(activeStats.attack + bonusAtk, weaponMultiplier, effectiveEnemyDef)
                     log(uid, "💸 [Кредитный Резак]: Сожжено -$burned BC для форсированного удара (+$bonusAtk ATK)!", "combat")
@@ -5429,8 +5427,11 @@ private data class CombatSynergyFlags(
             if (session.active_mutator == io.eidos.zerolayer.domain.combat.CombatEngine.AFFIX_THORNS && finalPlayerDamage in 1..50000) {
                 val reflectedDmg = maxOf(1, (finalPlayerDamage * 0.20f).toInt())
                 val newSigAfterReflect = maxOf(0, session.signal - reflectedDmg)
-                val newHpAfterReflect = maxOf(0, player.hp - reflectedDmg)
-                dao.updatePlayer(player.copy(hp = newHpAfterReflect))
+                // П4: точечный UPDATE hp по свежему чтению - полная копия от старта
+                // хода затирала hp-эффекты остальных процов того же хода
+                val curP = dao.getPlayer(uid) ?: player
+                val newHpAfterReflect = maxOf(0, curP.hp - reflectedDmg)
+                dao.updateHp(uid, newHpAfterReflect, System.currentTimeMillis())
                 dao.insertRaidSession(session.copy(signal = newSigAfterReflect))
                 log(uid, "🪞 [КВАНТОВОЕ ОТРАЖЕНИЕ]: Отражено -$reflectedDmg урона обратно в оператора!", "error")
                 if (newSigAfterReflect <= 0 || newHpAfterReflect <= 0) {
@@ -5440,8 +5441,9 @@ private data class CombatSynergyFlags(
 
             // Overclock crown cost
             if (isCrit && headItem?.item_id == "overclock_crown") {
-                val costHp = maxOf(1, (player.hp * 0.02).toInt())
-                dao.updatePlayer(player.copy(hp = maxOf(1, player.hp - costHp)))
+                val curP = dao.getPlayer(uid) ?: player
+                val costHp = maxOf(1, (curP.hp * 0.02).toInt())
+                dao.updateHp(uid, maxOf(1, curP.hp - costHp), System.currentTimeMillis())
                 log(uid, "⚡ [Венец Разгона]: Крит стоил -$costHp Сигнала.", "error")
                 st.turnProcs.add(EquipmentProcEvent("overclock_crown", "⚡ ВЕНЕЦ РАЗГОНА: x2 КРИТ [-2% HP]", ProcColorType.CURSED_RED))
             }
@@ -5466,7 +5468,9 @@ private data class CombatSynergyFlags(
             }
             if (player.skill_berserk_3 == 1) {
                 val heal = maxOf(1, (finalPlayerDamage * 0.05).toInt())
-                dao.updatePlayer(player.copy(hp = minOf(player.max_hp, player.hp + heal)))
+                // П4: свежее чтение + точечный hp (база от старта хода теряла процы хода)
+                val curP = dao.getPlayer(uid) ?: player
+                dao.updateHp(uid, minOf(curP.max_hp, curP.hp + heal), System.currentTimeMillis())
                 log(uid, "🧛 [Вампиризм]: Восстановлено +$heal Сигнала.", "info")
             }
 
@@ -5474,7 +5478,7 @@ private data class CombatSynergyFlags(
             if (syn.hasDuoRedGreen && isCrit) {
                 val vampHeal = maxOf(1, (finalPlayerDamage * 0.15f).toInt())
                 val curP = dao.getPlayer(uid) ?: player
-                dao.updatePlayer(curP.copy(hp = minOf(curP.max_hp, curP.hp + vampHeal)))
+                dao.updateHp(uid, minOf(curP.max_hp, curP.hp + vampHeal), System.currentTimeMillis())
                 log(uid, "🩸 [КРОВАВЫЙ ОВЕРКЛОК]: Крит восстановил +$vampHeal HP (15%)!", "heal")
                 st.turnProcs.add(EquipmentProcEvent("syn_duo_red_green", "🩸 КРОВАВЫЙ ОВЕРКЛОК: +$vampHeal HP", ProcColorType.HEAL_NEON))
             }
@@ -5483,7 +5487,7 @@ private data class CombatSynergyFlags(
             if (session.active_mutator == SectorMutator.CYBER_VAMPIRISM.id) {
                 val vamp = maxOf(1, (finalPlayerDamage * 0.25f).toInt())
                 val curP = dao.getPlayer(uid) ?: player
-                dao.updatePlayer(curP.copy(hp = minOf(curP.max_hp, curP.hp + vamp)))
+                dao.updateHp(uid, minOf(curP.max_hp, curP.hp + vamp), System.currentTimeMillis())
                 log(uid, "🩸 [КИБЕР-ВАМПИРИЗМ]: Поглощено +$vamp HP!", "heal")
             }
 
@@ -5514,7 +5518,7 @@ private data class CombatSynergyFlags(
                 st.newEnemyHp = maxOf(0, st.newEnemyHp - echoDmg)
                 val curP = dao.getPlayer(uid) ?: player
                 val newE = minOf(curP.max_energy, curP.energy + 3)
-                dao.updatePlayer(curP.copy(energy = newE))
+                dao.updateEnergy(uid, newE, System.currentTimeMillis())
                 log(uid, "⚡ [ДВОЙНОЙ ИМПУЛЬС]: Эхо-атака нанесла -$echoDmg урона и восполнила +3 EP!", "combat")
                 st.turnProcs.add(EquipmentProcEvent("syn_green_2", "⚡ ЭХО-УДАР: -$echoDmg [+3 EP]", ProcColorType.SHIELD_CYAN))
                 _combatEventFlow.tryEmit(CombatVisualEvent(
@@ -5544,15 +5548,17 @@ private data class CombatSynergyFlags(
     ) {
         log(uid, "УСПЕХ: Цель ${villain.name} нейтрализована.", "loot")
         recordEnemyKill(villain.name)
-        val updatedEnergy = minOf(player.max_energy, player.energy + 5)
-        dao.updatePlayer(player.copy(energy = updatedEnergy))
+        // П4: свежее чтение + точечный energy - прежняя полная копия от старта
+        // хода откатывала hp-эффекты фазы атаки того же хода (шипы, вампиризм)
+        val curPlayer = dao.getPlayer(uid) ?: player
+        val updatedEnergy = minOf(curPlayer.max_energy, curPlayer.energy + 5)
+        dao.updateEnergy(uid, updatedEnergy, System.currentTimeMillis())
         log(uid, "⚡ [ТАКТИЧЕСКИЙ РЕЗОНАНС]: Уничтожение врага вернуло +5 EP!", "info")
 
         // Synergy 4 Red: Titan's Rage explosion restores 15% max HP
         if (syn.hasRed4) {
-            val titanHeal = maxOf(1, (player.max_hp * 0.15f).toInt())
-            val curP = dao.getPlayer(uid) ?: player
-            dao.updatePlayer(curP.copy(hp = minOf(curP.max_hp, curP.hp + titanHeal)))
+            val titanHeal = maxOf(1, (curPlayer.max_hp * 0.15f).toInt())
+            dao.updateHp(uid, minOf(curPlayer.max_hp, curPlayer.hp + titanHeal), System.currentTimeMillis())
             log(uid, "💥 [ЯРОСТЬ ТИТАНА]: Взрыв поверженного врага восстановил +$titanHeal HP (15%)!", "heal")
         }
 
@@ -5616,7 +5622,7 @@ private data class CombatSynergyFlags(
             damage_buffer = 0
         )
         dao.insertRaidSession(updatedSession)
-        dao.updatePlayer(player.copy(kills = player.kills + 1))
+        dao.incrementKills(uid, System.currentTimeMillis()) // П4: атомарный +1 без полной строки
         if (activeOverchargeTier > 0) {
             log(uid, "🔥 [ПРОТОКОЛ ПЕРЕГРУЗКИ x${ocLootMult}]: Модифицированная награда (+${finalCoins} BC, +${finalXpGain} XP)!", "loot")
         } else if (isDoubleDrop) {
@@ -5663,8 +5669,10 @@ private data class CombatSynergyFlags(
             workingCoins -= drained
         }
         if (aiAction.drainEnergy > 0 && player.energy > 0) {
-            val newE = maxOf(0, player.energy - aiAction.drainEnergy)
-            dao.updatePlayer(player.copy(energy = newE))
+            // П4: свежее чтение + точечный energy (база от старта хода затирала процы хода)
+            val curP = dao.getPlayer(uid) ?: player
+            val newE = maxOf(0, curP.energy - aiAction.drainEnergy)
+            dao.updateEnergy(uid, newE, System.currentTimeMillis())
         }
         if (aiAction.isDetonating) {
             st.newEnemyHp = 0
@@ -5691,7 +5699,7 @@ private data class CombatSynergyFlags(
             // Synergy Duo Green+Blue: Quantum Ghost (+4 EP on dodge)
             if (syn.hasDuoGreenBlue) {
                 val p = dao.getPlayer(uid) ?: player
-                dao.updatePlayer(p.copy(energy = minOf(p.max_energy, p.energy + 4)))
+                dao.updateEnergy(uid, minOf(p.max_energy, p.energy + 4), System.currentTimeMillis())
                 log(uid, "👻 [КВАНТОВЫЙ ПРИЗРАК]: Сдвиг фазы вернул +4 EP!", "info")
             }
 
@@ -5850,7 +5858,7 @@ private data class CombatSynergyFlags(
                             val reviveHp = maxOf(1, (livePlayer.max_hp * 0.25f).toInt())
                             val boomDmg = 150
                             st.newEnemyHp = maxOf(0, st.newEnemyHp - boomDmg)
-                            dao.updatePlayer(livePlayer.copy(hp = reviveHp))
+                            dao.updateHp(uid, reviveHp, System.currentTimeMillis())
                             dao.insertRaidSession(session.copy(
                                 current_enemy_hp = st.newEnemyHp,
                                 buffer_coins = workingCoins,
