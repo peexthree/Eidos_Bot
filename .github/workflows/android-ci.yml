@@ -57,7 +57,7 @@ jobs:
 
   instrumented-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,6 +78,14 @@ jobs:
           tail -60 instr_build_log.txt
           grep -q "BUILD SUCCESSFUL" instr_build_log.txt
 
+      # /dev/kvm на раннере недоступен runner-пользователю: проба action проваливается,
+      # включается -accel off, эмулятор грузится ~20 мин и джоба умирает по таймауту
+      # (ран #29). Открываем KVM до запуска action.
+      - name: Enable KVM access
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; else echo "/dev/kvm отсутствует"; fi
+          ls -l /dev/kvm
+
       - name: Run instrumented tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -96,38 +104,18 @@ jobs:
             tail -30 instrumentation_out.txt
             grep -qE "^OK \([0-9]+ tests?\)" instrumentation_out.txt
 
+      # always(): при отмене/таймауте (failure() не срабатывает) instrumentation_out.txt
+      # всё равно уйдёт в артефакты - в #29 без него остались вслепую
       - name: Upload instrumented test report on failure
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: instrumented-test-logs
           path: |
+            instr_build_log.txt
             install_app.txt
             install_test.txt
             instrumentation_out.txt
-            app/build/reports/androidTests/
-          retention-days: 7
-
-      - name: Upload instrumented test report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: instrumented-test-logs
-          path: |
-            instr_build_log.txt
-            install_out.txt
-            logcat_fail.txt
-            app/build/reports/androidTests/
-            app/build/outputs/androidTest-results/
-          retention-days: 7
-
-      - name: Upload instrumented test report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: instrumented-test-logs
-          path: |
-            instr_build_log.txt
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
           retention-days: 7
